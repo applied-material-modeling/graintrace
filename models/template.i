@@ -24,8 +24,8 @@
 
 [Solvers]
   [newton]
-    type = NewtonWithLineSearch
-    max_linesearch_iterations = 5
+    type = Newton
+    verbose = false
   []
 []
 
@@ -38,7 +38,7 @@
   [elastic_tensor]
     type = CubicElasticityTensor
     coefficient_types = 'YOUNGS_MODULUS POISSONS_RATIO SHEAR_MODULUS'
-    coefficients = '209016 0.307 60355.0'
+    coefficients = '100000 0.307 11046.58'
   []
   [elasticity]
     type = GeneralElasticity
@@ -71,12 +71,12 @@
   []
   [slip_strength]
     type = SingleSlipStrengthMap
-    constant_strength = 130.0
+    constant_strength = 120.0
   []
   [voce_hardening]
     type = VoceSingleSlipHardeningRule
-    initial_slope = 1556.09
-    saturated_hardening = 100.0
+    initial_slope = 10.0
+    saturated_hardening = 155.0
   []
   [integrate_slip_hardening]
     type = ScalarBackwardEulerTimeIntegration
@@ -107,6 +107,6 @@
   [model_with_stress]
     type = ComposedModel
     models = 'model elasticity'
-    additional_outputs = 'state/elastic_strain'
+    additional_outputs = 'state/elastic_strain state/orientation'
   []
 []

@@ -132,3 +132,17 @@ def load_strains(df, field="eKen", factor=1e-6):
         ],
         dim=-1,
     )
+
+
+def load_weights(df, field="GrainRadius"):
+    """Load the grain volumes and convert to a torch tensor of weights.
+
+    Args:
+        df (pd.DataFrame): Dataframe containing grain volume data.
+        field (str, optional): Column name for grain volume data. Defaults to 'GrainRadius'.
+
+    Returns:
+
+    """
+    weights = torch.tensor(df[field].dropna().values) ** 3.0
+    return weights / torch.sum(weights)
