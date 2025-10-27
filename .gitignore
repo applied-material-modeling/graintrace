@@ -1,0 +1,6 @@
+output_test/
+.vscode/
+testing_during_code_not_upload_to_github/
+test.csv
+*.pyc
+__pycache__/
