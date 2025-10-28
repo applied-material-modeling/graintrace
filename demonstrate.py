@@ -12,12 +12,12 @@ import os
 
 ## INPUT
 ##------------------------------------
-outputdir = "output_test"
+outputdir = "experiment_try1"
 
-generate_sudo = True
+generate_sudo = False
 
-input_file = "example_data/0.csv"
-bounding_box=[-1, 1, -1, 1, -1, 1]
+input_file = "experiment_2022_raw/0.csv"
+bounding_box=[-503.5, 503.5, -507, 507, -1000, 600]
 
 run_cpfe = True
 
@@ -90,14 +90,14 @@ builder = VoronoiMeshBuilder(
     weighted=False,
     auto_fix_bbox=True, 
       # enable correction
-    bbox_fix_mode="extend_bounding_box", 
+    bbox_fix_mode="remove_points", 
       # 'extend_bounding_box' or 'remove_points'
-    bbox_tolerance=2.0,       
+    bbox_tolerance=0.0,       
       # bounding box tolerance % factor
     auto_rotate=False,
       # if True, PCA method applied
       # rotate_angles and rotate_convention are ignored
-    rotate_angles= (0,0,0),#-4.5/180*np.pi),
+    rotate_angles= (0,0,-3.6/180*np.pi),
     rotate_convention="xyz",
     unit="rad",
     angle_identifier=["Eul0", "Eul1", "Eul2"],
@@ -110,17 +110,19 @@ builder = VoronoiMeshBuilder(
     strain_unit="microstrain",
 )
 
-builder.build_voronoi(generate_mesh=True,
+builder.build_voronoi(generate_mesh=False,
                       relative_el_size=1.0,
                         # 1 roughly 100 elements
                         # per cell
-                      option="voronoi",
+                      option="centroidal",
                         # voronoi, centroidal, 
                         # centroidsize
                       CVT_iter=1000 
                        # optimization parameters
                        # for centroidal, centroidsize
                        )
+
+asssd
 
 # convert .tess to graph data structure
 parser = NeperTessToGraphNN(
@@ -196,7 +198,7 @@ sim.set_parameters(
 )
 
 if run_cpfe:
-  sim.run(ncore=24)
+  sim.run(ncore=18)
 
 
 

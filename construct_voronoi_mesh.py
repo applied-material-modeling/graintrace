@@ -268,7 +268,7 @@ class VoronoiMeshBuilder:
             else:
                 raise TypeError("angle_identifier must be a list or tuple of 3 names if provided.")
         else:
-            print("angle_identifier=None → skipping orientation column parsing.")
+            print("angle_identifier=None -> skipping orientation column parsing.")
         
         # --- Include elastic strain if available ---
         strain_cols = []
@@ -307,8 +307,6 @@ class VoronoiMeshBuilder:
             if self.strain_unit == "microstrain":
                 print("Converting microstrain to strain (x1e-6).")
                 df[strain_cols] = df[strain_cols] * 1e-6
-            
-        self.elastic_strain = df[strain_cols] if strain_cols else None
 
         print(f"Loaded {len(df)} points, using columns: {used_cols}\n")
         self.data = df
@@ -513,6 +511,93 @@ class VoronoiMeshBuilder:
         fig.savefig(save_path, dpi=300)
         plt.close(fig)
 
+    def remove_outside_points(self, bbox=None, tolerance=0.0):
+        """
+        Remove out-of-bounds points and all associated per-grain data
+        (coordinates, GrainRadius, Euler angles, strain, etc.)
+        stored in self.data.
+        """
+        if self.data is None or self.data.empty:
+            raise RuntimeError("No data loaded. Call read_input() first.")
+
+        bbox = np.array(bbox if bbox is not None else self.bounding_box, dtype=float)
+        tol = tolerance / 100.0
+
+        # shrink inward
+        for i in range(0, len(bbox), 2):
+            low, high = bbox[i], bbox[i + 1]
+            size = high - low
+            bbox[i] = low + tol * size
+            bbox[i + 1] = high - tol * size
+
+        df = self.data
+
+        # print before bounds
+        if self.dim == 3:
+            print(
+                f"\nBounding box: "
+                f"X=({bbox[0]:.4f},{bbox[1]:.4f}), "
+                f"Y=({bbox[2]:.4f},{bbox[3]:.4f}), "
+                f"Z=({bbox[4]:.4f},{bbox[5]:.4f})"
+            )
+            print(
+                f" Data extents before: "
+                f"X=({df['X'].min():.4f},{df['X'].max():.4f}), "
+                f"Y=({df['Y'].min():.4f},{df['Y'].max():.4f}), "
+                f"Z=({df['Z'].min():.4f},{df['Z'].max():.4f})"
+            )
+        else:
+            print(
+                f"\nBounding box: "
+                f"X=({bbox[0]:.4f},{bbox[1]:.4f}), "
+                f"Y=({bbox[2]:.4f},{bbox[3]:.4f})"
+            )
+            print(
+                f"Data extents before: "
+                f"X=({df['X'].min():.4f},{df['X'].max():.4f}), "
+                f"Y=({df['Y'].min():.4f},{df['Y'].max():.4f})"
+            )
+
+        # mask for in-box points
+        if self.dim == 2:
+            mask = (
+                (df["X"] >= bbox[0]) & (df["X"] <= bbox[1]) &
+                (df["Y"] >= bbox[2]) & (df["Y"] <= bbox[3])
+            )
+        else:
+            mask = (
+                (df["X"] >= bbox[0]) & (df["X"] <= bbox[1]) &
+                (df["Y"] >= bbox[2]) & (df["Y"] <= bbox[3]) &
+                (df["Z"] >= bbox[4]) & (df["Z"] <= bbox[5])
+            )
+
+        before = len(df)
+        self.data = df.loc[mask].reset_index(drop=True)
+        removed = before - len(self.data)
+
+        print(
+            f"[\nRemoved {removed} out-of-bounds points; "
+            f"{len(self.data)} remain.\n"
+        )
+
+        # after filtering, recompute
+        dfa = self.data
+        if self.dim == 3:
+            print(
+                f"Data extents after:  "
+                f"X=({dfa['X'].min():.4f},{dfa['X'].max():.4f}), "
+                f"Y=({dfa['Y'].min():.4f},{dfa['Y'].max():.4f}), "
+                f"Z=({dfa['Z'].min():.4f},{dfa['Z'].max():.4f})"
+            )
+        else:
+            print(
+                f"Data extents after:  "
+                f"X=({dfa['X'].min():.4f},{dfa['X'].max():.4f}), "
+                f"Y=({dfa['Y'].min():.4f},{dfa['Y'].max():.4f})"
+            )
+
+
+
     def validate_bounding_box(self):
         """
         Validate or correct bounding box.
@@ -537,40 +622,7 @@ class VoronoiMeshBuilder:
                     f"Auto-fix enabled: removing points outside bounding box "
                     f"with {self.bbox_tolerance}% tolerance."
                 )
-
-                bbox = np.array(self.bounding_box, dtype=float)
-                tol = self.bbox_tolerance / 100.0
-
-                # TemporaR2 expanded box for filtering only
-                bbox_tolerant = bbox.copy()
-                for i in range(0, len(bbox_tolerant), 2):
-                    low, high = bbox_tolerant[i], bbox_tolerant[i + 1]
-                    size = high - low
-                    bbox_tolerant[i] = low - tol * size
-                    bbox_tolerant[i + 1] = high + tol * size
-
-                print(f"-> Using temporaR2 filter box: {bbox_tolerant.tolist()}")
-                print(f"-> True bounding box remains:  {bbox.tolist()}")
-
-                # Apply filtering
-                if self.dim == 2:
-                    mask = (
-                        (df["X"] >= bbox_tolerant[0]) & (df["X"] <= bbox_tolerant[1]) &
-                        (df["Y"] >= bbox_tolerant[2]) & (df["Y"] <= bbox_tolerant[3])
-                    )
-                else:
-                    mask = (
-                        (df["X"] >= bbox_tolerant[0]) & (df["X"] <= bbox_tolerant[1]) &
-                        (df["Y"] >= bbox_tolerant[2]) & (df["Y"] <= bbox_tolerant[3]) &
-                        (df["Z"] >= bbox_tolerant[4]) & (df["Z"] <= bbox_tolerant[5])
-                    )
-
-                before = len(df)
-                df = df[mask].reset_index(drop=True)
-                after = len(df)
-
-                print(f"Removed {before - after} points outside tolerance region.")
-                self.data = df  # Update data only, keep true bounding box
+                self.remove_outside_points(self.bounding_box, self.bbox_tolerance)
 
             elif self.bbox_fix_mode == "extend_bounding_box":
                 print(
@@ -663,9 +715,13 @@ class VoronoiMeshBuilder:
         if option not in valid_options:
             raise ValueError(f"Invalid option='{option}'. Must be one of {valid_options}.")
 
-        self.read_input()
-        df = self.data.copy()
+        if self.data is None or self.data.empty:
+            self.read_input()
+
         self.validate_bounding_box()
+
+        df = self.data.copy()
+        
         os.makedirs(self.output_dir, exist_ok=True)
 
         input_path = os.path.join(self.output_dir, "points.dat")

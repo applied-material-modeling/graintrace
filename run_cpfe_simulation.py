@@ -394,9 +394,8 @@ class CPFESimulation:
                 stderr=subprocess.STDOUT,
                 text=True
             )
-            proc.wait()
 
         if proc.returncode != 0:
             print(f"ERROR: CPFE simulation failed with exit code {proc.returncode}", file=sys.stderr)
-            sys.exit(proc.returncode)
+            raise RuntimeError(f"CPFE simulation failed with exit code {proc.returncode}")
 
