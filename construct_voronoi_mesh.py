@@ -26,7 +26,7 @@ class VoronoiMeshBuilder:
         rotate_angles=(0, 0, 0),    # rotation angles (rotate around X -> Y -> Z)
         rotate_convention= "xyz", 
         angle_identifier=None,
-        orientation_descriptor = "rodrigues",
+        orientation_descriptor = "euler-bunge",
         orientation_active_convention=False,
         unit="deg",          # rotation unit ('deg' or 'rad')
         elastic_strain_identifier=None,
@@ -576,8 +576,8 @@ class VoronoiMeshBuilder:
         removed = before - len(self.data)
 
         print(
-            f"[\nRemoved {removed} out-of-bounds points; "
-            f"{len(self.data)} remain.\n"
+            f"\n\nRemoved {removed} out-of-bounds points; "
+            f"{len(self.data)} remain.\n\n"
         )
 
         # after filtering, recompute
@@ -595,8 +595,6 @@ class VoronoiMeshBuilder:
                 f"X=({dfa['X'].min():.4f},{dfa['X'].max():.4f}), "
                 f"Y=({dfa['Y'].min():.4f},{dfa['Y'].max():.4f})"
             )
-
-
 
     def validate_bounding_box(self):
         """
@@ -703,15 +701,14 @@ class VoronoiMeshBuilder:
                       generate_mesh: bool = False, 
                       relative_el_size: float = None,
                       morphoalgo: str = "praxis",
+                      mesh_quality_min: float = 0.9,
                       CVT_iter: int = 1000):
         """
         Build Voronoi (or Laguerre) tessellation using Neper.
-        option = voronoi: standard Poisson-Voronoi
-        opttion = centroidal: Centroidal Voronoi (CVT) 
         """
 
         # check options validity
-        valid_options = ["voronoi", "centroidal", "centroidsize"]
+        valid_options = ["voronoi", "centroid", "centroidal", "centroidsize"]
         if option not in valid_options:
             raise ValueError(f"Invalid option='{option}'. Must be one of {valid_options}.")
 
@@ -788,6 +785,11 @@ class VoronoiMeshBuilder:
                            "-morphooptistop", f"iter={CVT_iter}",
                            "-morphooptialgo", morphoalgo]
             print(f"\nCentroid-size tessellation ({self.dim}D): combined coordinate+size input.")
+        elif option == "centroid":
+            morpho_args = ["-morpho", f"centroid:file({input_path})",
+                           "-morphooptistop", f"iter={CVT_iter}",
+                           "-morphooptialgo", morphoalgo]
+            print(f"\nCentroid tessellation ({self.dim}D): only coordinate input. Weighted option will be ignored.")
         elif self.weighted:
             morphoalgo = "lloyd"
             morpho_args = [
@@ -841,6 +843,7 @@ class VoronoiMeshBuilder:
                 output_name=tess_name,
                 format_type=["msh","vtk"],
                 relative_cl=relative_el_size if relative_el_size else 1.0,
+                mesh_quality_min=mesh_quality_min,
             )
         
     def apply_rotation_to_properties(self,
@@ -943,7 +946,7 @@ class VoronoiMeshBuilder:
         output_name: str = "voronoi",
         format_type = ("msh4",),
         relative_cl: float = 1.0,
-        mesh_quality: float = 0.9,
+        mesh_quality_min: float = 0.9,
         interface_type: str = "continuous",
         partition: int = 16,
     ):
@@ -979,7 +982,7 @@ class VoronoiMeshBuilder:
             "-elttype", element_type,
             "-rcl", str(relative_cl),
             "-order", "2",  # always 2nd order
-            "-meshqualmin", str(mesh_quality),
+            "-meshqualmin", str(mesh_quality_min),
             "-interface", interface_type,
             "-format", fmt_arg,
             "-o", output_name,
@@ -1063,7 +1066,7 @@ class VoronoiMeshBuilder:
         
         print(f"Exported elastic strain tensors to {ee_file}\n")
 
-    def evaluate_output_voronoi(self, tess_file: str):
+    def evaluate_output_voronoi(self, tess_file: str, length_norm: bool = False):
         """
         Evaluate Neper Voronoi output for consistency and geometry errors.
         - Compares cell vs seed properties.
@@ -1123,9 +1126,13 @@ class VoronoiMeshBuilder:
             Lbox = np.array([xmax - xmin, ymax - ymin], dtype=float)
 
         eps = 1e-12
-        Lbox = np.maximum(Lbox, eps)
+
+        Lbox = 1.0
+        if length_norm:
+            Lbox = np.maximum(Lbox, eps)
 
         # --- Position error (normalized by box lengths per-axis) ---
+        
         norm_cell = cell_xyz / Lbox
         norm_seed = input_xyz / Lbox
         delta = norm_cell - norm_seed
@@ -1138,7 +1145,10 @@ class VoronoiMeshBuilder:
         plt.figure(figsize=(12, 5))
         plt.subplot(1, 2, 1)
         plt.hist(error_xyz, bins=20)
-        plt.xlabel("|(Xi_cell - Xi_input)/box_Xi| (norm-2)")
+        if length_norm:
+            plt.xlabel("|(Xi_cell - Xi_input)/box_Xi| (norm-2)")
+        else:
+            plt.xlabel("|Xi_cell - Xi_input| (norm-2) (input length units)")
         plt.ylabel("Frequency")
 
         plt.subplot(1, 2, 2)

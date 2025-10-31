@@ -282,11 +282,21 @@ class CPFESimulation:
 
             components = ["xx", "yy", "zz", "xy", "yz", "xz"]
             for comp in components:
+                # strain_*
                 f.write(f"    # --- strain_{comp} ---\n")
                 for i in range(1, ncell + 1):
                     f.write(f"    [strain_{comp}_{i}]\n")
                     f.write("        type = ElementAverageValue\n")
                     f.write(f"        variable = strain_{comp}\n")
+                    f.write(f"        block = {i}\n")
+                    f.write("    []\n")
+                f.write("\n")
+                # ee_* (from neml2)
+                f.write(f"    # --- ee_{comp} ---\n")
+                for i in range(1, ncell + 1):
+                    f.write(f"    [ee_{comp}_{i}]\n")
+                    f.write("        type = ElementAverageValue\n")
+                    f.write(f"        variable = ee_{comp}\n")
                     f.write(f"        block = {i}\n")
                     f.write("    []\n")
                 f.write("\n")

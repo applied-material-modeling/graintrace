@@ -5,3 +5,4 @@ test.csv
 *.pyc
 __pycache__/
 experiment_try1/
+log.out

@@ -15,7 +15,14 @@ class MaterialCalibration:
     - Optional visualization (stress-strain curves, texture, strain histograms)
     """
 
-    def __init__(self, model_class, model_args, data_args, save_dir="calibration_results"):
+    def __init__(self,
+                 model_class,
+                 model_args,
+                 data_args,
+                 apply_elastic_correction=False,
+                 correction_method="with_experiment_average",
+                 strain_window=None,
+                 save_dir="calibration_results"):
         """
         Parameters
         ----------
@@ -38,8 +45,78 @@ class MaterialCalibration:
         self.d = torch.zeros((6,))
         self.d[self.axial_index] = 1.0
 
+        # elastic correction between model and experiment
+
+        correction_method_allowed = ["with_experiment_average"]
+
+        self.apply_elastic_correction = apply_elastic_correction
+        self.correction_method = correction_method
+        self.strain_window = strain_window
+
+        if self.apply_elastic_correction:
+            if self.strain_window is None:
+                raise ValueError(
+                    "'strain_window' must be provided when "
+                    "apply_elastic_correction=True."
+            )
+            if self.correction_method not in correction_method_allowed:
+                raise ValueError(f"Unknown correction_method: {self.correction_method}")
+
+            self._apply_elastic_slope_correction()
+
         self.save_dir = save_dir
         os.makedirs(self.save_dir, exist_ok=True)
+
+    def _apply_elastic_slope_correction(self):
+        """
+        Scale model stresses so that the elastic slope matches the experimental average strain.
+        Only applied if experimental average strain exists and has > 2 data points.
+        
+        Algorithm: fit the slope of stress-strain in the specified small strain window
+        for both full stress-strain curve and experimental average, then scale the stress-strain 
+        stresses accordingly.
+        """
+
+        exp = self.experiment_data
+        strain_window = self.strain_window
+
+        if self.correction_method == "with_experiment_average":
+
+            print("\nApplying elastic slope correction using experimental average strain.\n")
+
+            if "avg_axial_strain" not in exp or len(exp["avg_axial_strain"]) <= 2:
+                print("\nNot enough average experimental data points. Skipping correction.\n")
+                return
+
+            # Extract experimental grain-average response
+            strain_avg = np.array(exp["avg_axial_strain"])
+            stress_levels = np.array(exp["stress_levels"])
+            mask = (strain_avg >= strain_window[0]) & (strain_avg <= strain_window[1])
+            if np.sum(mask) < 2:
+                print("\nInsufficient points in strain window. Skipping correction.\n")   
+                return
+
+            # Fit slope of grain-averaged strain vs stress
+            E_exp, _ = np.polyfit(strain_avg[mask], stress_levels[mask], 1)
+
+            # Fit slope of provided macro stress–strain curve
+            strain_macro = exp["strain_stress"][:, 0]
+            stress_macro = exp["strain_stress"][:, 1]
+            mask_macro = (strain_macro >= strain_window[0]) & (strain_macro <= strain_window[1])
+            if np.sum(mask_macro) < 2:
+                raise ValueError("\nInsufficient macro points in window.\n")
+
+            E_macro, _ = np.polyfit(strain_macro[mask_macro], stress_macro[mask_macro], 1)
+
+            if E_macro <= 0 or E_exp <= 0:
+                print("Invalid slope detected. Skipping correction.")
+                return
+
+            scale_factor = E_macro / E_exp
+            exp["strain_stress"][:, 0] *= scale_factor
+
+            print(f"\nScaled macro strain by {scale_factor:.3f} "
+                f"to match average experimental slope.\n")
 
     def objective(self, params, default_err=1e6):
         p = torch.tensor(params)
@@ -80,7 +157,12 @@ class MaterialCalibration:
 
         progress.close()
         self.opt_params = torch.tensor(result.x)
+
         print(f"Optimization finished after {progress.n} iterations.")
+
+        save_path = os.path.join(self.save_dir, "calibrated_material.json")
+        self.save(save_path)
+
         return self.opt_params
 
     def _save_figure(self, filename: str):
@@ -89,31 +171,54 @@ class MaterialCalibration:
         plt.savefig(path, dpi=300)
         plt.close()
 
-    def plot_stress_strain(self, optimized=True):
-        """Plot experimental vs. simulated stress-strain curve."""
-        params = self.opt_params if optimized else None
+    def plot_stress_strain(self, include_model=False, optimized=True, include_experiment_overlay=True):
+        """
+        Plot stress–strain data.    
+        """
 
-        if params is None:
-            p0 = torch.tensor([
-                self.model.tmodel.model.get_parameter(v).torch().detach().clone()
-                for v in self.model.opt_vars
-            ])
-            params = p0
-
-        sim_stress = self.model.simulate(
-            params,
-            d=self.d,
-            assumed_rate=self.assumed_rate,
-            experiment_data=self.experiment_data,
-        )[:, self.axial_index].numpy()
+        exp = self.experiment_data
+        exp_macro_strain = exp["strain_stress"][:, 0]
+        exp_macro_stress = exp["strain_stress"][:, 1]
+        exp_avg_strain = np.array(exp["avg_axial_strain"])
+        exp_stress_levels = np.array(exp["stress_levels"])
 
         plt.figure()
-        plt.plot(self.strain_stress[:, 0], self.strain_stress[:, 1], label="Experiment")
-        plt.plot(self.strain_stress[:, 0], sim_stress, label="Model")
-        plt.xlabel("Strain (mm/mm)")
+        plt.plot(exp_macro_strain, exp_macro_stress, lw=2, label="Experiment (macro)")
+        if include_experiment_overlay:
+            plt.plot(exp_avg_strain, exp_stress_levels, "o", label="Experiment (avg grains)")
+
+        if include_model:
+            if optimized and hasattr(self, "opt_params"):
+                if not hasattr(self, "last_sim_stress"):
+                    self.last_sim_stress = self.model.simulate(
+                        self.opt_params,
+                        d=self.d,
+                        assumed_rate=self.assumed_rate,
+                        experiment_data=exp,
+                    )[:, self.axial_index].numpy()
+                sim_stress = self.last_sim_stress
+                plt.plot(exp_macro_strain, sim_stress, lw=2, label="Model (optimized)")
+            else:
+                # try plotting an initial curve if desired
+                p0 = torch.tensor([
+                    self.model.tmodel.model.get_parameter(v).torch().detach().clone()
+                    for v in self.model.opt_vars
+                ])
+                sim_stress = self.model.simulate(
+                    p0,
+                    d=self.d,
+                    assumed_rate=self.assumed_rate,
+                    experiment_data=exp,
+                )[:, self.axial_index].numpy()
+                plt.plot(exp_macro_strain, sim_stress, "--", label="Model (initial)")
+
+        plt.xlabel("Axial strain (mm/mm)")
         plt.ylabel("Stress (MPa)")
-        plt.legend()
-        self._save_figure("stress_strain_calibration")
+        plt.legend(loc="best")
+        plt.tight_layout()
+
+        suffix = "with_model" if include_model else "experiment_only"
+        self._save_figure(f"stress_strain_{suffix}")
 
     def plot_texture(self, direction=None, crystal_symmetry="432"):
         """
@@ -134,19 +239,87 @@ class MaterialCalibration:
             )
             self._save_figure(f"pole_figure_{int(stress)}MPa")
 
-    def plot_strain_histogram(self, state_hist, strain_index=None, label=None):
-        """Plot elastic strain histogram for a given load step."""
+    def plot_strain_histogram(self, strain_index=None, include_initial_strain=False):
+        """
+        Plot elastic strain histograms (model vs experiment) at matching stress levels.
+        """
+
         if strain_index is None:
             strain_index = self.axial_index
 
-        vars = self.model.tmodel.state_asm.split_by_variable(torch.tensor(state_hist))
-        strain_vals = vars["state/elastic_strain"].torch()[:, :, strain_index].numpy()
+        init_strain = self.experiment_data["exp_strain"][0] if include_initial_strain else None
 
-        plt.figure()
-        plt.hist(strain_vals.flatten(), bins=30, alpha=0.6, label=label or "Model")
-        plt.xlabel("Elastic strain (mm/mm)")
-        plt.ylabel("Counts")
-        if label:
+        stress_hist, state_hist = self.model.simulate(
+            self.opt_params,
+            d=self.d,
+            assumed_rate=self.assumed_rate,
+            experiment_data=self.experiment_data,
+            initial_strains=init_strain,
+            return_state=True,
+        )
+
+        vars = self.model.tmodel.state_asm.split_by_variable(neml2.Tensor(state_hist, 1))
+        model_strain = vars["state/elastic_strain"].torch()[:, :, strain_index].numpy()
+        sim_stress = stress_hist[:, self.axial_index].numpy()
+
+        # Match experiment stress levels to nearest simulation step
+        exp_stress_levels = np.array(self.experiment_data["stress_levels"])
+        exp_strains = self.experiment_data["exp_strain"]
+
+        indices = [np.argmin(np.abs(sim_stress - s)) for s in exp_stress_levels]
+
+        # Plot histogram comparison for each matched stress level
+        for ii, (exp_s, stress, idx) in enumerate(zip(exp_strains, exp_stress_levels, indices)):
+            plt.figure()
+            plt.hist(model_strain[idx, :], bins=30, alpha=0.6, label="Model")
+            plt.hist(exp_s[:, strain_index].numpy(), bins=30, alpha=0.5, label="Experiment")
+            plt.xlabel("Elastic strain (mm/mm)")
+            plt.ylabel("Counts")
             plt.legend(loc="best")
+            plt.tight_layout()
 
-        self._save_figure(f"elastic_strain_distribution_idx{strain_index}")
+            suffix = "with_initial" if include_initial_strain else "without_initial"
+            self._save_figure(f"elastic_strain_distribution_{stress:.0f}MPa_{suffix}")
+
+    def save(self, filepath: str):
+        """
+        Save the optimized material parameters to a JSON file.
+        """
+        import json
+
+        if not hasattr(self, "opt_params"):
+            raise RuntimeError("No optimized parameters found. Run calibrate() first.")
+
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+
+        params_dict = {
+            k: float(v)
+            for k, v in zip(self.model.opt_vars, self.opt_params)
+        }
+
+        with open(filepath, "w") as f:
+            json.dump(params_dict, f, indent=2)
+
+        print(f"[MaterialCalibration] Saved calibrated parameters to {filepath}")
+
+        return filepath
+    
+    def load(self, filepath: str):
+        """
+        Load previously saved optimized material parameters from a JSON file.
+        """
+        import json
+
+        if not os.path.exists(filepath):
+            raise FileNotFoundError(f"Cannot find saved parameter file: {filepath}")
+
+        with open(filepath, "r") as f:
+            params_dict = json.load(f)
+
+        # Restore parameter order and tensor
+        opt_params = [params_dict[k] for k in self.model.opt_vars if k in params_dict]
+        self.opt_params = torch.tensor(opt_params, dtype=torch.double)
+
+        print(f"[MaterialCalibration] Loaded calibrated parameters from {filepath}")
+
+        return self.opt_params

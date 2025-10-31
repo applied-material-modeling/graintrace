@@ -1,3 +1,5 @@
+import time
+
 import neml2
 from neml2.reserved import *
 
@@ -301,9 +303,25 @@ class TaylorModel(BaseMaterialApproximationModel):
             "voce_hardening_saturated_hardening",
         ]
 
-    def load_experiment_data(self, data_dir: str, strain_stress_file: str, npoints: int = None):
+    def load_experiment_data(
+        self,
+        data_dir: str,
+        strain_stress_file: str,
+        full_field_strain_units: str | None = None,
+        strain_stress_file_units: str | None = None,
+        straintype: str = "eFab",
+        npoints: int | None = None,
+        max_strain: float | None = None,
+        max_stress: float | None = None,
+    ):
         if npoints is None:
             npoints = self.npoints
+
+        allowed_units = (None, "microstrain")
+        if full_field_strain_units not in allowed_units:
+            raise ValueError(f"Invalid full_field_strain_units: {full_field_strain_units!r}")
+        if strain_stress_file_units not in allowed_units:
+            raise ValueError(f"Invalid strain_stress_file_units: {strain_stress_file_units!r}")
 
         def try_parse_float(name):
             try:
@@ -326,24 +344,44 @@ class TaylorModel(BaseMaterialApproximationModel):
         data = [pd.read_csv(f) for f in files]
         strain_stress = np.loadtxt(strain_stress_file, delimiter=",")
 
-        # Resample to uniform strain sampling
+        if (strain_stress_file_units or "").lower() == "microstrain":
+            strain_stress[:, 0] *= 1e-6  # convert to mm/mm
+
+        # === Limit macro curve only ===
+        if max_strain is not None and max_strain <= 0:
+            raise ValueError("max_strain must be > 0")
+        if max_stress is not None and max_stress <= 0:
+            raise ValueError("max_stress must be > 0")
+
+        if max_strain is not None:
+            cutoff_strain = min(max_strain, float(strain_stress[-1, 0]))
+        elif max_stress is not None:
+            cutoff_stress = min(max_stress, float(strain_stress[-1, 1]))
+            cutoff_strain = float(np.interp(cutoff_stress, strain_stress[:, 1], strain_stress[:, 0]))
+        else:
+            cutoff_strain = float(strain_stress[-1, 0])
+
+        # Truncate and resample the stress–strain curve
         ifn = inter.interp1d(strain_stress[:, 0], strain_stress[:, 1], kind="linear")
-        strain = np.linspace(0, strain_stress[-1, 0], npoints)
+        strain = np.linspace(0, cutoff_strain, npoints)
         stress = ifn(strain)
         strain_stress = np.stack((strain, stress), axis=1)
 
-        # Experimental textures and strain data
-        exp_strain = [orientation_helper.load_strains(d) for d in data]
+        # Conversion factor for full-field data
+        factor = 1.0
+        if (full_field_strain_units or "").lower() == "microstrain":
+            factor = 1e-6
+
+        # Full-field data: do NOT filter
+        exp_strain = [orientation_helper.load_strains(d, factor=factor, field=straintype) for d in data]
         exp_texture = [orientation_helper.load_orientations(d) for d in data]
         exp_weights = [orientation_helper.load_weights(d) for d in data]
 
-        # Precompute average strain
+        # Compute averages
         avg_exp_strain = [torch.mean(ds, dim=0) for ds in exp_strain]
         avg_axial_strain = [s[self.axial_index] - avg_exp_strain[0][self.axial_index] for s in avg_exp_strain]
-
         use_weights = exp_weights[0]
 
-        # Return as dictionary
         return dict(
             files=files,
             stress_levels=stress_levels,
@@ -353,7 +391,8 @@ class TaylorModel(BaseMaterialApproximationModel):
             exp_weights=exp_weights,
             avg_exp_strain=avg_exp_strain,
             avg_axial_strain=avg_axial_strain,
-            use_weights=use_weights
+            use_weights=use_weights,
+            cutoff_strain=cutoff_strain,
         )
 
     def simulate(self,
@@ -386,6 +425,10 @@ class TaylorModel(BaseMaterialApproximationModel):
 
             # Strain-controlled loading
             for e0, e1 in zip(strain_stress[:-1, 0], strain_stress[1:, 0]):
+                
+                # start timer
+                start_time = time.perf_counter()
+
                 de = e1 - e0
                 dt = de / assumed_rate
 
@@ -399,6 +442,11 @@ class TaylorModel(BaseMaterialApproximationModel):
                 old_time += dt
                 stress_hist.append(avg_stress)
                 state_hist.append(old_state.clone())
+
+                # end timer
+                end_time = time.perf_counter()
+                # print time taken for this step
+                # print(end_time - start_time)
 
         stress_hist = torch.stack(stress_hist, dim=0)
 
