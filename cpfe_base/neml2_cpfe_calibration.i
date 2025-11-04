@@ -24,12 +24,12 @@
 
 [Solvers]
     [newton]
-        # type = NewtonWithLineSearch
-        # max_linesearch_iterations = 5
-        type = Newton
-        abs_tol = 1e-8
-        max_its = 20
-        verbose = false
+        type = NewtonWithLineSearch
+        max_linesearch_iterations = 5
+        # type = Newton
+        # abs_tol = 1e-8
+        # max_its = 20
+        # verbose = false
     []
 []
 

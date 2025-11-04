@@ -34,11 +34,13 @@ exp_data_dir = "experiment_2022_raw"
 bounding_box=[-477.0, 528, -487, 532, -1025, 625]
 rotate_angles = (0,0,-3.6/180*np.pi)
 rotate_unit = "rad"
+
+# row-major ordered, user responsibility, no way to define it
 elastic_strain_identifier = ["eKen11","eKen12","eKen13",
                                     "eKen21","eKen22","eKen23",
                                     "eKen31","eKen32","eKen33"]
 
-
+# this comment will be replaced via a user interface
 run_cpfe = False
 update_experiments_data = False
 run_calibration = True
@@ -104,7 +106,6 @@ if generate_sudo:
     input_file = "test.csv"
 
 # --- Base test setup ---
-
 if build_voronoi:
 
   builder = VoronoiMeshBuilder(
@@ -188,8 +189,6 @@ if update_experiments_data:
 
   print(f"\nProcessed all experiments. Results in: {outputdir}")
 
-
-
 # Material calibration
 if run_calibration:
   print("\n=== Starting Material Calibration ===\n")
@@ -205,20 +204,20 @@ if run_calibration:
       data_args=dict(
           data_dir=outputdir + "/rotated_experiments",
           strain_stress_file=exp_data_dir+"/strain-stress.csv",
-          npoints=100,
+          npoints=50,
           full_field_strain_units="microstrain",
           straintype = "eKen",
           # max_stress = 300,
       ),
       save_dir=outputdir + "/figures/material_calibration",
-      apply_elastic_correction=True,
+      apply_elastic_correction=False,
       strain_window=(0.0, 0.0015),
   )
 
   calib.plot_texture(direction=[1, 1, 1])
   calib.plot_stress_strain()
-  
-  calib.calibrate(maxiter=0)
+
+  calib.calibrate(maxiter=50)
   calib.load(outputdir + "/figures/material_calibration" + "/calibrated_material.json")
 
   calib.plot_stress_strain(include_model=True)

@@ -133,7 +133,7 @@ class MaterialCalibration:
         err = sim_stress - torch.tensor(self.strain_stress[:, 1])
         return torch.norm(err).item()
 
-    def calibrate(self, method="Nelder-Mead", maxiter=50):
+    def calibrate(self, method="Nelder-Mead", maxiter=50, autosave=True):
         # Initial parameter guess
         p0 = torch.tensor([
             self.model.tmodel.model.get_parameter(v).torch().detach().clone()
@@ -142,10 +142,17 @@ class MaterialCalibration:
 
         # Set up progress bar
         progress = tqdm(total=maxiter, desc="Optimization progress", ncols=80)
+        autosave_path = os.path.join(self.save_dir, "autosave_material.json")
 
         def callback(xk):
+            current_loss = self.objective(xk)
             progress.update(1)
-            progress.set_postfix({"obj": f"{self.objective(xk):.3e}"})
+            progress.set_postfix({"obj": f"{current_loss:.3e}"})
+
+            if autosave:
+                # Temporarily assign current params to self.opt_params for save()
+                self.opt_params = torch.tensor(xk)
+                self.save(autosave_path)
 
         result = opt.minimize(
             self.objective,

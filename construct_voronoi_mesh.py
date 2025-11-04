@@ -821,16 +821,29 @@ class VoronoiMeshBuilder:
             "-format", "tess,geo"
         ] + morpho_args + ori_args
 
-        print("\n=== Running Neper Tessellation ===")
+        print("\n=== Running Neper Tessellation ===\n")
         print("> " + " ".join(neper_cmd))
 
-        subprocess.run(neper_cmd, check=True, env=self.env)
+        log_path = os.path.join(self.output_dir, "neper_voronoi_builder.log")
+
+        with open(log_path, "w") as logf:
+            print("\n=== Running Neper Tessellation ===", file=logf)
+            print("> " + " ".join(neper_cmd), file=logf)
+            logf.flush()
+
+            subprocess.run(
+                neper_cmd,
+                check=True,
+                env=self.env,
+                stdout=logf,
+                stderr=subprocess.STDOUT,
+            )
 
         print(f"Voronoi tessellation completed: {tess_name}.tess\n")
 
         print(f"Evaluating tessellation correctness, in figures folder\n")
 
-        print(f"\n=== Updating cell properties with rotation ===")
+        print(f"\n=== Updating cell properties with rotation ===\n")
         self.apply_rotation_to_properties(
             tess_file=tess_name + ".tess",
         )
@@ -990,8 +1003,20 @@ class VoronoiMeshBuilder:
         ]
 
         # --- Run meshing ---
+        print("\n=== Running Neper Meshing ===\n" \
+        "(this could take a while for large system)...")
         print("> " + " ".join(neper_cmd))
-        subprocess.run(neper_cmd, check=True, env=self.env)
+
+        log_path = os.path.join(self.output_dir, "neper_voronoi_mesh.log")
+
+        with open(log_path, "w") as logf:
+            print("> " + " ".join(neper_cmd), file=logf)
+            logf.flush()
+            subprocess.run(neper_cmd,
+                        check=True,
+                        env=self.env,
+                        stdout=logf,
+                        stderr=subprocess.STDOUT,)
 
     def export_cell_properties(self, 
                            tess_file: str, 
