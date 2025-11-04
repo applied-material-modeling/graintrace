@@ -7,7 +7,7 @@ from textual.screen import Screen
 
 
 class LogViewerScreen(Screen):
-    """Scrollable log viewer with live updates and termination control."""
+    """Scrollable log viewer with live updates, heartbeat, and termination control."""
 
     CSS = """
     Screen {
@@ -41,7 +41,8 @@ class LogViewerScreen(Screen):
         super().__init__()
         self.log_path = Path(log_path)
         self.proc = proc
-        self.status_line = ""  # persistent footer line
+        self.status_line = ""
+        self._heartbeat_counter = 0  # seconds since last heartbeat
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -59,18 +60,38 @@ class LogViewerScreen(Screen):
         yield Footer()
 
     def on_mount(self) -> None:
-        # Initial load
+        """Set up periodic refresh and heartbeat timers."""
         self.load_log()
-        # Auto-refresh every 2 seconds
+        # Refresh view twice per second
         self.set_interval(0.5, self.auto_refresh)
+        # Heartbeat every second
+        self.set_interval(1.0, self.heartbeat_tick)
 
     # ----------------------------
-    # Core logic
+    # Periodic behaviors
     # ----------------------------
     def auto_refresh(self) -> None:
         """Periodic refresh that runs while screen is active."""
         self.load_log(live=True)
 
+    def heartbeat_tick(self) -> None:
+        """Append 'still running' message every certain seconds if process is alive."""
+        if not self.proc or self.proc.poll() is not None:
+            return  # no active process
+
+        self._heartbeat_counter += 1
+        if self._heartbeat_counter >= 120:
+            self._heartbeat_counter = 0
+            try:
+                with open(self.log_path, "a") as f:
+                    f.write("Program is still running...\n")
+                    f.flush()
+            except Exception:
+                pass  # ignore transient file issues
+
+    # ----------------------------
+    # Core logic
+    # ----------------------------
     def load_log(self, live: bool = False) -> None:
         """Load or refresh log content without losing status footer."""
         try:
@@ -83,7 +104,6 @@ class LogViewerScreen(Screen):
                 self.textlog.write(f"(No log file found at {self.log_path})")
 
             if self.status_line:
-                # Append status footer (keeps messages like 'Terminated successfully')
                 self.textlog.write(f"\n{self.status_line}")
         except Exception as e:
             self.textlog.write(f"\nError reading log: {e}")
@@ -95,11 +115,13 @@ class LogViewerScreen(Screen):
                 os.killpg(os.getpgid(self.proc.pid), signal.SIGTERM)
                 self.status_line = "[Terminating process ...]"
                 self.load_log()
-                # Wait briefly for graceful shutdown
-                for _ in range(5):
-                    time.sleep(2.0)
+
+                # Wait up to 10 seconds for graceful shutdown
+                for _ in range(10):
+                    time.sleep(1.0)
                     if self.proc.poll() is not None:
                         break
+
                 self.status_line = "[Terminated process successfully.]"
                 self.proc = None
                 self.load_log()

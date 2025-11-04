@@ -97,20 +97,20 @@ class VoronoiScreen(Screen):
                 Label("Output Directory Name:", classes="basic-label"),
                 Input(value="experiment_try0", id="output_dir"),
 
-                Label("Sample Dimensions (x0,x1,y0,y1,z0,z1):", classes="basic-label"),
+                Label("Sample Dimensions: \n(x0,x1,y0,y1,z0,z1)", classes="basic-label"),
                 Input(value="-477.0,528,-487,532,-1025,625", id="bbox"),
 
-                Label("Sample Rotate Angles (rad):", classes="basic-label"),
+                Label("Sample Rotate Angles:\n(default is in 'xyz', 'rad')", classes="basic-label"),
                 Input(value=f"0,0,{-(3.6/180)*math.pi:.6f}", id="rotate_angles"),
 
-                Label("Rotation Unit (deg/rad):", classes="basic-label"),
-                Input(value="rad", id="rotate_unit"),
-
-                Label("Orientation Angle Identifier (comma separated):", classes="basic-label"),
+                Label("Orientation Angle Identifier:", classes="basic-label"),
                 Input(value="Eul0,Eul1,Eul2", id="angle_identifier"),
 
-                Label("Elastic Strain Identifiers (row-major ordered, comma separated):", classes="basic-label"),
+                Label("Elastic Strain Identifiers:\n(row-major ordered, comma separated)", classes="basic-label"),
                 Input(value="eKen11,eKen12,eKen13,eKen21,eKen22,eKen23,eKen31,eKen32,eKen33", id="elastic_ids"),
+
+                Label("Strain Unit:\n(Leave blank for normal strain unit)", classes="basic-label"),
+                Input(value="microstrain", id="strain_unit"),
 
                 Label("Generate Mesh (True/False):", classes="basic-label"),
                 Input(value="False", id="generate_mesh"),
@@ -118,25 +118,46 @@ class VoronoiScreen(Screen):
                 # === ADVANCED INPUTS SECTION ===
                 Static("ADVANCED INPUTS", id="advanced-title"),
 
+                Label("Dimension:", classes="advanced-label"),
+                Input(value="3", id="dim"),
+
+                Label("Use Weighted Voronoi Reconstruction (True/False):", classes="advanced-label"),
+                Input(value="False", id="weighted"),
+
+                Label("Auto Fix Bounding Box (True/False):", classes="advanced-label"),
+                Input(value="True", id="auto_fix_bbox"),
+
+                Label("Bounding Box Fix Mode:\n('remove_points' or 'extend_bounding_box')", classes="advanced-label"),
+                Input(value="remove_points", id="bbox_fix_mode"),
+
+                Label("Bounding Box Tolerance for Fixing:", classes="advanced-label"),
+                Input(value="0.0", id="bbox_tolerance"),
+
+                Label("Perform Automatic Rotation using PCA (True/False):", classes="advanced-label"),
+                Input(value="False", id="auto_rotate"),
+
+                Label("Rotation Unit (deg/rad):", classes="advanced-label"),
+                Input(value="rad", id="rotate_unit"),
+
                 Label("Orientation Descriptor:", classes="advanced-label"),
                 Input(value="euler-bunge", id="orientation_descriptor"),
 
                 Label("Orientation Active Convention (True/False):", classes="advanced-label"),
                 Input(value="True", id="orientation_active_convention"),
 
-                Label("Mesh Quality Min:", classes="advanced-label"),
+                Label("Mesh Quality Minimum size:", classes="advanced-label"),
                 Input(value="0.7", id="mesh_quality_min"),
 
-                Label("Relative Element Size:", classes="advanced-label"),
+                Label("Relative Element Size: \n(1.0 implies 100 elements per grain)", classes="advanced-label"),
                 Input(value="5.0", id="relative_el_size"),
 
-                Label("Option ('voronoi','centroid','centroidsize'):", classes="advanced-label"),
+                Label("Tesselation Construction Option: \n('voronoi','centroid','centroidsize')", classes="advanced-label"),
                 Input(value="centroid", id="option"),
 
-                Label("CVT Iterations:", classes="advanced-label"),
+                Label("CVT Iterations for Tesselation Optimization:", classes="advanced-label"),
                 Input(value="100", id="CVT_iter"),
 
-                Label("Morphological Algorithm ('subplex','lloyd','praxis'):", classes="advanced-label"),
+                Label("Tesselation Optimization Algorithm: \n('subplex','lloyd','praxis')", classes="advanced-label"),
                 Input(value="subplex", id="morphoalgo"),
             )
 
@@ -175,20 +196,20 @@ class VoronoiScreen(Screen):
                 "input_csv": val("input_csv"),
                 "output_dir": outputdir,
                 "bounding_box": [float(x) for x in val("bbox").split(",")],
-                "dim": 3,
-                "weighted": False,
-                "auto_fix_bbox": True,
-                "bbox_fix_mode": "remove_points",
-                "bbox_tolerance": 0.0,
-                "auto_rotate": False,
+                "dim": int(val("dim")),
+                "weighted": val("weighted").lower() == "true",
+                "auto_fix_bbox": val("auto_fix_bbox").lower() == "true",
+                "bbox_fix_mode": val("bbox_fix_mode"),
+                "bbox_tolerance": float(val("bbox_tolerance")),
+                "auto_rotate": val("auto_rotate").lower() == "true",
                 "rotate_angles": [float(a) for a in val("rotate_angles").split(",")],
-                "rotate_convention": "xyz",
+                "rotate_convention": val("rotate_convention"),
                 "unit": val("rotate_unit"),
                 "angle_identifier": [s.strip() for s in val("angle_identifier").split(",")],
                 "orientation_descriptor": val("orientation_descriptor"),
                 "orientation_active_convention": val("orientation_active_convention").lower() == "true",
                 "elastic_strain_identifier": [s.strip() for s in val("elastic_ids").split(",")],
-                "strain_unit": "microstrain",
+                "strain_unit": val("strain_unit") or None,
                 "generate_mesh": val("generate_mesh").lower() == "true",
                 "mesh_quality_min": float(val("mesh_quality_min")),
                 "relative_el_size": float(val("relative_el_size")),

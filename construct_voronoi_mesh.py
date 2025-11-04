@@ -1004,8 +1004,9 @@ class VoronoiMeshBuilder:
 
         # --- Run meshing ---
         print("\n=== Running Neper Meshing ===\n" \
-        "(this could take a while for large system)...")
+        "(this could take a while for large system)...\n")
         print("> " + " ".join(neper_cmd))
+        print("\n")
 
         log_path = os.path.join(self.output_dir, "neper_voronoi_mesh.log")
 
@@ -1013,10 +1014,17 @@ class VoronoiMeshBuilder:
             print("> " + " ".join(neper_cmd), file=logf)
             logf.flush()
             subprocess.run(neper_cmd,
-                        check=True,
-                        env=self.env,
-                        stdout=logf,
-                        stderr=subprocess.STDOUT,)
+                check=True,
+                env=self.env,
+                stdout=logf,
+                stderr=subprocess.STDOUT)
+        
+        for fmt in fmt_arg.split(","):
+            print(f"Generated mesh file: {output_name}.{fmt}")
+
+        print("\n")
+        
+            
 
     def export_cell_properties(self, 
                            tess_file: str, 
