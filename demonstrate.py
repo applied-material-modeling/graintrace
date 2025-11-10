@@ -27,9 +27,9 @@ outputdir = "experiment_try1"
 
 generate_sudo = False
 
-input_file = "experiment_2022_raw/0.csv"
+input_file = "experiment_data/experiment_2022_raw/0.csv"
 
-exp_data_dir = "experiment_2022_raw"
+exp_data_dir = "experiment_data/experiment_2022_raw"
 
 bounding_box=[-477.0, 528, -487, 532, -1025, 625]
 rotate_angles = (0,0,-3.6/180*np.pi)
