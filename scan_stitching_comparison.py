@@ -163,64 +163,116 @@ class ScanStitchingComparison:
     def _build_mapping(self, source_df, target_df, target_tree):
         """
         Build nearest-neighbor mapping between two datasets.
+
+        No hard cutoff in the cost. All k-NN candidates are allowed,
+        and tolerances are enforced later via masks.
         """
 
         coords_source = source_df[["X", "Y", "Z"]].to_numpy()
+        n_source, n_target = len(source_df), len(target_df)
 
-        # Query nearest neighbors
-        dist, idx = target_tree.query(coords_source, k=self.min_neighbors, workers=-1)
+        if n_source == 0 or n_target == 0:
+            return pd.DataFrame(
+                columns=[
+                    "idx_source", "idx_target",
+                    "diff_pos_norm2", "diff_rad_percentage", "diff_ori_norm2",
+                ]
+            )
 
-        # get the distances of potential matches
-        s_idx, n_idx = np.indices(dist.shape)
+        # KD-tree query
+        k = min(self.min_neighbors, n_target)
+        dist, idx = target_tree.query(coords_source, k=k, workers=-1)
+
+        if k == 1:
+            dist = dist[:, None]
+            idx = idx[:, None]
+
+        s_idx, _ = np.indices(dist.shape)
         s_idx = s_idx.ravel()
         t_idx = idx.ravel()
         diff_pos = dist.ravel()
 
-        # get orientation and radius differences
         ori_source = source_df[["Eul0", "Eul1", "Eul2"]].to_numpy()
         ori_target = target_df[["Eul0", "Eul1", "Eul2"]].to_numpy()
         rad_source = source_df["GrainRadius"].to_numpy()
         rad_target = target_df["GrainRadius"].to_numpy()
 
         diff_ori = np.linalg.norm(ori_source[s_idx] - ori_target[t_idx], axis=1)
-        diff_rad = np.abs(rad_source[s_idx] - rad_target[t_idx]) /rad_target[t_idx]
+        diff_rad = np.abs(rad_source[s_idx] - rad_target[t_idx]) / rad_target[t_idx]
 
-        # cost matrix construction for scipy linear sum assignment
-        cost = (self.weights["pos"] * diff_pos / self.position_tolerance
-            + self.weights["ori"] * diff_ori / self.orientation_tolerance
-            + self.weights["rad"] * diff_rad / self.radius_tolerance)
+        # tolerances and weights
+        w_pos = self.weights.get("pos", 1.0)
+        w_ori = self.weights.get("ori", 0.0)
+        w_rad = self.weights.get("rad", 0.0)
 
-        n_source, n_target = len(source_df), len(target_df)
-        cost_matrix = np.full((n_source, n_target), np.inf)
+        eps = 1e-14
+        ptol = self.position_tolerance if self.position_tolerance != 0.0 else eps
+        otol = self.orientation_tolerance if self.orientation_tolerance != 0.0 else eps
+        rtol = self.radius_tolerance if self.radius_tolerance != 0.0 else eps
+
+        cost = (
+            w_pos * (diff_pos / ptol) +
+            w_ori * (diff_ori / otol) +
+            w_rad * (diff_rad / rtol)
+        )
+
+        cost_matrix = np.full((n_source, n_target), 1e12, dtype=float)
         cost_matrix[s_idx, t_idx] = cost
 
         row_ind, col_ind = linear_sum_assignment(cost_matrix)
-        valid = cost_matrix[row_ind, col_ind] < np.inf
+        valid = cost_matrix[row_ind, col_ind] < np.inf  # always true except degenerate
 
-        # Construct mapping table
         match_rows = []
         for s, t, ok in zip(row_ind, col_ind, valid):
             if ok:
                 mask = (s_idx == s) & (t_idx == t)
                 if np.any(mask):
-                    dp, dr, do = diff_pos[mask][0], diff_rad[mask][0], diff_ori[mask][0]
+                    dp = diff_pos[mask][0]
+                    dr = diff_rad[mask][0]
+                    do = diff_ori[mask][0]
                     match_rows.append((int(s), int(t), dp, dr, do))
 
         return pd.DataFrame(
             match_rows,
-            columns=["idx_source", "idx_target", "diff_pos_norm2", "diff_rad_percentage", "diff_ori_norm2"]
+            columns=[
+                "idx_source", "idx_target",
+                "diff_pos_norm2",
+                "diff_rad_percentage",
+                "diff_ori_norm2",
+            ],
+        )
+
+    def _valid_match_mask(self, df_matches, pos_tol=None):
+        if df_matches is None:
+            raise RuntimeError("Matches not computed.")
+
+        pos_tol = pos_tol if pos_tol is not None else self.position_tolerance
+
+        if len(df_matches) == 0:
+            return np.zeros(0, dtype=bool)
+
+        return (
+            (df_matches["diff_pos_norm2"] <= pos_tol)
         )
 
     def _compute_statistics(self):
         """
-        Compute matching statistics.
+        Compute matching statistics on matches that satisfy the default tolerances.
         """
         if self.matches is None or self.inverse_matches is None:
             raise RuntimeError("Matches not computed. Run _match_grains() first.")
 
-        # --- Identify splits (trueID to multiple stitched IDs) ---
+        # forward: stitched -> true
+        mask_fwd = self._valid_match_mask(self.matches)
+        matches_valid = self.matches[mask_fwd]
+
+        # inverse: true -> stitched
+        mask_inv = self._valid_match_mask(self.inverse_matches)
+        inverse_valid = self.inverse_matches[mask_inv]
+
+        # splits: one true grain matched by multiple stitched grains
         split_detail = (
-            self.matches.groupby("idx_target")["idx_source"]
+            matches_valid.groupby("idx_target")["idx_source"]
             .apply(list)
             .reset_index()
             .rename(columns={"idx_target": "TrueGrainID", "idx_source": "MappedStitchedGrains"})
@@ -229,9 +281,9 @@ class ScanStitchingComparison:
         split_detail = split_detail[split_detail["NumMappedStitched"] > 1]
         split_detail.to_csv(os.path.join(self.output_dir, "split_grains.csv"), index=False)
 
-        # --- Identify merges (stitchID to multiple trueIDs) ---
+        # merges: one stitched grain matched by multiple true grains
         merge_detail = (
-            self.inverse_matches.groupby("idx_target")["idx_source"]
+            inverse_valid.groupby("idx_target")["idx_source"]
             .apply(list)
             .reset_index()
             .rename(columns={"idx_target": "StitchedGrainID", "idx_source": "MappedTrueGrains"})
@@ -240,46 +292,42 @@ class ScanStitchingComparison:
         merge_detail = merge_detail[merge_detail["NumMappedTrue"] > 1]
         merge_detail.to_csv(os.path.join(self.output_dir, "merge_grains.csv"), index=False)
 
-        # --- Summary dictionary ---
+        def safe_stat(series, fn):
+            return fn(series) if len(series) > 0 else None
+
         self.metrics = {
             "n_true": len(self.df_true),
             "n_stitch": len(self.df_stitch),
-            "n_matched": len(self.matches),
-            "n_inverse_matched": len(self.inverse_matches),
+            "n_matched": len(matches_valid),
+            "n_inverse_matched": len(inverse_valid),
             "n_splits": len(split_detail),
             "n_merges": len(merge_detail),
-            "mean_pos_error": self.matches["diff_pos_norm2"].mean(),
-            "mean_ori_error": self.matches["diff_ori_norm2"].mean(),
-            "mean_rad_error": self.matches["diff_rad_percentage"].mean(),
-            "max_pos_error": self.matches["diff_pos_norm2"].max(),
-            "max_ori_error": self.matches["diff_ori_norm2"].max(),
-            "max_rad_error": self.matches["diff_rad_percentage"].max(),
+            "mean_pos_error": safe_stat(matches_valid["diff_pos_norm2"], np.mean),
+            "mean_ori_error": safe_stat(matches_valid["diff_ori_norm2"], np.mean),
+            "mean_rad_error": safe_stat(matches_valid["diff_rad_percentage"], np.mean),
+            "max_pos_error": safe_stat(matches_valid["diff_pos_norm2"], np.max),
+            "max_ori_error": safe_stat(matches_valid["diff_ori_norm2"], np.max),
+            "max_rad_error": safe_stat(matches_valid["diff_rad_percentage"], np.max),
         }
 
-        # Save summary
         with open(os.path.join(self.output_dir, "statistics_summary.json"), "w") as f:
             json.dump(self.metrics, f, indent=2)
 
-        # --- Save match tables ---
         self.matches.to_csv(os.path.join(self.output_dir, "stitch_to_true_matches.csv"), index=False)
         self.inverse_matches.to_csv(os.path.join(self.output_dir, "true_to_stitch_matches.csv"), index=False)
 
-        print("\n=== Stitching Comparison Statistics ===")
+        print("\n=== Stitching Comparison Statistics (within tolerances) ===")
         for k, v in self.metrics.items():
             print(f"{k:20s}: {v}")
 
-        print(f"\nResults saved to: {self.output_dir}\n")
-        print("Summary file:\n- statistics_summary.json\n\nDetailed match data:")
-        print("- stitch_matches_to_true.csv")
-        print("- true_matches_to_stitch.csv")
-        print("\nSplit / merge analysis:")
-        print("- split_grains.csv")
-        print("- merge_grains.csv\n")
 
     def _plot_histograms(self):
         """Plot histograms of differences."""
 
         os.makedirs(os.path.join(self.output_dir, "figures"), exist_ok=True)
+
+        valid_mask = self._valid_match_mask(self.matches)
+        matches_valid = self.matches[valid_mask]
 
         fig, axes = plt.subplots(3, 1, figsize=(6, 9), tight_layout=True)
         plot_info = [
@@ -289,9 +337,9 @@ class ScanStitchingComparison:
         ]
 
         for ax, (col, label) in zip(axes, plot_info):
-            if col not in self.matches.columns:
+            if col not in matches_valid.columns:
                 continue
-            ax.hist(self.matches[col], bins=40, alpha=0.75, edgecolor="black")
+            ax.hist(matches_valid[col], bins=40, alpha=0.75, edgecolor="black")
             ax.set_xlabel(label)
             ax.set_ylabel("Number of Grains")
             ax.grid(True, linestyle="--", linewidth=0.5, alpha=0.6)
@@ -306,8 +354,7 @@ class ScanStitchingComparison:
             bounding_box: list | None = None,
             plot: bool = True,
             pos_tol: float | None = None,
-            ori_tol: float | None = None,
-            rad_tol: float | None = None,
+            view3D: bool = False
     ):
         """
         Identify unmatched grains beyond given tolerances and optionally plot them.
@@ -319,23 +366,17 @@ class ScanStitchingComparison:
             If None, inferred from true dataset.
         plot : bool, default=True
             Whether to generate a 3D scatter plot of unmatched grains.
-        pos_tol, ori_tol, rad_tol : float or None
-            Tolerances for position/orientation/radius differences.
+        pos_tol : float or None
+            Tolerances for position differences.
             If None, defaults to initialized class tolerances.
         """
         if self.matches is None:
             raise RuntimeError("Matches not computed. Run _match_grains() first.")
 
         pos_tol = pos_tol or self.position_tolerance
-        ori_tol = ori_tol or self.orientation_tolerance
-        rad_tol = rad_tol or self.radius_tolerance
 
         # --- Identify unmatched grains ---
-        valid_mask = (
-            (self.matches["diff_pos_norm2"] <= pos_tol)
-            & (self.matches["diff_ori_norm2"] <= ori_tol)
-            & (self.matches["diff_rad_percentage"] <= rad_tol)
-        )
+        valid_mask = self._valid_match_mask(self.matches, pos_tol)
 
         matched_true = set(self.matches.loc[valid_mask, "idx_target"])
         matched_stitch = set(self.matches.loc[valid_mask, "idx_source"])
@@ -386,7 +427,10 @@ class ScanStitchingComparison:
                     ax.plot([x0, x1], [y0, y1], color=color, linewidth=lw)
 
             # --- XY projection ---
-            ax1 = fig.add_subplot(3, 1, 1)
+            if view3D:
+                ax1 = fig.add_subplot(3, 1, 1)
+            else:
+                ax1 = fig.add_subplot(2, 1, 1)
             if len(df_unmatched_true) > 0:
                 ax1.scatter(df_unmatched_true["X"], df_unmatched_true["Y"], c="red", s=8, label="True")
             if len(df_unmatched_stitch) > 0:
@@ -395,10 +439,14 @@ class ScanStitchingComparison:
             ax1.set_xlabel("X")
             ax1.set_ylabel("Y")
             ax1.set_title("XY Projection")
+            ax1.set_aspect('equal')
             ax1.legend(loc="upper right", fontsize=6)
 
             # --- XZ projection ---
-            ax2 = fig.add_subplot(3, 1, 2)
+            if view3D:
+                ax2 = fig.add_subplot(3, 1, 2)
+            else:
+                ax2 = fig.add_subplot(2, 1, 2)
             if len(df_unmatched_true) > 0:
                 ax2.scatter(df_unmatched_true["X"], df_unmatched_true["Z"], c="red", s=8, label="True")
             if len(df_unmatched_stitch) > 0:
@@ -407,37 +455,39 @@ class ScanStitchingComparison:
             ax2.set_xlabel("X")
             ax2.set_ylabel("Z")
             ax2.set_title("XZ Projection")
+            ax2.set_aspect('equal')
             ax2.legend(loc="upper right", fontsize=6)
 
             # --- 3D view ---
-            ax3 = fig.add_subplot(3, 1, 3, projection="3d")
-            if len(df_unmatched_true) > 0:
-                ax3.scatter(df_unmatched_true["X"], df_unmatched_true["Y"], df_unmatched_true["Z"], c="red", s=8, label="True")
-            if len(df_unmatched_stitch) > 0:
-                ax3.scatter(df_unmatched_stitch["X"], df_unmatched_stitch["Y"], df_unmatched_stitch["Z"], c="blue", s=8, label="Stitch")
+            if view3D:
+                ax3 = fig.add_subplot(3, 1, 3, projection="3d")
+                if len(df_unmatched_true) > 0:
+                    ax3.scatter(df_unmatched_true["X"], df_unmatched_true["Y"], df_unmatched_true["Z"], c="red", s=8, label="True")
+                if len(df_unmatched_stitch) > 0:
+                    ax3.scatter(df_unmatched_stitch["X"], df_unmatched_stitch["Y"], df_unmatched_stitch["Z"], c="blue", s=8, label="Stitch")
 
-            # Bounding box (3D)
-            for s, e in [
-                ((xmin, ymin, zmin), (xmax, ymin, zmin)),
-                ((xmin, ymax, zmin), (xmax, ymax, zmin)),
-                ((xmin, ymin, zmax), (xmax, ymin, zmax)),
-                ((xmin, ymax, zmax), (xmax, ymax, zmax)),
-                ((xmin, ymin, zmin), (xmin, ymax, zmin)),
-                ((xmax, ymin, zmin), (xmax, ymax, zmin)),
-                ((xmin, ymin, zmax), (xmin, ymax, zmax)),
-                ((xmax, ymin, zmax), (xmax, ymax, zmax)),
-                ((xmin, ymin, zmin), (xmin, ymin, zmax)),
-                ((xmax, ymin, zmin), (xmax, ymin, zmax)),
-                ((xmin, ymax, zmin), (xmin, ymax, zmax)),
-                ((xmax, ymax, zmin), (xmax, ymax, zmax)),
-            ]:
-                ax3.plot3D(*zip(s, e), color="black", linewidth=0.5)
+                # Bounding box (3D)
+                for s, e in [
+                    ((xmin, ymin, zmin), (xmax, ymin, zmin)),
+                    ((xmin, ymax, zmin), (xmax, ymax, zmin)),
+                    ((xmin, ymin, zmax), (xmax, ymin, zmax)),
+                    ((xmin, ymax, zmax), (xmax, ymax, zmax)),
+                    ((xmin, ymin, zmin), (xmin, ymax, zmin)),
+                    ((xmax, ymin, zmin), (xmax, ymax, zmin)),
+                    ((xmin, ymin, zmax), (xmin, ymax, zmax)),
+                    ((xmax, ymin, zmax), (xmax, ymax, zmax)),
+                    ((xmin, ymin, zmin), (xmin, ymin, zmax)),
+                    ((xmax, ymin, zmin), (xmax, ymin, zmax)),
+                    ((xmin, ymax, zmin), (xmin, ymax, zmax)),
+                    ((xmax, ymax, zmin), (xmax, ymax, zmax)),
+                ]:
+                    ax3.plot3D(*zip(s, e), color="black", linewidth=0.5)
 
-            ax3.set_xlabel("X")
-            ax3.set_ylabel("Y")
-            ax3.set_zlabel("Z")
-            ax3.set_title("3D View")
-            ax3.legend(loc="upper right", fontsize=6)
+                ax3.set_xlabel("X")
+                ax3.set_ylabel("Y")
+                ax3.set_zlabel("Z")
+                ax3.set_title("3D View")
+                ax3.legend(loc="upper right", fontsize=6)
 
             plt.tight_layout()
             out_path = os.path.join(self.output_dir, "figures", "unmatched_grains.png")

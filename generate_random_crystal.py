@@ -1,7 +1,6 @@
 import os
 import subprocess
 import pandas as pd
-import sys
 import subprocess
 import shutil
 import numpy as np
@@ -536,7 +535,7 @@ class CrystalGenerator:
         return os.path.join(output_dir, f"{os.path.basename(out_name)}.tess")
         
     @staticmethod
-    def show_morpho_options():
+    def show_morpho_options(exit_after: bool = False):
         """Display available morphology configurations and supported distributions."""
         from textwrap import dedent
 
@@ -589,6 +588,10 @@ class CrystalGenerator:
         print(morpho_info)
         print()
         print(dist_info)
+
+        if exit_after:
+            import sys
+            sys.exit(0)
 
     @staticmethod
     def validate_morpho(morpho: dict):
