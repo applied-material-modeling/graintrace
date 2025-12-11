@@ -22,6 +22,7 @@ def generate_layered_vms_csv(
     vm_low: float = 50.0,
     vm_high: float = 200.0,
     random_state: int = 0,
+    radius_range: tuple[int, int] = (4, 10), # number of elements
 ) -> None:
 
     rng = np.random.default_rng(random_state)
@@ -51,9 +52,9 @@ def generate_layered_vms_csv(
         
         cx = rng.integers(low=0, high=nx)
         cy = rng.integers(low=0, high=ny)
-        
-        radius = rng.integers(low=max(3, nx // 20), high=max(5, nx // 10))
-        
+
+        radius = rng.integers(low=radius_range[0], high=radius_range[1])
+
         vm_boost = rng.uniform(1.5, 2.5)
 
         yy, xx = np.ogrid[:ny, :nx]
@@ -100,11 +101,12 @@ def generate_layered_vms_csv(
     df.to_csv(path, index=False)
 
 
-## main
-nx = 20
-ny = 20
+## main ---------------------------------------------------------- ##
+nx = 30
+ny = 30
 
-threshold = 0.1
+threshold = 0.25
+radius_elements_range = (2, 5)
 
 print("Generating synthetic VMS data...")
 
@@ -112,11 +114,12 @@ generate_layered_vms_csv(
     path="testing_during_code_not_upload_to_github/synthetic_vms.csv",
     nx=nx,
     ny=ny,
-    n_layers=2,
-    rare_patches=3,
+    n_layers=1,
+    rare_patches=10,
     vm_low=50.0,
     vm_high=200.0,
     random_state=42,
+    radius_range=radius_elements_range,
 )
 
 print("Running clustering analysis...")
