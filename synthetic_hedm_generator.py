@@ -256,57 +256,64 @@ class SyntheticHEDMGenerator:
         return seeds, eulers
 
     def _build_nf_hex_vertex_lattice(self):
-        """
-        Build the (X,Y) point cloud of a flat-topped hex lattice's VERTICES.
-        Vertices of a regular hex tiling form a triangular lattice with edge length a_nf.
-
-        Basis vectors (x-axis aligned):
-          v1 = (a, 0)
-          v2 = (a/2, sqrt(3)/2 * a)
-        """
         xmin, xmax, ymin, ymax, _, _ = self.nf_bounding_box
         a = self.a_nf
-        h = (np.sqrt(3.0) / 2.0) * a
+        rt3 = np.sqrt(3.0)
 
-        # j controls y: y = ymin + j*h  (for integer j)
-        j_min = int(np.floor((ymin - ymin) / h))  # 0
-        j_max = int(np.ceil((ymax - ymin) / h)) + 2  # cover with margin
+        # Flat-top hex center spacing
+        dx = 1.5 * a              # center-to-center in x
+        dy = rt3 * a              # center-to-center in y
+        y_off = 0.5 * rt3 * a     # odd-column y offset
 
-        pts = []
+        # Vertex offsets around a flat-top hex center
+        voff = np.array([
+            [ a, 0.0],
+            [ 0.5 * a,  0.5 * rt3 * a],
+            [-0.5 * a,  0.5 * rt3 * a],
+            [-a, 0.0],
+            [-0.5 * a, -0.5 * rt3 * a],
+            [ 0.5 * a, -0.5 * rt3 * a],
+        ], dtype=float)
 
-        # For each row j, x = xmin + i*a + j*(a/2)
-        for j in range(j_min, j_max + 1):
-            y = ymin + j * h
-            if y < ymin - 1e-9 or y > ymax + 1e-9:
-                continue
+        # Make a generous grid of centers that covers bbox (include margin of 1 hex)
+        i_min = int(np.floor((xmin - a) / dx)) - 2
+        i_max = int(np.ceil((xmax + a) / dx)) + 2
+        j_min = int(np.floor((ymin - a) / dy)) - 2
+        j_max = int(np.ceil((ymax + a) / dy)) + 2
 
-            x_shift = (j * a) / 2.0
-            # Solve i bounds so x within [xmin,xmax]
-            i_min = int(np.floor((xmin - xmin - x_shift) / a)) - 2
-            i_max = int(np.ceil((xmax - xmin - x_shift) / a)) + 2
+        verts = []
+        for i in range(i_min, i_max + 1):
+            cx = i * dx
+            col_shift = y_off if (i % 2) else 0.0
+            for j in range(j_min, j_max + 1):
+                cy = j * dy + col_shift
 
-            for i in range(i_min, i_max + 1):
-                x = xmin + i * a + x_shift
-                if (xmin - 1e-9) <= x <= (xmax + 1e-9) and (ymin - 1e-9) <= y <= (ymax + 1e-9):
-                    pts.append((x, y))
+                # generate vertices for this center
+                v = voff + np.array([cx, cy])
+                # clip vertices to bbox
+                mask = (
+                    (v[:, 0] >= xmin - 1e-9) & (v[:, 0] <= xmax + 1e-9) &
+                    (v[:, 1] >= ymin - 1e-9) & (v[:, 1] <= ymax + 1e-9)
+                )
+                vv = v[mask]
+                if len(vv):
+                    verts.append(vv)
 
-        if not pts:
-            raise ValueError("NF lattice generation produced zero vertices. Check a_nf and nf_bounding_box.")
+        if not verts:
+            raise ValueError("NF hex vertex generation produced zero vertices. Check a_nf and nf_bounding_box.")
 
-        verts = np.array(pts, dtype=float)
+        verts = np.vstack(verts)
 
+        # Deduplicate robustly
         key = np.round(verts, decimals=10)
-        _, unique_idx = np.unique(key, axis=0, return_index=True)
-        verts = verts[np.sort(unique_idx)]
+        _, idx = np.unique(key, axis=0, return_index=True)
+        verts = verts[np.sort(idx)]
 
-        xmin2 = float(np.min(verts[:, 0]))
-        xmax2 = float(np.max(verts[:, 0]))
-        ymin2 = float(np.min(verts[:, 1]))
-        ymax2 = float(np.max(verts[:, 1]))
-        self.nf_bounding_box[0] = xmin2
-        self.nf_bounding_box[1] = xmax2
-        self.nf_bounding_box[2] = ymin2
-        self.nf_bounding_box[3] = ymax2
+        # Snap bbox to vertex extrema (so boundary is made of vertices)
+        self.nf_bounding_box[0] = float(np.min(verts[:, 0]))
+        self.nf_bounding_box[1] = float(np.max(verts[:, 0]))
+        self.nf_bounding_box[2] = float(np.min(verts[:, 1]))
+        self.nf_bounding_box[3] = float(np.max(verts[:, 1]))
 
         return verts
 
