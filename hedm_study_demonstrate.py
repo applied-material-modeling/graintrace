@@ -21,11 +21,14 @@ output_dir = "hedm_demonstrate"
 
 # True crystal structure parameters
 bounding_box = [-500, 500, -500, 500, -1000, 500]
-crystal_morpho_args = {"type": "gg", "mean": 110.0}
+# crystal_morpho_args = {"type": "gg", "mean": 80.0}
+crystal_morpho_args = {"type": "diameq", 
+                       "distribution": "lognormal",
+                         "params": (130.0, 5.0)}
 
 # HEDM scan parameters
-nscan = 2
-overlap_percentage = 20 # percentage units (0-100)
+nscan = 4
+overlap_percentage = 25 # percentage units (0-100)
 
 # Mimic experiment noise conditions
 apply_noise=False
@@ -37,9 +40,12 @@ noise_level=0.005
 min_vol=0.0 
 
 # Acceptable tolerance for comparison and stitching
-position_tolerance = 5 # length units
-orientation_tolerance = 0.1 # degrees
-radius_tolerance = 5 # percentage units
+position_tolerance = 10 # length units
+orientation_tolerance = 0.5 # degrees
+radius_tolerance = 0 # percentage units -- set to -1 to disable radius consideration
+
+compare_position_tolerance = 50 # adjusted such that max_pos_error remains the same as this value increases
+compare_orientation_tolerance = 5.0
 
 ### -------------------------------------------------------------
 # uncomment the line below to see available morphology options
@@ -58,11 +64,12 @@ cg = CrystalGenerator(
     bounding_box=bounding_box,
     seed=seed_number,
 )
-cg.generate_tessellation(
-    morpho_args=crystal_morpho_args,
-)
 
-# Simulate HEDM scans
+# cg.generate_tessellation(
+#     morpho_args=crystal_morpho_args,
+# )
+
+# # Simulate HEDM scans
 cg.hedm_zscan(
     tess_file=output_dir + "/voronoi.tess",
     nstep=nscan,
@@ -95,9 +102,9 @@ stitch_output_csv = output_dir + "/huy_stitched.csv"
 
 # Huy version of Stitching
 weights = {
-    "pos": 1.0,
-    "ori": 0.01,
-    "rad": 0.01,
+    "pos": 0.1,
+    "ori": 1.0,
+    "rad": 0,
 }
 min_neighbors = 5
 
@@ -126,8 +133,8 @@ print(f"Output written to: {stitch_output_csv}\n")
 # Run comparison between true and stitched structures
 
 weights = {
-    "pos": 1.0,
-    "ori": 0,
+    "pos": 0.1,
+    "ori": 1.0,
     "rad": 0,
 }
 
@@ -135,15 +142,16 @@ compare = ScanStitchingComparison(
     output_dir=output_dir + "/comparison",
     true_csv=output_dir + "/voronoi.csv",
     stitch_csv=stitch_output_csv,
-    position_tolerance=10,
-    orientation_tolerance=orientation_tolerance,
+    position_tolerance=compare_position_tolerance,
+    orientation_tolerance=compare_orientation_tolerance,
     radius_tolerance=radius_tolerance,
     weights=weights,
 )
 compare.run_comparison()
 compare._get_unmatched_grains(
     bounding_box=bounding_box,
-    pos_tol=10.0,
+    pos_tol=compare_position_tolerance,
+    ori_tol=compare_orientation_tolerance,
     plot=True,
 )
 

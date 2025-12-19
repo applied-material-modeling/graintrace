@@ -8,7 +8,7 @@ DistanceFunction = Callable[[np.ndarray, np.ndarray], float]
 @dataclass
 class SimilarityMetric:
     name: str
-    feature_cols: List[str]   # columns required by this metric
+    feature_cols: List[str]   # requried feature names
     func: DistanceFunction    # metric(u, v) -> float
 
 class ClusterAnalysisIndicator:

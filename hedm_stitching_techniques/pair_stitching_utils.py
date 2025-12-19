@@ -4,7 +4,7 @@ from typing import Tuple, Dict, List
 from .dataclass_utils import ScanMetadata, GrainSet
 from scipy.spatial import cKDTree
 from scipy.optimize import linear_sum_assignment
-
+from orientation_helper import misorientation
 
 # Region classifier (zl, zh vs zol, zoh -> region 1 to 6)
 class RegionClassifier:
@@ -48,7 +48,6 @@ class MatchRuleTable:
         'MC'       : merge (core-core)
         'KA'       : keep A, drop B
         'KB'       : keep B, drop A
-        'MB_merge' : merge, boundary/large case
         'RJ'       : reject match (send both to unmatched logic)
     """
     def __init__(self):
@@ -63,50 +62,57 @@ class MatchRuleTable:
         MC = "MC"
         KA = "KA"
         KB = "KB"
-        MB = "MB_merge"
 
         # Regions:
         # 1 CORE, 2 HIGH, 3 LOW, 4 BND-H, 5 BND-L, 6 CROSS
 
         # Row A=1 (CORE)
         t[(1, 1)] = MC
-        t[(1, 2)] = RJ
+        t[(1, 2)] = KB
         t[(1, 3)] = RJ
         t[(1, 4)] = KA
         t[(1, 5)] = KA
         t[(1, 6)] = KA
 
-        # Row A=2 (HIGH) – all RJ
-        for rb in range(1, 7):
-            t[(2, rb)] = RJ
+        # Row A=2 (HIGH)
+        t[(2, 1)] = RJ
+        t[(2, 2)] = RJ
+        t[(2, 3)] = RJ
+        t[(2, 4)] = RJ
+        t[(2, 5)] = RJ
+        t[(2, 6)] = RJ
 
-        # Row A=3 (LOW) – all RJ
-        for rb in range(1, 7):
-            t[(3, rb)] = RJ
+        # Row A=3 (LOW)
+        t[(3, 1)] = KA
+        t[(3, 2)] = MC
+        t[(3, 3)] = RJ
+        t[(3, 4)] = MC
+        t[(3, 5)] = KA
+        t[(3, 6)] = KA
 
         # Row A=4 (BND-H)
         t[(4, 1)] = KB
-        t[(4, 2)] = RJ
+        t[(4, 2)] = KB
         t[(4, 3)] = RJ
         t[(4, 4)] = KB
-        t[(4, 5)] = MB
+        t[(4, 5)] = MC
         t[(4, 6)] = KB
 
         # Row A=5 (BND-L)
         t[(5, 1)] = KB
-        t[(5, 2)] = RJ
+        t[(5, 2)] = KB
         t[(5, 3)] = RJ
-        t[(5, 4)] = MB
+        t[(5, 4)] = MC
         t[(5, 5)] = KA
         t[(5, 6)] = KA
 
         # Row A=6 (CROSS)
         t[(6, 1)] = KB
-        t[(6, 2)] = RJ
+        t[(6, 2)] = KB
         t[(6, 3)] = RJ
         t[(6, 4)] = KB
-        t[(6, 5)] = KA
-        t[(6, 6)] = MB
+        t[(6, 5)] = MC
+        t[(6, 6)] = MC
 
         return t
 
@@ -118,23 +124,7 @@ class MatchRuleTable:
 class UnmatchedRules:
     """
     Region to decision for unmatched grains.
-    Returns: 'KEEP' or 'REMOVE'.
-
-    For scan A (lower):
-        1 CORE       : KEEP   (stitching error)
-        2 HIGH       : REMOVE (geometry error for lower scan)
-        3 LOW        : KEEP
-        4 BND-HIGH   : REMOVE (A lets B own top-side unmatched)
-        5 BND-LOW    : KEEP   (warning)
-        6 CROSS-BOTH : KEEP   (warning)
-
-    For scan B (higher):
-        1 CORE       : KEEP   (stitching error)
-        2 HIGH       : KEEP
-        3 LOW        : REMOVE (geometry error for higher scan)
-        4 BND-HIGH   : KEEP   (warning)
-        5 BND-LOW    : REMOVE (A owns bottom-side unmatched)
-        6 CROSS-BOTH : KEEP   (warning)
+    Returns: 'KEEP' or 'REMOVE' or 'ERROR'.
     """
     def __init__(self):
         self.rules_A = self._rules_A()
@@ -143,20 +133,20 @@ class UnmatchedRules:
     def _rules_A(self) -> Dict[int, str]:
         """Region → 'KEEP' or 'REMOVE' for unmatched A grains."""
         return {
-            1: "KEEP",   # CORE
-            2: "REMOVE", # HIGH
+            1: "REMOVE", # CORE
+            2: "ERROR", # HIGH
             3: "KEEP",   # LOW
             4: "REMOVE", # BND-HIGH
             5: "KEEP",   # BND-LOW
-            6: "KEEP",   # CROSS-BOTH
+            6: "REMOVE",   # CROSS-BOTH
         }
 
     def _rules_B(self) -> Dict[int, str]:
         """Region → 'KEEP' or 'REMOVE' for unmatched B grains."""
         return {
-            1: "KEEP",   # CORE
+            1: "KEEP", # CORE
             2: "KEEP",   # HIGH
-            3: "REMOVE", # LOW
+            3: "ERROR", # LOW
             4: "KEEP",   # BND-HIGH
             5: "REMOVE", # BND-LOW
             6: "KEEP",   # CROSS-BOTH
@@ -189,6 +179,10 @@ class PairwiseStitcher:
         radius_tolerance: float,
         weights: Dict[str, float],
         min_neighbors: int,
+        debug_log_csv: str | None = None,
+        angle_convention: str = "bunge",
+        angle_type: str = "degrees",
+        symmetry: str = "432",
     ):
         self.A = A
         self.B = B
@@ -210,6 +204,13 @@ class PairwiseStitcher:
 
         self.matched_rules = MatchRuleTable()
         self.unmatched_rules = UnmatchedRules()
+
+        self.debug_log_csv = debug_log_csv
+        self._decision_log = []   # list of dict rows
+
+        self.angle_convention = angle_convention
+        self.angle_type = angle_type
+        self.symmetry = symmetry
 
     def run(self) -> GrainSet:
         """
@@ -234,6 +235,9 @@ class PairwiseStitcher:
             keepA_matched, keepB_matched,
             keepA_unmatched, keepB_unmatched
         )
+
+        if self.debug_log_csv is not None:
+            pd.DataFrame(self._decision_log).to_csv(self.debug_log_csv, index=False)
 
         return result
 
@@ -287,97 +291,92 @@ class PairwiseStitcher:
 
         self.A.df["Region"] = self.region_A
         self.B.df["Region"] = self.region_B
-        
+    
+        for df in (self.A.df, self.B.df):
+            df["Matched_when_merged"] = 0
+            df["Cell"] = ""
+            df["Unmatched_location"] = 1
+
     def _match(self) -> None:
-        """
-        Match grains of B to grains of A using KD-tree neighbor search
-        and linear-sum assignment, following the ScanStitchingComparison
-        algorithm.
-
-        Produces:
-            self.matches      : DataFrame with columns
-                                ['idx_A', 'idx_B',
-                                 'diff_pos_norm2',
-                                 'diff_rad_percentage',
-                                 'diff_ori_norm2']
-            self.unmatched_A  : np.ndarray of indices in A with no valid match
-            self.unmatched_B  : np.ndarray of indices in B with no valid match
-        """
-
         dfA = self.A.df
         dfB = self.B.df
-
         nA = len(dfA)
         nB = len(dfB)
 
         if nA == 0 or nB == 0:
-            # trivial case: nothing to match
-            self.matches = pd.DataFrame(
-                columns=[
-                    "idx_A", "idx_B",
-                    "diff_pos_norm2",
-                    "diff_rad_percentage",
-                    "diff_ori_norm2",
-                ]
-            )
+            self.matches = pd.DataFrame(columns=[
+                "idx_A", "idx_B", "diff_pos_norm2", "diff_rad_percentage", "diff_ori_norm2"
+            ])
             self.unmatched_A = np.arange(nA, dtype=int)
             self.unmatched_B = np.arange(nB, dtype=int)
             return
 
-        # --- build KD-tree on A (target) ---
-        coords_A = dfA[["X", "Y", "Z"]].to_numpy(dtype=float)
+        coords_A = dfA[["X", "Y", "Z"]].to_numpy(float)
+        coords_B = dfB[["X", "Y", "Z"]].to_numpy(float)
+
         tree_A = cKDTree(coords_A)
-
-        # --- source = B, target = A ---
-        coords_B = dfB[["X", "Y", "Z"]].to_numpy(dtype=float)
-
-        k = min(self.min_neighbors, nA)
+        k = min(int(self.min_neighbors), nA)
         dist, idx = tree_A.query(coords_B, k=k, workers=-1)
 
-        # shape handling (k=1 returns 1D arrays from scipy)
         if k == 1:
             dist = dist[:, None]
             idx = idx[:, None]
 
-        # indices for all candidate pairs
-        # s_idx: indices in source (B)
-        # t_idx: indices in target (A)
-        s_idx, n_idx = np.indices(dist.shape)
+        # Flatten candidate edges: (B_s, A_t)
+        s_idx, _ = np.indices(dist.shape)
         s_idx = s_idx.ravel()
         t_idx = idx.ravel()
-        diff_pos = dist.ravel()
+        diff_pos = dist.ravel().astype(float)
 
-        # --- orientation and radius differences ---
-        ori_A = dfA[["Eul0", "Eul1", "Eul2"]].to_numpy(dtype=float)
-        ori_B = dfB[["Eul0", "Eul1", "Eul2"]].to_numpy(dtype=float)
+        ori_A = dfA[["Eul0", "Eul1", "Eul2"]].to_numpy(float)
+        ori_B = dfB[["Eul0", "Eul1", "Eul2"]].to_numpy(float)
+        rad_A = dfA["GrainRadius"].to_numpy(float)
+        rad_B = dfB["GrainRadius"].to_numpy(float)
 
-        rad_A = dfA["GrainRadius"].to_numpy(dtype=float)
-        rad_B = dfB["GrainRadius"].to_numpy(dtype=float)
+        diff_ori_t = misorientation(
+            ori_B[s_idx], ori_A[t_idx],
+            angle_convention=self.angle_convention,
+            angle_type=self.angle_type,
+            symmetry=self.symmetry,
+        )
+        diff_ori = diff_ori_t.detach().cpu().numpy().astype(float)
 
-        # orientation: norm of Euler difference
-        diff_ori = np.linalg.norm(ori_B[s_idx] - ori_A[t_idx], axis=1)
+        diff_rad = np.abs(rad_B[s_idx] - rad_A[t_idx]) / np.maximum(rad_A[t_idx], 1e-14)
 
-        # radius: relative difference wrt target (A)
-        diff_rad = np.abs(rad_B[s_idx] - rad_A[t_idx]) / rad_A[t_idx]
+        w_pos = float(self.weights.get("pos", 1.0))
+        w_ori = float(self.weights.get("ori", 1.0))
+        w_rad = float(self.weights.get("rad", 0.0))
 
-        # --- cost matrix for Hungarian assignment ---
-        w_pos = self.weights.get("pos", 1.0)
-        w_ori = self.weights.get("ori", 0.0)
-        w_rad = self.weights.get("rad", 0.0)
+        ok = np.ones_like(diff_pos, dtype=bool)
 
-        eps = 1e-14
+        use_pos = (w_pos > 0.0) and (self.position_tolerance != -1.0)
+        use_ori = (w_ori > 0.0) and (self.orientation_tolerance != -1.0)
+        use_rad = (w_rad > 0.0) and (self.radius_tolerance != -1.0)
 
-        ptol = self.position_tolerance if self.position_tolerance != 0.0 else eps
-        otol = self.orientation_tolerance if self.orientation_tolerance != 0.0 else eps
-        rtol = self.radius_tolerance if self.radius_tolerance != 0.0 else eps
+        ok = np.ones_like(diff_pos, dtype=bool)
+        if use_pos: ok &= (diff_pos <= self.position_tolerance)
+        if use_ori: ok &= (diff_ori <= self.orientation_tolerance)
+        if use_rad: ok &= (diff_rad <= self.radius_tolerance)
 
-        if ptol < 0 or otol < 0 or rtol < 0:
-            raise ValueError(
-                f"Tolerances must be non-negative; got "
-                f"position_tolerance={self.position_tolerance}, "
-                f"orientation_tolerance={self.orientation_tolerance}, "
-                f"radius_tolerance={self.radius_tolerance}."
-            )
+        s_idx = s_idx[ok]
+        t_idx = t_idx[ok]
+        diff_pos = diff_pos[ok]
+        diff_ori = diff_ori[ok]
+        diff_rad = diff_rad[ok]
+
+        if s_idx.size == 0:
+            self.matches = pd.DataFrame(columns=[
+                "idx_A", "idx_B", "diff_pos_norm2", "diff_rad_percentage", "diff_ori_norm2"
+            ])
+            self.unmatched_A = np.arange(nA, dtype=int)
+            self.unmatched_B = np.arange(nB, dtype=int)
+            return
+
+
+
+        ptol = self.position_tolerance if self.position_tolerance > 0 else 1.0
+        otol = self.orientation_tolerance if self.orientation_tolerance > 0 else 1.0
+        rtol = self.radius_tolerance if self.radius_tolerance > 0 else 1.0
 
         cost = (
             w_pos * (diff_pos / ptol) +
@@ -385,63 +384,64 @@ class PairwiseStitcher:
             w_rad * (diff_rad / rtol)
         )
 
-        # build full cost matrix (source = B, target = A)
-        cost_matrix = np.full((nB, nA), 1e12, dtype=float)
-        cost_matrix[s_idx, t_idx] = cost
+        # --- for each B, pick best A by min cost ---
+        order = np.lexsort((cost, s_idx))
+        s_s = s_idx[order]
+        t_s = t_idx[order]
+        dp_s = diff_pos[order]
+        dr_s = diff_rad[order]
+        do_s = diff_ori[order]
+        c_s  = cost[order]
 
-        row_ind, col_ind = linear_sum_assignment(cost_matrix)
+        best_t = np.full(nB, -1, dtype=int)
+        best_dp = np.full(nB, np.inf, dtype=float)
+        best_dr = np.full(nB, np.inf, dtype=float)
+        best_do = np.full(nB, np.inf, dtype=float)
+        best_c  = np.full(nB, np.inf, dtype=float)
 
-        match_rows = []
+        seenB = np.zeros(nB, dtype=bool)
+        for s, t, dp, dr, do, cc in zip(s_s, t_s, dp_s, dr_s, do_s, c_s):
+            if not seenB[s]:
+                best_t[s] = int(t)
+                best_dp[s] = float(dp)
+                best_dr[s] = float(dr)
+                best_do[s] = float(do)
+                best_c[s]  = float(cc)
+                seenB[s] = True
+
+        chosen_B = np.where(best_t >= 0)[0]
+        chosen_A = best_t[chosen_B]
+        chosen_c = best_c[chosen_B]
+
+        order2 = np.argsort(chosen_c, kind="mergesort")
+        used_A = set()
+        keep = []
+        for j in order2:
+            b = int(chosen_B[j])
+            a = int(chosen_A[j])
+            if a in used_A:
+                continue
+            used_A.add(a)
+            keep.append(b)
+
+        keep = np.array(keep, dtype=int)
+
+        rows = []
         matched_A = set()
         matched_B = set()
-        for s, t in zip(row_ind, col_ind):
+        for b in keep:
+            a = int(best_t[b])
+            rows.append((a, b, float(best_dp[b]), float(best_dr[b]), float(best_do[b])))
+            matched_A.add(a)
+            matched_B.add(b)
 
-            # recover the original diff_pos/diff_rad/diff_ori for this pair
-            mask = (s_idx == s) & (t_idx == t)
-            if not np.any(mask):
-                continue
-
-            dp = diff_pos[mask][0]
-            dr = diff_rad[mask][0]
-            do = diff_ori[mask][0]
-
-            if (
-                (dp > self.position_tolerance) or
-                (do > self.orientation_tolerance) or
-                (dr > self.radius_tolerance)
-            ):
-                continue
-
-            # idx_A = target index (A), idx_B = source index (B)
-            match_rows.append(
-                (int(t), int(s), dp, dr, do)
-            )
-            matched_A.add(int(t))
-            matched_B.add(int(s))
-
-        if match_rows:
-            self.matches = pd.DataFrame(
-                match_rows,
-                columns=[
-                    "idx_A", "idx_B",
-                    "diff_pos_norm2",
-                    "diff_rad_percentage",
-                    "diff_ori_norm2",
-                ],
-            )
-        else:
-            self.matches = pd.DataFrame(
-                columns=[
-                    "idx_A", "idx_B",
-                    "diff_pos_norm2",
-                    "diff_rad_percentage",
-                    "diff_ori_norm2",
-                ]
-            )
+        self.matches = pd.DataFrame(
+            rows,
+            columns=["idx_A", "idx_B", "diff_pos_norm2", "diff_rad_percentage", "diff_ori_norm2"],
+        )
 
         all_A = set(range(nA))
         all_B = set(range(nB))
-
         self.unmatched_A = np.array(sorted(all_A - matched_A), dtype=int)
         self.unmatched_B = np.array(sorted(all_B - matched_B), dtype=int)
 
@@ -451,8 +451,7 @@ class PairwiseStitcher:
 
           - Look up regions: rA, rB
           - Get action from MatchRuleTable:
-              'MC'       : merge (core-core) -- this is the good one
-              'MB_merge' : merge, boundary/large -- this is the warning one
+              'MC'       : merge
               'KA'       : keep A, drop B
               'KB'       : keep B, drop A
               'RJ'       : reject match (both go to unmatched logic)
@@ -479,6 +478,7 @@ class PairwiseStitcher:
         dfA = self.A.df
         dfB = self.B.df
 
+
         for row in self.matches.itertuples(index=False):
             # Expect columns: idx_A, idx_B
             idx_A = int(row.idx_A)
@@ -489,16 +489,50 @@ class PairwiseStitcher:
 
             action = self.matched_rules.action(rA, rB)
 
-            if action in ("MC", "MB_merge"):
+            cell = f"({rA},{rB})"
+
+            outA = "UNKNOWN"
+            outB = "UNKNOWN"
+
+            if action == "MC":
+                outA, outB = "MERGED", "MERGED"
+            elif action == "KA":
+                outA, outB = "KEPT", "REMOVED"
+            elif action == "KB":
+                outA, outB = "REMOVED", "KEPT"
+            elif action == "RJ":
+                outA, outB = "DEFER_UNMATCHED", "DEFER_UNMATCHED"
+
+            self._decision_log.append({
+                "stage": "matched",
+                "idx_A": idx_A, "idx_B": idx_B,
+                "rA": rA, "rB": rB, "cell": cell,
+                "action": action,
+                "outcome_A": outA,
+                "outcome_B": outB,
+            })
+
+            dfA.at[dfA.index[idx_A], "Cell"] = cell
+            dfB.at[dfB.index[idx_B], "Cell"] = cell
+            dfA.at[dfA.index[idx_A], "Unmatched_location"] = 0
+            dfB.at[dfB.index[idx_B], "Unmatched_location"] = 0
+
+            if action == "MC":
+
+                dfA.at[dfA.index[idx_A], "Matched_when_merged"] = 1
+                dfB.at[dfB.index[idx_B], "Matched_when_merged"] = 1
+
                 # Merge: start from A's row and overwrite averaged fields
                 rowA = dfA.iloc[idx_A]
                 rowB = dfB.iloc[idx_B]
 
                 new_row = rowA.copy()
 
-                # average the relevant columns .. to be modified as needed
-                for col in ["X", "Y", "Z", "GrainRadius", "Eul0", "Eul1", "Eul2"]:
-                    new_row[col] = 0.5 * (rowA[col] + rowB[col])
+                new_row["Matched_when_merged"] = 1
+                new_row["Cell"] = cell
+                new_row["Unmatched_location"] = 0
+
+                new_row = merge_properties(new_row, rowA, rowB)
                 # ------------------------------------------------------
 
                 merged_rows.append(new_row)
@@ -554,7 +588,7 @@ class PairwiseStitcher:
             keepA_unmatched : DataFrame of A-grains kept
             keepB_unmatched : DataFrame of B-grains kept
         """
-
+    
         dfA = self.A.df
         dfB = self.B.df
 
@@ -585,9 +619,21 @@ class PairwiseStitcher:
         keepA_indices = []
         for idx in sorted(idx_A_set):
             region = int(self.region_A[idx])
+            dfA.at[dfA.index[idx], "Unmatched_location"] = int(self.region_A[idx])
             decision = self.unmatched_rules.decide("A", region)
+
+            self._decision_log.append({
+                "stage": "unmatched",
+                "which": "A",
+                "idx": int(idx),
+                "region": region,
+                "decision": decision,
+            })
+            
             if decision == "KEEP":
                 keepA_indices.append(idx)
+            if decision == "ERROR":
+                raise RuntimeError(f"Points center locates outside of A's region.")
 
         if keepA_indices:
             keepA_unmatched = dfA.iloc[keepA_indices].copy()
@@ -599,8 +645,20 @@ class PairwiseStitcher:
         for idx in sorted(idx_B_set):
             region = int(self.region_B[idx])
             decision = self.unmatched_rules.decide("B", region)
+            dfB.at[dfB.index[idx], "Unmatched_location"] = int(self.region_B[idx])
+
+            self._decision_log.append({
+                "stage": "unmatched",
+                "which": "B",
+                "idx": int(idx),
+                "region": region,
+                "decision": decision,
+            })
+
             if decision == "KEEP":
                 keepB_indices.append(idx)
+            if decision == "ERROR":
+                raise RuntimeError(f"Points center locates outside of B's region.")
 
         if keepB_indices:
             keepB_unmatched = dfB.iloc[keepB_indices].copy()
@@ -619,7 +677,7 @@ class PairwiseStitcher:
     ) -> GrainSet:
         """
         Construct the new stitched GrainSet from:
-          - merged             (MC, MB_merge results)
+          - merged             (MC)
           - keepA_matched      (KA)
           - keepB_matched      (KB)
           - keepA_unmatched    (unmatched A that we keep)
@@ -664,3 +722,27 @@ class PairwiseStitcher:
             df_new = df_new.drop(columns=["Region"])
 
         return GrainSet(df=df_new, meta=meta_new)
+
+def merge_properties(new_row, rowA, rowB):
+    '''
+    Require columns: ["X", "Y", "Z", "GrainRadius", "Eul0", "Eul1", "Eul2"]
+    '''
+    
+    # --- volumes ---
+    rA = float(rowA["GrainRadius"])
+    rB = float(rowB["GrainRadius"])
+
+    vA = (4.0 / 3.0) * np.pi * rA**3
+    vB = (4.0 / 3.0) * np.pi * rB**3
+    vT = vA + vB
+
+    for col in ["X", "Y", "Z"]:
+        new_row[col] = (vA * rowA[col] + vB * rowB[col]) / vT
+
+    new_row["GrainRadius"] = (3.0 * vT / (4.0 * np.pi)) ** (1.0 / 3.0)
+
+    # orientation, keep one for now
+    for col in ["Eul0", "Eul1", "Eul2"]:
+        new_row[col] = rowA[col]
+
+    return new_row

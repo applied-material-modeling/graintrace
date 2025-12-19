@@ -7,6 +7,7 @@ import shutil
 import numpy as np
 from scipy.spatial import cKDTree
 from scipy.optimize import linear_sum_assignment
+from orientation_helper import misorientation 
 
 class ScanStitchingComparison:
     def __init__(
@@ -18,6 +19,8 @@ class ScanStitchingComparison:
         orientation_tolerance: float = 1,
         radius_tolerance: float = 1,
         orientation_units: str = "degrees",
+        orientation_convention: str = "bunge",
+        symmetry: str = "432",
         weights: dict = {"pos": 1.0, "ori": 0.0, "rad": 0.0},
         min_neighbors: int = 5):
     
@@ -77,6 +80,9 @@ class ScanStitchingComparison:
         self.min_neighbors = min_neighbors
         self.output_dir = os.path.abspath(output_dir)
 
+        self.orientation_convention = orientation_convention
+        self.symmetry = symmetry
+
         os.makedirs(self.output_dir, exist_ok=True)
 
         # placeholders
@@ -107,19 +113,23 @@ class ScanStitchingComparison:
         self.df_stitch = pd.read_csv(self.stitch_csv)
 
         # --- Enforce column order and numeric types ---
-        cols = ["X", "Y", "Z", "GrainRadius", "Eul0", "Eul1", "Eul2"]
-        self.df_true = self.df_true[cols].astype(float)
-        self.df_stitch = self.df_stitch[cols].astype(float)
+        base_cols = ["X", "Y", "Z", "GrainRadius", "Eul0", "Eul1", "Eul2"]
+
+        # keep any extra cols that exist in the CSVs (debug columns, ScanID, etc.)
+        extra_true = [c for c in self.df_true.columns if c not in base_cols]
+        extra_stitch = [c for c in self.df_stitch.columns if c not in base_cols]
+
+        self.df_true = self.df_true[base_cols + extra_true].copy()
+        self.df_stitch = self.df_stitch[base_cols + extra_stitch].copy()
+
+        self.df_true[base_cols] = self.df_true[base_cols].astype(float)
+        self.df_stitch[base_cols] = self.df_stitch[base_cols].astype(float)
 
         # --- Convert Euler angles to radians if specified in degrees ---
         if self.orientation_units == "degrees":
             for col in ["Eul0", "Eul1", "Eul2"]:
                 self.df_true[col] = np.deg2rad(self.df_true[col])
                 self.df_stitch[col] = np.deg2rad(self.df_stitch[col])
-
-        # --- Check for NaN values ---
-        if self.df_true.isnull().any().any() or self.df_stitch.isnull().any().any():
-            raise ValueError("NaN values detected in one or both CSV files.")
 
         # --- Basic console summary ---
         print(f"Loaded {len(self.df_true)} grains from true dataset.")
@@ -175,7 +185,7 @@ class ScanStitchingComparison:
             return pd.DataFrame(
                 columns=[
                     "idx_source", "idx_target",
-                    "diff_pos_norm2", "diff_rad_percentage", "diff_ori_norm2",
+                    "diff_pos_norm2", "diff_rad_percentage", "diff_ori",
                 ]
             )
 
@@ -197,7 +207,16 @@ class ScanStitchingComparison:
         rad_source = source_df["GrainRadius"].to_numpy()
         rad_target = target_df["GrainRadius"].to_numpy()
 
-        diff_ori = np.linalg.norm(ori_source[s_idx] - ori_target[t_idx], axis=1)
+        
+        # diff_ori = np.linalg.norm(ori_source[s_idx] - ori_target[t_idx], axis=1)
+        diff_ori_t = misorientation(
+            ori_source[s_idx], ori_target[t_idx],
+            angle_convention=self.orientation_convention,   # e.g. "kocks"
+            angle_type=self.orientation_units,        # "degrees" or "radians"
+            symmetry=self.symmetry,                   # e.g. "432"
+        )
+        diff_ori = diff_ori_t.detach().cpu().numpy().astype(float)
+        
         diff_rad = np.abs(rad_source[s_idx] - rad_target[t_idx]) / rad_target[t_idx]
 
         # tolerances and weights
@@ -216,43 +235,58 @@ class ScanStitchingComparison:
             w_rad * (diff_rad / rtol)
         )
 
-        cost_matrix = np.full((n_source, n_target), 1e12, dtype=float)
-        cost_matrix[s_idx, t_idx] = cost
+        order = np.lexsort((cost, s_idx))  # group by source, then cost
+        s_s = s_idx[order]
+        t_s = t_idx[order]
+        dp_s = diff_pos[order]
+        dr_s = diff_rad[order]
+        do_s = diff_ori[order]
 
-        row_ind, col_ind = linear_sum_assignment(cost_matrix)
-        valid = cost_matrix[row_ind, col_ind] < np.inf  # always true except degenerate
+        best_t = np.full(n_source, -1, dtype=int)
+        best_dp = np.full(n_source, np.inf)
+        best_dr = np.full(n_source, np.inf)
+        best_do = np.full(n_source, np.inf)
 
-        match_rows = []
-        for s, t, ok in zip(row_ind, col_ind, valid):
-            if ok:
-                mask = (s_idx == s) & (t_idx == t)
-                if np.any(mask):
-                    dp = diff_pos[mask][0]
-                    dr = diff_rad[mask][0]
-                    do = diff_ori[mask][0]
-                    match_rows.append((int(s), int(t), dp, dr, do))
+        seen = np.zeros(n_source, dtype=bool)
+        for s, t, dp, dr, do in zip(s_s, t_s, dp_s, dr_s, do_s):
+            if not seen[s]:
+                best_t[s] = int(t)
+                best_dp[s] = float(dp)
+                best_dr[s] = float(dr)
+                best_do[s] = float(do)
+                seen[s] = True
+
+                rows = []
+
+        rows = [
+            (int(s), int(best_t[s]), best_dp[s], best_dr[s], best_do[s])
+            for s in range(n_source) if best_t[s] >= 0
+        ]
 
         return pd.DataFrame(
-            match_rows,
+            rows,
             columns=[
-                "idx_source", "idx_target",
+                "idx_source",
+                "idx_target",
                 "diff_pos_norm2",
                 "diff_rad_percentage",
-                "diff_ori_norm2",
+                "diff_ori",
             ],
         )
 
-    def _valid_match_mask(self, df_matches, pos_tol=None):
+    def _valid_match_mask(self, df_matches, pos_tol=None, ori_tol=None):
         if df_matches is None:
             raise RuntimeError("Matches not computed.")
 
         pos_tol = pos_tol if pos_tol is not None else self.position_tolerance
+        ori_tol = ori_tol if ori_tol is not None else self.orientation_tolerance
 
         if len(df_matches) == 0:
             return np.zeros(0, dtype=bool)
 
         return (
-            (df_matches["diff_pos_norm2"] <= pos_tol)
+            (df_matches["diff_pos_norm2"] <= pos_tol ) &
+            (df_matches["diff_ori"] <= ori_tol )
         )
 
     def _compute_statistics(self):
@@ -303,10 +337,10 @@ class ScanStitchingComparison:
             "n_splits": len(split_detail),
             "n_merges": len(merge_detail),
             "mean_pos_error": safe_stat(matches_valid["diff_pos_norm2"], np.mean),
-            "mean_ori_error": safe_stat(matches_valid["diff_ori_norm2"], np.mean),
+            "mean_ori_error": safe_stat(matches_valid["diff_ori"], np.mean),
             "mean_rad_error": safe_stat(matches_valid["diff_rad_percentage"], np.mean),
             "max_pos_error": safe_stat(matches_valid["diff_pos_norm2"], np.max),
-            "max_ori_error": safe_stat(matches_valid["diff_ori_norm2"], np.max),
+            "max_ori_error": safe_stat(matches_valid["diff_ori"], np.max),
             "max_rad_error": safe_stat(matches_valid["diff_rad_percentage"], np.max),
         }
 
@@ -332,7 +366,7 @@ class ScanStitchingComparison:
         fig, axes = plt.subplots(3, 1, figsize=(6, 9), tight_layout=True)
         plot_info = [
             ("diff_pos_norm2", "Position Error (length units)"),
-            ("diff_ori_norm2", "Orientation Error (degrees)"),
+            ("diff_ori", "Orientation Error (degrees)"),
             ("diff_rad_percentage", "Radius Error (relative)"),
         ]
 
@@ -354,6 +388,7 @@ class ScanStitchingComparison:
             bounding_box: list | None = None,
             plot: bool = True,
             pos_tol: float | None = None,
+            ori_tol: float | None = None,
             view3D: bool = False
     ):
         """
@@ -374,9 +409,10 @@ class ScanStitchingComparison:
             raise RuntimeError("Matches not computed. Run _match_grains() first.")
 
         pos_tol = pos_tol or self.position_tolerance
+        ori_tol = ori_tol or self.orientation_tolerance
 
         # --- Identify unmatched grains ---
-        valid_mask = self._valid_match_mask(self.matches, pos_tol)
+        valid_mask = self._valid_match_mask(self.matches, pos_tol, ori_tol)
 
         matched_true = set(self.matches.loc[valid_mask, "idx_target"])
         matched_stitch = set(self.matches.loc[valid_mask, "idx_source"])
@@ -464,7 +500,7 @@ class ScanStitchingComparison:
                 if len(df_unmatched_true) > 0:
                     ax3.scatter(df_unmatched_true["X"], df_unmatched_true["Y"], df_unmatched_true["Z"], c="red", s=8, label="True")
                 if len(df_unmatched_stitch) > 0:
-                    ax3.scatter(df_unmatched_stitch["X"], df_unmatched_stitch["Y"], df_unmatched_stitch["Z"], c="blue", s=8, label="Stitch")
+                   ax3.scatter(df_unmatched_stitch["X"], df_unmatched_stitch["Y"], df_unmatched_stitch["Z"], c="blue", s=8, label="Stitch")
 
                 # Bounding box (3D)
                 for s, e in [

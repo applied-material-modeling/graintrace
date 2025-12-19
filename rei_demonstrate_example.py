@@ -105,7 +105,7 @@ def generate_layered_vms_csv(
 nx = 30
 ny = 30
 
-threshold = 0.25
+threshold = 0.01
 radius_elements_range = (2, 5)
 
 print("Generating synthetic VMS data...")
@@ -126,17 +126,24 @@ print("Running clustering analysis...")
 
 ## perform clustering
 indicator = ClusterAnalysisIndicator("testing_during_code_not_upload_to_github/synthetic_vms.csv")
-metric_lib = SimilarityMetricLibrary()
 
+metric_lib = SimilarityMetricLibrary()
 spec = metric_lib.von_mises_stress()
 
-result, linkage = indicator.run(
-    method_type="scipy_hierarchical",
-    spec=spec,
-    threshold=threshold,
-    method = "average",
-    criterion = "distance",
-    depth = 10,
+# result, linkage = indicator.run(
+#     method_type="scipy_hierarchical",
+#     spec=spec,
+#     threshold=threshold,
+#     method = "average",
+#     criterion = "distance",
+# )
+
+result = indicator.run(
+    method_type = "sklearn_dbscan",
+    spec = spec,
+    eps = 0.01,
+    min_samples = 2,
+    leaf_size = 10,
 )
 
 print("Plotting results...")
@@ -218,6 +225,8 @@ plt.savefig(
 plt.close()
 ### ------------------------------------------------------------- ###
 
+gfsd
+
 ### ------------------- Plotting MDS ----------------------------- ###
 fig, ax = plt.subplots(figsize=(6, 3))
 X_1d = result["mds_1d"].to_numpy()
@@ -268,7 +277,6 @@ ax_dend    = fig.add_subplot(gs[1, :])   # bottom, spans both columns
 im0 = ax_vm.imshow(vm_grid, origin="lower", aspect="equal", cmap="viridis")
 ax_vm.set_title("Von Mises Stress")
 fig.colorbar(im0, ax=ax_vm, fraction=0.046, pad=0.04)
-
 
 
 dinfo = dendrogram(linkage, color_threshold=threshold, ax=ax_dend, no_labels=True)
