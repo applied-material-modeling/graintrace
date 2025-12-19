@@ -9,3 +9,5 @@ log.out
 tmp*
 hedm_study/
 hedm_demonstrate/
+test_moose_*/
+cpfe_ff_nf_demonstrate/
