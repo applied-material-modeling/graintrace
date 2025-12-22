@@ -418,7 +418,7 @@ class SyntheticHEDMGenerator:
             [ymin, ymin, ymax, ymax, ymin],
             color='red',
         )
-        axs[0].scatter(X, Y, s=5,color='black')
+        axs[0].scatter(X, Y, s=10,color='black')
         
         axs[0].set_aspect("equal")
         axs[0].set_xlabel("X")
@@ -430,7 +430,7 @@ class SyntheticHEDMGenerator:
             [zmin, zmin, zmax, zmax, zmin],
             color='red',
         )
-        axs[1].scatter(X, Z, s=5,color='black')
+        axs[1].scatter(X, Z, s=10,color='black')
 
         axs[1].set_xlabel("X")
         axs[1].set_ylabel("Z")
