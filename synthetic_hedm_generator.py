@@ -366,25 +366,48 @@ class SyntheticHEDMGenerator:
 
         return out
 
-    def _write_nf_layer_csv(self, layer_idx, vertices_xy, eulers):
-        """
-        Write one NF layer file:
-          output_dir/NF/layer_{layer_idx:03d}.csv
+    def _write_nf_layer_csv(
+        self,
+        layer_idx: int,
+        vertices_xy,
+        eulers,
+        *,
+        tri_edge_size: float = 5.0,
+        num_phases: int = 1,
+        global_position: float = 0.0,
+        nr_matches: float = 1.0,
+        run_time: float = 0.1,
+        updown: float = -1.0,
+        confidence: float = 0.05,
+        phase_nr: int = 1,
+    ) -> str:
 
-        Columns:
-          X, Y, Eul1, Eul2, Eul3
-        """
         out_path = os.path.join(self.nf_dir, f"layer_{layer_idx:03d}.csv")
 
-        df = pd.DataFrame({
-            "X": vertices_xy[:, 0],
-            "Y": vertices_xy[:, 1],
-            "Eul1": eulers[:, 0],
-            "Eul2": eulers[:, 1],
-            "Eul3": eulers[:, 2],
-        })
+        n = vertices_xy.shape[0]
+        df = pd.DataFrame(
+            {
+                "%OrientationRowNr": np.arange(1, n + 1, dtype=float),
+                "NrMatches": np.full(n, nr_matches, dtype=float),
+                "RunTime": np.full(n, run_time, dtype=float),
+                "X": vertices_xy[:, 0].astype(float),
+                "Y": vertices_xy[:, 1].astype(float),
+                "TriEdgeSize": np.full(n, tri_edge_size, dtype=float),
+                "UpDown": np.full(n, updown, dtype=float),
+                "Eul1": eulers[:, 0].astype(float),
+                "Eul2": eulers[:, 1].astype(float),
+                "Eul3": eulers[:, 2].astype(float),
+                "Confidence": np.full(n, confidence, dtype=float),
+                "PhaseNr": np.full(n, phase_nr, dtype=int),
+            }
+        )
 
-        df.to_csv(out_path, index=False)
+        with open(out_path, "w", encoding="utf-8") as f:
+            f.write(f"%TriEdgeSize {tri_edge_size:.6f}\n")
+            f.write(f"%NumPhases {int(num_phases)}\n")
+            f.write(f"%GlobalPosition {global_position:.6f}\n")
+            df.to_csv(f, sep="\t", index=False)
+
         return out_path
 
     def _nf_visualize(self):

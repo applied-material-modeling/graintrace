@@ -105,6 +105,7 @@ def flood(
                     front = torch.empty((0, 3), dtype=torch.long)
 
             size_current = torch.sum(phase == current_segment).item()
+            
             if size_current < grain_threshold:
                 # Remove small segments
                 phase[phase == current_segment] = -1
@@ -188,7 +189,7 @@ def infill_nearest_neighbor(grid, connectivity=6):
                         neighbor_z[first_filled_idx, idx],
                     )
                     # Copy all attributes from the neighbor
-                    grid[x, y, z] = grid[nx, ny, nz]
+                    grid[x, y, z, 0:4] = grid[nx, ny, nz, 0:4]
 
             pbar.update(voxels_to_fill.shape[0])
 
@@ -265,6 +266,6 @@ def remove_small_segments(grid, min_size, connectivity=6):
                 if target_x.shape[0] > 0:
                     # Copy attributes from first voxel of target segment to all voxels of small segment
                     target_values = grid[target_x[0], target_y[0], target_z[0]].clone()
-                    grid[seg_x, seg_y, seg_z] = target_values
+                    grid[seg_x, seg_y, seg_z, 0:4] = target_values[0:4]
 
     return grid

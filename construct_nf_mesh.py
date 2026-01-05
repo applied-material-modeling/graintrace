@@ -15,10 +15,10 @@ class NearFieldMeshBuilder:
     DEFAULT_SEGMENTATION: Dict[str, Any] = {
         "misorientation_tol": 5.0 / 180.0 * np.pi,  # radians
         "connectivity": 26,
-        "batch_norm": 200_000,
-        "grain_threshold": 1_000,
+        "batch_norm": 1000,
+        "grain_threshold": 100,
         "stop_count": 500,
-        "grain_threshold_final": 10_000,
+        "grain_threshold_final": 1000,
     }
 
     DEFAULT_SCULPT_OPTIONS: Sequence[str] = (
@@ -35,7 +35,7 @@ class NearFieldMeshBuilder:
         "0",
     )
 
-    REQUIRED_SCULPT_KEYS = ("mpirun", "psculpt", "epu", "nprocs")
+    REQUIRED_SCULPT_KEYS = ("psculpt", "epu", "nprocs")
 
     def __init__(
         self,
@@ -153,7 +153,7 @@ class NearFieldMeshBuilder:
     ) -> Path:
         """
         Inputs:
-          - input_folder containing *.mic
+          - input_folder containing *.mic or *.csv
           - dz, nx, ny
           - segmentation dict (optional; merged with defaults)
 
@@ -196,6 +196,7 @@ class NearFieldMeshBuilder:
 
         # 3) segmentation
         grid_t = torch.from_numpy(fixed_grid)
+
         grid_t[..., 0] = segment.flood(
             grid_t[..., 1:4],
             grid_t[..., 0],
@@ -267,6 +268,8 @@ class NearFieldMeshBuilder:
         )
 
         data = self._load_grid(grid_path)
+
+        print("\n")
 
         # write SPN + per-grain orientations
         mesh.write_spn(

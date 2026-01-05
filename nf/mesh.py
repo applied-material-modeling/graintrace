@@ -31,11 +31,11 @@ def write_spn(
         angle_type (str): 'degrees' or 'radians' (default: 'radians')
         symmetry (str): crystal symmetry in orbifold notation (default: '1')
     """
-
     flat_data = data.reshape(-1, 7)
     phases = torch.sort(torch.unique(flat_data[:, 0])).values[
         1:
     ]  # Exclude void phase (0)
+
     orientations = torch.zeros((len(phases), 3))
     for i, phase in tqdm.tqdm(
         enumerate(phases), total=len(phases), desc="Calculating grain orientations"
@@ -87,7 +87,7 @@ def mesh_sculpt(
     abs_path_spn = os.path.abspath(input_spn)
     with tempfile.TemporaryDirectory() as tmpdir:
         sclupt_call = [
-            sculpt_config["mpirun"],
+            "mpirun" if "mpirun" not in sculpt_config else sculpt_config["mpirun"],
             "-np",
             str(sculpt_config["nprocs"]),
             sculpt_config["psculpt"],

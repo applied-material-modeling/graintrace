@@ -12,13 +12,41 @@ from vtkmodules.vtkIOLegacy import vtkStructuredGridWriter
 from vtk.util import numpy_support
 
 import tqdm
+import os
+import re
 
-layer_number = lambda x: int(
-    os.path.splitext(os.path.basename(x))[0].split("layer")[-1]
-)
+def layer_number(path: str, token: str = "layer") -> int:
+    """
+    Extract layer index from a filename.
+
+    Accepts patterns like:
+      - ...layer7...
+      - ...layer_007...
+      - ...layer-12...
+      - ...layer 003...
+      - ...LAYER_4...
+
+    Args:
+        path: file path
+        token: substring that precedes the layer number (default "layer")
+
+    Returns:
+        int layer index
+
+    Raises:
+        ValueError if no layer number can be found.
+    """
+    name = os.path.splitext(os.path.basename(path))[0]
+
+    # Look for: token + optional separators + digits
+    m = re.search(rf"(?i){re.escape(token)}[\s_\-]*([0-9]+)", name)
+    if not m:
+        raise ValueError(f"Could not parse layer number from filename: {path}")
+
+    return int(m.group(1))
 
 
-def nf_to_pointcloud(folder, dz):
+def nf_to_pointcloud(folder, dz, layer_token="layer"):
     """
     Convert nearfield data to point cloud format.
 
@@ -37,21 +65,19 @@ def nf_to_pointcloud(folder, dz):
     else:
         raise FileNotFoundError("No .mic or .csv files found in the specified folder")
 
-    layers = list(map(layer_number, files))
+    layers = [layer_number(f, token=layer_token) for f in files]
     min_layer = min(layers)
     max_layer = max(layers)
     if layers != list(range(min_layer, max_layer + 1)):
-        raise ValueError("Missing layers in nearfield data")
+        raise ValueError(f"Missing layers in nearfield data. Found: {layers[:10]}...")
 
     dfs = []
+    print("\n")
     for i, f in tqdm.tqdm(enumerate(files), total=len(files), desc="Reading layers"):
-        df = pd.read_csv(f, skiprows=3, sep="\s+", header=0)
+        df = pd.read_csv(f, skiprows=3, sep="\\s+", header=0)
         df = df.rename(columns={"%OrientationRowNr": "OrientationRowNr"})
         df["Z"] = i * dz
         df["layer"] = i
-
-        if "phase" not in df.columns:
-            df["phase"] = 1
 
         dfs.append(df)
 

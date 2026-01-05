@@ -3,6 +3,7 @@ from construct_nf_mesh import NearFieldMeshBuilder
 import os
 import matplotlib.pyplot as plt
 import sys
+import numpy as np
 
 fsize = 14
 plt.rcParams.update({
@@ -24,7 +25,34 @@ nf_bounding_box = [-200, 200, -200, 200, -200, 200]
 
 crystal_morpho_args = {"type": "diameq", 
                        "distribution": "lognormal",
-                         "params": (500.0, 5.0)}
+                         "params": (200.0, 5.0)}
+
+nf_dz = 50.0  # Near field dz (thickness) per layer
+nf_mesh_nx = 30
+nf_mesh_ny = 30
+
+nf_segmentation_input = {
+        "misorientation_tol": 1.0/180*np.pi,
+        "connectivity": 26,
+        "batch_norm": 200_000,
+        "grain_threshold": 10,
+        "stop_count": 500,
+        "grain_threshold_final": 10,
+    }
+
+sculpt_options = (
+    "--adapt",
+    # "-A",
+    # "7",
+    #"-df",
+    #"1",
+    "-S",
+    "2",
+    "-CS",
+    "4",
+    "--void_mat",
+    "0",
+    )
 
 ## GENERATE SYNTHETIC FF + NF STRUCTURE ------------------------
 synth_hedm_gen = SyntheticHEDMGenerator(
@@ -33,8 +61,8 @@ synth_hedm_gen = SyntheticHEDMGenerator(
     ff_strain_stdev=ff_strain_stdev, 
     ff_grain_characteristics=crystal_morpho_args,
     nf_bounding_box=nf_bounding_box,
-    nf_dz = 50,
-    nf_spacing = 50,
+    nf_dz = nf_dz,
+    nf_spacing = 50, #lattice spacing
     random_seed=42,
 )
 
@@ -43,63 +71,44 @@ synth_hedm_gen.run(ff_iterations=10)
 
 ## NEAR FIELD MESHING -------------------------------------------
 
-## make sure to communicate the correct spacing and information
-nf_folder = os.path.join(output_dir, "NF")          # "cpfe_ff_nf_demonstrate/NF"
-save_dir = os.path.join(output_dir, "nf_pipeline")  # dump ALL artifacts here
+nf_folder = os.path.join(output_dir, "NF")          
+save_dir = os.path.join(output_dir, "nf_reconstruction") 
 
 builder = NearFieldMeshBuilder(
     input_folder=nf_folder,
     save_dir=save_dir,
     angle_convention="bunge",
-    angle_type="radians",
+    angle_type="degrees",
     symmetry="432",
     prefix="reconstructed",
     write_intermediate=True,
     write_vtk=True,
 )
 
-# --- Stage 1: reconstruct (writes merged_segmented_fixed_grid.npy into save_dir) ---
 merged_grid_path = builder.reconstruct(
-    dz=50.0,      # must match your SyntheticHEDMGenerator nf_dz
-    nx=300,
-    ny=300,
-    segmentation={
-        # keep defaults unless you want to override:
-        # "misorientation_tol": 5.0/180*np.pi,
-        # "connectivity": 26,
-        # "batch_norm": 200_000,
-        # "grain_threshold": 1_000,
-        # "stop_count": 500,
-        # "grain_threshold_final": 10_000,
-    },
-)
-print(f"[OK] Reconstruction complete: {merged_grid_path}")
+    dz=nf_dz,      # must match your SyntheticHEDMGenerator nf_dz
+    nx=nf_mesh_nx,
+    ny=nf_mesh_ny,
+    segmentation=nf_segmentation_input,
 
-# --- Stage 2: mesh (requires Sculpt installed + correct paths) ---
-# IMPORTANT: You must set these paths for your machine. If you don’t have Sculpt,
-# comment this section out and you can still validate reconstruction outputs.
+)
+print(f"\nReconstruction complete: {merged_grid_path}\n")
+
 sculpt_config = {
-    "mpirun": "/Applications/Coreform-Cubit-2024.8.app/Contents/mpi/bin/mpirun",
-    "psculpt": "/Applications/Coreform-Cubit-2024.8.app/Contents/lib/../MacOS/psculpt",
-    "nprocs": 12,
+    "mpirun": "/opt/Coreform-Cubit-2025.12/bin/mpi/bin/mpirun",
+    "psculpt": "/opt/Coreform-Cubit-2025.12/bin/psculpt",
+    "epu": "/opt/Coreform-Cubit-2025.12/bin/epu",
+    "nprocs": 4,
     "environment": {
-        "OPAL_LIBDIR": "/Applications/Coreform-Cubit-2024.8.app/Contents/lib/../mpi/lib",
-        "OPAL_PREFIX": "/Applications/Coreform-Cubit-2024.8.app/Contents/lib/../mpi",
+        "OPAL_LIBDIR": "/opt/Coreform-Cubit-2025.12/bin/mpi/lib",
+        "OPAL_PREFIX": "/opt/Coreform-Cubit-2025.12/bin/mpi",
     },
-    "epu": "/Applications/Coreform-Cubit-2024.8.app/Contents/lib/../MacOS/epu",
 }
 
-try:
-    mesh_path = builder.mesh(
-        sculpt_config=sculpt_config,
-        # sculpt_options=None uses builder defaults
-        merged_grid=merged_grid_path,  # explicit restart-safe input
-    )
-    print(f"[OK] Meshing complete: {mesh_path}")
-    print(f"[OK] Mapped orientations: {builder.mapped_orientations_path}")
-except FileNotFoundError as e:
-    raise
-except Exception as e:
-    # Hard failure is correct; this makes it obvious if Sculpt/MPI isn't configured.
-    print("[FAIL] Meshing did not run. This is expected if Sculpt/MPI paths are incorrect.")
-    raise
+mesh_path = builder.mesh(
+    sculpt_config=sculpt_config,
+    sculpt_options=sculpt_options,
+    merged_grid=merged_grid_path,  # explicit restart-safe input
+)
+print(f"Meshing complete: {mesh_path}")
+print(f"Mapped orientations: {builder.mapped_orientations_path}")
