@@ -42,6 +42,7 @@ class CPFESimulation:
                 mesh_file,
                 save_simulation_folder,
                 moose_run_file,
+                element_order="SECOND",
                 eeres_file=None, 
                 ori_file=None,
                 dim=3):
@@ -71,7 +72,12 @@ class CPFESimulation:
             raise ValueError(f"Invalid dimension {dim}. Must be 2 or 3.")
         self.dim = dim
 
+        if element_order not in ("FIRST", "SECOND"):
+            raise ValueError(f"Invalid element_order {element_order}. Must be 'FIRST' or 'SECOND'.")
+
+        self.element_order = element_order
         self.params = copy.deepcopy(self.DEFAULT_PARAMS)
+        self.ncell_nf = None
 
     def set_parameters(self, section, **kwargs):
         if section not in self.params:
@@ -159,13 +165,13 @@ class CPFESimulation:
                 f.write("    []\n")
 
             # User-defined BCs
+            coupled_bcs = []
+
             for axis in ("x", "y", "z") if self.dim == 3 else ("x", "y"):
                 for side in ("negative", "positive"):
                     val = b["bc"][axis][side]
                     if val == "stress_free":
                         continue
-
-                    label = f"{axis}_{side}"
                     boundary_name = {
                         ("x", "negative"): "left",
                         ("x", "positive"): "right",
@@ -173,47 +179,49 @@ class CPFESimulation:
                         ("y", "positive"): "top",
                         ("z", "negative"): "back",
                         ("z", "positive"): "front",
-                    }.get((axis, side), label)
+                    }[(axis, side)]
 
-                    # Case 1: zero BC
-                    if val == "0" or (isinstance(val, (int, float)) and abs(val) < 1e-15):
+                    # Zero BC
+                    if abs(val) < 1e-15:
                         f.write(f"    [{boundary_name}_boundary]\n")
                         f.write("        type = DirichletBC\n")
                         f.write(f"        variable = disp_{axis}\n")
                         f.write(f"        boundary = {boundary_name}\n")
                         f.write("        value = 0\n")
                         f.write("    []\n")
+                        continue
 
-                    # Case 2: nonzero numeric BC (ramped)
-                    elif isinstance(val, (int, float)):
-                        coupled_axes.add(axis)
-                        coupled_boundaries.append((axis, boundary_name))
-                        f.write("    # only turn on during the loading state\n")
-                        f.write(f"    [{boundary_name}_boundary]\n")
-                        f.write("        type = CoupledDirichletBC\n")
-                        f.write(f"        variable = disp_{axis}\n")
-                        f.write(f"        boundary = {boundary_name}\n")
-                        f.write(f"        coupled_variable = disp_{axis}_residual\n")
-                        f.write(f"        function = ramping_load_{axis}\n")
-                        f.write("        enable = false\n")
-                        f.write("    []\n")
-                        f.write("    #\n")
+                    # Nonzero numeric BC (ramped) — PER BOUNDARY
+                    func_name = f"ramping_load_{axis}_{boundary_name}"
+                    coupled_axes.add(axis)
+                    coupled_bcs.append((axis, boundary_name, float(val)))
+
+                    f.write("    # only turn on during the loading state\n")
+                    f.write(f"    [{boundary_name}_boundary]\n")
+                    f.write("        type = CoupledDirichletBC\n")
+                    f.write(f"        variable = disp_{axis}\n")
+                    f.write(f"        boundary = {boundary_name}\n")
+                    f.write(f"        coupled_variable = disp_{axis}_residual\n")
+                    f.write(f"        function = {func_name}\n")
+                    f.write("        enable = false\n")
+                    f.write("    []\n")
+                    f.write("    #\n")
 
             f.write("[]\n\n")
 
             # [Functions] — per-axis ramping functions
             f.write("[Functions]\n")
-            for axis in sorted(coupled_axes):
-                total_disp_key = f"total_disp_{axis}"
-                total_disp_val = sim.get(total_disp_key, 0.0)
-                f.write(f"    [ramping_load_{axis}]\n")
+            for axis, boundary_name, val in coupled_bcs:
+                func_name = f"ramping_load_{axis}_{boundary_name}"
+                f.write(f"    [{func_name}]\n")
                 f.write("        type = ParsedFunction\n")
                 f.write(
-                    f"        expression = 'if(t <= {sim['initialize_time']:.12g}, 0, "
+                    "        expression = "
+                    f"'if(t <= {sim['initialize_time']:.12g}, 0, "
                     f"if(t < {sim['total_time']:.12g}, "
-                    f"{total_disp_val:.12g} * (t - {sim['initialize_time']:.12g}) / "
+                    f"{val:.12g} * (t - {sim['initialize_time']:.12g}) / "
                     f"({sim['total_time']:.12g} - {sim['initialize_time']:.12g}), "
-                    f"{total_disp_val:.12g}))'\n"
+                    f"{val:.12g}))'\n"
                 )
                 f.write("    []\n")
             f.write("[]\n\n")
@@ -222,7 +230,7 @@ class CPFESimulation:
             f.write("[AuxVariables]\n")
             for axis in sorted(coupled_axes):
                 f.write(f"    [disp_{axis}_residual]\n")
-                f.write("        order = SECOND\n")
+                f.write(f"        order = {self.element_order}\n")
                 f.write("        family = LAGRANGE\n")
                 f.write("    []\n")
             f.write("[]\n\n")
@@ -245,8 +253,8 @@ class CPFESimulation:
             f.write(f"        start_time = {sim['initialize_time']:.12g}\n")
             f.write(f"        end_time = {sim['total_time']:.12g}\n")
 
-            enable_objs = [f"BCs::{bname}_boundary" for _, bname in coupled_boundaries]
-            disable_objs = [f"AuxKernels::disp_{axis}_residual" for axis, _ in coupled_boundaries]
+            enable_objs = [f"BCs::{bname}_boundary" for _, bname, _ in coupled_bcs]
+            disable_objs = [f"AuxKernels::disp_{axis}_residual" for axis, _, _ in coupled_bcs]
 
             f.write(f"        enable_objects = '{' '.join(enable_objs)}'\n")
             f.write(f"        disable_objects = '{' '.join(disable_objs)}'\n")
@@ -273,6 +281,9 @@ class CPFESimulation:
 
             self.eeres_file = ee_file
         else:
+            # read self.eeres_file and count number of lines using pandas
+            df = pd.read_csv(self.eeres_file, sep=r"[,\s]+", engine="python", header=None)
+            self.ncell_nf = df.shape[0]
             shutil.copy(self.eeres_file, self.save_simulation_folder / Path(self.eeres_file).name)
 
         # --- Generate strain_postprocessor.i ---
@@ -305,18 +316,32 @@ class CPFESimulation:
     
     def write_orientation_file(self):
 
-        df = pd.read_csv(self.ori_file, sep=r"\s+", header=None, engine="python")
+        df = pd.read_csv(self.ori_file, sep=r"[,\s]+", engine="python", header=None)
         # df = df.apply(pd.to_numeric, errors="coerce")
 
-        mrps = load_orientations(df, field=None)  # existing helper untouched
+        # if df has 9 columnes
+        if df.shape[1] == 9:
 
-        np.savetxt(
-            self.save_simulation_folder / "mrps_orientation.csv",
-            mrps.numpy(),
-            delimiter=",",
-            comments="",
-            fmt="%.12g",
-        )
+            mrps = load_orientations(df, field=None)  # existing helper untouched
+
+            np.savetxt(
+                self.save_simulation_folder / "mrps_orientation.csv",
+                mrps.numpy(),
+                delimiter=",",
+                comments="",
+                fmt="%.12g",
+            )
+        # do nothing if 3 columns, otherwise raise error
+        elif df.shape[1] == 3:
+            import torch
+            shutil.copy(
+                self.ori_file,
+                self.save_simulation_folder / "mrps_orientation.csv"
+            )
+            mrps = torch.tensor(df.values, dtype=torch.float32)
+        else:
+            raise ValueError("Orientation file must have either 3 (MRPs) or 9 (rotation matrix) columns.")
+
         return mrps.shape[0]
 
     def run(self, ncore=8):
@@ -356,6 +381,7 @@ class CPFESimulation:
         self.write_strain_postprocess_file(ncell=ncells)
 
         # Build command for subprocess
+        vol_correction_cond = "true" if self.element_order == "FIRST" else "false"
         log_path = self.save_simulation_folder / "cpfe_run.log"
         argv = [
             "nohup",
@@ -370,7 +396,8 @@ class CPFESimulation:
             "orientation_file=mrps_orientation.csv",
             f"mesh_file={self.mesh_file.name}",
             f"residual_strain_file={self.eeres_file.name}",
-            f"ncell={ncells:.12g}",
+            f"ncell_ff={ncells:.12g}",
+            f"ncell_nf={self.ncell_nf:.12g}",
             f"base_folder={self.params['simulation_parameters']['base_folder']}",
             f"dt={self.params['simulation_parameters']['dt']:.12g}",
             f"total_time={self.params['simulation_parameters']['total_time']:.12g}",
@@ -389,6 +416,7 @@ class CPFESimulation:
             f"yroll_x={yroll_x:.12g}",
             f"yroll_y={yroll_y:.12g}",
             f"yroll_z={yroll_z:.12g}",
+            f"vol_lock_correction_cond={vol_correction_cond}",
         ]
 
         # Run the simulation with persistent background process
@@ -404,6 +432,7 @@ class CPFESimulation:
                 stderr=subprocess.STDOUT,
                 text=True
             )
+            proc.wait()
 
         if proc.returncode != 0:
             print(f"ERROR: CPFE simulation failed with exit code {proc.returncode}", file=sys.stderr)

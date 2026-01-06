@@ -24,14 +24,14 @@
         input = side_sets
         new_boundary = 'fixnode'
         coord = '${fixnode_x} ${fixnode_y} ${fixnode_z}'
-        tolerance = 1e-6
+        tolerance = 1e-4
     []
     [node_sets_yroll]
         type = ExtraNodesetGenerator
         input = node_sets_fixnode
         new_boundary = 'yrollnode'
         coord = '${yroll_x} ${yroll_y} ${yroll_z}'
-        tolerance = 1e-6
+        tolerance = 1e-4
     []
 []
 
@@ -44,7 +44,7 @@
                 add_variables = true
                 formulation = TOTAL
                 eigenstrain_names = 'residual_strain'
-                volumetric_locking_correction = false # use high-order elements instead
+                volumetric_locking_correction = ${vol_lock_correction_cond}
                 generate_output = 'cauchy_stress_xx  cauchy_stress_yy  cauchy_stress_zz 
                                    cauchy_stress_yz  cauchy_stress_xz  cauchy_stress_xy
                                    strain_xx         strain_yy         strain_zz
@@ -124,7 +124,7 @@
     l_max_its = 100
 
     end_time = ${total_time}
-    dtmax = '${fparse dt}'
+    dtmax = '${fparse 10*dt}'
 
     [TimeStepper]
         type = IterationAdaptiveDT

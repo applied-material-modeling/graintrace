@@ -35,7 +35,7 @@ class SyntheticHEDMGenerator:
         self.generate_nf()
 
         # Diagnostics
-        print(f"NF bounding box is updated to: {self.nf_bounding_box}")
+        print(f"NF bounding box is updated to: {self.nf_bounding_box.tolist()}")
 
         # Count total NF points (same XY reused across layers)
         vertices_xy = self._build_nf_hex_vertex_lattice()

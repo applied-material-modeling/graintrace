@@ -787,6 +787,7 @@ class VoronoiMeshBuilder:
             print(f"\nCentroid-size tessellation ({self.dim}D): combined coordinate+size input.")
         elif option == "centroid":
             morpho_args = ["-morpho", f"centroid:file({input_path})",
+                           "-morphooptiini", "coo:LLLFP2011",
                            "-morphooptistop", f"iter={CVT_iter}",
                            "-morphooptialgo", morphoalgo]
             print(f"\nCentroid tessellation ({self.dim}D): only coordinate input. Weighted option will be ignored.")
@@ -808,12 +809,12 @@ class VoronoiMeshBuilder:
             ]
             print(f"\nUnweighted tessellation ({self.dim}D): standard Poisson-Voronoi.")
 
-        tess_name = os.path.join(self.output_dir, "voronoi")
+        tess_name = os.path.join(self.output_dir, "reconstruction")
 
         neper_cmd = [
             "neper", "-T",
             "-n", str(len(df)),
-            "-reg", str(1),
+            # "-reg", str(1),
             "-dim", str(self.dim),
             "-domain", domain_arg,
             "-oridescriptor", "rotmat",
@@ -835,7 +836,7 @@ class VoronoiMeshBuilder:
                 neper_cmd,
                 check=True,
                 env=self.env,
-                stdout=logf,
+                #stdout=logf,
                 stderr=subprocess.STDOUT,
             )
 
@@ -1087,7 +1088,6 @@ class VoronoiMeshBuilder:
         ee_file = Path(self.output_dir) / (base.name + ".ee")
 
         if self.elastic_strain_id is not None and hasattr(self, "data") and not self.data.empty:
-            
             strain_data = self.data[self.elastic_strain_id].to_numpy(dtype=float)
         else:
             strain_data = np.zeros((num_cells, 9), dtype=float)
@@ -1098,6 +1098,14 @@ class VoronoiMeshBuilder:
                 f.write(" ".join(f"{v:.8e}" for v in row) + "\n")
         
         print(f"Exported elastic strain tensors to {ee_file}\n")
+
+        # --- Write .csv file for MOOSE ---
+        df_strain = pd.read_csv(ee_file, sep=r"\s+", header=None)
+        moose_file = Path(self.output_dir) / (base.name + "_cpfe_ee.csv")
+        moose_dat = df_seed[["x_seed", "y_seed", "z_seed"]].copy()
+        moose_dat = pd.merge(moose_dat, df_strain, left_index=True, right_index=True)
+        moose_dat.to_csv(moose_file, sep=",", index=False, header=False)
+            
 
     def evaluate_output_voronoi(self, tess_file: str, length_norm: bool = False):
         """

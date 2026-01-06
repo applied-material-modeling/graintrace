@@ -30,9 +30,9 @@ def average_rotations(e, angle_convention="kocks", angle_type="radians"):
 
     new_R = tensors.Rot.fill_matrix(tensors.Quaternion(new_Q).rotation_matrix())
 
-    new_eulers = new_R.to_euler_angles(angle_convention, angle_type).torch()
+    new_eulers = new_R.to_euler_angles(angle_convention, angle_type)
 
-    return new_eulers
+    return new_R.torch(), new_eulers.torch()
 
 
 def batched_norm(v1, v2, norm, chunk_size, **kwargs):

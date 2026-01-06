@@ -49,7 +49,7 @@ class NearFieldMeshBuilder:
         write_intermediate: bool = True,
         write_vtk: bool = True,
         default_mesh_filename: str = "mesh.e",
-        default_mapped_orientations_filename: str = "orientations.txt",
+        default_mapped_orientations_filename: str = "orientations",
     ) -> None:
         
         self.input_folder = Path(input_folder)

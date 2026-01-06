@@ -37,6 +37,7 @@ def write_spn(
     ]  # Exclude void phase (0)
 
     orientations = torch.zeros((len(phases), 3))
+    orientations_sameconv = torch.zeros((len(phases), 3))
     for i, phase in tqdm.tqdm(
         enumerate(phases), total=len(phases), desc="Calculating grain orientations"
     ):
@@ -44,15 +45,17 @@ def write_spn(
         flat_data[in_phase, 0] = i + 1
 
         angles = flat_data[in_phase, 1:4]
-        avg = metrics.average_rotations(
+        avg_R, avg = metrics.average_rotations(
             angles,
             angle_convention=angle_convention,
             angle_type=angle_type,
         )
-        orientations[i] = avg
+        orientations[i] = avg_R
+        orientations_sameconv[i] = avg
 
     # Apparently it wants -1 for voids
     np.savetxt(filename_orientations, orientations.numpy(), delimiter=",")
+    np.savetxt(filename_orientations + "_sameconv", orientations_sameconv.numpy(), delimiter=",")
     np.savetxt(filename_spn, flat_data[:, 0].numpy().flatten(), delimiter=" ", fmt="%d")
 
 
@@ -184,17 +187,22 @@ def map_orientations(
             axis=1,
         )
         orientations = []
+        orientations_sameconv = []
         for eb in range(f.dimensions["num_el_blk"]):
             connect = f.variables[f"connect{eb+1}"][:]
             elem_coords = coords[connect - 1, :].mean(axis=1)
             _, idx = kd.query(elem_coords)
             elem_orientations = flat_data[idx, 1:4]
-            avg = metrics.average_rotations(
+            avg_R, avg_sameconv = metrics.average_rotations(
                 torch.tensor(elem_orientations),
                 angle_convention=angle_convention,
                 angle_type=angle_type,
             )
-            orientations.append(avg.numpy())
+            orientations.append(avg_R.numpy())
+            orientations_sameconv.append(avg_sameconv.numpy())
 
         orientations = np.stack(orientations, axis=0)
-        np.savetxt(output_angle_filename, orientations, delimiter=",")
+        orientations_sameconv = np.stack(orientations_sameconv, axis=0)
+
+        np.savetxt(output_angle_filename + ".csv", orientations, delimiter=",")
+        np.savetxt(output_angle_filename + "_sameconv.csv", orientations_sameconv, delimiter=",")

@@ -4,7 +4,7 @@
         type = PropertyReadFile
         prop_file_name = ${orientation_file}
         read_type = 'block'
-        nblock = ${ncell_ff}
+        nblock = ${ncell}
         nprop = 3
         use_zero_based_block_indexing = false
         execute_on = TIMESTEP_BEGIN
@@ -12,9 +12,10 @@
     [residual_strain]
         type = PropertyReadFile
         prop_file_name = ${residual_strain_file}
-        read_type = 'voronoi'
-        nvoronoi = ${ncell_nf}
-        nprop = 12
+        read_type = 'block'
+        nblock = ${ncell}
+        nprop = 9
+        use_zero_based_block_indexing = false
         execute_on = TIMESTEP_BEGIN
     []
 []
@@ -40,39 +41,39 @@
     []
     [eixx]
         type = PiecewiseConstantFromCSV
-        column_number = 3
+        column_number = 0
         read_prop_user_object = 'residual_strain' 
-        read_type = 'voronoi'
+        read_type = 'block'
     []
     [eiyy]
         type = PiecewiseConstantFromCSV
-        column_number = 7
+        column_number = 4
         read_prop_user_object = 'residual_strain' 
-        read_type = 'voronoi'
+        read_type = 'block'
     []
     [eizz]
         type = PiecewiseConstantFromCSV
-        column_number = 11
+        column_number = 8
         read_prop_user_object = 'residual_strain' 
-        read_type = 'voronoi'
+        read_type = 'block'
     []
     [eixy]
         type = PiecewiseConstantFromCSV
-        column_number = 4
+        column_number = 1
         read_prop_user_object = 'residual_strain' 
-        read_type = 'voronoi'
+        read_type = 'block'
     []
     [eixz]
         type = PiecewiseConstantFromCSV
-        column_number = 5
+        column_number = 2
         read_prop_user_object = 'residual_strain' 
-        read_type = 'voronoi'
+        read_type = 'block'
     []
     [eiyz]
         type = PiecewiseConstantFromCSV
-        column_number = 8
+        column_number = 5
         read_prop_user_object = 'residual_strain' 
-        read_type = 'voronoi'
+        read_type = 'block'
     []
     [ramping_init]
         type = ParsedFunction
