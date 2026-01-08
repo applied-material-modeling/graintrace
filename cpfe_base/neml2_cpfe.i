@@ -13,6 +13,14 @@
     []
 []
 
+[Schedulers]
+  [simple]
+    type = SimpleScheduler
+    batch_size = 5000
+    device = 'cuda:0'
+  []
+[]
+
 [Data]
     [crystal_geometry]
         type = CubicCrystal
@@ -124,9 +132,36 @@
         input = 'state/internal/cauchy_stress'
         output = 'state/internal/full_cauchy_stress'
     []
+    ## Post process
+    [rotation_matrix]
+        type = RotationMatrix
+        from = 'state/orientation'
+        to = 'state/orientation_matrix'
+    []
+    [ee_R2]
+        type = SR2toR2
+        input = 'state/elastic_strain'
+        output = 'state/ee_R2'
+    []
+    [Ree]
+        type = R2Multiplication
+        A = 'state/orientation_matrix'
+        B = 'state/ee_R2'
+        to = 'state/Ree'
+    []
+    [Fe]
+        type = R2LinearCombination
+        from_var = 'state/Ree state/orientation_matrix'
+        to_var = 'state/Fe'
+    []
+    [Fe_model]
+        type = ComposedModel
+        models = 'rotation_matrix ee_R2 Ree Fe'
+    []
+    ## final model
     [model]
         type = ComposedModel
-        models = 'model_without_stress full_stress elasticity'
+        models = 'model_without_stress full_stress elasticity Fe_model'
         additional_outputs = 'state/elastic_strain state/orientation'
     []
 []

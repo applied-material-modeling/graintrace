@@ -45,6 +45,7 @@
                 formulation = TOTAL
                 eigenstrain_names = 'residual_strain'
                 volumetric_locking_correction = ${vol_lock_correction_cond}
+                material_output_order = FIRST
                 generate_output = 'cauchy_stress_xx  cauchy_stress_yy  cauchy_stress_zz 
                                    cauchy_stress_yz  cauchy_stress_xz  cauchy_stress_xy
                                    strain_xx         strain_yy         strain_zz
@@ -60,10 +61,12 @@
     cli_args = 'slip_constant_strength=${slip_constant_strength} vh_slope_init=${voce_hardening_initial_slope}
                 vh_hardening_sat=${voce_hardening_saturation} pow_slip_n=${power_slip_n}
                 pow_slip_g0=${power_slip_g0} E=${elastic_E} nu=${elastic_nu} G=${elastic_G}'
+    scheduler = 'simple'
+    async_dispatch = true
     [all]
         model = 'model'
         verbose = true
-        device = 'cpu'
+        device = 'cuda:0'
 
         moose_input_types = 'MATERIAL                          POSTPROCESSOR         POSTPROCESSOR
                              MATERIAL                          MATERIAL              MATERIAL'
@@ -72,12 +75,12 @@
         neml2_inputs = '     forces/spatial_velocity_increment forces/t              old_forces/t
                              old_state/elastic_strain          old_state/orientation old_state/internal/slip_hardening'
 
-        moose_output_types = 'MATERIAL                            MATERIAL                  MATERIAL                  
-                              MATERIAL'
-        moose_outputs = '     neml2_cauchy_stress                 elastic_strain            orientation               
-                              slip_hardening'
-        neml2_outputs = '     state/internal/full_cauchy_stress   state/elastic_strain      state/orientation         
-                              state/internal/slip_hardening'
+        moose_output_types = 'MATERIAL                            MATERIAL                      MATERIAL                  
+                              MATERIAL                            MATERIAL'
+        moose_outputs = '     neml2_cauchy_stress                 elastic_strain                orientation               
+                              slip_hardening                      elastic_deformation_gradient'
+        neml2_outputs = '     state/internal/full_cauchy_stress   state/elastic_strain          state/orientation         
+                              state/internal/slip_hardening       state/Fe'
 
         moose_derivative_types = 'MATERIAL'
         moose_derivatives = '     neml2_cauchy_jacobian'
@@ -92,6 +95,21 @@
     [time]
         type = TimePostprocessor
         execute_on = 'INITIAL TIMESTEP_BEGIN'
+    []
+[]
+
+[Functions]
+    [coord_x]
+        type = ParsedFunction
+        expression = 'x'
+    []
+    [coord_y]
+        type = ParsedFunction
+        expression = 'y'
+    []
+    [coord_z]
+        type = ParsedFunction
+        expression = 'z'
     []
 []
 
@@ -112,6 +130,7 @@
     petsc_options_value = 'lu superlu_dist'
     automatic_scaling = true
     reuse_preconditioner = true
+    reuse_preconditioner_max_linear_its = 20
 
     residual_and_jacobian_together = true
 
@@ -124,7 +143,7 @@
     l_max_its = 100
 
     end_time = ${total_time}
-    dtmax = '${fparse 10*dt}'
+    dtmax = '${fparse dt}'
 
     [TimeStepper]
         type = IterationAdaptiveDT
@@ -144,91 +163,7 @@
     []
 []
 
-########################### OUTPUT ########################### 
-[AuxVariables]
-    [ori_rodrigues_x]
-        order = CONSTANT 
-        family = MONOMIAL
-        [AuxKernel]
-            type = MaterialRealVectorValueAux
-            property = 'orientation'
-            component = 0
-        []
-    []
-    [ori_rodrigues_y]
-        order = CONSTANT 
-        family = MONOMIAL
-        [AuxKernel]
-            type = MaterialRealVectorValueAux
-            property = 'orientation'
-            component = 1
-        []
-    []
-    [ori_rodrigues_z]
-        order = CONSTANT 
-        family = MONOMIAL
-        [AuxKernel]
-            type = MaterialRealVectorValueAux
-            property = 'orientation'
-            component = 2
-        []
-    []
-    [ee_xx]
-        order = CONSTANT 
-        family = MONOMIAL
-        [AuxKernel]
-            type = MaterialSymmetricRankTwoTensorAux
-            property = 'elastic_strain'
-            component = 0
-        []
-    []
-    [ee_yy]
-        order = CONSTANT 
-        family = MONOMIAL
-        [AuxKernel]
-            type = MaterialSymmetricRankTwoTensorAux
-            property = 'elastic_strain'
-            component = 1
-        []
-    []
-    [ee_zz]
-        order = CONSTANT 
-        family = MONOMIAL
-        [AuxKernel]
-            type = MaterialSymmetricRankTwoTensorAux
-            property = 'elastic_strain'
-            component = 2
-        []
-    []
-    [ee_yz]
-        order = CONSTANT 
-        family = MONOMIAL
-        [AuxKernel]
-            type = MaterialSymmetricRankTwoTensorAux
-            property = 'elastic_strain'
-            component = 3
-        []
-    []
-    [ee_xz]
-        order = CONSTANT 
-        family = MONOMIAL
-        [AuxKernel]
-            type = MaterialSymmetricRankTwoTensorAux
-            property = 'elastic_strain'
-            component = 4
-        []
-    []
-    [ee_xy]
-        order = CONSTANT 
-        family = MONOMIAL
-        [AuxKernel]
-            type = MaterialSymmetricRankTwoTensorAux
-            property = 'elastic_strain'
-            component = 5
-        []
-    []
-[]
-
+########################### OUTPUT ###########################
 [Outputs]
     exodus = true
     file_base = '${base_folder}/sim_output'
@@ -242,4 +177,179 @@
     []
     print_linear_residuals = false
 []
+
+[AuxVariables]
+    [ori_rodrigues_x]
+        order = FIRST 
+        family = MONOMIAL
+        [AuxKernel]
+            type = MaterialRealVectorValueAux
+            property = 'orientation'
+            component = 0
+        []
+    []
+    [ori_rodrigues_y]
+        order = FIRST 
+        family = MONOMIAL
+        [AuxKernel]
+            type = MaterialRealVectorValueAux
+            property = 'orientation'
+            component = 1
+        []
+    []
+    [ori_rodrigues_z]
+        order = FIRST 
+        family = MONOMIAL
+        [AuxKernel]
+            type = MaterialRealVectorValueAux
+            property = 'orientation'
+            component = 2
+        []
+    []
+    [ee_xx]
+        order = FIRST 
+        family = MONOMIAL
+        [AuxKernel]
+            type = MaterialSymmetricRankTwoTensorAux
+            property = 'elastic_strain'
+            component = 0
+        []
+    []
+    [ee_yy]
+        order = FIRST 
+        family = MONOMIAL
+        [AuxKernel]
+            type = MaterialSymmetricRankTwoTensorAux
+            property = 'elastic_strain'
+            component = 1
+        []
+    []
+    [ee_zz]
+        order = FIRST 
+        family = MONOMIAL
+        [AuxKernel]
+            type = MaterialSymmetricRankTwoTensorAux
+            property = 'elastic_strain'
+            component = 2
+        []
+    []
+    [ee_yz]
+        order = FIRST 
+        family = MONOMIAL
+        [AuxKernel]
+            type = MaterialSymmetricRankTwoTensorAux
+            property = 'elastic_strain'
+            component = 3
+        []
+    []
+    [ee_xz]
+        order = FIRST 
+        family = MONOMIAL
+        [AuxKernel]
+            type = MaterialSymmetricRankTwoTensorAux
+            property = 'elastic_strain'
+            component = 4
+        []
+    []
+    [ee_xy]
+        order = FIRST 
+        family = MONOMIAL
+        [AuxKernel]
+            type = MaterialSymmetricRankTwoTensorAux
+            property = 'elastic_strain'
+            component = 5
+        []
+    []
+    [Fe_11]
+        order = FIRST 
+        family = MONOMIAL
+        [AuxKernel]
+            type = MaterialRankTwoTensorAux
+            property = 'elastic_deformation_gradient'
+            i = 0
+            j = 0
+        []
+    []
+    [Fe_12]
+        order = FIRST 
+        family = MONOMIAL
+        [AuxKernel]
+            type = MaterialRankTwoTensorAux
+            property = 'elastic_deformation_gradient'
+            i = 0
+            j = 1
+        []
+    []
+    [Fe_13]
+        order = FIRST 
+        family = MONOMIAL
+        [AuxKernel]
+            type = MaterialRankTwoTensorAux
+            property = 'elastic_deformation_gradient'
+            i = 0
+            j = 2
+        []
+    []
+    [Fe_21]
+        order = FIRST 
+        family = MONOMIAL
+        [AuxKernel]
+            type = MaterialRankTwoTensorAux
+            property = 'elastic_deformation_gradient'
+            i = 1
+            j = 0
+        []
+    []
+    [Fe_22]
+        order = FIRST 
+        family = MONOMIAL
+        [AuxKernel]
+            type = MaterialRankTwoTensorAux
+            property = 'elastic_deformation_gradient'
+            i = 1
+            j = 1
+        []
+    []
+    [Fe_23]
+        order = FIRST 
+        family = MONOMIAL
+        [AuxKernel]
+            type = MaterialRankTwoTensorAux
+            property = 'elastic_deformation_gradient'
+            i = 1
+            j = 2
+        []
+    []
+    [Fe_31]
+        order = FIRST 
+        family = MONOMIAL
+        [AuxKernel]
+            type = MaterialRankTwoTensorAux
+            property = 'elastic_deformation_gradient'
+            i = 2
+            j = 0
+        []
+    []
+    [Fe_32]
+        order = FIRST 
+        family = MONOMIAL
+        [AuxKernel]
+            type = MaterialRankTwoTensorAux
+            property = 'elastic_deformation_gradient'
+            i = 2
+            j = 1
+        []
+    []
+    [Fe_33]
+        order = FIRST 
+        family = MONOMIAL
+        [AuxKernel]
+            type = MaterialRankTwoTensorAux
+            property = 'elastic_deformation_gradient'
+            i = 2
+            j = 2
+        []
+    []
+[]
+
 

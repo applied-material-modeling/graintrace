@@ -1,0 +1,57 @@
+[MultiApps]
+    [regular_grid]
+        type = TransientMultiApp
+        input_files = 'grid_file.i'
+        cli_args = 'base_folder=${base_folder};grid_nx=${grid_nx};grid_ny=${grid_ny};grid_nz=${grid_nz};grid_min_x=${grid_xmin};grid_max_x=${grid_xmax};grid_min_y=${grid_ymin};grid_max_y=${grid_ymax};grid_min_z=${grid_zmin};grid_max_z=${grid_zmax};burger_scale=${burger_scale}'
+        catch_up = true
+        execute_on = 'INITIAL TIMESTEP_END'
+    []
+[]
+
+[Transfers]
+    [disp_transfer]
+        type = MultiAppGeneralFieldShapeEvaluationTransfer
+        source_variable = 'disp_x disp_y disp_z'
+        variable = 'disp_x disp_y disp_z'
+        to_multi_app = 'regular_grid'
+        error_on_miss = false
+        displaced_source_mesh = false
+        displaced_target_mesh = false
+    []
+    [ori_rodrigues_transfer]
+        type = MultiAppGeneralFieldShapeEvaluationTransfer
+        source_variable = 'ori_rodrigues_x ori_rodrigues_y ori_rodrigues_z'
+        variable = 'ori_rodrigues_x ori_rodrigues_y ori_rodrigues_z'
+        to_multi_app = 'regular_grid'
+        error_on_miss = false
+        displaced_source_mesh = false
+        displaced_target_mesh = false
+    []
+    [strain_transfer]
+        type = MultiAppGeneralFieldShapeEvaluationTransfer
+        source_variable = 'strain_xx strain_yy strain_zz strain_yz strain_xz strain_xy'
+        variable = 'strain_xx strain_yy strain_zz strain_yz strain_xz strain_xy'
+        to_multi_app = 'regular_grid'
+        error_on_miss = false
+        displaced_source_mesh = false
+        displaced_target_mesh = false
+    []
+    [ee_transfer]
+        type = MultiAppGeneralFieldShapeEvaluationTransfer
+        source_variable = 'ee_xx ee_yy ee_zz ee_yz ee_xz ee_xy'
+        variable = 'ee_xx ee_yy ee_zz ee_yz ee_xz ee_xy'
+        to_multi_app = 'regular_grid'
+        error_on_miss = false
+        displaced_source_mesh = false
+        displaced_target_mesh = false
+    []
+    [Fe_transfer]
+        type = MultiAppGeneralFieldShapeEvaluationTransfer
+        source_variable = 'Fe_11 Fe_12 Fe_13 Fe_21 Fe_22 Fe_23 Fe_31 Fe_32 Fe_33'
+        variable = 'Fe_11 Fe_12 Fe_13 Fe_21 Fe_22 Fe_23 Fe_31 Fe_32 Fe_33'
+        to_multi_app = 'regular_grid'
+        error_on_miss = false
+        displaced_source_mesh = false
+        displaced_target_mesh = false
+    []
+[]

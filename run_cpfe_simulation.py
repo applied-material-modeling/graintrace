@@ -12,7 +12,7 @@ class CPFESimulation:
     DEFAULT_PARAMS = {
         "simulation_parameters": {
             "base_folder": "simulation_out",
-            "dt": 0.1,
+            "dt": 0.2,
             "total_time": 5.0,
             "strain_unit_conversion": 1.0,
             "initialize_time": 1.0,
@@ -26,6 +26,7 @@ class CPFESimulation:
             "elastic_E": 209016,
             "elastic_nu": 0.307,
             "elastic_G": 60355.0,
+            "burger_scale": 2.22,
         },
         "boundary": {
             "bounding_box": [0.0, 1.0, 0.0, 1.0, 0.0, 1.0], #xlo, xhi, ylo, yhi, zlo, zhi
@@ -35,6 +36,10 @@ class CPFESimulation:
                 "y": {"negative": "stress_free", "positive": "stress_free"},
                 "z": {"negative": 0, "positive": 0.001},
                 },
+        },
+        "grid_properties": {
+            "number_of_elements": [20, 20, 20],
+            "bounding_box": [0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
         }
     }
 
@@ -312,6 +317,18 @@ class CPFESimulation:
                     f.write("    []\n")
                 f.write("\n")
 
+            # geometric centroid as well
+            components = ["x", "y", "z"]
+            for comp in components:
+                f.write(f"    # --- centroid_{comp} ---\n")
+                for i in range(1, ncell + 1):
+                    f.write(f"    [centroid_{comp}_{i}]\n")
+                    f.write("        type = FunctionElementAverage\n")
+                    f.write(f"        function = coord_{comp}\n")
+                    f.write(f"        block = {i}\n")
+                    f.write("    []\n")
+                f.write("\n")
+
             f.write("[]\n")
     
     def write_orientation_file(self):
@@ -363,7 +380,11 @@ class CPFESimulation:
             raise FileNotFoundError("cpfe_base folder not found.")
 
         # list of shared base files
-        base_files = ["initial_conditions.i", "neml2_cpfe.i", "run_cpfe.i"]
+        base_files = ["initial_conditions.i",
+                      "neml2_cpfe.i",
+                      "run_cpfe.i",
+                      "grid_file.i",
+                      "transfer.i"]
 
         for fname in base_files:
             src = cpfe_base / fname
@@ -380,8 +401,14 @@ class CPFESimulation:
         ncells = self.write_orientation_file()
         self.write_strain_postprocess_file(ncell=ncells)
 
+        # transfer grid info
+        grid_info = self.params["grid_properties"]
+        ncell_x, ncell_y, ncell_z = grid_info["number_of_elements"]
+        grid_bbox = grid_info["bounding_box"]
+
         # Build command for subprocess
         vol_correction_cond = "true" if self.element_order == "FIRST" else "false"
+
         log_path = self.save_simulation_folder / "cpfe_run.log"
         argv = [
             "nohup",
@@ -393,6 +420,7 @@ class CPFESimulation:
             "boundary_conditions.i",
             "initial_conditions.i",
             "strain_postprocessor.i",
+            "transfer.i",
             "orientation_file=mrps_orientation.csv",
             f"mesh_file={self.mesh_file.name}",
             f"residual_strain_file={self.eeres_file.name}",
@@ -410,6 +438,7 @@ class CPFESimulation:
             f"elastic_E={self.params['material']['elastic_E']:.12g}",
             f"elastic_nu={self.params['material']['elastic_nu']:.12g}",
             f"elastic_G={self.params['material']['elastic_G']:.12g}",
+            f"burger_scale={self.params['material']['burger_scale']:.12g}",
             f"fixnode_x={fixnode_x:.12g}",
             f"fixnode_y={fixnode_y:.12g}",
             f"fixnode_z={fixnode_z:.12g}",
@@ -417,6 +446,15 @@ class CPFESimulation:
             f"yroll_y={yroll_y:.12g}",
             f"yroll_z={yroll_z:.12g}",
             f"vol_lock_correction_cond={vol_correction_cond}",
+            f"grid_nx={ncell_x:.12g}",
+            f"grid_ny={ncell_y:.12g}",
+            f"grid_nz={ncell_z:.12g}",
+            f"grid_xmin={grid_bbox[0]:.12g}",
+            f"grid_xmax={grid_bbox[1]:.12g}",
+            f"grid_ymin={grid_bbox[2]:.12g}",
+            f"grid_ymax={grid_bbox[3]:.12g}",
+            f"grid_zmin={grid_bbox[4]:.12g}",
+            f"grid_zmax={grid_bbox[5]:.12g}",
         ]
 
         # Run the simulation with persistent background process
