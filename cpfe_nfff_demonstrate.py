@@ -29,9 +29,9 @@ crystal_morpho_args = {"type": "diameq",
                        "distribution": "lognormal",
                          "params": (200.0, 5.0)}
 
-nf_dz = 20.0  # Near field dz (thickness) per layer
-nf_mesh_nx = 20
-nf_mesh_ny = 20
+nf_dz = 20 #120.0  # Near field dz (thickness) per layer
+nf_mesh_nx = 20 #5
+nf_mesh_ny = 20 #5
 
 nf_segmentation_input = {
         "misorientation_tol": 1.0/180*np.pi,
@@ -57,13 +57,17 @@ sculpt_options = (
     )
 
 # postprocess grid parameters
-grid_nx = 20
-grid_ny = 20
-grid_nz = 30
+grid_nx = 20 #5
+grid_ny = 20 #5
+grid_nz = 30 #5
 
+reconstruction_needed = True
 initialize_data = True
 
-ncore = 8
+# simulation parameters
+ncore = 24
+device = "cuda:0"
+device_batch = 500
 
 nf_folder = os.path.join(output_dir, "NF")          
 nf_save_dir = os.path.join(output_dir, "nf_reconstruction") 
@@ -87,77 +91,77 @@ if initialize_data:
 
     nf_bounding_box = synth_hedm_gen.nf_bounding_box
 
-    ## NEAR FIELD MESHING -------------------------------------------
+    if reconstruction_needed:
+        ## NEAR FIELD MESHING -------------------------------------------
 
-    # builder_nf = NearFieldMeshBuilder(
-    #     input_folder=nf_folder,
-    #     save_dir=nf_save_dir,
-    #     angle_convention="bunge",
-    #     angle_type="degrees",
-    #     symmetry="432",
-    #     prefix="reconstructed",
-    #     write_intermediate=True,
-    #     write_vtk=True,
-    # )
-# 
-    # merged_grid_path = builder_nf.reconstruct(
-    #     dz=nf_dz,      # must match your SyntheticHEDMGenerator nf_dz
-    #     nx=nf_mesh_nx,
-    #     ny=nf_mesh_ny,
-    #     segmentation=nf_segmentation_input,
-# 
-    # )
-    # print(f"\nReconstruction complete: {merged_grid_path}\n")
+        builder_nf = NearFieldMeshBuilder(
+            input_folder=nf_folder,
+            save_dir=nf_save_dir,
+            angle_convention="bunge",
+            angle_type="degrees",
+            symmetry="432",
+            prefix="reconstructed",
+            write_intermediate=True,
+            write_vtk=True,
+        )
 
-    # sculpt_config = {
-    #     "mpirun": "/opt/Coreform-Cubit-2025.12/bin/mpi/bin/mpirun",
-    #     "psculpt": "/opt/Coreform-Cubit-2025.12/bin/psculpt",
-    #     "epu": "/opt/Coreform-Cubit-2025.12/bin/epu",
-    #     "nprocs": int(ncore),
-    #     "environment": {
-    #         "OPAL_LIBDIR": "/opt/Coreform-Cubit-2025.12/bin/mpi/lib",
-    #         "OPAL_PREFIX": "/opt/Coreform-Cubit-2025.12/bin/mpi",
-    #     },
-    # }
-# 
-    # mesh_path = builder_nf.mesh(
-    #     sculpt_config=sculpt_config,
-    #     sculpt_options=sculpt_options,
-    #     merged_grid=merged_grid_path,  # explicit restart-safe input
-    # )
-    # print(f"Meshing complete: {mesh_path}")
-    # print(f"Mapped orientations: {builder_nf.mapped_orientations_path}.csv")
-# 
-# 
-    # ## RECONSTRUCTED FROM FF DATA -------------------------------------------
-    # # this to see if we could improve from the geometric centroid vs voronoi centroid
-    # if not os.path.exists(output_ff):
-    #     os.makedirs(output_ff)
-# 
-    # elastic_strain_identifier = ["eKen11","eKen12","eKen13",
-    #                                 "eKen21","eKen22","eKen23",
-    #                                 "eKen31","eKen32","eKen33"]
-# 
-    # builder_ff = VoronoiMeshBuilder(
-    #   input_csv=output_dir+"/FF/ff.csv",
-    #   output_dir=output_ff,
-    #   bounding_box=ff_bounding_box,
-    #   dim=3,
-    #   weighted=False,
-    #   auto_fix_bbox=False,       
-    #   auto_rotate=False,
-    #   angle_identifier=["Eul0", "Eul1", "Eul2"],
-    #   orientation_descriptor="euler-bunge",
-    #   orientation_active_convention=True,
-    #   elastic_strain_identifier=elastic_strain_identifier,
-    #   strain_unit="microstrain",
-    # )
-    # 
-    # builder_ff.build_voronoi(generate_mesh=False,
-    #                 option="centroid",
-    #                 CVT_iter=100,
-    #                 morphoalgo = "subplex",
-    #                 )
+        merged_grid_path = builder_nf.reconstruct(
+            dz=nf_dz,      # must match your SyntheticHEDMGenerator nf_dz
+            nx=nf_mesh_nx,
+            ny=nf_mesh_ny,
+            segmentation=nf_segmentation_input,
+
+        )
+        print(f"\nReconstruction complete: {merged_grid_path}\n")   
+        sculpt_config = {
+            "mpirun": "/opt/Coreform-Cubit-2025.12/bin/mpi/bin/mpirun",
+            "psculpt": "/opt/Coreform-Cubit-2025.12/bin/psculpt",
+            "epu": "/opt/Coreform-Cubit-2025.12/bin/epu",
+            "nprocs": int(ncore),
+            "environment": {
+                "OPAL_LIBDIR": "/opt/Coreform-Cubit-2025.12/bin/mpi/lib",
+                "OPAL_PREFIX": "/opt/Coreform-Cubit-2025.12/bin/mpi",
+            },
+        }
+
+        # mesh_path = builder_nf.mesh(
+        #     sculpt_config=sculpt_config,
+        #     sculpt_options=sculpt_options,
+        #     merged_grid=merged_grid_path,  # explicit restart-safe input
+        # )
+        # print(f"Meshing complete: {mesh_path}")
+        print(f"Mapped orientations: {builder_nf.mapped_orientations_path}.csv")
+
+
+        ## RECONSTRUCTED FROM FF DATA -------------------------------------------
+        # this to see if we could improve from the geometric centroid vs voronoi centroid
+        if not os.path.exists(output_ff):
+            os.makedirs(output_ff)
+
+        elastic_strain_identifier = ["eKen11","eKen12","eKen13",
+                                        "eKen21","eKen22","eKen23",
+                                        "eKen31","eKen32","eKen33"]
+
+        builder_ff = VoronoiMeshBuilder(
+            input_csv=output_dir+"/FF/ff.csv",
+            output_dir=output_ff,
+            bounding_box=ff_bounding_box,
+            dim=3,
+            weighted=False,
+            auto_fix_bbox=False,       
+            auto_rotate=False,
+            angle_identifier=["Eul0", "Eul1", "Eul2"],
+            orientation_descriptor="euler-bunge",
+            orientation_active_convention=True,
+            elastic_strain_identifier=elastic_strain_identifier,
+            strain_unit="microstrain",
+            )
+
+        builder_ff.build_voronoi(generate_mesh=False,
+                        option="centroid",
+                        CVT_iter=100,
+                        morphoalgo = "subplex",
+                        )
 
 ## USE SOLUTION AUX TO INITIALIZE EE FOR NF MESH, RUN SIMULATION
 
@@ -178,6 +182,10 @@ sim = CPFESimulation(
 # sim.set_parameters("material", **optimized_material)
 # print(nf_bounding_box.tolist())
 
+sim.set_parameters("simulation_parameters", dt = 0.2,
+                                            device = device,
+                                            device_batch = device_batch)
+
 grid_bb = nf_bounding_box.copy()
 
 grid_bb[0] = nf_bounding_box[0] + 0.0001
@@ -193,7 +201,7 @@ sim.set_parameters(
     bc={
         "x": {"negative": "stress_free", "positive": "stress_free"},
         "y": {"negative": "stress_free", "positive": "stress_free"},
-        "z": {"negative": 0, "positive": 1},
+        "z": {"negative": 0, "positive": 12}, # 12/600 so that total strain is 2%
     },
 )
 

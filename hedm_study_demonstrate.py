@@ -28,23 +28,23 @@ crystal_morpho_args = {"type": "diameq",
 
 # HEDM scan parameters
 nscan = 4
-overlap_percentage = 0 # percentage units (0-100)
+overlap_percentage = 61 # percentage units (0-100)
 
 # Mimic experiment noise conditions
-apply_noise=False
+apply_noise=True
 remove_minimum_volume=False
 
 # gaussian distribution noise, 0.005 = 0.5%
-noise_level=0.005
+noise_level=0.05
 # grain volume minimum threshold
 min_vol=0.0 
 
 # Acceptable tolerance for comparison and stitching
-position_tolerance = 10 # length units
+position_tolerance = 20 # length units
 orientation_tolerance = 1 # degrees
 radius_tolerance = 0 # percentage units -- set to -1 to disable radius consideration
 
-compare_position_tolerance = 50 # adjusted such that max_pos_error remains the same as this value increases
+compare_position_tolerance = 20 # adjusted such that max_pos_error remains the same as this value increases
 compare_orientation_tolerance = 5.0
 
 ### -------------------------------------------------------------
@@ -65,9 +65,9 @@ cg = CrystalGenerator(
     seed=seed_number,
 )
 
-cg.generate_tessellation(
-    morpho_args=crystal_morpho_args,
-)
+#cg.generate_tessellation(
+#    morpho_args=crystal_morpho_args,
+#)
 
 # # Simulate HEDM scans
 cg.hedm_zscan(

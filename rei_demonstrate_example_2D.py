@@ -10,125 +10,129 @@ from scipy.cluster.hierarchy import dendrogram
 from cluster_indicator import ClusterAnalysisIndicator
 from similarity_metric_library import SimilarityMetricLibrary
 
-## TO DO later: run moose simulation in testing_during_code_not_upload_tog_github folder
+## INPUTS ---------------------------------------------------
 
-## generate synthetic cluster data for testing purpose
-def generate_layered_vms_csv(
-    path: str,
-    nx: int = 80,
-    ny: int = 80,
-    n_layers: int = 2,
-    rare_patches: int = 3,
-    vm_low: float = 50.0,
-    vm_high: float = 200.0,
-    random_state: int = 0,
-    radius_range: tuple[int, int] = (4, 10), # number of elements
-) -> None:
+filename = "testing_during_code_not_upload_to_github/synthetic_vms.csv"
+generate_synthetic = False
 
-    rng = np.random.default_rng(random_state)
+if generate_synthetic:
+    ## generate synthetic cluster data for testing purpose
+    def generate_layered_vms_csv(
+        path: str,
+        nx: int = 80,
+        ny: int = 80,
+        n_layers: int = 2,
+        rare_patches: int = 3,
+        vm_low: float = 50.0,
+        vm_high: float = 200.0,
+        random_state: int = 0,
+        radius_range: tuple[int, int] = (4, 10), # number of elements
+    ) -> None:
 
-    # Regular grid in x,y
-    x_coords = np.linspace(0.0, 1.0, nx)
-    y_coords = np.linspace(0.0, 1.0, ny)
+        rng = np.random.default_rng(random_state)
 
-    # Define baseline layer VM levels (evenly spaced between vm_low and vm_high)
-    layer_vm_levels = np.linspace(vm_low, vm_high, n_layers)
+        # Regular grid in x,y
+        x_coords = np.linspace(0.0, 1.0, nx)
+        y_coords = np.linspace(0.0, 1.0, ny)
 
-    # Assign each row (in y) to a layer
-    layer_height = ny // n_layers
-    layer_index = np.zeros(ny, dtype=int)
-    for i in range(n_layers):
-        start = i * layer_height
-        end = ny if i == n_layers - 1 else (i + 1) * layer_height
-        layer_index[start:end] = i
+        # Define baseline layer VM levels (evenly spaced between vm_low and vm_high)
+        layer_vm_levels = np.linspace(vm_low, vm_high, n_layers)
 
-    # Base VM field
-    vm_field = np.zeros((ny, nx), dtype=float)
-    for j in range(ny):
-        vm_field[j, :] = layer_vm_levels[layer_index[j]]
+        # Assign each row (in y) to a layer
+        layer_height = ny // n_layers
+        layer_index = np.zeros(ny, dtype=int)
+        for i in range(n_layers):
+            start = i * layer_height
+            end = ny if i == n_layers - 1 else (i + 1) * layer_height
+            layer_index[start:end] = i
 
-    # Add rare high-VM patches
-    for _ in range(rare_patches):
-        
-        cx = rng.integers(low=0, high=nx)
-        cy = rng.integers(low=0, high=ny)
+        # Base VM field
+        vm_field = np.zeros((ny, nx), dtype=float)
+        for j in range(ny):
+            vm_field[j, :] = layer_vm_levels[layer_index[j]]
 
-        radius = rng.integers(low=radius_range[0], high=radius_range[1])
+        # Add rare high-VM patches
+        for _ in range(rare_patches):
+            
+            cx = rng.integers(low=0, high=nx)
+            cy = rng.integers(low=0, high=ny)
 
-        vm_boost = rng.uniform(1.5, 2.5)
+            radius = rng.integers(low=radius_range[0], high=radius_range[1])
 
-        yy, xx = np.ogrid[:ny, :nx]
-        mask = (xx - cx) ** 2 + (yy - cy) ** 2 <= radius ** 2
+            vm_boost = rng.uniform(1.5, 2.5)
 
-        vm_field[mask] *= vm_boost
+            yy, xx = np.ogrid[:ny, :nx]
+            mask = (xx - cx) ** 2 + (yy - cy) ** 2 <= radius ** 2
 
-    # Now convert VM field to actual stress components (approx uniaxial)
-    rows = []
-    element_id = 0
-    for j in range(ny):
-        for i in range(nx):
-            element_id += 1
-            x = x_coords[i]
-            y = y_coords[j]
-            z = 0.0
+            vm_field[mask] *= vm_boost
 
-            vm_target = vm_field[j, i]
+        # Now convert VM field to actual stress components (approx uniaxial)
+        rows = []
+        element_id = 0
+        for j in range(ny):
+            for i in range(nx):
+                element_id += 1
+                x = x_coords[i]
+                y = y_coords[j]
+                z = 0.0
 
-            # Approx uniaxial: sxx ≈ vm_target, small noise elsewhere
-            sxx = vm_target + rng.normal(0.0, vm_target * 0.05)
-            syy = rng.normal(0.0, vm_target * 0.02)
-            szz = rng.normal(0.0, vm_target * 0.02)
-            sxy = rng.normal(0.0, vm_target * 0.02)
-            sxz = rng.normal(0.0, vm_target * 0.02)
-            syz = rng.normal(0.0, vm_target * 0.02)
+                vm_target = vm_field[j, i]
 
-            rows.append(
-                {
-                    "id": element_id,
-                    "x": x,
-                    "y": y,
-                    "z": z,
-                    "sxx": sxx,
-                    "syy": syy,
-                    "szz": szz,
-                    "sxy": sxy,
-                    "sxz": sxz,
-                    "syz": syz,
-                }
-            )
+                # Approx uniaxial: sxx ≈ vm_target, small noise elsewhere
+                sxx = vm_target + rng.normal(0.0, vm_target * 0.05)
+                syy = rng.normal(0.0, vm_target * 0.02)
+                szz = rng.normal(0.0, vm_target * 0.02)
+                sxy = rng.normal(0.0, vm_target * 0.02)
+                sxz = rng.normal(0.0, vm_target * 0.02)
+                syz = rng.normal(0.0, vm_target * 0.02)
 
-    df = pd.DataFrame(rows)
-    df.to_csv(path, index=False)
+                rows.append(
+                    {
+                        "id": element_id,
+                        "x": x,
+                        "y": y,
+                        "z": z,
+                        "sxx": sxx,
+                        "syy": syy,
+                        "szz": szz,
+                        "sxy": sxy,
+                        "sxz": sxz,
+                        "syz": syz,
+                    }
+                )
+
+        df = pd.DataFrame(rows)
+        df.to_csv(path, index=False)
 
 
-## main ---------------------------------------------------------- ##
-nx = 30
-ny = 30
+    ## main ---------------------------------------------------------- ##
+    nx = 30
+    ny = 30
 
-threshold = 0.01
-radius_elements_range = (2, 5)
+    threshold = 0.01
+    radius_elements_range = (2, 5)
 
-print("Generating synthetic VMS data...")
+    print("Generating synthetic VMS data...")
 
-generate_layered_vms_csv(
-    path="testing_during_code_not_upload_to_github/synthetic_vms.csv",
-    nx=nx,
-    ny=ny,
-    n_layers=1,
-    rare_patches=10,
-    vm_low=50.0,
-    vm_high=200.0,
-    random_state=42,
-    radius_range=radius_elements_range,
-)
+    generate_layered_vms_csv(
+        path=filename,
+        nx=nx,
+        ny=ny,
+        n_layers=1,
+        rare_patches=10,
+        vm_low=50.0,
+        vm_high=200.0,
+        random_state=42,
+        radius_range=radius_elements_range,
+    )
 
-print("Running clustering analysis...")
+    print("Running clustering analysis...")
 
 ## perform clustering
-indicator = ClusterAnalysisIndicator("testing_during_code_not_upload_to_github/synthetic_vms.csv")
+indicator = ClusterAnalysisIndicator(filename, coord_cols=("x", "y", "z"))
 
 metric_lib = SimilarityMetricLibrary()
-spec = metric_lib.von_mises_stress()
+spec = metric_lib.misorientation()
 
 # result, linkage = indicator.run(
 #     method_type="scipy_hierarchical",
@@ -195,7 +199,7 @@ label_grid = label_norm.reshape(ny, nx)
 ###--------------- plotting the image and clusters----------------- ###
 fig, axes = plt.subplots(1, 2, figsize=(8, 4))
 
-# left: von Mises field
+# left: field
 im0 = axes[0].imshow(vm_grid, origin="lower", aspect="equal", cmap="viridis")
 axes[0].set_title("Von Mises Stress")
 axes[0].set_xlabel("x index")

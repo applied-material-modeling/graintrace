@@ -16,8 +16,8 @@
 [Schedulers]
   [simple]
     type = SimpleScheduler
-    batch_size = 5000
-    device = 'cuda:0'
+    batch_size = ${device_batch}
+    device = ${device}
   []
 []
 
@@ -34,6 +34,7 @@
     [newton]
         type = NewtonWithLineSearch
         max_linesearch_iterations = 5
+        # verbose = true
     []
 []
 

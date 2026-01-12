@@ -48,8 +48,8 @@ def misorientation(
     )
 
     ####
-    # WITH UPDATE: symmetry_ops = crystallography.symmetry(symmetry).torch()
-    symmetry_ops = crystallography.symmetry_operations_from_orbifold(symmetry).torch()
+    symmetry_ops = crystallography.symmetry(symmetry).torch()
+    # symmetry_ops = crystallography.symmetry_operations_from_orbifold(symmetry).torch()
     ####
 
     dR = torch.matmul(R1, R2.transpose(-2, -1))

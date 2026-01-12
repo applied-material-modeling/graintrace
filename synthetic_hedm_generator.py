@@ -28,6 +28,9 @@ class SyntheticHEDMGenerator:
         self.ff_neper_dir = os.path.join(self.ff_dir, "neper")
         self.nf_dir = os.path.join(self.output_dir, "NF")
 
+        self.z_layers = None
+        self.vertices_xy = None
+
         self._validate_init()
 
     def run(self, ff_iterations=10):
@@ -112,6 +115,7 @@ class SyntheticHEDMGenerator:
         exx = np.random.normal(0.0, stdev, n)
         eyy = np.random.normal(0.0, stdev, n)
         ezz = np.random.normal(0.0, stdev, n)
+        
         exy = np.random.normal(0.0, stdev, n)
         eyz = np.random.normal(0.0, stdev, n)
         exz = np.random.normal(0.0, stdev, n)
@@ -151,17 +155,16 @@ class SyntheticHEDMGenerator:
         np.random.seed(self.random_seed)
 
         seeds_xyz, seed_eulers = self._read_voronoi_tess_seeds_and_orientations(tess_path)
-        vertices_xy = self._build_nf_hex_vertex_lattice()
-        z_layers = self._compute_nf_z_layers()
+        self._build_nf_hex_vertex_lattice()
+        self._compute_nf_z_layers()
 
-        for k, z_layer in enumerate(z_layers):
-            eulers_at_vertices = self._assign_eulers_for_layer(
-                vertices_xy=vertices_xy,
-                z_layer=z_layer,
+        for k, z_layer in enumerate(self.z_layers):
+            eulers_at_vertices = self._assign_eulers_for_layer(z_layer=z_layer,
                 seeds_xyz=seeds_xyz,
                 seed_eulers=seed_eulers,
             )
-            self._write_nf_layer_csv(k, vertices_xy, eulers_at_vertices)
+            self._write_nf_layer_csv(k, eulers_at_vertices)
+            self._nf_visualize(plot_grid=False, plot_layer_property=True, layer_idx=k, eulers=eulers_at_vertices)
 
         print(f"\nGenerated Near Field synthetic HEDM data in folder: {self.nf_dir}\n")
         
@@ -315,6 +318,8 @@ class SyntheticHEDMGenerator:
         self.nf_bounding_box[2] = float(np.min(verts[:, 1]))
         self.nf_bounding_box[3] = float(np.max(verts[:, 1]))
 
+        self.vertices_xy = verts
+
         return verts
 
     def _compute_nf_z_layers(self):
@@ -341,23 +346,25 @@ class SyntheticHEDMGenerator:
         self.nf_bounding_box[5] = zmax_snapped
 
         z_layers = zmin + dz * np.arange(n_layers, dtype=float)
+
+        self.z_layers = z_layers
+
         return z_layers
 
-    def _assign_eulers_for_layer(self, vertices_xy, z_layer, seeds_xyz, seed_eulers, chunk_size=5000):
+    def _assign_eulers_for_layer(self, z_layer, seeds_xyz, seed_eulers, chunk_size=5000):
         """
         Assign Euler angles to each vertex using nearest Voronoi seed in 3D (Euclidean).
         """
+        vertices_xy = self.vertices_xy
+        
         nverts = vertices_xy.shape[0]
         out = np.zeros((nverts, 3), dtype=float)
 
-        # chunked brute-force to avoid huge (Nverts x Nseeds) memory
         for start in range(0, nverts, chunk_size):
             end = min(start + chunk_size, nverts)
             qxy = vertices_xy[start:end]
             q = np.column_stack([qxy[:, 0], qxy[:, 1], np.full(end - start, z_layer, dtype=float)])
 
-            # distances squared: (Q,M,3) -> (Q,M)
-            # Use broadcasting: q[:,None,:] - seeds[None,:,:]
             diff = q[:, None, :] - seeds_xyz[None, :, :]
             d2 = np.einsum("qmk,qmk->qm", diff, diff)
             idx = np.argmin(d2, axis=1)
@@ -369,7 +376,6 @@ class SyntheticHEDMGenerator:
     def _write_nf_layer_csv(
         self,
         layer_idx: int,
-        vertices_xy,
         eulers,
         *,
         tri_edge_size: float = 5.0,
@@ -384,14 +390,14 @@ class SyntheticHEDMGenerator:
 
         out_path = os.path.join(self.nf_dir, f"layer_{layer_idx:03d}.csv")
 
-        n = vertices_xy.shape[0]
+        n = self.vertices_xy.shape[0]
         df = pd.DataFrame(
             {
                 "%OrientationRowNr": np.arange(1, n + 1, dtype=float),
                 "NrMatches": np.full(n, nr_matches, dtype=float),
                 "RunTime": np.full(n, run_time, dtype=float),
-                "X": vertices_xy[:, 0].astype(float),
-                "Y": vertices_xy[:, 1].astype(float),
+                "X": self.vertices_xy[:, 0].astype(float),
+                "Y": self.vertices_xy[:, 1].astype(float),
                 "TriEdgeSize": np.full(n, tri_edge_size, dtype=float),
                 "UpDown": np.full(n, updown, dtype=float),
                 "Eul1": eulers[:, 0].astype(float),
@@ -410,57 +416,84 @@ class SyntheticHEDMGenerator:
 
         return out_path
 
-    def _nf_visualize(self):
+    def _nf_visualize(self, plot_grid=True, plot_layer_property=False, layer_idx=0, eulers=None):
         import matplotlib.pyplot as plt
         vis_dir = os.path.join(self.nf_dir, "visualize")
         os.makedirs(vis_dir, exist_ok=True)
 
-        vertices_xy = self._build_nf_hex_vertex_lattice()
-        z_layers = self._compute_nf_z_layers()
+        z_layers = self.z_layers
+        vertices_xy = self.vertices_xy
 
-        xmin, xmax, ymin, ymax, zmin, zmax = map(float, self.nf_bounding_box)
+        if plot_grid:
 
-        # Expand XY over all Z layers
-        X = []
-        Y = []
-        Z = []
-        for z in z_layers:
-            X.append(vertices_xy[:, 0])
-            Y.append(vertices_xy[:, 1])
-            Z.append([z] * len(vertices_xy))
+            xmin, xmax, ymin, ymax, zmin, zmax = map(float, self.nf_bounding_box)
 
-        X = np.concatenate(X)
-        Y = np.concatenate(Y)
-        Z = np.concatenate(Z)
+            # Expand XY over all Z layers
+            X = []
+            Y = []
+            Z = []
+            for z in z_layers:
+                X.append(vertices_xy[:, 0])
+                Y.append(vertices_xy[:, 1])
+                Z.append([z] * len(vertices_xy))
 
-        fig, axs = plt.subplots(2, 1, figsize=(6, 10))
+            X = np.concatenate(X)
+            Y = np.concatenate(Y)
+            Z = np.concatenate(Z)
 
-        # --- Top view (X,Y) ---
-        axs[0].plot(
-            [xmin, xmax, xmax, xmin, xmin],
-            [ymin, ymin, ymax, ymax, ymin],
-            color='red',
-        )
-        axs[0].scatter(X, Y, s=10,color='black')
-        
-        axs[0].set_aspect("equal")
-        axs[0].set_xlabel("X")
-        axs[0].set_ylabel("Y")
+            fig, axs = plt.subplots(2, 1, figsize=(6, 10))
 
-        # --- Side view (X,Z) ---
-        axs[1].plot(
-            [xmin, xmax, xmax, xmin, xmin],
-            [zmin, zmin, zmax, zmax, zmin],
-            color='red',
-        )
-        axs[1].scatter(X, Z, s=10,color='black')
+            # --- Top view (X,Y) ---
+            axs[0].plot(
+                [xmin, xmax, xmax, xmin, xmin],
+                [ymin, ymin, ymax, ymax, ymin],
+                color='red',
+            )
+            axs[0].scatter(X, Y, s=10,color='black')
+            
+            axs[0].set_aspect("equal")
+            axs[0].set_xlabel("X")
+            axs[0].set_ylabel("Y")
 
-        axs[1].set_xlabel("X")
-        axs[1].set_ylabel("Z")
+            # --- Side view (X,Z) ---
+            axs[1].plot(
+                [xmin, xmax, xmax, xmin, xmin],
+                [zmin, zmin, zmax, zmax, zmin],
+                color='red',
+            )
+            axs[1].scatter(X, Z, s=10,color='black')
 
-        plt.tight_layout()
-        plt.savefig(os.path.join(vis_dir, "nf_lattice_overview.png"), dpi=300)
-        plt.close(fig)
+            axs[1].set_xlabel("X")
+            axs[1].set_ylabel("Z")
+
+            plt.tight_layout()
+            plt.savefig(os.path.join(vis_dir, "nf_lattice_overview.png"), dpi=300)
+            plt.close(fig)
+
+        if plot_layer_property:
+            if eulers is None:
+                raise ValueError("eulers must be provided for plot_layer_property.")
+
+            fig, axs = plt.subplots(3, 1, figsize=(6, 12))
+            titles = ["Eul1", "Eul2", "Eul3"]
+
+            for i in range(3):
+                sc = axs[i].scatter(
+                    vertices_xy[:, 0],
+                    vertices_xy[:, 1],
+                    c=eulers[:, i],
+                    s=40,
+                    cmap="viridis",
+                )
+                axs[i].set_aspect("equal")
+                axs[i].set_xlabel("X")
+                axs[i].set_ylabel("Y")
+                axs[i].set_title(f"Layer {layer_idx:03d} - {titles[i]}")
+
+            fig.tight_layout()
+            out = os.path.join(vis_dir, f"layer_{layer_idx:03d}_eulers.png")
+            fig.savefig(out, dpi=300)
+            plt.close(fig)
 
     def _validate_init(self):
         os.makedirs(self.output_dir, exist_ok=True)

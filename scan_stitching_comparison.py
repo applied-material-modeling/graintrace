@@ -339,9 +339,9 @@ class ScanStitchingComparison:
             "mean_pos_error": safe_stat(matches_valid["diff_pos_norm2"], np.mean),
             "mean_ori_error": safe_stat(matches_valid["diff_ori"], np.mean),
             "mean_rad_error": safe_stat(matches_valid["diff_rad_percentage"], np.mean),
-            "max_pos_error": safe_stat(matches_valid["diff_pos_norm2"], np.max),
-            "max_ori_error": safe_stat(matches_valid["diff_ori"], np.max),
-            "max_rad_error": safe_stat(matches_valid["diff_rad_percentage"], np.max),
+            "median_pos_error": safe_stat(matches_valid["diff_pos_norm2"], np.median),
+            "median_ori_error": safe_stat(matches_valid["diff_ori"], np.median),
+            "median_rad_error": safe_stat(matches_valid["diff_rad_percentage"], np.median),
         }
 
         with open(os.path.join(self.output_dir, "statistics_summary.json"), "w") as f:

@@ -60,13 +60,14 @@
     input = 'neml2_cpfe.i'
     cli_args = 'slip_constant_strength=${slip_constant_strength} vh_slope_init=${voce_hardening_initial_slope}
                 vh_hardening_sat=${voce_hardening_saturation} pow_slip_n=${power_slip_n}
-                pow_slip_g0=${power_slip_g0} E=${elastic_E} nu=${elastic_nu} G=${elastic_G}'
+                pow_slip_g0=${power_slip_g0} E=${elastic_E} nu=${elastic_nu} G=${elastic_G}
+                device=${device} device_batch=${device_batch}'
     scheduler = 'simple'
-    async_dispatch = true
+    async_dispatch = false
     [all]
         model = 'model'
         verbose = true
-        device = 'cuda:0'
+        device = ${device}
 
         moose_input_types = 'MATERIAL                          POSTPROCESSOR         POSTPROCESSOR
                              MATERIAL                          MATERIAL              MATERIAL'
@@ -120,15 +121,32 @@
         custom_cauchy_jacobian = 'neml2_cauchy_jacobian'
         large_kinematics = true
     []
+    [nye_tensor]
+        type = CurlR2Material
+        a11 = Fe_11
+        a12 = Fe_12
+        a13 = Fe_13
+        a21 = Fe_21
+        a22 = Fe_22
+        a23 = Fe_23
+        a31 = Fe_31
+        a32 = Fe_32
+        a33 = Fe_33
+        scale = ${burger_scale}
+        curl_name = 'nye_tensor'    
+    []
 []
 
 [Executioner]
     type = Transient
     solve_type = NEWTON
     petsc_options = '-ksp_converged_reason'
-    petsc_options_iname = '-pc_type -pc_factor_mat_solver_package'
-    petsc_options_value = 'lu superlu_dist'
+
+    petsc_options_iname = '-pc_type -pc_factor_mat_solver_package -ksp_type'
+    petsc_options_value = 'lu superlu_dist gmres'
+
     automatic_scaling = true
+
     reuse_preconditioner = true
     reuse_preconditioner_max_linear_its = 20
 
@@ -143,7 +161,7 @@
     l_max_its = 100
 
     end_time = ${total_time}
-    dtmax = '${fparse dt}'
+    dtmax = '${fparse 10*dt}'
 
     [TimeStepper]
         type = IterationAdaptiveDT
@@ -152,7 +170,7 @@
         iteration_window = 2
         cutback_factor = 0.2
         cutback_factor_at_failure = 0.5
-        growth_factor = 10
+        growth_factor = 2
         linear_iteration_ratio = 1000
     []
 
@@ -348,6 +366,103 @@
             property = 'elastic_deformation_gradient'
             i = 2
             j = 2
+        []
+    []
+    [nye_tensor_11]
+        order = FIRST 
+        family = MONOMIAL
+        [AuxKernel]
+            type = MaterialRankTwoTensorAux
+            property = 'nye_tensor'
+            i = 0
+            j = 1
+        []
+    []
+    [nye_tensor_12]
+        order = FIRST 
+        family = MONOMIAL
+        [AuxKernel]
+            type = MaterialRankTwoTensorAux
+            property = 'nye_tensor'
+            i = 0
+            j = 1
+        []
+    []
+    [nye_tensor_13]
+        order = FIRST 
+        family = MONOMIAL
+        [AuxKernel]
+            type = MaterialRankTwoTensorAux
+            property = 'nye_tensor'
+            i = 0
+            j = 2
+        []
+    []
+    [nye_tensor_21]
+        order = FIRST 
+        family = MONOMIAL
+        [AuxKernel]
+            type = MaterialRankTwoTensorAux
+            property = 'nye_tensor'
+            i = 1
+            j = 0
+        []
+    []
+    [nye_tensor_22]
+        order = FIRST 
+        family = MONOMIAL
+        [AuxKernel]
+            type = MaterialRankTwoTensorAux
+            property = 'nye_tensor'
+            i = 1
+            j = 1
+        []
+    []
+    [nye_tensor_23]
+        order = FIRST 
+        family = MONOMIAL
+        [AuxKernel]
+            type = MaterialRankTwoTensorAux
+            property = 'nye_tensor'
+            i = 1
+            j = 2
+        []
+    []
+    [nye_tensor_31]
+        order = FIRST 
+        family = MONOMIAL
+        [AuxKernel]
+            type = MaterialRankTwoTensorAux
+            property = 'nye_tensor'
+            i = 2
+            j = 0
+        []
+    []
+    [nye_tensor_32]
+        order = FIRST 
+        family = MONOMIAL
+        [AuxKernel]
+            type = MaterialRankTwoTensorAux
+            property = 'nye_tensor'
+            i = 2
+            j = 1
+        []
+    []
+    [nye_tensor_33]
+        order = FIRST 
+        family = MONOMIAL
+        [AuxKernel]
+            type = MaterialRankTwoTensorAux
+            property = 'nye_tensor'
+            i = 2
+            j = 2
+        []
+    []
+    [volume]
+        order = CONSTANT
+        family = MONOMIAL
+        [AuxKernel]
+            type = VolumeAux
         []
     []
 []

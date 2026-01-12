@@ -58,3 +58,59 @@ class SimilarityMetricLibrary:
             feature_cols=cols,
             func=func,
         )
+
+    def misorientation(self, symmetry='432',angle_type="degrees") -> SimilarityMetric:
+
+        cols = ["ori_rodrigues_x", "ori_rodrigues_y", "ori_rodrigues_z"]
+
+        def func(u: np.ndarray, v: np.ndarray) -> float:
+            import neml2
+            import torch
+            from neml2 import tensors
+            from neml2 import crystallography
+            
+            e1 = torch.tensor(u, dtype=torch.float64)
+            e2 = torch.tensor(v, dtype=torch.float64)
+            if e1.ndim == 1:
+                e1 = e1.unsqueeze(0)
+            if e2.ndim == 1:
+                e2 = e2.unsqueeze(0)
+
+            e1 = tensors.Rot(e1)
+            e2 = tensors.Rot(e2)
+
+            rad_mis = crystallography.misorientation(e1, e2, symmetry).torch()
+
+            if angle_type == "degrees":
+                return torch.rad2deg(rad_mis)
+
+            return rad_mis
+
+        return SimilarityMetric(
+            name="misorientation",
+            feature_cols=cols,
+            func=func,
+        )
+
+    def nye_tensor_norm(self) -> SimilarityMetric:
+
+        cols = [
+            "nye_tensor_11", "nye_tensor_12", "nye_tensor_13",
+            "nye_tensor_21", "nye_tensor_22", "nye_tensor_23",
+            "nye_tensor_31", "nye_tensor_32", "nye_tensor_33",
+        ]
+
+        def func(u: np.ndarray, v: np.ndarray) -> float:
+            nye_u = u.reshape((3, 3))
+            nye_v = v.reshape((3, 3))
+
+            diff = nye_u - nye_v
+            diff_norm = np.linalg.norm(diff, ord='fro')
+
+            return diff_norm
+
+        return SimilarityMetric(
+            name="nye_tensor_norm",
+            feature_cols=cols,
+            func=func,
+        )

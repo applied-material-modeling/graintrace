@@ -25,23 +25,6 @@
     []
 []
 
-[Materials]
-    [nye_tensor]
-        type = CurlR2Material
-        a11 = Fe_11
-        a12 = Fe_12
-        a13 = Fe_13
-        a21 = Fe_21
-        a22 = Fe_22
-        a23 = Fe_23
-        a31 = Fe_31
-        a32 = Fe_32
-        a33 = Fe_33
-        scale = ${burger_scale}
-        curl_name = 'nye_tensor'    
-    []
-[]
-
 [VectorPostprocessors]
     [element_centroid]
         type = ElementValueSampler
@@ -54,7 +37,9 @@
                     Fe_31 Fe_32 Fe_33
                     nye_tensor_11 nye_tensor_12 nye_tensor_13
                     nye_tensor_21 nye_tensor_22 nye_tensor_23
-                    nye_tensor_31 nye_tensor_32 nye_tensor_33'
+                    nye_tensor_31 nye_tensor_32 nye_tensor_33
+                    cauchy_stress_xx cauchy_stress_yy cauchy_stress_zz
+                    cauchy_stress_yz cauchy_stress_xz cauchy_stress_xy'
     []
 []
 
@@ -176,94 +161,64 @@
         order = FIRST 
         family = MONOMIAL
     []
+    [cauchy_stress_xx]
+        order = FIRST
+        family = MONOMIAL
+    []
+    [cauchy_stress_yy]
+        order = FIRST
+        family = MONOMIAL
+    []
+    [cauchy_stress_zz]
+        order = FIRST
+        family = MONOMIAL
+    []
+    [cauchy_stress_yz]
+        order = FIRST
+        family = MONOMIAL
+    []
+    [cauchy_stress_xz]
+        order = FIRST
+        family = MONOMIAL
+    []
+    [cauchy_stress_xy]
+        order = FIRST
+        family = MONOMIAL
+    []
     [nye_tensor_11]
         order = FIRST 
         family = MONOMIAL
-        [AuxKernel]
-            type = MaterialRankTwoTensorAux
-            property = 'nye_tensor'
-            i = 0
-            j = 1
-        []
     []
     [nye_tensor_12]
         order = FIRST 
         family = MONOMIAL
-        [AuxKernel]
-            type = MaterialRankTwoTensorAux
-            property = 'nye_tensor'
-            i = 0
-            j = 1
-        []
     []
     [nye_tensor_13]
         order = FIRST 
         family = MONOMIAL
-        [AuxKernel]
-            type = MaterialRankTwoTensorAux
-            property = 'nye_tensor'
-            i = 0
-            j = 2
-        []
     []
     [nye_tensor_21]
         order = FIRST 
         family = MONOMIAL
-        [AuxKernel]
-            type = MaterialRankTwoTensorAux
-            property = 'nye_tensor'
-            i = 1
-            j = 0
-        []
     []
     [nye_tensor_22]
         order = FIRST 
         family = MONOMIAL
-        [AuxKernel]
-            type = MaterialRankTwoTensorAux
-            property = 'nye_tensor'
-            i = 1
-            j = 1
-        []
     []
     [nye_tensor_23]
         order = FIRST 
         family = MONOMIAL
-        [AuxKernel]
-            type = MaterialRankTwoTensorAux
-            property = 'nye_tensor'
-            i = 1
-            j = 2
-        []
     []
     [nye_tensor_31]
         order = FIRST 
         family = MONOMIAL
-        [AuxKernel]
-            type = MaterialRankTwoTensorAux
-            property = 'nye_tensor'
-            i = 2
-            j = 0
-        []
     []
     [nye_tensor_32]
         order = FIRST 
         family = MONOMIAL
-        [AuxKernel]
-            type = MaterialRankTwoTensorAux
-            property = 'nye_tensor'
-            i = 2
-            j = 1
-        []
     []
     [nye_tensor_33]
         order = FIRST 
         family = MONOMIAL
-        [AuxKernel]
-            type = MaterialRankTwoTensorAux
-            property = 'nye_tensor'
-            i = 2
-            j = 2
-        []
     []
 []

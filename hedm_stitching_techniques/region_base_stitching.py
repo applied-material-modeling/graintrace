@@ -59,14 +59,14 @@ class RegionBaseStitching():
         all_zmin = min(gs.meta.zmin for gs in self.scans)
         all_zmax = max(gs.meta.zmax for gs in self.scans)
 
-        if zlo > all_zmin:
-            raise ValueError(
-                f"Given zlo={zlo} is ABOVE the actual lowest scan boundary {all_zmin}."
-            )
-        if zhi < all_zmax:
-            raise ValueError(
-                f"Given zhi={zhi} is BELOW the actual highest scan boundary {all_zmax}."
-            )
+        # if zlo > all_zmin:
+        #     raise ValueError(
+        #         f"Given zlo={zlo} is ABOVE the actual lowest scan boundary {all_zmin}."
+        #     )
+        # if zhi < all_zmax:
+        #     raise ValueError(
+        #         f"Given zhi={zhi} is BELOW the actual highest scan boundary {all_zmax}."
+        #     )
         
         # if there is no overlap
         if overlap_fraction == 0.0:

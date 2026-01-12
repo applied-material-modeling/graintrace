@@ -12,10 +12,12 @@ class CPFESimulation:
     DEFAULT_PARAMS = {
         "simulation_parameters": {
             "base_folder": "simulation_out",
-            "dt": 0.2,
+            "dt": 0.1,
             "total_time": 5.0,
             "strain_unit_conversion": 1.0,
             "initialize_time": 1.0,
+            "device": "cpu",
+            "device_batch": 100,
         },
         "material": {
             "slip_constant_strength": 130.0,
@@ -145,7 +147,6 @@ class CPFESimulation:
         yroll_x, yroll_y, yroll_z = xlo, yhi, zlo
 
         coupled_axes = set()
-        coupled_boundaries = []  # (axis, boundary_name)
 
         out = self.save_simulation_folder / "boundary_conditions.i"
         with open(out, "w") as f:
@@ -251,6 +252,17 @@ class CPFESimulation:
                 f.write("    []\n")
             f.write("[]\n\n")
 
+            # [Front face flat]
+            f.write("[Constraints]\n")
+            f.write("    [zface_flat]\n")
+            f.write("        type = EqualValueBoundaryConstraint\n")
+            f.write("        secondary = 'front'\n")
+            f.write("        variable = disp_z\n")
+            f.write("        penalty = 1e6\n")
+            f.write("        enable = true\n")
+            f.write("    []\n")
+            f.write("[]\n\n")
+
             # [Controls] — dynamically determined
             f.write("[Controls]\n")
             f.write("    [switch_loading]\n")
@@ -328,6 +340,28 @@ class CPFESimulation:
                     f.write(f"        block = {i}\n")
                     f.write("    []\n")
                 f.write("\n")
+
+            # orientation
+            components = ["x", "y", "z"]
+            for comp in components:
+                f.write(f"    # --- ori_rodrigues_{comp} ---\n")
+                for i in range(1, ncell + 1):
+                    f.write(f"    [ori_rodrigues_{comp}_{i}]\n")
+                    f.write("        type = ElementAverageValue\n")
+                    f.write(f"        variable = ori_rodrigues_{comp}\n")
+                    f.write(f"        block = {i}\n")
+                    f.write("    []\n")
+                f.write("\n")
+
+            # volume
+            f.write("    # --- volume ---\n")
+            for i in range(1, ncell + 1):
+                f.write(f"    [volume_{i}]\n")
+                f.write("        type = ElementAverageValue\n")
+                f.write(f"        variable = volume\n")
+                f.write(f"        block = {i}\n")
+                f.write("    []\n")
+            f.write("\n")
 
             f.write("[]\n")
     
@@ -422,6 +456,8 @@ class CPFESimulation:
             "strain_postprocessor.i",
             "transfer.i",
             "orientation_file=mrps_orientation.csv",
+            f"device={self.params['simulation_parameters']['device']}",
+            f"device_batch={self.params['simulation_parameters']['device_batch']}",
             f"mesh_file={self.mesh_file.name}",
             f"residual_strain_file={self.eeres_file.name}",
             f"ncell_ff={ncells:.12g}",
@@ -468,11 +504,9 @@ class CPFESimulation:
                 stdin=subprocess.DEVNULL,
                 stdout=lf,
                 stderr=subprocess.STDOUT,
-                text=True
+                text=True,
+                start_new_session=True,
+                close_fds=True,
             )
-            proc.wait()
 
-        if proc.returncode != 0:
-            print(f"ERROR: CPFE simulation failed with exit code {proc.returncode}", file=sys.stderr)
-            raise RuntimeError(f"CPFE simulation failed with exit code {proc.returncode}")
-
+        print(f"CPFE simulation started, PID={proc.pid}")
