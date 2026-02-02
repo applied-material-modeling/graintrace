@@ -213,6 +213,9 @@ class CPFESimulation:
                     f.write("    []\n")
                     f.write("    #\n")
 
+                    # TO BE ADDED: for the face that are moving,
+                    # the other two directions of that face should be zero
+
             f.write("[]\n\n")
 
             # [Functions] — per-axis ramping functions
@@ -268,7 +271,7 @@ class CPFESimulation:
             f.write("    [switch_loading]\n")
             f.write("        type = TimePeriod\n")
             f.write(f"        start_time = {sim['initialize_time']:.12g}\n")
-            f.write(f"        end_time = {sim['total_time']:.12g}\n")
+            f.write(f"        end_time = {(sim['total_time']+1):.12g}\n")
 
             enable_objs = [f"BCs::{bname}_boundary" for _, bname, _ in coupled_bcs]
             disable_objs = [f"AuxKernels::disp_{axis}_residual" for axis, _, _ in coupled_bcs]
@@ -283,10 +286,10 @@ class CPFESimulation:
 
     def write_strain_postprocess_file(self, ncell=None):
         """
-        Generate strain_postprocessor.i.
+        Generate grain_average_postprocessor.i.
         """
 
-        out = self.save_simulation_folder / "strain_postprocessor.i"
+        out = self.save_simulation_folder / "grain_average_postprocessor.i"
    
         if self.eeres_file is None:
             if ncell is None or not isinstance(ncell, int):
@@ -303,7 +306,7 @@ class CPFESimulation:
             self.ncell_nf = df.shape[0]
             shutil.copy(self.eeres_file, self.save_simulation_folder / Path(self.eeres_file).name)
 
-        # --- Generate strain_postprocessor.i ---
+        # --- Generate grain_average_postprocessor.i ---
         with open(out, "w") as f:
             f.write("[Postprocessors]\n")
             f.write("    # Automatically generated strain postprocessors\n")
@@ -328,22 +331,29 @@ class CPFESimulation:
                     f.write(f"        block = {i}\n")
                     f.write("    []\n")
                 f.write("\n")
+                # cauchy_stress_*
+                f.write(f"    # --- cauchy_stress_{comp} ---\n")
+                for i in range(1, ncell + 1):
+                    f.write(f"    [cauchy_stress_{comp}_{i}]\n")
+                    f.write("        type = ElementAverageValue\n")
+                    f.write(f"        variable = cauchy_stress_{comp}\n")
+                    f.write(f"        block = {i}\n")
+                    f.write("    []\n")
+                f.write("\n")
 
-            # geometric centroid as well
             components = ["x", "y", "z"]
             for comp in components:
+                # geometric centroid
                 f.write(f"    # --- centroid_{comp} ---\n")
                 for i in range(1, ncell + 1):
                     f.write(f"    [centroid_{comp}_{i}]\n")
                     f.write("        type = FunctionElementAverage\n")
                     f.write(f"        function = coord_{comp}\n")
+                    f.write("        use_displaced_mesh = True\n")
                     f.write(f"        block = {i}\n")
                     f.write("    []\n")
                 f.write("\n")
-
-            # orientation
-            components = ["x", "y", "z"]
-            for comp in components:
+                # orientation
                 f.write(f"    # --- ori_rodrigues_{comp} ---\n")
                 for i in range(1, ncell + 1):
                     f.write(f"    [ori_rodrigues_{comp}_{i}]\n")
@@ -359,9 +369,11 @@ class CPFESimulation:
                 f.write(f"    [volume_{i}]\n")
                 f.write("        type = ElementAverageValue\n")
                 f.write(f"        variable = volume\n")
+                f.write("        use_displaced_mesh = True\n")
                 f.write(f"        block = {i}\n")
                 f.write("    []\n")
             f.write("\n")
+            
 
             f.write("[]\n")
     
@@ -453,7 +465,7 @@ class CPFESimulation:
             "run_cpfe.i",
             "boundary_conditions.i",
             "initial_conditions.i",
-            "strain_postprocessor.i",
+            "grain_average_postprocessor.i",
             "transfer.i",
             "orientation_file=mrps_orientation.csv",
             f"device={self.params['simulation_parameters']['device']}",

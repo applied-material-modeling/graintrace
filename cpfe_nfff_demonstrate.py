@@ -21,7 +21,7 @@ plt.rcParams.update({
 output_dir = "cpfe_ff_nf_demonstrate_v2"
 
 ff_bounding_box = [-500, 500, -500, 500, 0, 1500]
-ff_strain_stdev = 100.0 #microstrain
+ff_strain_stdev = 1000.0 #microstrain
 
 nf_bounding_box = [-200, 200, -200, 200, 0, 600]
 
@@ -61,13 +61,13 @@ grid_nx = 20 #5
 grid_ny = 20 #5
 grid_nz = 30 #5
 
-reconstruction_needed = True
+reconstruction_needed = False
 initialize_data = True
 
 # simulation parameters
 ncore = 24
 device = "cuda:0"
-device_batch = 500
+device_batch = 1000
 
 nf_folder = os.path.join(output_dir, "NF")          
 nf_save_dir = os.path.join(output_dir, "nf_reconstruction") 
@@ -201,7 +201,7 @@ sim.set_parameters(
     bc={
         "x": {"negative": "stress_free", "positive": "stress_free"},
         "y": {"negative": "stress_free", "positive": "stress_free"},
-        "z": {"negative": 0, "positive": 12}, # 12/600 so that total strain is 2%
+        "z": {"negative": 0, "positive": 600}, # 300/600 so that total strain is 50%
     },
 )
 

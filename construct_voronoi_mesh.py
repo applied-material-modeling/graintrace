@@ -30,6 +30,7 @@ class VoronoiMeshBuilder:
         orientation_active_convention=False,
         unit="deg",          # rotation unit ('deg' or 'rad')
         elastic_strain_identifier=None,
+        ori_rotmat_identifier=None,
         strain_unit="microstrain",
         env=None
     ):
@@ -52,6 +53,7 @@ class VoronoiMeshBuilder:
         self.data = None
         self.elastic_strain_id = elastic_strain_identifier
         self.strain_unit = strain_unit
+        self.ori_rotmat_id = ori_rotmat_identifier
 
         self.env = self.check_dependencies() if env is None else env
 
@@ -85,6 +87,14 @@ class VoronoiMeshBuilder:
                 raise ValueError("elastic_strain_identifier must contain exactly 9 components.")
             if self.strain_unit not in ("microstrain", "strain"):
                 raise ValueError(f"Invalid strain_unit '{self.strain_unit}'. Must be 'microstrain' or 'strain'.")
+
+        if self.ori_rotmat_id is not None:
+            if len(self.ori_rotmat_id) != 9:
+                raise ValueError("ori_rotmat_identifier must contain exactly 9 components.")
+        else:
+            self.ori_rotmat_id = ["O11","O12","O13",
+                                  "O21","O22","O23",
+                                  "O31","O32","O33"]
 
         if self.angle_id is not None:
             if not isinstance(self.angle_id, (list, tuple)) or len(self.angle_id) != 3:
@@ -859,7 +869,49 @@ class VoronoiMeshBuilder:
                 relative_cl=relative_el_size if relative_el_size else 1.0,
                 mesh_quality_min=mesh_quality_min,
             )
+    
+    def build_graph(self,
+                    device: str = "cpu",
+                    option: str = "centroid",
+                    CVT_iter: int = 100,
+                    morphoalgo: str = "praxis",
+                    visualize2D: bool = False,
+                    visualize3D: bool = False):
         
+        self.build_voronoi(generate_mesh=False,
+                           option=option,
+                           relative_el_size=None,
+                           morphoalgo=morphoalgo,
+                           CVT_iter=CVT_iter
+                           )
+        
+        from tess_to_gnn import NeperTessToGraphNN
+        import torch
+
+        print("\n=== Building Graph Neural Network representation ===\n")
+
+        parser = NeperTessToGraphNN(
+            tess_path=os.path.join(self.output_dir, "reconstruction.tess"),
+            device=device,
+            dtype=torch.float64
+        )
+
+        parser.register_dataframe_features(data=self.data, verbose=False)
+
+        print(self.data.columns)
+
+        graph = parser.build_cell_graph()
+
+        if visualize3D:
+            os.makedirs(self.output_dir + "/figures/gnn", exist_ok=True)
+            parser.visualize_graph_3D(graph,outpath=self.output_dir+"/figures/gnn/graph_3D.png")
+
+        if visualize2D:
+            os.makedirs(self.output_dir + "/figures/gnn", exist_ok=True)
+            parser.visualize_graph_2D(graph,outpath=self.output_dir+"/figures/gnn/graph_2D.png")
+        
+        return graph
+
     def apply_rotation_to_properties(self,
                                      tess_file: str):
         '''
@@ -924,9 +976,11 @@ class VoronoiMeshBuilder:
                 )
             ori_mats = ori_data.reshape(-1, 3, 3)
             if transpose:
-                ori_mats = np.transpose(ori_mats, (0, 2, 1))
-            
-            ori_rot = np.array([np.dot(R, self.rotate_matrix) for R in ori_mats])
+                ori_rot = np.array([np.dot(self.rotate_matrix, R) for R in ori_mats])
+            else:
+                ori_rot = np.array([np.dot(self.rotate_matrix, R.T).T for R in ori_mats])
+
+        self.data[self.ori_rotmat_id] = ori_rot.reshape(-1, 9)
 
         # --- Write back new orientations ---
         new_ori_lines = [

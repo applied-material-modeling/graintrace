@@ -68,36 +68,37 @@ class NeperTessToGraphNN:
         pass
 
     # ---------- PARSING ----------
-    def parse_tess(self, 
-                   sections = {
-                                "cell": {"seed": [], "ori": []},
-                                "vertex": [],
-                                "edge": [],
-                                "face": [],
-                                "polyhedron": []
-                            }
-                ):
-        
+    def parse_tess(self):
         """
         Parse the Neper .tess file.
         """
         if not os.path.exists(self.tess_path):
             raise FileNotFoundError(f"Tessellation file not found: {self.tess_path}")
 
-        with open(self.tess_path, 'r') as f:
+        # Fresh storage per call — no shared state
+        sections = {
+            "cell": {
+                "seed": [],
+                "ori": [],
+            },
+            "vertex": [],
+            "edge": [],
+            "face": [],
+            "polyhedron": [],
+        }
+
+        with open(self.tess_path, "r") as f:
             lines = [ln.strip() for ln in f if ln.strip()]
 
         section = None
         subsection = None
 
         for line in lines:
-            # Top-level section
             if line.startswith("**"):
                 section = line.strip('*').lower()
                 subsection = None
                 continue
 
-            # Cell subsections
             if section == "cell":
                 if line.startswith("*"):
                     name = line.strip('*').lower()
@@ -108,7 +109,6 @@ class NeperTessToGraphNN:
                     sections["cell"][subsection].append(line)
                 continue
 
-            # Other sections
             if section in sections:
                 sections[section].append(line)
 
@@ -133,6 +133,7 @@ class NeperTessToGraphNN:
         # =============== 1. CELLS ===============
         cell_data = sections.get("cell", {})
         self.cell_seeds = torch.zeros((0, 4), dtype=self.dtype, device=self.device)
+        # to be fixed , sometimes orientations provide 3 or 9
         self.orientations = torch.zeros((0, 3), dtype=self.dtype, device=self.device)
         self.ori_type = "none"
 
@@ -159,6 +160,7 @@ class NeperTessToGraphNN:
                 ori_vals = []
                 for line in data_lines:
                     if re.match(r"^[-\d]", line):
+                        # fix here if 3 or 9 values
                         vals = list(map(float, line.split()))[:3]
                         ori_vals.append(vals)
                 if ori_vals:
@@ -295,7 +297,7 @@ class NeperTessToGraphNN:
         """
 
         # --- Cell centroid ---
-        def node_centroid(self):
+        def seed_centroid(self):
             # right now return just cell_seeds , this will be implemented later
             return self.cell_seeds
             #return self.cell_centroid
@@ -313,10 +315,60 @@ class NeperTessToGraphNN:
         # def edge_area(self, edge_index):
         #     return self.face_area[:edge_index.shape[1]]
 
-        self.node_feature_registry["centroid"] = node_centroid
+        self.node_feature_registry["seed_centroid"] = seed_centroid
         # self.node_feature_registry["volume"] = node_volume
         # self.edge_feature_registry["centroid"] = edge_centroid
         # self.edge_feature_registry["area"] = edge_area
+    
+    def register_dataframe_features(self, data, verbose=True):
+
+        """
+        Register every column in a pandas DataFrame as a node feature.
+        """
+
+        import pandas as pd
+
+        if not isinstance(data, pd.DataFrame):
+            raise TypeError("register_dataframe_features expects a pandas DataFrame.")
+
+        n_cells = int(self.cell_seeds.shape[0])
+        n_df = int(len(data))
+        if n_df != n_cells:
+            raise ValueError(
+                f"DataFrame length mismatch: len(data)={n_df} but num_cells={n_cells}. "
+                "Row order/alignment is required."
+            )
+
+        # storage for tensors created from dataframe columns
+        if not hasattr(self, "_df_node_tensors") or self._df_node_tensors is None:
+            self._df_node_tensors = {}
+        
+        if verbose:
+            print("this dataframe has the following columns:")
+            print(list(data.columns))
+
+        for col in data.columns:
+            s = data[col]
+
+            if pd.api.types.is_bool_dtype(s):
+                s_num = s.astype(float)
+            elif pd.api.types.is_numeric_dtype(s):
+                s_num = s.astype(float)
+            else:
+                s_num = pd.to_numeric(s, errors="coerce").astype(float)
+
+            arr = s_num.to_numpy(dtype=float, copy=False)
+            t = torch.tensor(arr, dtype=self.dtype, device=self.device).view(n_cells, 1)
+
+            self._df_node_tensors[col] = t
+
+            def _feat(self_ref, name=col):
+                return self_ref._df_node_tensors[name]
+
+            self.node_feature_registry[col] = _feat
+
+        # Ensure new features are active
+        self.activate_all_registered_features()
     
     def activate_all_registered_features(self):
         """Activate all currently registered node and edge features."""
@@ -348,13 +400,25 @@ class NeperTessToGraphNN:
 
         # --- Node features ---
         node_feats = []
+        feature_slices = {}
+
+        start = 0
         for name in self.active_node_features:
             func = self.node_feature_registry.get(name)
             if func is None:
                 raise KeyError(f"Unregistered node feature: {name}")
-            node_feats.append(func(self))
-        
-        # x - node features, shape should be [num_nodes, num_node_features] 
+
+            feat = func(self)
+            if feat.ndim != 2:
+                raise ValueError(f"Node feature '{name}' must be 2D, got shape {feat.shape}")
+
+            k = feat.shape[1]
+            feature_slices[name] = (start, start + k)
+            start += k
+
+            node_feats.append(feat)
+
+        # x - node features
         x = torch.cat(node_feats, dim=1) if node_feats else torch.empty(
             (len(self.cell_seeds), 0), dtype=self.dtype, device=self.device
         )
@@ -372,7 +436,13 @@ class NeperTessToGraphNN:
             (edge_index.shape[1], 0), dtype=self.dtype, device=self.device
         )
 
-        return Data(x=x, edge_index=edge_index, edge_attr=edge_attr)
+        graph = Data(x=x, edge_index=edge_index, edge_attr=edge_attr)
+
+        graph.feature_names = list(self.active_node_features)
+        graph.feature_slices = feature_slices
+        graph.edge_feature_names = list(self.active_edge_features)
+
+        return graph
 
     def visualize_graph_2D(self, graph,
                         node_attr=None,

@@ -12,3 +12,6 @@ hedm_demonstrate/
 test_moose_*/
 cpfe_ff_nf_demonstrate/
 cpfe_ff_nf_demonstrate_v*/
+postprocess_test*/
+test*/
+grain_tracking_output*/
