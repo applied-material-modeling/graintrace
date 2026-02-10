@@ -18,7 +18,7 @@ plt.rcParams.update({
 })
 
 # INPUT -------------------------------------------------------
-output_dir = "cpfe_ff_nf_demonstrate_v2"
+output_dir = "minimum_example_nfff_cpfe"
 
 ff_bounding_box = [-500, 500, -500, 500, 0, 1500]
 ff_strain_stdev = 1000.0 #microstrain
@@ -29,9 +29,9 @@ crystal_morpho_args = {"type": "diameq",
                        "distribution": "lognormal",
                          "params": (200.0, 5.0)}
 
-nf_dz = 20 #120.0  # Near field dz (thickness) per layer
-nf_mesh_nx = 20 #5
-nf_mesh_ny = 20 #5
+nf_dz = 120.0  # Near field dz (thickness) per layer
+nf_mesh_nx = 5
+nf_mesh_ny = 5
 
 nf_segmentation_input = {
         "misorientation_tol": 1.0/180*np.pi,
@@ -57,11 +57,11 @@ sculpt_options = (
     )
 
 # postprocess grid parameters
-grid_nx = 20 #5
-grid_ny = 20 #5
-grid_nz = 30 #5
+grid_nx = 10 #5
+grid_ny = 10 #5
+grid_nz = 10 #5
 
-reconstruction_needed = False
+reconstruction_needed = True
 initialize_data = True
 
 # simulation parameters
@@ -124,12 +124,12 @@ if initialize_data:
             },
         }
 
-        # mesh_path = builder_nf.mesh(
-        #     sculpt_config=sculpt_config,
-        #     sculpt_options=sculpt_options,
-        #     merged_grid=merged_grid_path,  # explicit restart-safe input
-        # )
-        # print(f"Meshing complete: {mesh_path}")
+        mesh_path = builder_nf.mesh(
+            sculpt_config=sculpt_config,
+            sculpt_options=sculpt_options,
+            merged_grid=merged_grid_path,  # explicit restart-safe input
+        )
+        print(f"Meshing complete: {mesh_path}")
         print(f"Mapped orientations: {builder_nf.mapped_orientations_path}.csv")
 
 
@@ -201,7 +201,7 @@ sim.set_parameters(
     bc={
         "x": {"negative": "stress_free", "positive": "stress_free"},
         "y": {"negative": "stress_free", "positive": "stress_free"},
-        "z": {"negative": 0, "positive": 600}, # 300/600 so that total strain is 50%
+        "z": {"negative": 0, "positive": 0.4}, # 300/600 so that total strain is 50%
     },
 )
 
