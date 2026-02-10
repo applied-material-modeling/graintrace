@@ -69,6 +69,21 @@ ncore = 24
 device = "cuda:0"
 device_batch = 1000
 
+# program parameters
+moose_run_file="/home/tranh/projects/puma/puma-opt"
+
+sculpt_config = {
+    "mpirun": "/opt/Coreform-Cubit-2025.12/bin/mpi/bin/mpirun",
+    "psculpt": "/opt/Coreform-Cubit-2025.12/bin/psculpt",
+    "epu": "/opt/Coreform-Cubit-2025.12/bin/epu",
+    "nprocs": int(ncore),
+    "environment": {
+        "OPAL_LIBDIR": "/opt/Coreform-Cubit-2025.12/bin/mpi/lib",
+        "OPAL_PREFIX": "/opt/Coreform-Cubit-2025.12/bin/mpi",
+    },
+}
+
+# save locations
 nf_folder = os.path.join(output_dir, "NF")          
 nf_save_dir = os.path.join(output_dir, "nf_reconstruction") 
 output_ff = os.path.join(output_dir, "ff_reconstruction")
@@ -113,16 +128,6 @@ if initialize_data:
 
         )
         print(f"\nReconstruction complete: {merged_grid_path}\n")   
-        sculpt_config = {
-            "mpirun": "/opt/Coreform-Cubit-2025.12/bin/mpi/bin/mpirun",
-            "psculpt": "/opt/Coreform-Cubit-2025.12/bin/psculpt",
-            "epu": "/opt/Coreform-Cubit-2025.12/bin/epu",
-            "nprocs": int(ncore),
-            "environment": {
-                "OPAL_LIBDIR": "/opt/Coreform-Cubit-2025.12/bin/mpi/lib",
-                "OPAL_PREFIX": "/opt/Coreform-Cubit-2025.12/bin/mpi",
-            },
-        }
 
         mesh_path = builder_nf.mesh(
             sculpt_config=sculpt_config,
@@ -176,7 +181,7 @@ sim = CPFESimulation(
     eeres_file=output_ff+"/reconstruction_cpfe_ee.csv",
     ori_file=output_dir+"/nf_reconstruction/orientations.csv",
     dim=3,
-    moose_run_file="/home/tranh/projects/puma/puma-opt"
+    moose_run_file=moose_run_file,
 )
 
 # sim.set_parameters("material", **optimized_material)

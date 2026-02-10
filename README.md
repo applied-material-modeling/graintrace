@@ -29,7 +29,7 @@ conda activate <env-name>
 
 - Alternatively, the code `construct_voronoi_mesh.py` provide an automatic installations in its `check_dependencies` function. This only works on LINUX system and have been verified with `Ubuntu 20.04`. This code also should set the correct environment, pull the compatible `gmsh` and `NEPER` versions, as well as download and compile the relevant programs inside the system's home path directory via `home = os.path.expanduser("~")`. To set up automatic installation under this approach, create a new python file and run:
 
-```bash
+```python
 from construct_voronoi_mesh import VoronoiMeshBuilder
 builder = VoronoiMeshBuilder(
     input_csv="testing_data/synthetic_data.csv",
@@ -58,8 +58,39 @@ Here are the resources to successfully compile MOOSE with NEML2
 
 - Linking MOOSE and NEML2: `https://mooseframework.inl.gov/getting_started/installation/install_neml2.html` and `https://mooseframework.inl.gov/getting_started/installation/install_libtorch.html`
 
-These instructions below worked for `Ubuntu 20.04` with the appropriate `mpi` and compiler packages. Check the above websites for prerequisites and dependencies.
+__Instructions__: at least worked for `Ubuntu 20.04` with the appropriate `mpi` and compiler packages. Check the above websites for prerequisites and dependencies.
 
+- Here we assume
+
+- Build MOOSE
+
+```python
+
+```
+
+- Obtain the compatible NEML2 and compile NEML2 for MOOSE and python package
+
+```python
+
+```
+
+- Obtain GPU-enable based libtorch
+
+```python
+
+```
+
+- Link MOOSE, NEML2, and libtorch
+
+```python
+
+```
+
+- Compile PUMA with linked MOOSE-NEML2
+
+```python
+
+```
 
 
 ## Minimum working example
@@ -68,7 +99,7 @@ Run code `cpfe_nfff_demonstrate.py` to check if the required programs are instal
 
 - Ensure that the environment variables for the programs are specified correctly. For `Coreform CUBIT`, Locate this line of codes and change the correct environment variables.
 
-```bash
+```python
 sculpt_config = {
     "mpirun": "/opt/Coreform-Cubit-2025.12/bin/mpi/bin/mpirun",
     "psculpt": "/opt/Coreform-Cubit-2025.12/bin/psculpt",
@@ -81,9 +112,15 @@ sculpt_config = {
 }
 ```
 
+- Ensure that the `moose_run_file` points to the correct executable. Locate this line and change to the correct path
+
+```python
+moose_run_file="/home/tranh/projects/puma/puma-opt"
+```
+
 - Locate these lines and reduce the `ncore` and `device_batch` as needed. In addition, set `devide=cpu` if `cuda` fails.
 
-```bash
+```python
 ncore = 24
 device = "cuda:0"
 device_batch = 1000
