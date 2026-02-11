@@ -4,8 +4,8 @@ from experiment_postprocessing import ExperimentResults, FieldFileNaming as ExpF
 import plot_postprocessing as postprocess
 
 # Input simulation
-block_csv = "cpfe_ff_nf_demonstrate_v2/simulation/simulation_out/out.csv"
-field_dir = "cpfe_ff_nf_demonstrate_v2/simulation/simulation_out/grid_out"
+block_csv = "mwe_data/out.csv"
+field_dir = "mwe_data/grid_out"
 
 field_naming = FieldFileNaming(
     prefix="out_element_centroid",   # must match your field filenames
@@ -20,7 +20,7 @@ test_time_sim = 1.0
 test_sim = True
 
 # Input Experiment
-grain_folder = "testing_during_code_not_upload_to_github/synthetic_load_exp"
+grain_folder = "mwe_data/synthetic_load_exp"
 
 exp_field_naming = ExpFieldFileNaming(
     prefix="expsyn",
@@ -163,15 +163,15 @@ if test_sim:
     print(f"Centroid of all blocks over time plotted")
 
     # 6) Texture
-    postprocess.plot_pole_figure(
-        res,
-        tensor_prefix="ori_rodrigues",
-        time = test_time_sim,
-        direction = [0, 0, 1],
-        crystal_symmetry = "432",
-        device = "cpu",
-        output_folder=output_folder,
-        construct_odf=False,
-    )
-    print(f"Pole figure plotted")
+    # postprocess.plot_pole_figure(
+    #     res,
+    #     tensor_prefix="ori_rodrigues",
+    #     time = test_time_sim,
+    #     direction = [0, 0, 1],
+    #     crystal_symmetry = "432",
+    #     device = "cpu",
+    #     output_folder=output_folder,
+    #     construct_odf=False,
+    # )
+    # print(f"Pole figure plotted")
 

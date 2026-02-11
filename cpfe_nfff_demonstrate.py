@@ -61,16 +61,16 @@ grid_nx = 10 #5
 grid_ny = 10 #5
 grid_nz = 10 #5
 
-reconstruction_needed = True
+reconstruction_needed = False
 initialize_data = True
 
 # simulation parameters
-ncore = 24
+ncore = 8
 device = "cuda:0"
 device_batch = 1000
 
 # program parameters
-moose_run_file="/home/tranh/projects/puma/puma-opt"
+moose_run_file="/home/tranh/projects/aps_build/puma/puma-opt"
 
 sculpt_config = {
     "mpirun": "/opt/Coreform-Cubit-2025.12/bin/mpi/bin/mpirun",
@@ -188,6 +188,7 @@ sim = CPFESimulation(
 # print(nf_bounding_box.tolist())
 
 sim.set_parameters("simulation_parameters", dt = 0.2,
+                                            total_time = 0.4,
                                             device = device,
                                             device_batch = device_batch)
 

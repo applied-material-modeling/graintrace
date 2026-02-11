@@ -120,13 +120,13 @@ class ExperimentResults:
 
         if order == 1:
             cols = [
-                f"{tensor_prefix}x{suffix}",
-                f"{tensor_prefix}y{suffix}",
-                f"{tensor_prefix}z{suffix}",
+                f"{tensor_prefix}0{suffix}",
+                f"{tensor_prefix}1{suffix}",
+                f"{tensor_prefix}2{suffix}",
             ]
             require(cols, "order-1 vector")
             data = df[cols].to_numpy()
-            comp_names = [f"{tensor_prefix}x", f"{tensor_prefix}y", f"{tensor_prefix}z"]
+            comp_names = [f"{tensor_prefix}0", f"{tensor_prefix}1", f"{tensor_prefix}2"]
             return (data, comp_names) if return_comp_names else data
 
         full = ["11","12","13","21","22","23","31","32","33"]

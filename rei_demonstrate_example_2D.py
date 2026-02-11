@@ -12,8 +12,8 @@ from similarity_metric_library import SimilarityMetricLibrary
 
 ## INPUTS ---------------------------------------------------
 
-filename = "testing_during_code_not_upload_to_github/synthetic_vms.csv"
-generate_synthetic = False
+filename = "mwe_data/synthetic_vms.csv"
+generate_synthetic = True
 
 if generate_synthetic:
     ## generate synthetic cluster data for testing purpose
@@ -132,23 +132,23 @@ if generate_synthetic:
 indicator = ClusterAnalysisIndicator(filename, coord_cols=("x", "y", "z"))
 
 metric_lib = SimilarityMetricLibrary()
-spec = metric_lib.misorientation()
+spec = metric_lib.von_mises_stress()
 
-# result, linkage = indicator.run(
-#     method_type="scipy_hierarchical",
-#     spec=spec,
-#     threshold=threshold,
-#     method = "average",
-#     criterion = "distance",
-# )
-
-result = indicator.run(
-    method_type = "sklearn_dbscan",
-    spec = spec,
-    eps = 0.01,
-    min_samples = 2,
-    leaf_size = 10,
+result, linkage = indicator.run(
+    method_type="scipy_hierarchical",
+    spec=spec,
+    threshold=threshold,
+    method = "average",
+    criterion = "distance",
 )
+
+# result = indicator.run(
+#     method_type = "sklearn_dbscan",
+#     spec = spec,
+#     eps = 0.01,
+#     min_samples = 2,
+#     leaf_size = 10,
+# )
 
 print("Plotting results...")
 
@@ -227,9 +227,6 @@ plt.savefig(
     dpi=300,
 )
 plt.close()
-### ------------------------------------------------------------- ###
-
-gfsd
 
 ### ------------------- Plotting MDS ----------------------------- ###
 fig, ax = plt.subplots(figsize=(6, 3))

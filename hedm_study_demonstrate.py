@@ -35,7 +35,7 @@ apply_noise=True
 remove_minimum_volume=False
 
 # gaussian distribution noise, 0.005 = 0.5%
-noise_level=0.05
+noise_level=0.01
 # grain volume minimum threshold
 min_vol=0.0 
 
@@ -65,9 +65,9 @@ cg = CrystalGenerator(
     seed=seed_number,
 )
 
-#cg.generate_tessellation(
-#    morpho_args=crystal_morpho_args,
-#)
+cg.generate_tessellation(
+    morpho_args=crystal_morpho_args,
+)
 
 # # Simulate HEDM scans
 cg.hedm_zscan(
@@ -98,7 +98,6 @@ stitch_output_csv = output_dir + "/huy_stitched.csv"
 #     output_csv=stitch_output_csv,
 # )
 # stitch.run()
-
 
 # Huy version of Stitching
 weights = {

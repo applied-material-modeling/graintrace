@@ -35,7 +35,7 @@ conda activate graintrace_env
 ```python
 from construct_voronoi_mesh import VoronoiMeshBuilder
 builder = VoronoiMeshBuilder(
-    input_csv="testing_data/synthetic_data.csv",
+    input_csv="mwe_data/synthetic_data.csv",
     output_dir="synethic_out",
     bounding_box=[0,1,0,1,0,1],
 )
@@ -47,7 +47,7 @@ builder = VoronoiMeshBuilder(
 
 4. __MOOSE with NEML2__
 
-The required libraries can be obtained at, however, it is recommended to follow the instructions below or the official websites to make sure the dependencies are satisfied:
+The required libraries can be obtained form the github packages below, however, it is recommended to follow the instructions below or the official websites to make sure the dependencies are satisfied:
 
 - PUMA: A MOOSE app that runs CPFE `git@github.com:applied-material-modeling/puma.git` with branch: `development`
 - MOOSE: `https://github.com/idaholab/moose.git` with branch: `master`
@@ -131,7 +131,7 @@ make -j 12
 ./run_tests
 ```
 
-If all tests passed, that it is successfully compiled.
+If all tests passed, then it is successfully compiled.
 
 - Finally, activate the python package of NEML2. The compatible NEML2 folder is inside MOOSE at `moose/framework/contrib/`
 
@@ -163,7 +163,7 @@ sculpt_config = {
 - Ensure that the `moose_run_file` points to the correct executable for PUMA (if follows to previous instruction, this file should be located at `projects/puma/puma-opt`). Locate this line and change to the correct path.
 
 ```python
-moose_run_file="/home/tranh/projects/puma/puma-opt"
+moose_run_file="/home/tranh/projects/aps_build/puma/puma-opt"
 ```
 
 - Locate these lines and reduce the `ncore` and `device_batch` as needed. In addition, set `devide=cpu` if `cuda` fails.
@@ -180,6 +180,8 @@ This code will:
 - Use NEPER/GMSH to reconstruct crystal structure from FF
 - Use CUBIT/SCULPT/NEML2 to reconstruct crystal structure from NF
 - Use MOOSE/NEML2 to run CPFE simulations
+
+In the end, navigate to `minimum_eexample_cpfe/simulation/cpfe_run.log` to make sure the simulation is completed.
 
 ## Check other python packages
 

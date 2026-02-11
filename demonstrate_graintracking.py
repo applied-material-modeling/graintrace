@@ -4,9 +4,9 @@ from grain_graph_matching import GraphGrainMatcher
 
 ff_bounding_box_1 = [-200,200,-173.205,173.205,0,650] # [-500, 500, -500, 500, 0, 1500]
 ff_bounding_box_2 = [-200,200,-173.205,173.205,0,680]
-#grain_file1 = "cpfe_ff_nf_demonstrate_v2/FF/ff.csv"
-grain_file1 = "testing_during_code_not_upload_to_github/synthetic_load_exp/expsyn_146time.csv"
-grain_file2 = "testing_during_code_not_upload_to_github/synthetic_load_exp/expsyn_160time.csv"
+
+grain_file1 = "mwe_data/synthetic_load_exp/expsyn_146time.csv"
+grain_file2 = "mwe_data/synthetic_load_exp/expsyn_160time.csv"
 
 elastic_strain_identifier = ["eKen11","eKen12","eKen13",
                                         "eKen21","eKen22","eKen23",
