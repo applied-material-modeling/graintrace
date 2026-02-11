@@ -1,4 +1,7 @@
-# INSTALLATION GUIDES
+# DEPENDENCIES INSTALLATION GUIDES
+
+These are to performed after downloading the python package.
+`git clone git@github.com:applied-material-modeling/graintrace.git`
 
 ## Required programs
 
@@ -14,11 +17,11 @@
 
 1. __Required python packages__
 
-- check `environment.ymal` for full list of required Python packages with conda environment. To create the same environment with conda, run:
+- check `environment.ymal` for full list of required Python packages with conda environment. This environment will be named `graintrace_env`. To create the same environment with conda, run:
 
 ```bash
 conda env create -f environment.yml
-conda activate <env-name>
+conda activate graintrace_env
 ```
 
 2. __NEPER with GMSH__
@@ -47,7 +50,7 @@ builder = VoronoiMeshBuilder(
 The required libraries can be obtained at, however, it is recommended to follow the instructions below or the official websites to make sure the dependencies are satisfied:
 
 - PUMA: A MOOSE app that runs CPFE `git@github.com:applied-material-modeling/puma.git` with branch: `development`
-- MOOSE: `https://github.com/idaholab/moose.git` with branch: `next`
+- MOOSE: `https://github.com/idaholab/moose.git` with branch: `master`
 - NEML2: `git@github.com:applied-material-modeling/neml2.git` with bracnh: `main`
 
 Here are the resources to successfully compile MOOSE with NEML2
@@ -60,38 +63,83 @@ Here are the resources to successfully compile MOOSE with NEML2
 
 __Instructions__: at least worked for `Ubuntu 20.04` with the appropriate `mpi` and compiler packages. Check the above websites for prerequisites and dependencies.
 
-- Here we assume
+- Here we assume the current path is in an empty folder. This folder will contain all of the MOOSE related programs. Also there is a current conda environment activated with the necessary dependencies. 
 
-- Build MOOSE
-
-```python
-
+```bash
+conda activate graintrace_env
+mkdir projects
+cd projects
 ```
 
-- Obtain the compatible NEML2 and compile NEML2 for MOOSE and python package
+- Build MOOSE: make sure the gcc / compilers are located in the correct path, usually it is `/usr/bin/mpicc`.
 
-```python
-
+```bash
+export CC=mpicc CXX=mpicxx FC=mpif90 F90=mpif90 F77=mpif77
+git clone https://github.com/idaholab/moose.git
+export MOOSE_DIR=${PWD}/moose
+cd moose
+git checkout master
+export MOOSE_JOBS=12 METHODS=opt
+cd scripts
+./update_and_rebuild_petsc.sh
+./update_and_rebuild_libmesh.sh
+./update_and_rebuild_wasp.sh
+cd ../../
 ```
 
-- Obtain GPU-enable based libtorch
+- Obtain GPU-enable based libtorch (this is for CUDA 12.6 - find compatibility matrix at: `https://github.com/pytorch/pytorch/blob/main/RELEASE.md#release-compatibility-matrix`). If other versions are required, change the argument for the wget command from `https://pytorch.org/get-started/locally/`. Make sure to select `Stable` `Linux` `LibTorch`. Copy and paste the link in `Run this Command:`. Make sure to do this outside of moose and inside the `projects` folder.
 
-```python
-
+```bash
+wget https://download.pytorch.org/libtorch/cu126/libtorch-shared-with-deps-2.10.0%2Bcu126.zip
+unzip ibtorch-shared-with-deps-2.10.0%2Bcu126.zip
+export LIBTORCH_DIR=${PWD}/libtorch
 ```
 
-- Link MOOSE, NEML2, and libtorch
+- Obtain the compatible NEML2 and compile NEML2 for MOOSE and python package.
 
-```python
-
+```bash
+cd moose
+./configure --with-libtorch --with-neml2
+./scripts/update_and_rebuild_neml2.sh
 ```
 
-- Compile PUMA with linked MOOSE-NEML2
+Once neml2 is compiled, some message like this will appear, run the `cd <messagaes>`.
 
-```python
-
+```bash
+****************************************************************************************************
+NEML2 has been successfully installed.
+To configure MOOSE with NEML2, run the following commands:
+  cd <messages>
+****************************************************************************************************
 ```
 
+Look at the last line, if it said `config.status: framework/include/base/MooseConfig.h is unchanged`. Then the NEML2-LIBTORCH configurations point to the correct path.
+
+- Compile PUMA with linked MOOSE-NEML2.
+
+```bash
+cd ../
+git clone git@github.com:applied-material-modeling/puma.git
+cd puma
+git checkout origin/development
+make -j 12
+```
+
+- Make sure the conda environment from `environment.ymal` is active. Then do:
+
+```bash
+./run_tests
+```
+
+If all tests passed, that it is successfully compiled.
+
+- Finally, activate the python package of NEML2. The compatible NEML2 folder is inside MOOSE at `moose/framework/contrib/`
+
+```bash
+cd ../
+cd moose/framework/contrib/neml2
+pip install . -v
+```
 
 ## Minimum working example
 
@@ -112,7 +160,7 @@ sculpt_config = {
 }
 ```
 
-- Ensure that the `moose_run_file` points to the correct executable. Locate this line and change to the correct path
+- Ensure that the `moose_run_file` points to the correct executable for PUMA (if follows to previous instruction, this file should be located at `projects/puma/puma-opt`). Locate this line and change to the correct path.
 
 ```python
 moose_run_file="/home/tranh/projects/puma/puma-opt"
