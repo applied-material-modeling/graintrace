@@ -2,14 +2,7 @@ from dataclasses import dataclass
 import pandas as pd
 import numpy as np
 from typing import List, Optional, Tuple, Callable, Dict, Any
-
-DistanceFunction = Callable[[np.ndarray, np.ndarray], float]
-
-@dataclass
-class SimilarityMetric:
-    name: str
-    feature_cols: List[str]   # requried feature names
-    func: DistanceFunction    # metric(u, v) -> float
+from user_data_class import SimilarityMetric
 
 class ClusterAnalysisIndicator:
     def __init__(
@@ -55,84 +48,121 @@ class ClusterAnalysisIndicator:
             raise ValueError(
                 f"Metric '{spec.name}' requires missing columns: {missing}"
             )
+        
+    def _build_cluster_summaries_from_arrays(
+        self,
+        labels: np.ndarray,
+        coords: np.ndarray,
+        feats: np.ndarray,
+        coord_names: List[str],
+        feat_names: List[str],
+        include_noise: bool = False,
+        noise_label: int = -1,
+        label_col: str = "cluster_label",
+    ) -> pd.DataFrame:
+        if labels.ndim != 1:
+            labels = labels.ravel()
+
+        if not include_noise:
+            m = labels != noise_label
+            labels = labels[m]
+            coords = coords[m]
+            feats = feats[m]
+
+        if labels.size == 0:
+            cols = (
+                [label_col, "n"]
+                + [f"{c}_min" for c in coord_names] + [f"{c}_max" for c in coord_names]
+                + [f"{c}_sum" for c in coord_names] + [f"{c}_sumsq" for c in coord_names]
+                + [f"{f}_sum" for f in feat_names] + [f"{f}_sumsq" for f in feat_names]
+                + [f"{c}_mean" for c in coord_names] + [f"{f}_mean" for f in feat_names]
+            )
+            return pd.DataFrame(columns=cols)
+
+        uniq, inv = np.unique(labels, return_inverse=True)
+        k = uniq.size
+
+        n = np.bincount(inv, minlength=k).astype(np.int64)
+
+        def _bincount_cols(mat: np.ndarray, power: int = 1) -> np.ndarray:
+            out = np.empty((k, mat.shape[1]), dtype=np.float64)
+            for j in range(mat.shape[1]):
+                col = mat[:, j]
+                if power == 2:
+                    col = col * col
+                out[:, j] = np.bincount(inv, weights=col, minlength=k)
+            return out
+
+        coord_sum = _bincount_cols(coords, power=1)
+        coord_sumsq = _bincount_cols(coords, power=2)
+        feat_sum = _bincount_cols(feats, power=1)
+        feat_sumsq = _bincount_cols(feats, power=2)
+
+        order = np.argsort(inv, kind="mergesort")
+        inv_s = inv[order]
+        coords_s = coords[order]
+
+        starts = np.flatnonzero(np.r_[True, inv_s[1:] != inv_s[:-1]])
+        # starts length == k
+        coord_min = np.empty((k, coords.shape[1]), dtype=np.float64)
+        coord_max = np.empty((k, coords.shape[1]), dtype=np.float64)
+        for j in range(coords.shape[1]):
+            col = coords_s[:, j]
+            coord_min[:, j] = np.minimum.reduceat(col, starts)
+            coord_max[:, j] = np.maximum.reduceat(col, starts)
+
+        # Assemble summaries
+        data: Dict[str, Any] = {label_col: uniq, "n": n}
+
+        for j, c in enumerate(coord_names):
+            data[f"{c}_min"] = coord_min[:, j]
+            data[f"{c}_max"] = coord_max[:, j]
+            data[f"{c}_sum"] = coord_sum[:, j]
+            data[f"{c}_sumsq"] = coord_sumsq[:, j]
+            data[f"{c}_mean"] = coord_sum[:, j] / n
+
+        for j, f in enumerate(feat_names):
+            data[f"{f}_sum"] = feat_sum[:, j]
+            data[f"{f}_sumsq"] = feat_sumsq[:, j]
+            data[f"{f}_mean"] = feat_sum[:, j] / n
+
+        return pd.DataFrame(data)  
 
     def run(
         self,
         method_type: str,
         spec: SimilarityMetric,
+        minimal_return: bool = False,
         **kwargs: Any,
-    ) -> pd.DataFrame:
-
-        # load data
+    ) -> Dict[str, Any]:
+        """
+        Returns dict:
+          {
+            "points": labeled_points_df,
+            "clusters": cluster_summaries_df,
+            "extras": {...}  # method-specific, e.g. linkage Z
+          }
+        """
         self.load_data()
         self.check_feature_matrix(spec)
 
-        # run clustering based on method
         if method_type == "scipy_hierarchical":
-            out = self.run_scipy_hierarchical(spec, **kwargs)
+            points, clusters, extras = self.run_scipy_hierarchical(spec, **kwargs)
         elif method_type == "sklearn_dbscan":
-            out = self.run_sklearn_dbscan(spec, **kwargs)
+            points, clusters, extras = self.run_sklearn_dbscan(spec, **kwargs)
         elif method_type == "sklearn_agglomerative":
-            out = self.run_sklearn_agglomerative(spec, **kwargs)
+            points, clusters, extras = self.run_sklearn_agglomerative(spec, **kwargs)
         elif method_type == "sklearn_optics":
-            out = self.run_sklearn_optics(spec, **kwargs)
+            points, clusters, extras = self.run_sklearn_optics(spec, **kwargs)
         else:
             raise ValueError(f"Unknown method: {method_type}")
 
-        # postprocessing and plots -- to be added later
-
-        return out
-
-    ## different clustering methods, returning the 
-    def run_scipy_hierarchical(
-        self,
-        spec: SimilarityMetric,
-        method: str = "average",
-        criterion: str = "distance",
-        threshold: float = 1.0,
-        depth: int = 10
-    ) -> pd.DataFrame:
+        if minimal_return:
+            return {"clusters": clusters}
         
-        if self.data is None:
-            self.load_data()
+        return {"points": points, "clusters": clusters, "extras": extras}
 
-        df = self.data
-
-        # reduce input data 
-        data = df[spec.feature_cols].to_numpy() #np.ndarray of shape (n_samples, n_features)
-        metric = spec.func
-
-        # called clustering function
-        from scipy.spatial.distance import pdist
-        from scipy.cluster.hierarchy import linkage, cophenet, fclusterdata
-        from scipy.spatial.distance import pdist, squareform
-        from sklearn.manifold import MDS
-
-        # get linkage information for later usage
-        D = pdist(data, metric=metric)
-        Z = linkage(data, method=method, metric=metric)
-
-        labels = fclusterdata(
-            data,
-            t=threshold,
-            criterion=criterion,
-            metric=metric,
-            depth=depth,
-            method=method,
-        )
-
-        coph_corr, coph_dists = cophenet(Z, D)   # coph_dists is condensed
-        D_ultra = squareform(coph_dists)         # full ultrametric matrix
-
-        mds_1d = MDS(n_components=1, dissimilarity="precomputed", random_state=42, n_init=4)
-        X_1d = mds_1d.fit_transform(D_ultra).ravel()
-
-        result = df.copy()
-        result["cluster_label"] = labels
-        result["mds_1d"] = X_1d
-
-        return result, Z
-
+    ## different clustering methods
     def run_sklearn_dbscan(
         self,
         spec: SimilarityMetric,
@@ -142,33 +172,53 @@ class ClusterAnalysisIndicator:
         leaf_size: int = 30,
         p: Optional[float] = None,
         n_jobs: Optional[int] = None,
-    ) -> pd.DataFrame:
+        include_noise_in_summaries: bool = False,
+        noise_label: int = -1,
+        minimal_return: bool = False,
+    ) -> Tuple[Optional[pd.DataFrame], pd.DataFrame, Dict[str, Any]]:
 
         if self.data is None:
             self.load_data()
-
         df = self.data
 
-        data = df[spec.feature_cols].to_numpy(dtype=float)
-        metric = spec.func
+        X = df[spec.feature_cols].to_numpy(dtype=float)
+        coords = df[list(self.coord_cols)].to_numpy(dtype=float)
 
         from sklearn.cluster import DBSCAN
-
         clustering = DBSCAN(
             eps=eps,
             min_samples=min_samples,
-            metric=metric,            
+            metric=spec.func,
             algorithm=algorithm,
             leaf_size=leaf_size,
             p=p,
             n_jobs=n_jobs,
-        ).fit(data)
+        ).fit(X)
 
         labels = clustering.labels_
 
-        result = df.copy()
-        result["cluster_label"] = labels
-        return result
+        clusters = self._build_cluster_summaries_from_arrays(
+            labels=labels,
+            coords=coords,
+            feats=X,
+            coord_names=list(self.coord_cols),
+            feat_names=list(spec.feature_cols),
+            include_noise=include_noise_in_summaries,
+            noise_label=noise_label,
+            label_col="cluster_label",
+        )
+
+        extras = {
+            "n_clusters_excluding_noise": int(len(set(labels)) - (1 if noise_label in labels else 0)),
+            "n_noise": int(np.sum(labels == noise_label)),
+        }
+
+        if minimal_return:
+            return None, clusters, extras
+
+        points = df.copy()
+        points["cluster_label"] = labels
+        return points, clusters, extras
 
     def run_sklearn_agglomerative(
         self,
@@ -180,11 +230,11 @@ class ClusterAnalysisIndicator:
         linkage: str = "average",
         distance_threshold: Optional[float] = None,
         compute_distances: bool = False,
-    ) -> pd.DataFrame:
+        minimal_return: bool = False,
+    ) -> Tuple[Optional[pd.DataFrame], pd.DataFrame, Dict[str, Any]]:
 
         if self.data is None:
             self.load_data()
-
         df = self.data
 
         if linkage == "ward":
@@ -193,14 +243,13 @@ class ClusterAnalysisIndicator:
                 "a callable metric. Use 'average', 'complete', or 'single'."
             )
 
-        data = df[spec.feature_cols].to_numpy(dtype=float)
-        metric = spec.func
+        X = df[spec.feature_cols].to_numpy(dtype=float)
+        coords = df[list(self.coord_cols)].to_numpy(dtype=float)
 
         from sklearn.cluster import AgglomerativeClustering
-
         clustering = AgglomerativeClustering(
             n_clusters=n_clusters,
-            metric=metric,                # custom callable
+            metric=spec.func,
             memory=memory,
             connectivity=connectivity,
             compute_full_tree=compute_full_tree,
@@ -209,11 +258,27 @@ class ClusterAnalysisIndicator:
             compute_distances=compute_distances,
         )
 
-        labels = clustering.fit_predict(data)
+        labels = clustering.fit_predict(X)
 
-        result = df.copy()
-        result["cluster_label"] = labels
-        return result
+        clusters = self._build_cluster_summaries_from_arrays(
+            labels=labels,
+            coords=coords,
+            feats=X,
+            coord_names=list(self.coord_cols),
+            feat_names=list(spec.feature_cols),
+            include_noise=True,   # agglomerative has no noise label
+            noise_label=-1,
+            label_col="cluster_label",
+        )
+
+        extras = {"n_clusters": int(len(np.unique(labels)))}
+
+        if minimal_return:
+            return None, clusters, extras
+
+        points = df.copy()
+        points["cluster_label"] = labels
+        return points, clusters, extras
 
     def run_sklearn_optics(
         self,
@@ -231,22 +296,23 @@ class ClusterAnalysisIndicator:
         leaf_size: int = 30,
         memory: Optional[Any] = None,
         n_jobs: Optional[int] = None,
-    ) -> pd.DataFrame:
+        include_noise_in_summaries: bool = False,
+        noise_label: int = -1,
+        minimal_return: bool = False,
+    ) -> Tuple[Optional[pd.DataFrame], pd.DataFrame, Dict[str, Any]]:
 
         if self.data is None:
             self.load_data()
-
         df = self.data
 
-        data = df[spec.feature_cols].to_numpy(dtype=float)
-        metric = spec.func
+        X = df[spec.feature_cols].to_numpy(dtype=float)
+        coords = df[list(self.coord_cols)].to_numpy(dtype=float)
 
         from sklearn.cluster import OPTICS
-
         clustering = OPTICS(
             min_samples=min_samples,
             max_eps=max_eps,
-            metric=metric,                 # custom callable
+            metric=spec.func,
             p=p,
             metric_params=metric_params,
             cluster_method=cluster_method,
@@ -258,12 +324,136 @@ class ClusterAnalysisIndicator:
             leaf_size=leaf_size,
             memory=memory,
             n_jobs=n_jobs,
-        ).fit(data)
+        ).fit(X)
 
         labels = clustering.labels_
 
-        result = df.copy()
-        result["cluster_label"] = labels
-        return result
+        clusters = self._build_cluster_summaries_from_arrays(
+            labels=labels,
+            coords=coords,
+            feats=X,
+            coord_names=list(self.coord_cols),
+            feat_names=list(spec.feature_cols),
+            include_noise=include_noise_in_summaries,
+            noise_label=noise_label,
+            label_col="cluster_label",
+        )
 
-    ## Plotting support functions
+        extras = {
+            "n_clusters_excluding_noise": int(len(set(labels)) - (1 if noise_label in labels else 0)),
+            "n_noise": int(np.sum(labels == noise_label)),
+        }
+
+        if minimal_return:
+            return None, clusters, extras
+
+        points = df.copy()
+        points["cluster_label"] = labels
+        return points, clusters, extras
+
+    def plot_dendrogram(
+        self,
+        Z: np.ndarray,
+        threshold: float,
+        save_path: Optional[str] = None,
+        ax=None,
+        no_labels: bool = True,
+    ) -> Dict[str, Any]:
+        
+        import matplotlib.pyplot as plt
+        from scipy.cluster.hierarchy import dendrogram
+
+        if ax is None:
+            fig, ax = plt.subplots(1, 1, figsize=(8, 4))
+        else:
+            fig = ax.figure
+
+        dinfo = dendrogram(
+            Z,
+            color_threshold=threshold,
+            ax=ax,
+            no_labels=no_labels,
+        )
+        ax.axhline(y=threshold, color="k", linestyle="--")
+        ax.set_ylabel("Ultrametric distance")
+
+        if save_path is not None:
+            fig.tight_layout()
+            fig.savefig(save_path, dpi=300)
+
+        return {
+            "leaves": dinfo.get("leaves", []),
+            "leaves_color_list": dinfo.get("leaves_color_list", []),
+            "ivl": dinfo.get("ivl", []),
+            "color_threshold": threshold,
+        }
+
+    def run_scipy_hierarchical(
+        self,
+        spec: SimilarityMetric,
+        method: str = "average",
+        criterion: str = "distance",
+        threshold: float = 1.0,
+        depth: int = 10,
+        dendrogram_path: Optional[str] = None,
+        minimal_return: bool = False,
+    ) -> Tuple[Optional[pd.DataFrame], pd.DataFrame, Dict[str, Any]]:
+
+        if self.data is None:
+            self.load_data()
+        df = self.data
+
+        X = df[spec.feature_cols].to_numpy(dtype=float)
+        coords = df[list(self.coord_cols)].to_numpy(dtype=float)
+
+        from scipy.cluster.hierarchy import linkage, cophenet, fclusterdata
+        from scipy.spatial.distance import pdist, squareform
+        from sklearn.manifold import MDS
+
+        D = pdist(X, metric=spec.func)
+        Z = linkage(X, method=method, metric=spec.func)
+
+        labels = fclusterdata(
+            X,
+            t=threshold,
+            criterion=criterion,
+            metric=spec.func,
+            depth=depth,
+            method=method,
+        )
+
+        coph_corr, coph_dists = cophenet(Z, D)
+        D_ultra = squareform(coph_dists)
+
+        mds_1d = MDS(n_components=1, dissimilarity="precomputed", random_state=42, n_init=4)
+        X_1d = mds_1d.fit_transform(D_ultra).ravel()
+
+        clusters = self._build_cluster_summaries_from_arrays(
+            labels=labels,
+            coords=coords,
+            feats=X,
+            coord_names=list(self.coord_cols),
+            feat_names=list(spec.feature_cols),
+            include_noise=True,
+            noise_label=-1,
+            label_col="cluster_label",
+        )
+
+        extras = {"linkage_Z": Z, "cophenetic_correlation": float(coph_corr)}
+
+        if dendrogram_path is not None:
+            extras["dendrogram"] = self.plot_dendrogram(
+                Z=Z,
+                threshold=threshold,
+                save_path=dendrogram_path,
+                ax=None,
+                no_labels=True,
+            )
+
+        if minimal_return:
+            return None, clusters, extras
+
+        points = df.copy()
+        points["cluster_label"] = labels
+        points["mds_1d"] = X_1d
+        return points, clusters, extras

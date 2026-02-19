@@ -8,7 +8,7 @@ from matplotlib.gridspec import GridSpec
 from scipy.cluster.hierarchy import dendrogram
 
 from cluster_indicator import ClusterAnalysisIndicator
-from similarity_metric_library import SimilarityMetricLibrary
+from user_data_class import SimilarityMetricLibrary
 
 ## INPUTS ---------------------------------------------------
 
