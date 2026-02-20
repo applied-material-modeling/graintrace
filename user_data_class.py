@@ -4,12 +4,15 @@ import numpy as np
 import pandas as pd
 
 DistanceFunction = Callable[[np.ndarray, np.ndarray], float]
+BatchDistanceFunction = Callable[[np.ndarray, np.ndarray], np.ndarray]
 
 @dataclass
 class SimilarityMetric:
     name: str
     feature_cols: List[str]   # requried feature names
     func: DistanceFunction    # metric(u, v) -> float
+    dist_edges: Optional[BatchDistanceFunction] = None
+    # X,edges -> (E,) batch version of func, used for vectorized computations.
 
 @dataclass(frozen=True)
 class WeightConfig:

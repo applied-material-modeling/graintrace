@@ -19,7 +19,7 @@ import time
 
 ## INPUTS ---------------------------------------------------
 
-filename = "test_speed_gsc/synthetic_vms.csv"
+filename = "test_data/test_pipeline/synthetic_vms.csv"
 
 if_plot = False
 second_step = False
@@ -32,21 +32,25 @@ gsc_coord_cols = ("x", "y", "z")
 # graph build
 gsc_graph_mode = "grid"          # "grid" | "knn" | "auto"
 gsc_k = 120                       # used only if graph_mode="knn"
-gsc_grid_radius = 4        # manhattan radius for grid connectivity if graph_mode="grid"
+gsc_grid_radius = 1        # manhattan radius for grid connectivity if graph_mode="grid"
 gsc_grid_tol = 1e-6
-reduce_edges_topweights_k = 20   # if not None, keep only top k edges per node by weight before clustering          
+reduce_edges_topweights_k = None        # if not None, keep only top k edges per node by weight before clustering          
+reduce_edges_chunk_size = 10_000_000
 
 # edge weights
 gsc_eps = 1e-8
 gsc_n_jobs = 12
-gsc_weight_chunk_size = 500_000 # how many edges to process in a chunk when computing weights
+gsc_weight_chunk_size = 50_000_000 # how many edges to process in
+                                   # a chunk when computing weights
 weight_cfg = WeightConfig(
     mode="rbf",
     power=2.0,
-    sigma=None,  # if None, will be set to quantile distance of the graph edges
+    sigma=None,  # if None, will be set to 
+                 # quantile distance of the graph edges
     sigma_auto={"sample_size": 500_000, 
                 "random_state": 42,
-                "quantile": 0.5},  # if sigma is None, sample this many edges to estimate quantile distance
+                "quantile": 0.5},  # if sigma is None, sample this many
+                                   # edges to estimate quantile distance
 )
 
 # segmentation
@@ -56,13 +60,13 @@ graph_cluster_arguments = {"gamma": 1.0}
 ## for all parameters: https://networkit.github.io/dev-docs/python_api/community.html
 
 
-generate_synthetic = True
-nx = 300
+generate_synthetic = False
+nx = 1000
 ny = 1000
-nz = 300
+nz = 1000
 
 threshold = 0.1
-radius_elements_range = (30, 80) # (60,160) #(30, 80)
+radius_elements_range = (60,160) # (60,160)
 
 if generate_synthetic:
     ## generate synthetic cluster data for testing purpose
@@ -241,7 +245,10 @@ gsc_res = gsc.run(
     return_labels=if_plot,
     weight_cfg=weight_cfg,
     reduce_edges_topweights_k=reduce_edges_topweights_k,
-    ## networkit_kwargs can be used to pass additional arguments to the chosen networkit community detection algorithm (e.g. resolution parameter for Leiden) --- IGNORE ---
+    nodes_chunk=reduce_edges_chunk_size,
+    ## networkit_kwargs can be used to pass additional 
+    # arguments to the chosen networkit community detection 
+    # algorithm (e.g. resolution parameter for Leiden)
     networkit_kwargs=graph_cluster_arguments,
 )
 

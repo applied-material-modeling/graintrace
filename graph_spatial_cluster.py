@@ -61,6 +61,7 @@ class GraphSpatialCluster:
         grid_tol: float = 1e-6,
         n_jobs: int = 1,
         weight_chunk_size: int = 1_000_000,
+        nodes_chunk: int = 50_000,
         segmenter: str = "auto",             # "auto" | "leiden" | "plm"
         seed: int = 42,
         feature_names: Optional[List[str]] = None, 
@@ -132,6 +133,7 @@ class GraphSpatialCluster:
                 weights=weights,
                 k=reduce_edges_topweights_k,
                 n_jobs=n_jobs,
+                nodes_chunk=nodes_chunk,
             )
             print(f"Updated number of edges: {edges.shape[0]}\n")
 
@@ -402,8 +404,39 @@ class GraphSpatialCluster:
         raise ValueError(f"Unknown weight mode: {cfg.mode}")
     
     @staticmethod
+    def _dist_to_weight_vec(d: np.ndarray, cfg: WeightConfig) -> np.ndarray:
+        m = cfg.mode.lower()
+        if m == "inverse":
+            return 1.0 / (d + cfg.eps)
+        if m == "rbf":
+            if cfg.sigma <= 0:
+                raise ValueError("sigma must be > 0 for rbf")
+            x = d / cfg.sigma
+            return np.exp(-(x ** cfg.power))
+        if m == "exp":
+            if cfg.sigma <= 0:
+                raise ValueError("sigma must be > 0 for exp")
+            return np.exp(-(d / cfg.sigma))
+        if m == "log_inv":
+            return -np.log(d + cfg.eps)
+        raise ValueError(f"Unknown weight mode: {cfg.mode}")
+    
+    @staticmethod
     def _weights_worker(args: Tuple[np.ndarray, np.ndarray, SimilarityMetric, WeightConfig]) -> np.ndarray:
         edges_chunk, X, spec, cfg = args
+        
+        dist_edges = getattr(spec, "dist_edges", None)
+        if dist_edges is not None:
+            d = np.asarray(dist_edges(X, edges_chunk), dtype=np.float64)
+
+            if d.shape != (edges_chunk.shape[0],):
+                d = d.reshape(-1)
+            if d.shape != (edges_chunk.shape[0],):
+                raise ValueError(f"dist_edges must return shape ({edges_chunk.shape[0]},), got {d.shape}")
+            d = spec.dist_edges(X, edges_chunk)
+            d = np.asarray(d, dtype=np.float64)
+            return GraphSpatialCluster._dist_to_weight_vec(d, cfg).astype(np.float64, copy=False)
+
         w = np.empty(edges_chunk.shape[0], dtype=np.float64)
         for t, (i, j) in enumerate(edges_chunk):
             d = float(spec.func(X[i], X[j]))
