@@ -20,6 +20,7 @@ class RegionBaseStitching():
         orientation_convention: str = "bunge",
         orientation_units: str = "degrees",
         symmetry: str = "432",
+        output_column: List[str] = ["X", "Y", "Z", "GrainRadius", "Eul0", "Eul1", "Eul2", "ScanID"],
     ):
         self.scan_files = scan_files            # raw per-scan CSVs
         self.output_csv = output_csv
@@ -28,6 +29,7 @@ class RegionBaseStitching():
         self.radius_tolerance = radius_tolerance
         self.weights = weights
         self.min_neighbors = min_neighbors
+        self.output_column = output_column
 
         self.angle_convention = orientation_convention
         self.angle_type = orientation_units
@@ -75,7 +77,7 @@ class RegionBaseStitching():
                 current = self._nonoverlap_stitch_pair(current, self.scans[k + 1], pair_id=k)
 
             self.stitched = current
-            self._write_output(self.stitched)
+            self._write_output(self.stitched, self.output_column)
 
             return self.stitched
         
@@ -86,7 +88,7 @@ class RegionBaseStitching():
         if nscan == 1:
             # trivial case
             self.stitched = self.scans[0]
-            self._write_output(self.stitched)
+            self._write_output(self.stitched, self.output_column)
             return self.stitched
         
         # Pass in zol and zoh of the overlap region
@@ -117,7 +119,7 @@ class RegionBaseStitching():
             current = self._overlap_stitch_pair(A, B, zol, zoh, pair_id=k)
 
         self.stitched = current
-        self._write_output(self.stitched)
+        self._write_output(self.stitched, self.output_column)
         return self.stitched
 
     def _load_and_sort_scans(self) -> None:
@@ -376,7 +378,7 @@ class RegionBaseStitching():
         )
         return GrainSet(df=out, meta=meta)
 
-    def _write_output(self, stitched: GrainSet) -> None:
+    def _write_output(self, stitched: GrainSet, required: List[str]) -> None:
         """
         Write final stitched dataframe to self.output_csv.
         Required output columns:
@@ -385,7 +387,6 @@ class RegionBaseStitching():
 
         df = stitched.df.copy()
 
-        required = ["X", "Y", "Z", "GrainRadius", "Eul0", "Eul1", "Eul2", "ScanID"]
         missing = [c for c in required if c not in df.columns]
         if missing:
             raise ValueError(f"Stitched dataframe missing required columns: {missing}")

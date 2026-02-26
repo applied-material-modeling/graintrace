@@ -12,6 +12,7 @@ class CPFESimulation:
     DEFAULT_PARAMS = {
         "simulation_parameters": {
             "base_folder": "simulation_out",
+            "sync_times": "0.1 1.0 2.0 3.0 4.0 5.0",
             "dt": 0.1,
             "total_time": 5.0,
             "strain_unit_conversion": 1.0,
@@ -52,6 +53,7 @@ class CPFESimulation:
                 element_order="SECOND",
                 eeres_file=None, 
                 ori_file=None,
+                use_ff_initial_field=False,
                 dim=3):
         
         self.mesh_file = Path(mesh_file)
@@ -84,7 +86,8 @@ class CPFESimulation:
 
         self.element_order = element_order
         self.params = copy.deepcopy(self.DEFAULT_PARAMS)
-        self.ncell_nf = None
+        self.ncell_ff = None
+        self.use_ff_initial_field = use_ff_initial_field
 
     def set_parameters(self, section, **kwargs):
         if section not in self.params:
@@ -284,7 +287,7 @@ class CPFESimulation:
 
         return fixnode_x, fixnode_y, fixnode_z, yroll_x, yroll_y, yroll_z
 
-    def write_strain_postprocess_file(self, ncell=None):
+    def write_postprocess_file(self, ncell=None):
         """
         Generate grain_average_postprocessor.i.
         """
@@ -303,7 +306,7 @@ class CPFESimulation:
         else:
             # read self.eeres_file and count number of lines using pandas
             df = pd.read_csv(self.eeres_file, sep=r"[,\s]+", engine="python", header=None)
-            self.ncell_nf = df.shape[0]
+            self.ncell_ff = df.shape[0]
             shutil.copy(self.eeres_file, self.save_simulation_folder / Path(self.eeres_file).name)
 
         # --- Generate grain_average_postprocessor.i ---
@@ -337,6 +340,18 @@ class CPFESimulation:
                     f.write(f"    [cauchy_stress_{comp}_{i}]\n")
                     f.write("        type = ElementAverageValue\n")
                     f.write(f"        variable = cauchy_stress_{comp}\n")
+                    f.write(f"        block = {i}\n")
+                    f.write("    []\n")
+                f.write("\n")
+            
+            components = ["11", "22", "33", "12", "23", "13"]
+            for comp in components:
+                # nye_tensor_*
+                f.write(f"    # --- nye_tensor_{comp} ---\n")
+                for i in range(1, ncell + 1):
+                    f.write(f"    [nye_tensor_{comp}_{i}]\n")
+                    f.write("        type = ElementAverageValue\n")
+                    f.write(f"        variable = nye_tensor_{comp}\n")
                     f.write(f"        block = {i}\n")
                     f.write("    []\n")
                 f.write("\n")
@@ -426,11 +441,20 @@ class CPFESimulation:
             raise FileNotFoundError("cpfe_base folder not found.")
 
         # list of shared base files
-        base_files = ["initial_conditions.i",
-                      "neml2_cpfe.i",
-                      "run_cpfe.i",
-                      "grid_file.i",
-                      "transfer.i"]
+        if self.use_ff_initial_field:
+            base_files = ["initial_conditions_ff.i",
+                "neml2_cpfe.i",
+                "run_cpfe.i",
+                "grid_file.i",
+                "transfer.i"]
+            initial_conditions_file = "initial_conditions_ff.i"
+        else:
+            base_files = ["initial_conditions.i",
+                        "neml2_cpfe.i",
+                        "run_cpfe.i",
+                        "grid_file.i",
+                        "transfer.i"]
+            initial_conditions_file = "initial_conditions.i"
 
         for fname in base_files:
             src = cpfe_base / fname
@@ -445,7 +469,12 @@ class CPFESimulation:
         # generate the new specific file
         fixnode_x, fixnode_y, fixnode_z, yroll_x, yroll_y, yroll_z = self.write_bc_file()
         ncells = self.write_orientation_file()
-        self.write_strain_postprocess_file(ncell=ncells)
+        self.write_postprocess_file(ncell=ncells)
+
+        if self.use_ff_initial_field:
+            ncell_args = [f"ncell={ncells}"]
+        else:
+            ncell_args = [f"ncell={ncells:.12g}",f"ncell_ff={self.ncell_ff:.12g}"]
 
         # transfer grid info
         grid_info = self.params["grid_properties"]
@@ -464,16 +493,15 @@ class CPFESimulation:
             "-i",
             "run_cpfe.i",
             "boundary_conditions.i",
-            "initial_conditions.i",
+            initial_conditions_file,
             "grain_average_postprocessor.i",
             "transfer.i",
             "orientation_file=mrps_orientation.csv",
+            f"sync_times={self.params['simulation_parameters']['sync_times']}",
             f"device={self.params['simulation_parameters']['device']}",
             f"device_batch={self.params['simulation_parameters']['device_batch']}",
             f"mesh_file={self.mesh_file.name}",
             f"residual_strain_file={self.eeres_file.name}",
-            f"ncell_ff={ncells:.12g}",
-            f"ncell_nf={self.ncell_nf:.12g}",
             f"base_folder={self.params['simulation_parameters']['base_folder']}",
             f"dt={self.params['simulation_parameters']['dt']:.12g}",
             f"total_time={self.params['simulation_parameters']['total_time']:.12g}",
@@ -503,7 +531,7 @@ class CPFESimulation:
             f"grid_ymax={grid_bbox[3]:.12g}",
             f"grid_zmin={grid_bbox[4]:.12g}",
             f"grid_zmax={grid_bbox[5]:.12g}",
-        ]
+        ] + ncell_args
 
         # Run the simulation with persistent background process
         print(f"\n==> Running CPFE simulation in {self.save_simulation_folder}", flush=True)

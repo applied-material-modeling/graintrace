@@ -51,11 +51,15 @@ class IdentifyRareClusters:
             raise ValueError("GraphSpatialCluster must be run with return_labels=True to obtain per-point labels.")
 
         gsc_labels = np.asarray(gsc_out["extras"]["labels"], dtype=np.int64)
+
+        labels_path = reduced_csv_path.rsplit(".", 1)[0] + "_gsc_labels.npy"
+        np.save(labels_path, gsc_labels, allow_pickle=False)
+        print("Saved GSC labels:", labels_path)
+
         if len(gsc_labels) != len(input_df):
             raise ValueError("Length mismatch: per-point labels must align with input rows.")
 
         print("Reduced CSV saved:", gsc_out["csv_path"])
-        print("GSC extras:", gsc_out["extras"])
 
         ## Run the cluster
         print("\nRunning cluster indicator\n")
@@ -91,6 +95,8 @@ class IdentifyRareClusters:
         background_block_id: int = 1,
         first_rare_block_id: int = 2,
         also_write_final_label: bool = True,
+        rare_reduced_stats_csv_path: Optional[str] = None,
+        use_sample_std: bool = False,
     ) -> Dict[str, Any]:
 
         input_df: pd.DataFrame = bundle["input_df"]
@@ -107,7 +113,6 @@ class IdentifyRareClusters:
 
         rare_super_labels = self._select_rare_super_labels(indicator_clusters_df, criteria)
 
-       
         block_id = np.full(len(input_df), background_block_id, dtype=np.int32)
         rare_super_labels_sorted = list(rare_super_labels)
 
@@ -121,6 +126,52 @@ class IdentifyRareClusters:
             label_to_block[int(lab)] = next_block
             next_block += 1
 
+        if rare_reduced_stats_csv_path is not None:
+            cdf = indicator_clusters_df.copy()
+
+            if "cluster_label" not in cdf.columns or "n" not in cdf.columns:
+                raise ValueError("indicator_clusters_df must contain 'cluster_label' and 'n'.")
+
+            cdf = cdf[cdf["cluster_label"].isin(rare_super_labels_sorted)].copy()
+            cdf["rare_cluster_id"] = cdf["cluster_label"].map(label_to_block).astype("Int64")
+
+            sum_cols = [c for c in cdf.columns if c.endswith("_sum")]
+            bases = [c[:-4] for c in sum_cols if (c[:-4] + "_sumsq") in cdf.columns]
+
+            n = pd.to_numeric(cdf["n"], errors="coerce").astype(float)
+
+            for b in bases:
+                s = pd.to_numeric(cdf[f"{b}_sum"], errors="coerce").astype(float)
+                ss = pd.to_numeric(cdf[f"{b}_sumsq"], errors="coerce").astype(float)
+
+                mean = s / n
+                var_pop = (ss / n) - (mean * mean)
+
+                var_pop = var_pop.clip(lower=0.0)
+
+                if use_sample_std:
+                    var_samp = (ss - n * mean * mean) / (n - 1.0)
+                    var_samp = var_samp.where(n > 1.0, np.nan).clip(lower=0.0)
+                    cdf[f"{b}_var"] = var_samp
+                    cdf[f"{b}_std"] = np.sqrt(var_samp)
+                else:
+                    cdf[f"{b}_var"] = var_pop
+                    cdf[f"{b}_std"] = np.sqrt(var_pop)
+
+                cdf[f"{b}_mean"] = mean
+
+            keep = ["cluster_label", "rare_cluster_id", "n"]
+            for b in bases:
+                keep += [f"{b}_mean", f"{b}_var", f"{b}_std"]
+                for extra in (f"{b}_min", f"{b}_max"):
+                    if extra in cdf.columns:
+                        keep.append(extra)
+
+            out_df = cdf[keep].sort_values(["n", "cluster_label"], ascending=[True, True])
+            out_df.to_csv(rare_reduced_stats_csv_path, index=False)
+
+            print("\nSaved rare cluster stats CSV:", rare_reduced_stats_csv_path)
+
         for lab, bid in label_to_block.items():
             block_id[final_label == lab] = bid
 
@@ -133,7 +184,7 @@ class IdentifyRareClusters:
             raise ValueError("export_control must be one of {'auto','grid','points'}")
 
         point_data: Dict[str, np.ndarray] = {
-            "block_id": block_id.astype(np.int32),
+            "rare_cluster_id": block_id.astype(np.int32),
         }
         if also_write_final_label:
             point_data["final_label"] = final_label.astype(np.int64)
@@ -155,6 +206,7 @@ class IdentifyRareClusters:
             "n_rare_clusters": int(len(rare_super_labels_sorted)),
             "rare_super_labels": rare_super_labels_sorted,
             "label_to_block": label_to_block,
+            "rare_reduced_stats_csv_path": rare_reduced_stats_csv_path,
         }
 
     # mapping 

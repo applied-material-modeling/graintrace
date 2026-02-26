@@ -117,13 +117,18 @@ class SimilarityMetricLibrary:
     provide dist_edges(X: np.ndarray, edges: np.ndarray) -> np.ndarray
     """
 
-    def von_mises_stress(self) -> SimilarityMetric:
+    def von_mises_stress(
+        self,
+        cols,
+    ) -> SimilarityMetric:
 
-        cols = ["sxx", "syy", "szz", "sxy", "syz", "sxz"]
+        default = ["sxx", "syy", "szz", "sxy", "syz", "sxz"]
+
+        use_cols = cols if cols is not None else default
 
         return SimilarityMetric(
             name="von_mises_stress",
-            feature_cols=cols,
+            feature_cols=use_cols,
             func=von_mises_stress_distance,
             dist_edges=von_mises_stress_distance_batch,
         )

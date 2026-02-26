@@ -9,15 +9,15 @@
 []
 
 [Transfers]
-    # [disp_transfer]
-    #     type = MultiAppGeneralFieldShapeEvaluationTransfer
-    #     source_variable = 'disp_x disp_y disp_z'
-    #     variable = 'disp_x disp_y disp_z'
-    #     to_multi_app = 'regular_grid'
-    #     error_on_miss = false
-    #     displaced_source_mesh = false
-    #     displaced_target_mesh = false
-    # []
+    [disp_transfer]
+        type = MultiAppGeneralFieldShapeEvaluationTransfer
+        source_variable = 'disp_x disp_y disp_z'
+        variable = 'disp_x disp_y disp_z'
+        to_multi_app = 'regular_grid'
+        error_on_miss = false
+        displaced_source_mesh = false
+        displaced_target_mesh = false
+    []
     [ori_rodrigues_transfer]
         type = MultiAppGeneralFieldShapeEvaluationTransfer
         source_variable = 'ori_rodrigues_x ori_rodrigues_y ori_rodrigues_z'

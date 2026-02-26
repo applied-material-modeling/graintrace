@@ -4,6 +4,9 @@ import multiprocessing as mp
 from typing import List, Optional, Tuple, Callable, Dict, Any
 from user_data_class import SimilarityMetric, WeightConfig
 from tqdm import tqdm
+import os
+import json
+from nf.metrics import average_rotations
 
 class GraphSpatialCluster:
         
@@ -70,7 +73,8 @@ class GraphSpatialCluster:
         reduce_edges_topweights_k: Optional[int] = None,  # if not None, keep only top k edges per node by weight before clustering
         weight_cfg: WeightConfig = WeightConfig(mode="inverse", eps=1e-8),
         networkit_kwargs: Optional[Dict[str, Any]] = None,
-
+        checkpoint_base_path: Optional[str] = None,
+        resume_from_checkpoint: bool = False,
     ) -> Dict[str, Any]:
     
         print("\n=== Running GraphSpatialCluster ===\n")
@@ -84,58 +88,95 @@ class GraphSpatialCluster:
         coords = df[list(self.coord_cols)].to_numpy(dtype=np.float64)
         X = df[spec.feature_cols].to_numpy(dtype=np.float64)
 
-        mode = graph_mode.lower()
-        if mode == "auto":
-            mode = "grid" if self._detect_grid(coords, tol=grid_tol) else "knn"
-            print("Graph mode auto-detected as:", mode)
-        elif mode not in ("knn", "grid"):
-            raise ValueError("graph_mode must be one of {'auto','knn','grid'}")
+        if resume_from_checkpoint:
+            if checkpoint_base_path is None:
+                raise ValueError("resume_from_checkpoint=True requires checkpoint_base_path")
 
-        print("Building graph with mode:", mode)
+            print(f"Resuming from checkpoint: {checkpoint_base_path}")
+            edges_ck, weights_ck, meta = self._load_checkpoint(checkpoint_base_path)
 
-        if mode == "grid":
-            edges = self._build_grid_edges(coords, manhattan_radius=manhattan_radius, tol=grid_tol)
+            edges = np.asarray(edges_ck)     # still mmapped underneath
+            weights = np.asarray(weights_ck)
+
+            # Hard sanity checks (cheap, prevents silent corruption)
+            if edges.ndim != 2 or edges.shape[1] != 2:
+                raise ValueError(f"Bad checkpoint edges shape: {edges.shape}")
+            if weights.ndim != 1 or weights.shape[0] != edges.shape[0]:
+                raise ValueError("Checkpoint weights/edges length mismatch")
+            if int(meta.get("n_nodes", -1)) != int(coords.shape[0]):
+                raise ValueError("Checkpoint n_nodes does not match current CSV row count")
+
+            # Skip graph construction + weight computation below
+            mode = "checkpoint"
         else:
-            edges = self._build_mutual_knn_edges(coords, k=k)
+            mode = graph_mode.lower()
+            if mode == "auto":
+                mode = "grid" if self._detect_grid(coords, tol=grid_tol) else "knn"
+                print("Graph mode auto-detected as:", mode)
+            elif mode not in ("knn", "grid"):
+                raise ValueError("graph_mode must be one of {'auto','knn','grid'}")
 
-        print(f"Graph is built. Number of edges: {edges.shape[0]}, "
-              f"Number of nodes: {coords.shape[0]},"
-              f" Number of features: {X.shape[1]}\n")
-        
-        if weight_cfg.mode.lower() in ("rbf", "exp") and weight_cfg.sigma is None:
-            sigma = self.estimate_sigma_from_sampled_edges(
+            print("Building graph with mode:", mode)
+
+            if mode == "grid":
+                edges = self._build_grid_edges(coords, manhattan_radius=manhattan_radius, tol=grid_tol)
+            else:
+                edges = self._build_mutual_knn_edges(coords, k=k)
+
+            print(f"Graph is built. Number of edges: {edges.shape[0]}, "
+                f"Number of nodes: {coords.shape[0]},"
+                f" Number of features: {X.shape[1]}\n")
+            
+            if weight_cfg.mode.lower() in ("rbf", "exp") and weight_cfg.sigma is None:
+                sigma = self.estimate_sigma_from_sampled_edges(
+                    edges=edges,
+                    X=X,
+                    spec=spec,
+                    sample_size=weight_cfg.sigma_auto["sample_size"],
+                    quantile=weight_cfg.sigma_auto["quantile"],
+                    seed=weight_cfg.sigma_auto["random_state"],
+                )
+                weight_cfg = WeightConfig(**{**weight_cfg.__dict__, "sigma": sigma})
+                print(f"Estimated sigma for weight function: {sigma}\n")
+
+            print("Computing edge weights with metric:", spec.name)
+
+            weights = self.compute_edge_weights(
                 edges=edges,
                 X=X,
                 spec=spec,
-                sample_size=weight_cfg.sigma_auto["sample_size"],
-                quantile=weight_cfg.sigma_auto["quantile"],
-                seed=weight_cfg.sigma_auto["random_state"],
-            )
-            weight_cfg = WeightConfig(**{**weight_cfg.__dict__, "sigma": sigma})
-            print(f"Estimated sigma for weight function: {sigma}\n")
-
-        print("Computing edge weights with metric:", spec.name)
-
-        weights = self.compute_edge_weights(
-            edges=edges,
-            X=X,
-            spec=spec,
-            n_jobs=n_jobs,
-            chunk_size=weight_chunk_size,
-            weight_cfg=weight_cfg,
-        )
-
-        if reduce_edges_topweights_k is not None:
-            print(f"\nRemoving edges to keep only top {reduce_edges_topweights_k} weights per node")
-            edges, weights = self.prune_topk_per_node_parallel(
-                n_nodes=coords.shape[0],
-                edges=edges,
-                weights=weights,
-                k=reduce_edges_topweights_k,
                 n_jobs=n_jobs,
-                nodes_chunk=nodes_chunk,
+                chunk_size=weight_chunk_size,
+                weight_cfg=weight_cfg,
             )
-            print(f"Updated number of edges: {edges.shape[0]}\n")
+
+            if reduce_edges_topweights_k is not None:
+                print(f"\nRemoving edges to keep only top {reduce_edges_topweights_k} weights per node")
+                edges, weights = self.prune_topk_per_node_parallel(
+                    n_nodes=coords.shape[0],
+                    edges=edges,
+                    weights=weights,
+                    k=reduce_edges_topweights_k,
+                    n_jobs=n_jobs,
+                    nodes_chunk=nodes_chunk,
+                )
+                print(f"Updated number of edges: {edges.shape[0]}\n")
+
+        if (checkpoint_base_path is not None) and (not resume_from_checkpoint):
+            meta = {
+                "n_nodes": int(coords.shape[0]),
+                "n_edges": int(edges.shape[0]),
+                "metric": spec.name,
+                "weight_mode": weight_cfg.mode,
+                "segmenter": segmenter,
+                "reduced_topk": int(reduce_edges_topweights_k) if reduce_edges_topweights_k is not None else None,
+                "graph_mode": mode,
+                "k": int(k),
+                "manhattan_radius": int(manhattan_radius),
+                "grid_tol": float(grid_tol),
+            }
+            print(f"Saving checkpoint: {checkpoint_base_path} (edges/weights/meta)")
+            self._save_checkpoint(checkpoint_base_path, edges=edges, weights=weights, meta=meta)
 
         print("\nSegmenting graph with method:", segmenter)
         print("Segmenter parameters:", networkit_kwargs if networkit_kwargs else "default")
@@ -614,8 +655,6 @@ class GraphSpatialCluster:
 
         # other cluster properties can be added here as needed
 
-        #
-
         return pd.DataFrame(out)
     
     # other utility methods
@@ -645,3 +684,32 @@ class GraphSpatialCluster:
             raise ValueError(f"Bad sigma estimate: {sigma}")
         return sigma
 
+    @staticmethod
+    def _ckpt_paths(base_path: str) -> Dict[str, str]:
+        # base_path like "/path/to/run1_ckpt"
+        return {
+            "edges": base_path + ".edges.npy",
+            "weights": base_path + ".weights.npy",
+            "meta": base_path + ".meta.json",
+        }
+
+    @staticmethod
+    def _save_checkpoint(base_path: str, *, edges: np.ndarray, weights: np.ndarray, meta: Dict[str, Any]) -> None:
+        os.makedirs(os.path.dirname(base_path) or ".", exist_ok=True)
+        p = GraphSpatialCluster._ckpt_paths(base_path)
+        # Fast, no compression. Best for very large arrays.
+        np.save(p["edges"], edges.astype(np.int64, copy=False), allow_pickle=False)
+        np.save(p["weights"], weights.astype(np.float64, copy=False), allow_pickle=False)
+        with open(p["meta"], "w", encoding="utf-8") as f:
+            json.dump(meta, f)
+
+    @staticmethod
+    def _load_checkpoint(base_path: str) -> Tuple[np.ndarray, np.ndarray, Dict[str, Any]]:
+        p = GraphSpatialCluster._ckpt_paths(base_path)
+        if not (os.path.exists(p["edges"]) and os.path.exists(p["weights"]) and os.path.exists(p["meta"])):
+            raise FileNotFoundError(f"Checkpoint files not found for base_path={base_path}")
+        edges = np.load(p["edges"], mmap_mode="r")   # mmap avoids loading full file immediately
+        weights = np.load(p["weights"], mmap_mode="r")
+        with open(p["meta"], "r", encoding="utf-8") as f:
+            meta = json.load(f)
+        return edges, weights, meta

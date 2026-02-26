@@ -25,7 +25,7 @@ class WeightConfig:
 @dataclass
 class RareCriteria:
     """
-    Define how to select rare *merged* clusters (stage-2 labels).
+    Define how to select rare *merged* clusters.
     Either provide `selector` or use the built-in defaults.
     """
     selector: Optional[Callable[[pd.DataFrame], Union[np.ndarray, List[int], List[str]]]] = None

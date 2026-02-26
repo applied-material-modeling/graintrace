@@ -8,6 +8,7 @@ from similarity_metric_library import SimilarityMetricLibrary
 from user_data_class import SimilarityMetric, WeightConfig, RareCriteria
 
 from rare_cluster_indicator import IdentifyRareClusters
+from cluster_indicator import ClusterAnalysisIndicator
 
 # INPUT
 filename = "test_rei_pipeline/synthetic_vms.csv"
@@ -203,6 +204,12 @@ if generate_synthetic:
         z_chunk=gsc_weight_chunk_size,
     )
 
+
+PICK_CLUSTER_RESTART = False
+FINAL_CLUSTERING_RESTART = False      
+GRAPH_SEGMENTATION_RESTART = True
+
+
 metric_lib = SimilarityMetricLibrary()
 spec = metric_lib.von_mises_stress()
 
@@ -218,38 +225,134 @@ irc = IdentifyRareClusters(
     coord_cols=gsc_coord_cols,
 )
 
-graph_cluster_out = os.path.splitext(filename)[0] + "_reduced.csv"
-gsc, indicator = irc.make_stage_objects(graph_cluster_out=graph_cluster_out)
+base = os.path.splitext(filename)[0]
+graph_cluster_out = base + "_reduced.csv"
+bundle_checkpoint = base + "_bundle.pkl"
+gsc_labels_path = base + "_reduced_gsc_labels.npy"   
+gsc_ckpt_base = base + "_gsc_ckpt"                   
+
+# warning messages
+if sum([PICK_CLUSTER_RESTART, FINAL_CLUSTERING_RESTART, GRAPH_SEGMENTATION_RESTART]) > 1:
+    print(
+        "\nMultiple restart flags enabled. Priority order:\n"
+        "   1) PICK_CLUSTER_RESTART\n"
+        "   2) FINAL_CLUSTERING_RESTART\n"
+        "   3) GRAPH_SEGMENTATION_RESTART\n"
+        "The first valid checkpoint found will be used.\n"
+        "Valid checkpoint = all required files for that stage exist.\n"
+        "Required files status:\n"
+    )
+
+    print("  PICK_CLUSTER_RESTART (bundle):")
+    print(f"     {bundle_checkpoint}  "
+          f"[{'FOUND' if os.path.exists(bundle_checkpoint) else 'MISSING'}]")
+
+    print("  FINAL_CLUSTERING_RESTART (reduced CSV + GSC labels):")
+    print(f"     {graph_cluster_out}  "
+          f"[{'FOUND' if os.path.exists(graph_cluster_out) else 'MISSING'}]")
+    print(f"     {gsc_labels_path}  "
+          f"[{'FOUND' if os.path.exists(gsc_labels_path) else 'MISSING'}]")
+
+    print("  GRAPH_SEGMENTATION_RESTART (edges/weights/meta):")
+    edges_f = gsc_ckpt_base + ".edges.npy"
+    weights_f = gsc_ckpt_base + ".weights.npy"
+    meta_f = gsc_ckpt_base + ".meta.json"
+
+    print(f"     {edges_f}  "
+          f"[{'FOUND' if os.path.exists(edges_f) else 'MISSING'}]")
+    print(f"     {weights_f}  "
+          f"[{'FOUND' if os.path.exists(weights_f) else 'MISSING'}]")
+    print(f"     {meta_f}  "
+          f"[{'FOUND' if os.path.exists(meta_f) else 'MISSING'}]\n")
+
+if not any([PICK_CLUSTER_RESTART, FINAL_CLUSTERING_RESTART, GRAPH_SEGMENTATION_RESTART]):
+    print("No restart requested → full pipeline will run from scratch.")
+
 
 start_time = time.time()
 
-bundle = irc.run_clustering(
-    gsc=gsc,
-    indicator=indicator,
-    reduced_csv_path=graph_cluster_out,
-    gsc_run_kwargs=dict(
-        spec=spec,
-        graph_mode=gsc_graph_mode,
-        k=gsc_k,
-        manhattan_radius=gsc_grid_radius,
-        grid_tol=gsc_grid_tol,
-        n_jobs=gsc_n_jobs,
-        weight_chunk_size=gsc_weight_chunk_size,
-        segmenter=gsc_segmenter,
-        seed=gsc_seed,
-        weight_cfg=weight_cfg,
-        reduce_edges_topweights_k=reduce_edges_topweights_k,
-        networkit_kwargs=graph_cluster_arguments,
-    ),
-    indicator_run_kwargs=dict(
-        method_type="scipy_hierarchical",
-        spec=spec_reduced,
-        threshold=threshold,
-        method="average",
-        criterion="distance",
-        dendrogram_path="test_rei_pipeline/dendrogram.png",
-    ),
-)
+bundle = None
+
+if PICK_CLUSTER_RESTART and os.path.exists(bundle_checkpoint):
+    print(f"Loading bundle checkpoint: {bundle_checkpoint}")
+    bundle = pd.read_pickle(bundle_checkpoint)
+
+if bundle is None and FINAL_CLUSTERING_RESTART:
+    if os.path.exists(graph_cluster_out) and os.path.exists(gsc_labels_path):
+        print("Resume from final clustering checkpoint")
+
+        input_df = pd.read_csv(filename)
+        gsc_labels = np.load(gsc_labels_path, mmap_mode="r")
+
+        indicator = ClusterAnalysisIndicator(
+            csv_path=graph_cluster_out,
+            id_col="cluster_id",
+            coord_cols=gsc_coord_cols,
+        )
+
+        ind_out = indicator.run(
+            method_type="scipy_hierarchical",
+            spec=spec_reduced,
+            threshold=threshold,
+            method="average",
+            criterion="distance",
+            dendrogram_path="test_rei_pipeline/dendrogram.png",
+            minimal_return=False,
+        )
+
+        bundle = {
+            "input_df": input_df,
+            "gsc_labels": np.asarray(gsc_labels, dtype=np.int64),
+            "reduced_csv_path": graph_cluster_out,
+            "gsc_extras": {"labels_path": gsc_labels_path},
+            "indicator_points_df": ind_out["points"],
+            "indicator_clusters_df": ind_out["clusters"],
+            "indicator_extras": ind_out.get("extras", {}),
+        }
+    else:
+        print("FINAL_CLUSTERING_RESTART requested, but reduced CSV or GSC labels missing.")
+
+if bundle is None:
+    gsc, indicator = irc.make_stage_objects(graph_cluster_out=graph_cluster_out)
+
+    weights_ckpt_exists = (
+        os.path.exists(gsc_ckpt_base + ".edges.npy")
+        and os.path.exists(gsc_ckpt_base + ".weights.npy")
+        and os.path.exists(gsc_ckpt_base + ".meta.json")
+    )
+
+    bundle = irc.run_clustering(
+        gsc=gsc,
+        indicator=indicator,
+        reduced_csv_path=graph_cluster_out,
+        gsc_run_kwargs=dict(
+            spec=spec,
+            graph_mode=gsc_graph_mode,
+            k=gsc_k,
+            manhattan_radius=gsc_grid_radius,
+            grid_tol=gsc_grid_tol,
+            n_jobs=gsc_n_jobs,
+            weight_chunk_size=gsc_weight_chunk_size,
+            segmenter=gsc_segmenter,
+            seed=gsc_seed,
+            weight_cfg=weight_cfg,
+            reduce_edges_topweights_k=reduce_edges_topweights_k,
+            networkit_kwargs=graph_cluster_arguments,
+            checkpoint_base_path=gsc_ckpt_base,
+            resume_from_checkpoint=(GRAPH_SEGMENTATION_RESTART and weights_ckpt_exists),
+        ),
+        indicator_run_kwargs=dict(
+            method_type="scipy_hierarchical",
+            spec=spec_reduced,
+            threshold=threshold,
+            method="average",
+            criterion="distance",
+            dendrogram_path="test_rei_pipeline/dendrogram.png",
+        ),
+    )
+
+    print(f"Saving bundle checkpoint to: {bundle_checkpoint}")
+    pd.to_pickle(bundle, bundle_checkpoint)
 
 out = irc.run_get_rare_cluster(
     bundle=bundle,
@@ -262,9 +365,9 @@ out = irc.run_get_rare_cluster(
 )
 
 elapsed = time.time() - start_time
+
 print("\n--- Done ---")
 print(f"Total elapsed time: {elapsed:.2f} seconds")
 print("VTK exported:", out["output_vtk_path"])
 print("Export mode:", out["export_mode"])
 print("Rare clusters (merged labels):", out["rare_super_labels"])
-print("Label->Block:", out["label_to_block"])

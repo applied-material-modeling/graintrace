@@ -67,7 +67,6 @@
     [all]
         model = 'model'
         verbose = true
-        device = ${device}
 
         moose_input_types = 'MATERIAL                          POSTPROCESSOR         POSTPROCESSOR
                              MATERIAL                          MATERIAL              MATERIAL'
@@ -183,8 +182,13 @@
 
 ########################### OUTPUT ###########################
 [Outputs]
-    exodus = true
     file_base = '${base_folder}/sim_output'
+    sync_times = '${sync_times}'
+    [out]
+        type = Exodus
+        file_base = '${base_folder}/sim_output'
+        execute_postprocessors_on = 'NONE'
+    []
     [console]
         type = Console
         execute_postprocessors_on = 'NONE'

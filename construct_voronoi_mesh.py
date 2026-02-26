@@ -824,7 +824,7 @@ class VoronoiMeshBuilder:
         neper_cmd = [
             "neper", "-T",
             "-n", str(len(df)),
-            # "-reg", str(1),
+            "-reg", str(1),
             "-dim", str(self.dim),
             "-domain", domain_arg,
             "-oridescriptor", "rotmat",

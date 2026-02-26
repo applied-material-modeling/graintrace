@@ -4,7 +4,7 @@
         type = PropertyReadFile
         prop_file_name = ${orientation_file}
         read_type = 'block'
-        nblock = ${ncell_ff}
+        nblock = ${ncell}
         nprop = 3
         use_zero_based_block_indexing = false
         execute_on = TIMESTEP_BEGIN
@@ -13,7 +13,7 @@
         type = PropertyReadFile
         prop_file_name = ${residual_strain_file}
         read_type = 'voronoi'
-        nvoronoi = ${ncell_nf}
+        nvoronoi = ${ncell_ff}
         nprop = 12
         execute_on = TIMESTEP_BEGIN
     []
