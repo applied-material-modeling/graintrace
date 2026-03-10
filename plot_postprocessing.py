@@ -230,6 +230,8 @@ def plot_pole_figure(results,
                         construct_odf = False,
                         DeLaValleePoussinKernel_val = 0.1,
                         odf_limits = [0.0, 3.0],
+                        orientation_type = "mrp",
+                        orientation_units = "radians",
                         odf_ncontour = 12,):
     import neml2
     import torch
@@ -253,7 +255,11 @@ def plot_pole_figure(results,
         return_comp_names=True,
     )
 
-    orientations = neml2.tensors.Rot(torch.tensor(data, dtype=torch.double))
+    if orientation_type != "mrp":
+        data = torch.tensor(data, dtype=torch.double, device=device)
+        orientations = neml2.tensors.Rot.fill_euler_angles(neml2.tensors.Vec(data), orientation_type, orientation_units)
+    else:
+        orientations = neml2.tensors.Rot(torch.tensor(data, dtype=torch.double))
     
     neml2.postprocessing.pretty_plot_inverse_pole_figure(orientations,
                                                         pdirection,

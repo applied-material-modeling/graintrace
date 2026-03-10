@@ -25,6 +25,7 @@
         new_boundary = 'fixnode'
         coord = '${fixnode_x} ${fixnode_y} ${fixnode_z}'
         tolerance = 1e-4
+        use_closest_node = true
     []
     [node_sets_yroll]
         type = ExtraNodesetGenerator
@@ -32,6 +33,7 @@
         new_boundary = 'yrollnode'
         coord = '${yroll_x} ${yroll_y} ${yroll_z}'
         tolerance = 1e-4
+        use_closest_node = true
     []
 []
 
@@ -58,11 +60,13 @@
 
 [NEML2]
     input = 'neml2_cpfe.i'
-    cli_args = 'slip_constant_strength=${slip_constant_strength} vh_slope_init=${voce_hardening_initial_slope}
+    cli_args = "slip_constant_strength=${slip_constant_strength} vh_slope_init=${voce_hardening_initial_slope}
                 vh_hardening_sat=${voce_hardening_saturation} pow_slip_n=${power_slip_n}
                 pow_slip_g0=${power_slip_g0} E=${elastic_E} nu=${elastic_nu} G=${elastic_G}
-                device=${device} device_batch=${device_batch}'
-    scheduler = 'simple'
+                device_neml2=${device_neml2} device_neml2_batch=${device_neml2_batch}
+                nbatchdevice1=${nbatchdevice1} nbatchdevice2=${nbatchdevice2}
+                hybrid_devices='cuda:0 cuda:1'"
+    scheduler = '${scheduler_name}'
     async_dispatch = false
     [all]
         model = 'model'
@@ -168,7 +172,7 @@
         optimal_iterations = 7
         iteration_window = 2
         cutback_factor = 0.2
-        cutback_factor_at_failure = 0.5
+        cutback_factor_at_failure = 0.1
         growth_factor = 2
         linear_iteration_ratio = 1000
     []

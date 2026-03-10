@@ -28,10 +28,10 @@ crystal_morpho_args = {"type": "diameq",
 
 # HEDM scan parameters
 nscan = 4
-overlap_percentage = 61 # percentage units (0-100)
+overlap_percentage = 25 # percentage units (0-100)
 
 # Mimic experiment noise conditions
-apply_noise=True
+apply_noise=False
 remove_minimum_volume=False
 
 # gaussian distribution noise, 0.005 = 0.5%

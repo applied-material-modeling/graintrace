@@ -6,6 +6,7 @@ from user_data_class import SimilarityMetric, WeightConfig
 from tqdm import tqdm
 import os
 import json
+import re
 from nf.metrics import average_rotations
 
 class GraphSpatialCluster:
@@ -654,6 +655,34 @@ class GraphSpatialCluster:
             out[f"{fname}_mean"] = sums / n
 
         # other cluster properties can be added here as needed
+        
+        # norm of 3x3
+        ij_set = {"11","12","13","21","22","23","31","32","33"}
+        pat = re.compile(r"^(?P<prefix>.+)_(?P<ij>[123]{2})$")
+
+        # prefix -> {ij: column_index}
+        tensors: Dict[str, Dict[str, int]] = {}
+
+        for j, name in enumerate(feature_names):
+            m = pat.match(name)
+            if not m:
+                continue
+            ij = m.group("ij")
+            if ij not in ij_set:
+                continue
+            prefix = m.group("prefix")
+            tensors.setdefault(prefix, {})[ij] = j
+
+        full_prefixes = [p for p, mp in tensors.items() if len(mp) == 9]
+
+        for prefix in full_prefixes:
+            idx = [tensors[prefix][ij] for ij in ("11","12","13","21","22","23","31","32","33")]
+
+            # per-point Frobenius norm of the 9-vector
+            norm_per_point = np.linalg.norm(X[:, idx], axis=1)
+
+            sums = np.bincount(inv, weights=norm_per_point, minlength=k)
+            out[f"{prefix}_norm_mean"] = sums / n
 
         return pd.DataFrame(out)
     

@@ -146,7 +146,8 @@ class SimilarityMetricLibrary:
             ),
         )
 
-    def nye_tensor_norm(self) -> SimilarityMetric:
+    def nye_tensor_norm(sel,
+                        cols) -> SimilarityMetric:
 
         cols = [
             "nye_tensor_11", "nye_tensor_12", "nye_tensor_13",

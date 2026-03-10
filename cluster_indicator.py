@@ -126,7 +126,11 @@ class ClusterAnalysisIndicator:
             data[f"{f}_sumsq"] = feat_sumsq[:, j]
             data[f"{f}_mean"] = feat_sum[:, j] / n
 
-        return pd.DataFrame(data)  
+        return pd.DataFrame(data)
+    
+    def _get_all_feature_cols(self, df: pd.DataFrame) -> List[str]:
+        required = [self.id_col, *self.coord_cols]
+        return [c for c in df.columns if c not in required]
 
     def run(
         self,
@@ -184,6 +188,9 @@ class ClusterAnalysisIndicator:
         X = df[spec.feature_cols].to_numpy(dtype=float)
         coords = df[list(self.coord_cols)].to_numpy(dtype=float)
 
+        all_feat_cols = self._get_all_feature_cols(df)         
+        X_all = df[all_feat_cols].to_numpy(dtype=float)
+
         from sklearn.cluster import DBSCAN
         clustering = DBSCAN(
             eps=eps,
@@ -196,11 +203,11 @@ class ClusterAnalysisIndicator:
         ).fit(X)
 
         labels = clustering.labels_
-
+    
         clusters = self._build_cluster_summaries_from_arrays(
             labels=labels,
             coords=coords,
-            feats=X,
+            feats=X_all,
             coord_names=list(self.coord_cols),
             feat_names=list(spec.feature_cols),
             include_noise=include_noise_in_summaries,
@@ -246,6 +253,9 @@ class ClusterAnalysisIndicator:
         X = df[spec.feature_cols].to_numpy(dtype=float)
         coords = df[list(self.coord_cols)].to_numpy(dtype=float)
 
+        all_feat_cols = self._get_all_feature_cols(df)         
+        X_all = df[all_feat_cols].to_numpy(dtype=float)
+
         from sklearn.cluster import AgglomerativeClustering
         clustering = AgglomerativeClustering(
             n_clusters=n_clusters,
@@ -263,9 +273,9 @@ class ClusterAnalysisIndicator:
         clusters = self._build_cluster_summaries_from_arrays(
             labels=labels,
             coords=coords,
-            feats=X,
+            feats=X_all,
             coord_names=list(self.coord_cols),
-            feat_names=list(spec.feature_cols),
+            feat_names=all_feat_cols,
             include_noise=True,   # agglomerative has no noise label
             noise_label=-1,
             label_col="cluster_label",
@@ -308,6 +318,9 @@ class ClusterAnalysisIndicator:
         X = df[spec.feature_cols].to_numpy(dtype=float)
         coords = df[list(self.coord_cols)].to_numpy(dtype=float)
 
+        all_feat_cols = self._get_all_feature_cols(df)
+        X_all = df[all_feat_cols].to_numpy(dtype=float)
+
         from sklearn.cluster import OPTICS
         clustering = OPTICS(
             min_samples=min_samples,
@@ -331,9 +344,9 @@ class ClusterAnalysisIndicator:
         clusters = self._build_cluster_summaries_from_arrays(
             labels=labels,
             coords=coords,
-            feats=X,
+            feats=X_all,
             coord_names=list(self.coord_cols),
-            feat_names=list(spec.feature_cols),
+            feat_names=all_feat_cols,
             include_noise=include_noise_in_summaries,
             noise_label=noise_label,
             label_col="cluster_label",
@@ -406,6 +419,9 @@ class ClusterAnalysisIndicator:
         X = df[spec.feature_cols].to_numpy(dtype=float)
         coords = df[list(self.coord_cols)].to_numpy(dtype=float)
 
+        all_feat_cols = self._get_all_feature_cols(df)         
+        X_all = df[all_feat_cols].to_numpy(dtype=float)
+
         from scipy.cluster.hierarchy import linkage, cophenet, fclusterdata
         from scipy.spatial.distance import pdist, squareform
         from sklearn.manifold import MDS
@@ -431,9 +447,9 @@ class ClusterAnalysisIndicator:
         clusters = self._build_cluster_summaries_from_arrays(
             labels=labels,
             coords=coords,
-            feats=X,
+            feats=X_all,
             coord_names=list(self.coord_cols),
-            feat_names=list(spec.feature_cols),
+            feat_names=all_feat_cols,
             include_noise=True,
             noise_label=-1,
             label_col="cluster_label",

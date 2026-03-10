@@ -712,6 +712,7 @@ class VoronoiMeshBuilder:
                       relative_el_size: float = None,
                       morphoalgo: str = "praxis",
                       mesh_quality_min: float = 0.9,
+                      tesr_size: list = [20,20,20],
                       CVT_iter: int = 1000):
         """
         Build Voronoi (or Laguerre) tessellation using Neper.
@@ -829,7 +830,9 @@ class VoronoiMeshBuilder:
             "-domain", domain_arg,
             "-oridescriptor", "rotmat",
             "-o", tess_name,
-            "-format", "tess,geo"
+            "-format", "tess,geo,tesr",
+            "-tesrsize", f"{tesr_size[0]},{tesr_size[1]},{tesr_size[2]}",
+            "-tesrformat", "ascii",
         ] + morpho_args + ori_args
 
         print("\n=== Running Neper Tessellation ===\n")

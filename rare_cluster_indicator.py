@@ -138,27 +138,22 @@ class IdentifyRareClusters:
             sum_cols = [c for c in cdf.columns if c.endswith("_sum")]
             bases = [c[:-4] for c in sum_cols if (c[:-4] + "_sumsq") in cdf.columns]
 
+            new_cols = {}
             n = pd.to_numeric(cdf["n"], errors="coerce").astype(float)
 
             for b in bases:
-                s = pd.to_numeric(cdf[f"{b}_sum"], errors="coerce").astype(float)
+                s  = pd.to_numeric(cdf[f"{b}_sum"], errors="coerce").astype(float)
                 ss = pd.to_numeric(cdf[f"{b}_sumsq"], errors="coerce").astype(float)
 
                 mean = s / n
                 var_pop = (ss / n) - (mean * mean)
-
                 var_pop = var_pop.clip(lower=0.0)
 
-                if use_sample_std:
-                    var_samp = (ss - n * mean * mean) / (n - 1.0)
-                    var_samp = var_samp.where(n > 1.0, np.nan).clip(lower=0.0)
-                    cdf[f"{b}_var"] = var_samp
-                    cdf[f"{b}_std"] = np.sqrt(var_samp)
-                else:
-                    cdf[f"{b}_var"] = var_pop
-                    cdf[f"{b}_std"] = np.sqrt(var_pop)
+                new_cols[f"{b}_mean"] = mean
+                new_cols[f"{b}_var"]  = var_pop
+                new_cols[f"{b}_std"]  = np.sqrt(var_pop)
 
-                cdf[f"{b}_mean"] = mean
+            cdf = pd.concat([cdf, pd.DataFrame(new_cols, index=cdf.index)], axis=1)
 
             keep = ["cluster_label", "rare_cluster_id", "n"]
             for b in bases:

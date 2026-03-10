@@ -19,6 +19,8 @@ class CPFESimulation:
             "initialize_time": 1.0,
             "device": "cpu",
             "device_batch": 100,
+            "scheduler_name": "hybrid",
+            "hybrid_batch_sizes": (2000, 2000),
         },
         "material": {
             "slip_constant_strength": 130.0,
@@ -43,6 +45,7 @@ class CPFESimulation:
         "grid_properties": {
             "number_of_elements": [20, 20, 20],
             "bounding_box": [0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+            "bounding_box_buffer": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
         }
     }
 
@@ -142,12 +145,15 @@ class CPFESimulation:
 
         if self.dim == 3:
             xlo, xhi, ylo, yhi, zlo, zhi = b["bounding_box"]
+            xbufflo, xbuffhi, ybufflo, ybuffhi, zbufflo, zbuffhi = b["bounding_box_buffer"]
         else:
             xlo, xhi, ylo, yhi = b["bounding_box"]
+            xbufflo, xbuffhi, ybufflo, ybuffhi = b["bounding_box_buffer"]
             zlo, zhi = 0.0, 0.0
+            zbufflo, zbuffhi = 0.0, 0.0
 
-        fixnode_x, fixnode_y, fixnode_z = xlo, ylo, zlo
-        yroll_x, yroll_y, yroll_z = xlo, yhi, zlo
+        fixnode_x, fixnode_y, fixnode_z = xlo+xbufflo, ylo+ybufflo, zlo+zbufflo
+        yroll_x, yroll_y, yroll_z = xlo+xbufflo, yhi+ybuffhi, zlo+zbufflo
 
         coupled_axes = set()
 
@@ -344,7 +350,7 @@ class CPFESimulation:
                     f.write("    []\n")
                 f.write("\n")
             
-            components = ["11", "22", "33", "12", "23", "13"]
+            components = ["11","12","13","21","22","23","31","32","33"]
             for comp in components:
                 # nye_tensor_*
                 f.write(f"    # --- nye_tensor_{comp} ---\n")
@@ -483,6 +489,7 @@ class CPFESimulation:
 
         # Build command for subprocess
         vol_correction_cond = "true" if self.element_order == "FIRST" else "false"
+        
 
         log_path = self.save_simulation_folder / "cpfe_run.log"
         argv = [
@@ -498,8 +505,11 @@ class CPFESimulation:
             "transfer.i",
             "orientation_file=mrps_orientation.csv",
             f"sync_times={self.params['simulation_parameters']['sync_times']}",
-            f"device={self.params['simulation_parameters']['device']}",
-            f"device_batch={self.params['simulation_parameters']['device_batch']}",
+            f"scheduler_name={self.params['simulation_parameters']['scheduler_name']}",
+            f"device_neml2={self.params['simulation_parameters']['device']}",
+            f"device_neml2_batch={self.params['simulation_parameters']['device_batch']}",
+            f"nbatchdevice1={self.params['simulation_parameters']['hybrid_batch_sizes'][0]}",
+            f"nbatchdevice2={self.params['simulation_parameters']['hybrid_batch_sizes'][1]}",
             f"mesh_file={self.mesh_file.name}",
             f"residual_strain_file={self.eeres_file.name}",
             f"base_folder={self.params['simulation_parameters']['base_folder']}",

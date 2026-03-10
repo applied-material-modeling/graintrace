@@ -20,16 +20,16 @@ test_time_sim = 1.0
 test_sim = True
 
 # Input Experiment
-grain_folder = "mwe_data/synthetic_load_exp"
+grain_folder = "experiment_workflow_aps_28Feb" # "mwe_data/synthetic_load_exp"
 
 exp_field_naming = ExpFieldFileNaming(
-    prefix="expsyn",
-    index_width=2,
-    sep="_",
+    prefix="stitched_output",
+    index_width=1,
+    sep="",
     suffix=".csv",
 )
 
-test_tim_exp = 36
+test_tim_exp = 0
 test_exp = True
 
 # Main ---------------------------------------------------
@@ -68,19 +68,35 @@ if test_exp:
     )
     print(f"Tensor distribution plotted at time_index={time_index}")
 
-    # postprocess.plot_pole_figure(
-    #     exp_res,
-    #     tensor_prefix="Eul",
-    #     time = 1.0,
-    #     direction = [1, 1, 1],
-    #     crystal_symmetry = "432",
-    #     device = "cpu",
-    #     output_folder=output_folder,
-    #     construct_odf=False,
-    # )
-    # print(f"Pole figure plotted")
+    postprocess.plot_pole_figure(
+        exp_res,
+        tensor_prefix="Eul",
+        time = test_tim_exp,
+        direction = [1, 1, 1],
+        crystal_symmetry = "432",
+        device = "cpu",
+        output_folder=output_folder,
+        construct_odf=False,
+        orientation_type="bunge",
+        orientation_units="radians",
+    )
+    print(f"Pole figure 111 plotted")
 
+    postprocess.plot_pole_figure(
+        exp_res,
+        tensor_prefix="Eul",
+        time = test_tim_exp,
+        direction = [0, 0, 1],
+        crystal_symmetry = "432",
+        device = "cpu",
+        output_folder=output_folder,
+        construct_odf=False,
+        orientation_type="bunge",
+        orientation_units="radians",
+    )
+    print(f"Pole figure plotted")
 
+dfas
 if test_sim:
     # 1) scalar distribution
     time_index = postprocess.plot_block_properties_distribution(

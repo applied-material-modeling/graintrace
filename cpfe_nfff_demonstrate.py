@@ -61,7 +61,7 @@ grid_nx = 10 #5
 grid_ny = 10 #5
 grid_nz = 10 #5
 
-reconstruction_needed = False
+reconstruction_needed = True
 initialize_data = True
 
 # simulation parameters
@@ -73,13 +73,13 @@ device_batch = 1000
 moose_run_file="/home/tranh/projects/aps_build/puma/puma-opt"
 
 sculpt_config = {
-    "mpirun": "/opt/Coreform-Cubit-2025.12/bin/mpi/bin/mpirun",
-    "psculpt": "/opt/Coreform-Cubit-2025.12/bin/psculpt",
-    "epu": "/opt/Coreform-Cubit-2025.12/bin/epu",
+    "launcher": "/home/tranh/Progs/cubit_gov/bin/mpi/bin/mpiexec",
+    "psculpt": "/home/tranh/Progs/cubit_gov/bin/psculpt",
+    "epu": "/home/tranh/Progs/cubit_gov/bin/epu",
     "nprocs": int(ncore),
     "environment": {
-        "OPAL_LIBDIR": "/opt/Coreform-Cubit-2025.12/bin/mpi/lib",
-        "OPAL_PREFIX": "/opt/Coreform-Cubit-2025.12/bin/mpi",
+        "OPAL_LIBDIR": "/home/tranh/Progs/cubit_gov/bin/mpi/lib",
+        "OPAL_PREFIX": "/home/tranh/Progs/cubit_gov/bin/mpi",
     },
 }
 
@@ -129,6 +129,16 @@ if initialize_data:
         )
         print(f"\nReconstruction complete: {merged_grid_path}\n")   
 
+        data = np.load(merged_grid_path)
+        
+        coords = data[...,4:7].reshape(-1,3)
+        x_min, y_min, z_min = coords.min(axis=0)
+        x_max, y_max, z_max = coords.max(axis=0)
+
+        bounding_box_nf = [x_min, x_max, y_min, y_max, z_min, z_max]
+        
+        print(f"Mesh bounding box: x[{x_min}, {x_max}], y[{y_min}, {y_max}], z[{z_min}, {z_max}]")
+
         mesh_path = builder_nf.mesh(
             sculpt_config=sculpt_config,
             sculpt_options=sculpt_options,
@@ -136,7 +146,6 @@ if initialize_data:
         )
         print(f"Meshing complete: {mesh_path}")
         print(f"Mapped orientations: {builder_nf.mapped_orientations_path}.csv")
-
 
         ## RECONSTRUCTED FROM FF DATA -------------------------------------------
         # this to see if we could improve from the geometric centroid vs voronoi centroid
