@@ -8,7 +8,7 @@ from matplotlib.gridspec import GridSpec
 from scipy.cluster.hierarchy import dendrogram
 
 from cluster_indicator import ClusterAnalysisIndicator
-from similarity_metric_library import SimilarityMetricLibrary
+from user_data_class import SimilarityMetricLibrary
 
 ## INPUTS ---------------------------------------------------
 
@@ -26,7 +26,7 @@ if generate_synthetic:
         vm_low: float = 50.0,
         vm_high: float = 200.0,
         random_state: int = 0,
-        radius_range: tuple[int, int] = (4, 10), # number of elements
+        radius_range: tuple[int, int] = (4, 10),  # number of elements
     ) -> None:
 
         rng = np.random.default_rng(random_state)
@@ -53,7 +53,7 @@ if generate_synthetic:
 
         # Add rare high-VM patches
         for _ in range(rare_patches):
-            
+
             cx = rng.integers(low=0, high=nx)
             cy = rng.integers(low=0, high=ny)
 
@@ -62,7 +62,7 @@ if generate_synthetic:
             vm_boost = rng.uniform(1.5, 2.5)
 
             yy, xx = np.ogrid[:ny, :nx]
-            mask = (xx - cx) ** 2 + (yy - cy) ** 2 <= radius ** 2
+            mask = (xx - cx) ** 2 + (yy - cy) ** 2 <= radius**2
 
             vm_field[mask] *= vm_boost
 
@@ -104,7 +104,6 @@ if generate_synthetic:
         df = pd.DataFrame(rows)
         df.to_csv(path, index=False)
 
-
     ## main ---------------------------------------------------------- ##
     nx = 30
     ny = 30
@@ -138,8 +137,8 @@ result, linkage = indicator.run(
     method_type="scipy_hierarchical",
     spec=spec,
     threshold=threshold,
-    method = "average",
-    criterion = "distance",
+    method="average",
+    criterion="distance",
 )
 
 # result = indicator.run(
@@ -151,6 +150,7 @@ result, linkage = indicator.run(
 # )
 
 print("Plotting results...")
+
 
 def prepare_cluster_colormap(labels):
 
@@ -171,6 +171,7 @@ def prepare_cluster_colormap(labels):
 
     return label_norm, unique_labels, cmap, norm
 
+
 ## quick visualization
 def compute_von_mises(df: pd.DataFrame) -> np.ndarray:
     sxx = df["sxx"].to_numpy()
@@ -184,9 +185,10 @@ def compute_von_mises(df: pd.DataFrame) -> np.ndarray:
     term2 = 3.0 * (sxy**2 + sxz**2 + syz**2)
     return np.sqrt(term1 + term2)
 
+
 # compute fields
-vm = compute_von_mises(result)                  # shape (nx*ny,)
-labels = result["cluster_label"].to_numpy()     # shape (nx*ny,)
+vm = compute_von_mises(result)  # shape (nx*ny,)
+labels = result["cluster_label"].to_numpy()  # shape (nx*ny,)
 
 # reshape to 2D grid (row-major order: j over y, i over x)
 vm_grid = vm.reshape(ny, nx)
@@ -242,11 +244,7 @@ ax.set_xlabel("MDS coordinate (1D)")
 fig.subplots_adjust(bottom=0.25)
 
 cbar = fig.colorbar(
-    sc,
-    ax=ax,
-    ticks=np.arange(len(unique_labels)),
-    orientation="horizontal",
-    pad=0.25
+    sc, ax=ax, ticks=np.arange(len(unique_labels)), orientation="horizontal", pad=0.25
 )
 cbar.ax.set_xticklabels(unique_labels)
 cbar.set_label("Cluster Labels")
@@ -268,11 +266,13 @@ n = result.shape[0]
 assert n == nx * ny
 
 fig = plt.figure(figsize=(6.5, 5.5))
-gs = GridSpec(2, 2, figure=fig, height_ratios=[1.0, 0.8], width_ratios=[1.0, 0.9], wspace=0.4)
+gs = GridSpec(
+    2, 2, figure=fig, height_ratios=[1.0, 0.8], width_ratios=[1.0, 0.9], wspace=0.4
+)
 
-ax_vm      = fig.add_subplot(gs[0, 0])   # top-left
-ax_cluster = fig.add_subplot(gs[0, 1])   # top-right
-ax_dend    = fig.add_subplot(gs[1, :])   # bottom, spans both columns
+ax_vm = fig.add_subplot(gs[0, 0])  # top-left
+ax_cluster = fig.add_subplot(gs[0, 1])  # top-right
+ax_dend = fig.add_subplot(gs[1, :])  # bottom, spans both columns
 
 
 im0 = ax_vm.imshow(vm_grid, origin="lower", aspect="equal", cmap="viridis")
@@ -287,19 +287,16 @@ ax_dend.axhline(y=threshold, color="k", linestyle="--", label="Threshold")
 
 ax_dend.set_ylabel("Ultrametric distance")
 
-leaf_order  = dinfo["leaves"]             # indices of samples (0..n-1)
+leaf_order = dinfo["leaves"]  # indices of samples (0..n-1)
 leaf_colors = dinfo["leaves_color_list"]  # colors for each leaf
 
 assert len(leaf_order) == n
 
 # Map observation index -> RGBA
-idx_to_color = {
-    idx: mcolors.to_rgba(col)
-    for idx, col in zip(leaf_order, leaf_colors)
-}
+idx_to_color = {idx: mcolors.to_rgba(col) for idx, col in zip(leaf_order, leaf_colors)}
 
 colors_rgba = np.vstack([idx_to_color[i] for i in range(n)])  # (n, 4)
-color_grid  = colors_rgba.reshape(ny, nx, 4)                  # row-major reshape
+color_grid = colors_rgba.reshape(ny, nx, 4)  # row-major reshape
 
 im2 = ax_cluster.imshow(color_grid, origin="lower", aspect="equal")
 ax_cluster.set_title("Clusters (dendrogram colors)")
@@ -310,4 +307,3 @@ fig.savefig(
     dpi=300,
 )
 plt.close(fig)
-

@@ -88,10 +88,23 @@ def mesh_sculpt(
     cwd = os.getcwd()
     nx, ny, nz = data.shape[:3]
     abs_path_spn = os.path.abspath(input_spn)
+
+    launcher = sculpt_config["launcher"]
+    base = os.path.basename(launcher)
+
+    if base in ("mpiexec", "mpiexec.hydra"):
+        nflag = "-n"
+    elif base == "mpirun":
+        nflag = "-np"
+    elif base == "srun":
+        nflag = "-n"
+    else:
+        raise ValueError(f"Unsupported launcher {launcher!r}. Use mpiexec, mpirun, or srun.")
+
     with tempfile.TemporaryDirectory() as tmpdir:
         sclupt_call = [
-            "mpirun" if "mpirun" not in sculpt_config else sculpt_config["mpirun"],
-            "-np",
+            sculpt_config["launcher"],
+            nflag,
             str(sculpt_config["nprocs"]),
             sculpt_config["psculpt"],
             "-j",

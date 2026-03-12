@@ -53,7 +53,7 @@ class MatchRuleTable:
     def __init__(self):
         self.table = self._build_table()
 
-    def _build_table(self) -> Dict[Tuple[int, int], str]:
+    def _build_table(self,optiona=True) -> Dict[Tuple[int, int], str]:
 
         t: Dict[Tuple[int, int], str] = {}
 
@@ -65,54 +65,104 @@ class MatchRuleTable:
 
         # Regions:
         # 1 CORE, 2 HIGH, 3 LOW, 4 BND-H, 5 BND-L, 6 CROSS
+        if optiona:
+            # Row A=1 (CORE)
+            t[(1, 1)] = MC
+            t[(1, 2)] = KB
+            t[(1, 3)] = RJ
+            t[(1, 4)] = KA
+            t[(1, 5)] = KA
+            t[(1, 6)] = KA
 
-        # Row A=1 (CORE)
-        t[(1, 1)] = MC
-        t[(1, 2)] = KB
-        t[(1, 3)] = RJ
-        t[(1, 4)] = KA
-        t[(1, 5)] = KA
-        t[(1, 6)] = KA
+            # Row A=2 (HIGH)
+            t[(2, 1)] = RJ
+            t[(2, 2)] = RJ
+            t[(2, 3)] = RJ
+            t[(2, 4)] = RJ
+            t[(2, 5)] = RJ
+            t[(2, 6)] = RJ
 
-        # Row A=2 (HIGH)
-        t[(2, 1)] = RJ
-        t[(2, 2)] = RJ
-        t[(2, 3)] = RJ
-        t[(2, 4)] = RJ
-        t[(2, 5)] = RJ
-        t[(2, 6)] = RJ
+            # Row A=3 (LOW)
+            t[(3, 1)] = KA
+            t[(3, 2)] = MC
+            t[(3, 3)] = RJ
+            t[(3, 4)] = MC
+            t[(3, 5)] = KA
+            t[(3, 6)] = KA
 
-        # Row A=3 (LOW)
-        t[(3, 1)] = KA
-        t[(3, 2)] = MC
-        t[(3, 3)] = RJ
-        t[(3, 4)] = MC
-        t[(3, 5)] = KA
-        t[(3, 6)] = KA
+            # Row A=4 (BND-H)
+            t[(4, 1)] = KB
+            t[(4, 2)] = KB
+            t[(4, 3)] = RJ
+            t[(4, 4)] = KB
+            t[(4, 5)] = MC
+            t[(4, 6)] = KB
 
-        # Row A=4 (BND-H)
-        t[(4, 1)] = KB
-        t[(4, 2)] = KB
-        t[(4, 3)] = RJ
-        t[(4, 4)] = KB
-        t[(4, 5)] = MC
-        t[(4, 6)] = KB
+            # Row A=5 (BND-L)
+            t[(5, 1)] = KB
+            t[(5, 2)] = KB
+            t[(5, 3)] = RJ
+            t[(5, 4)] = MC
+            t[(5, 5)] = KA
+            t[(5, 6)] = KA
 
-        # Row A=5 (BND-L)
-        t[(5, 1)] = KB
-        t[(5, 2)] = KB
-        t[(5, 3)] = RJ
-        t[(5, 4)] = MC
-        t[(5, 5)] = KA
-        t[(5, 6)] = KA
+            # Row A=6 (CROSS)
+            t[(6, 1)] = KB
+            t[(6, 2)] = KB
+            t[(6, 3)] = RJ
+            t[(6, 4)] = KB
+            t[(6, 5)] = MC
+            t[(6, 6)] = MC
+        else: 
+            # chatgpt suggestion
+            # Row A=1 (CORE)  -> merge with any overlap-intersecting B
+            t[(1,1)] = MC
+            t[(1,2)] = RJ
+            t[(1,3)] = RJ
+            t[(1,4)] = MC
+            t[(1,5)] = MC
+            t[(1,6)] = MC
 
-        # Row A=6 (CROSS)
-        t[(6, 1)] = KB
-        t[(6, 2)] = KB
-        t[(6, 3)] = RJ
-        t[(6, 4)] = KB
-        t[(6, 5)] = MC
-        t[(6, 6)] = MC
+            # Row A=2 (HIGH)  -> never merge; reject these matches
+            t[(2,1)] = RJ
+            t[(2,2)] = RJ
+            t[(2,3)] = RJ
+            t[(2,4)] = RJ
+            t[(2,5)] = RJ
+            t[(2,6)] = RJ
+
+            # Row A=3 (LOW)   -> never merge; reject these matches
+            t[(3,1)] = RJ
+            t[(3,2)] = RJ
+            t[(3,3)] = RJ
+            t[(3,4)] = RJ
+            t[(3,5)] = RJ
+            t[(3,6)] = RJ
+
+            # Row A=4 (BND-H) -> merge with any overlap-intersecting B
+            t[(4,1)] = MC
+            t[(4,2)] = RJ
+            t[(4,3)] = RJ
+            t[(4,4)] = MC
+            t[(4,5)] = MC
+            t[(4,6)] = MC
+
+            # Row A=5 (BND-L) -> merge with any overlap-intersecting B
+            t[(5,1)] = MC
+            t[(5,2)] = RJ
+            t[(5,3)] = RJ
+            t[(5,4)] = MC
+            t[(5,5)] = MC
+            t[(5,6)] = MC
+
+            # Row A=6 (CROSS) -> merge with any overlap-intersecting B
+            t[(6,1)] = MC
+            t[(6,2)] = RJ
+            t[(6,3)] = RJ
+            t[(6,4)] = MC
+            t[(6,5)] = MC
+            t[(6,6)] = MC
+
 
         return t
 
@@ -384,56 +434,87 @@ class PairwiseStitcher:
             w_rad * (diff_rad / rtol)
         )
 
-        # --- for each B, pick best A by min cost ---
-        order = np.lexsort((cost, s_idx))
-        s_s = s_idx[order]
-        t_s = t_idx[order]
-        dp_s = diff_pos[order]
-        dr_s = diff_rad[order]
-        do_s = diff_ori[order]
-        c_s  = cost[order]
+        # ---------------- Hungarian assignment with unmatched allowed ----------------
 
-        best_t = np.full(nB, -1, dtype=int)
-        best_dp = np.full(nB, np.inf, dtype=float)
-        best_dr = np.full(nB, np.inf, dtype=float)
-        best_do = np.full(nB, np.inf, dtype=float)
-        best_c  = np.full(nB, np.inf, dtype=float)
+        # Cost of leaving something unmatched should be slightly worse than any valid match,
+        # but far better than an invalid (BIG) match.
+        max_real = 0.0
+        if use_pos: max_real += w_pos * 1.0
+        if use_ori: max_real += w_ori * 1.0
+        if use_rad: max_real += w_rad * 1.0
 
-        seenB = np.zeros(nB, dtype=bool)
-        for s, t, dp, dr, do, cc in zip(s_s, t_s, dp_s, dr_s, do_s, c_s):
-            if not seenB[s]:
-                best_t[s] = int(t)
-                best_dp[s] = float(dp)
-                best_dr[s] = float(dr)
-                best_do[s] = float(do)
-                best_c[s]  = float(cc)
-                seenB[s] = True
+        UNMATCH_COST = max_real + 1e-6
+        BIG = 1e9  # must be >> UNMATCH_COST
 
-        chosen_B = np.where(best_t >= 0)[0]
-        chosen_A = best_t[chosen_B]
-        chosen_c = best_c[chosen_B]
+        # Build lookup for diffs for any feasible (b,a) pair
+        # (b == s_idx, a == t_idx)
+        pair_dp = {}
+        pair_dr = {}
+        pair_do = {}
+        pair_c  = {}
 
-        order2 = np.argsort(chosen_c, kind="mergesort")
-        used_A = set()
-        keep = []
-        for j in order2:
-            b = int(chosen_B[j])
-            a = int(chosen_A[j])
-            if a in used_A:
-                continue
-            used_A.add(a)
-            keep.append(b)
+        for b, a, dp, dr, do, cc in zip(s_idx, t_idx, diff_pos, diff_rad, diff_ori, cost):
+            key = (int(b), int(a))
+            # keep best cost if duplicates appear
+            if key not in pair_c or cc < pair_c[key]:
+                pair_c[key]  = float(cc)
+                pair_dp[key] = float(dp)
+                pair_dr[key] = float(dr)
+                pair_do[key] = float(do)
 
-        keep = np.array(keep, dtype=int)
+        # Square augmented cost matrix:
+        # rows:  B real (nB) + A-dummy rows (nA)
+        # cols:  A real (nA) + B-dummy cols (nB)
+        N = nA + nB
+        C = np.full((N, N), BIG, dtype=float)
+
+        # Real B -> Real A costs (only feasible pairs get finite costs)
+        # default is BIG (infeasible)
+        for (b, a), cc in pair_c.items():
+            C[b, a] = cc
+
+        # Real B -> dummy cols (unmatch B)
+        # allow any B to take any dummy col, each dummy used once
+        C[0:nB, nA:nA+nB] = UNMATCH_COST
+
+        # Dummy rows (for A unmatched) -> Real A cols
+        C[nB:nB+nA, 0:nA] = UNMATCH_COST
+
+        # Dummy rows -> Dummy cols (no-op)
+        C[nB:nB+nA, nA:nA+nB] = 0.0
+
+        row_ind, col_ind = linear_sum_assignment(C)
 
         rows = []
         matched_A = set()
         matched_B = set()
-        for b in keep:
-            a = int(best_t[b])
-            rows.append((a, b, float(best_dp[b]), float(best_dr[b]), float(best_do[b])))
-            matched_A.add(a)
-            matched_B.add(b)
+
+        for r, c in zip(row_ind, col_ind):
+            # Only interpret assignments for REAL B rows
+            if r >= nB:
+                continue
+
+            b = int(r)
+            # matched to REAL A?
+            if c < nA:
+                a = int(c)
+                cc = C[r, c]
+                if cc >= UNMATCH_COST or cc >= BIG * 0.5:
+                    # treat as unmatched (shouldn't happen if matrix constructed right)
+                    continue
+
+                key = (b, a)
+                # key should exist in lookup; guard anyway
+                dp = pair_dp.get(key, np.nan)
+                dr = pair_dr.get(key, np.nan)
+                do = pair_do.get(key, np.nan)
+
+                rows.append((a, b, float(dp), float(dr), float(do)))
+                matched_A.add(a)
+                matched_B.add(b)
+            else:
+                # matched to dummy => B unmatched
+                pass
 
         self.matches = pd.DataFrame(
             rows,
@@ -633,7 +714,7 @@ class PairwiseStitcher:
             if decision == "KEEP":
                 keepA_indices.append(idx)
             if decision == "ERROR":
-                raise RuntimeError(f"Points center locates outside of A's region.")
+                print(f"Unmatched decision=ERROR for A idx={idx} (region={region}). Dropping this grain.")
 
         if keepA_indices:
             keepA_unmatched = dfA.iloc[keepA_indices].copy()
@@ -658,7 +739,7 @@ class PairwiseStitcher:
             if decision == "KEEP":
                 keepB_indices.append(idx)
             if decision == "ERROR":
-                raise RuntimeError(f"Points center locates outside of B's region.")
+                print(f"Unmatched decision=ERROR for B idx={idx} (region={region}). Dropping this grain.")
 
         if keepB_indices:
             keepB_unmatched = dfB.iloc[keepB_indices].copy()

@@ -5,6 +5,7 @@ import pandas as pd
 from construct_voronoi_mesh import VoronoiMeshBuilder
 import glob
 
+
 def update_experiments(
     input_files,
     output_root,
@@ -78,20 +79,25 @@ def update_experiments(
 
         ori_df = pd.DataFrame(
             ori,
-            columns=["O11","O12","O13","O21","O22","O23","O31","O32","O33"],
+            columns=["O11", "O12", "O13", "O21", "O22", "O23", "O31", "O32", "O33"],
         )
 
         # get all the data from builder
         df = builder.data.copy().reset_index(drop=True)
 
-        if builder.strain_unit == "microstrain" and builder.elastic_strain_id is not None:
+        if (
+            builder.strain_unit == "microstrain"
+            and builder.elastic_strain_id is not None
+        ):
             df[builder.elastic_strain_id] = df[builder.elastic_strain_id] * 1e6
-            
+
         n = min(len(df), len(ori_df))
         combined = pd.concat(
-            [ori_df.iloc[:n].reset_index(drop=True),
-             df.iloc[:n].reset_index(drop=True)],
-            axis=1
+            [
+                ori_df.iloc[:n].reset_index(drop=True),
+                df.iloc[:n].reset_index(drop=True),
+            ],
+            axis=1,
         )
 
         # preserve same filename, just change root directory
@@ -101,6 +107,7 @@ def update_experiments(
 
         shutil.rmtree(outputdir, ignore_errors=True)
         print(f"Deleted temp: {outputdir}")
+
 
 def try_parse_float(s):
     try:

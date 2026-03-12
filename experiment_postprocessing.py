@@ -16,24 +16,25 @@ class FieldFileNaming:
         self.sep = sep
         self.suffix = suffix
 
+
 class ExperimentResults:
     """
     Far-field HEDM experiment results (one CSV per load/time step).
     """
 
     def __init__(self, exp_dir, exp_naming, step_to_time=None):
-        
+
         self.exp_dir = Path(exp_dir).expanduser().resolve()
         self.exp_naming = exp_naming
 
         self.step_to_time = step_to_time
 
-        self.grain_files = None     
-        self.step_ids = None       
-        self.time = None           
+        self.grain_files = None
+        self.step_ids = None
+        self.time = None
         self.n_steps = None
 
-        self.grain_ids = None    
+        self.grain_ids = None
         self._grain_row_map = None  # dict: step_id -> dict(grain_id -> row_idx)
 
         self.check_input()
@@ -102,7 +103,9 @@ class ExperimentResults:
         df.columns = [c.strip() for c in df.columns]
         return df
 
-    def _tensor_from_df(self, df, tensor_prefix, order, suffix="", return_comp_names=False):
+    def _tensor_from_df(
+        self, df, tensor_prefix, order, suffix="", return_comp_names=False
+    ):
         if order not in (0, 1, 2):
             raise ValueError("order must be 0, 1, or 2")
 
@@ -129,27 +132,41 @@ class ExperimentResults:
             comp_names = [f"{tensor_prefix}0", f"{tensor_prefix}1", f"{tensor_prefix}2"]
             return (data, comp_names) if return_comp_names else data
 
-        full = ["11","12","13","21","22","23","31","32","33"]
+        full = ["11", "12", "13", "21", "22", "23", "31", "32", "33"]
         full_cols = [f"{tensor_prefix}{ij}{suffix}" for ij in full]
         if all(c in df.columns for c in full_cols):
             data = df[full_cols].to_numpy()
             comp_names = [f"{tensor_prefix}{ij}" for ij in full]
             return (data, comp_names) if return_comp_names else data
 
-        sym = ["xx","xy","xz","yy","yz","zz"]
+        sym = ["xx", "xy", "xz", "yy", "yz", "zz"]
         sym_cols = [f"{tensor_prefix}{c}{suffix}" for c in sym]
         require(sym_cols, "order-2 symmetric tensor")
 
         a = df[sym_cols].to_numpy()
-        data = np.column_stack([
-            a[:, 0], a[:, 1], a[:, 2],
-            a[:, 1], a[:, 3], a[:, 4],
-            a[:, 2], a[:, 4], a[:, 5],
-        ])
+        data = np.column_stack(
+            [
+                a[:, 0],
+                a[:, 1],
+                a[:, 2],
+                a[:, 1],
+                a[:, 3],
+                a[:, 4],
+                a[:, 2],
+                a[:, 4],
+                a[:, 5],
+            ]
+        )
         comp_names = [
-            f"{tensor_prefix}xx", f"{tensor_prefix}xy", f"{tensor_prefix}xz",
-            f"{tensor_prefix}yx", f"{tensor_prefix}yy", f"{tensor_prefix}yz",
-            f"{tensor_prefix}zx", f"{tensor_prefix}zy", f"{tensor_prefix}zz",
+            f"{tensor_prefix}xx",
+            f"{tensor_prefix}xy",
+            f"{tensor_prefix}xz",
+            f"{tensor_prefix}yx",
+            f"{tensor_prefix}yy",
+            f"{tensor_prefix}yz",
+            f"{tensor_prefix}zx",
+            f"{tensor_prefix}zy",
+            f"{tensor_prefix}zz",
         ]
         return (data, comp_names) if return_comp_names else data
 
@@ -214,7 +231,11 @@ class ExperimentResults:
             row = df.iloc[[row_idx]]
 
             out = self._tensor_from_df(
-                row, tensor_prefix, order, suffix="", return_comp_names=return_comp_names
+                row,
+                tensor_prefix,
+                order,
+                suffix="",
+                return_comp_names=return_comp_names,
             )
             if return_comp_names:
                 d, cn = out

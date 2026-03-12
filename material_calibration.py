@@ -7,6 +7,7 @@ from tqdm import tqdm
 import neml2
 from neml2.postprocessing import polefigure
 
+
 class MaterialCalibration:
     """
     Perform parameter calibration.
@@ -15,14 +16,16 @@ class MaterialCalibration:
     - Optional visualization (stress-strain curves, texture, strain histograms)
     """
 
-    def __init__(self,
-                 model_class,
-                 model_args,
-                 data_args,
-                 apply_elastic_correction=False,
-                 correction_method="with_experiment_average",
-                 strain_window=None,
-                 save_dir="calibration_results"):
+    def __init__(
+        self,
+        model_class,
+        model_args,
+        data_args,
+        apply_elastic_correction=False,
+        correction_method="with_experiment_average",
+        strain_window=None,
+        save_dir="calibration_results",
+    ):
         """
         Parameters
         ----------
@@ -58,7 +61,7 @@ class MaterialCalibration:
                 raise ValueError(
                     "'strain_window' must be provided when "
                     "apply_elastic_correction=True."
-            )
+                )
             if self.correction_method not in correction_method_allowed:
                 raise ValueError(f"Unknown correction_method: {self.correction_method}")
 
@@ -71,9 +74,9 @@ class MaterialCalibration:
         """
         Scale model stresses so that the elastic slope matches the experimental average strain.
         Only applied if experimental average strain exists and has > 2 data points.
-        
+
         Algorithm: fit the slope of stress-strain in the specified small strain window
-        for both full stress-strain curve and experimental average, then scale the stress-strain 
+        for both full stress-strain curve and experimental average, then scale the stress-strain
         stresses accordingly.
         """
 
@@ -82,10 +85,14 @@ class MaterialCalibration:
 
         if self.correction_method == "with_experiment_average":
 
-            print("\nApplying elastic slope correction using experimental average strain.\n")
+            print(
+                "\nApplying elastic slope correction using experimental average strain.\n"
+            )
 
             if "avg_axial_strain" not in exp or len(exp["avg_axial_strain"]) <= 2:
-                print("\nNot enough average experimental data points. Skipping correction.\n")
+                print(
+                    "\nNot enough average experimental data points. Skipping correction.\n"
+                )
                 return
 
             # Extract experimental grain-average response
@@ -93,7 +100,7 @@ class MaterialCalibration:
             stress_levels = np.array(exp["stress_levels"])
             mask = (strain_avg >= strain_window[0]) & (strain_avg <= strain_window[1])
             if np.sum(mask) < 2:
-                print("\nInsufficient points in strain window. Skipping correction.\n")   
+                print("\nInsufficient points in strain window. Skipping correction.\n")
                 return
 
             # Fit slope of grain-averaged strain vs stress
@@ -102,11 +109,15 @@ class MaterialCalibration:
             # Fit slope of provided macro stress–strain curve
             strain_macro = exp["strain_stress"][:, 0]
             stress_macro = exp["strain_stress"][:, 1]
-            mask_macro = (strain_macro >= strain_window[0]) & (strain_macro <= strain_window[1])
+            mask_macro = (strain_macro >= strain_window[0]) & (
+                strain_macro <= strain_window[1]
+            )
             if np.sum(mask_macro) < 2:
                 raise ValueError("\nInsufficient macro points in window.\n")
 
-            E_macro, _ = np.polyfit(strain_macro[mask_macro], stress_macro[mask_macro], 1)
+            E_macro, _ = np.polyfit(
+                strain_macro[mask_macro], stress_macro[mask_macro], 1
+            )
 
             if E_macro <= 0 or E_exp <= 0:
                 print("Invalid slope detected. Skipping correction.")
@@ -115,8 +126,10 @@ class MaterialCalibration:
             scale_factor = E_macro / E_exp
             exp["strain_stress"][:, 0] *= scale_factor
 
-            print(f"\nScaled macro strain by {scale_factor:.3f} "
-                f"to match average experimental slope.\n")
+            print(
+                f"\nScaled macro strain by {scale_factor:.3f} "
+                f"to match average experimental slope.\n"
+            )
 
     def objective(self, params, default_err=1e6):
         p = torch.tensor(params)
@@ -135,10 +148,12 @@ class MaterialCalibration:
 
     def calibrate(self, method="Nelder-Mead", maxiter=50, autosave=True):
         # Initial parameter guess
-        p0 = torch.tensor([
-            self.model.tmodel.model.get_parameter(v).torch().detach().clone()
-            for v in self.model.opt_vars
-        ])
+        p0 = torch.tensor(
+            [
+                self.model.tmodel.model.get_parameter(v).torch().detach().clone()
+                for v in self.model.opt_vars
+            ]
+        )
 
         # Set up progress bar
         progress = tqdm(total=maxiter, desc="Optimization progress", ncols=80)
@@ -178,9 +193,11 @@ class MaterialCalibration:
         plt.savefig(path, dpi=300)
         plt.close()
 
-    def plot_stress_strain(self, include_model=False, optimized=True, include_experiment_overlay=True):
+    def plot_stress_strain(
+        self, include_model=False, optimized=True, include_experiment_overlay=True
+    ):
         """
-        Plot stress–strain data.    
+        Plot stress–strain data.
         """
 
         exp = self.experiment_data
@@ -192,7 +209,9 @@ class MaterialCalibration:
         plt.figure()
         plt.plot(exp_macro_strain, exp_macro_stress, lw=2, label="Experiment (macro)")
         if include_experiment_overlay:
-            plt.plot(exp_avg_strain, exp_stress_levels, "o", label="Experiment (avg grains)")
+            plt.plot(
+                exp_avg_strain, exp_stress_levels, "o", label="Experiment (avg grains)"
+            )
 
         if include_model:
             if optimized and hasattr(self, "opt_params"):
@@ -207,10 +226,15 @@ class MaterialCalibration:
                 plt.plot(exp_macro_strain, sim_stress, lw=2, label="Model (optimized)")
             else:
                 # try plotting an initial curve if desired
-                p0 = torch.tensor([
-                    self.model.tmodel.model.get_parameter(v).torch().detach().clone()
-                    for v in self.model.opt_vars
-                ])
+                p0 = torch.tensor(
+                    [
+                        self.model.tmodel.model.get_parameter(v)
+                        .torch()
+                        .detach()
+                        .clone()
+                        for v in self.model.opt_vars
+                    ]
+                )
                 sim_stress = self.model.simulate(
                     p0,
                     d=self.d,
@@ -254,7 +278,9 @@ class MaterialCalibration:
         if strain_index is None:
             strain_index = self.axial_index
 
-        init_strain = self.experiment_data["exp_strain"][0] if include_initial_strain else None
+        init_strain = (
+            self.experiment_data["exp_strain"][0] if include_initial_strain else None
+        )
 
         stress_hist, state_hist = self.model.simulate(
             self.opt_params,
@@ -265,7 +291,9 @@ class MaterialCalibration:
             return_state=True,
         )
 
-        vars = self.model.tmodel.state_asm.split_by_variable(neml2.Tensor(state_hist, 1))
+        vars = self.model.tmodel.state_asm.split_by_variable(
+            neml2.Tensor(state_hist, 1)
+        )
         model_strain = vars["state/elastic_strain"].torch()[:, :, strain_index].numpy()
         sim_stress = stress_hist[:, self.axial_index].numpy()
 
@@ -276,10 +304,14 @@ class MaterialCalibration:
         indices = [np.argmin(np.abs(sim_stress - s)) for s in exp_stress_levels]
 
         # Plot histogram comparison for each matched stress level
-        for ii, (exp_s, stress, idx) in enumerate(zip(exp_strains, exp_stress_levels, indices)):
+        for ii, (exp_s, stress, idx) in enumerate(
+            zip(exp_strains, exp_stress_levels, indices)
+        ):
             plt.figure()
             plt.hist(model_strain[idx, :], bins=30, alpha=0.6, label="Model")
-            plt.hist(exp_s[:, strain_index].numpy(), bins=30, alpha=0.5, label="Experiment")
+            plt.hist(
+                exp_s[:, strain_index].numpy(), bins=30, alpha=0.5, label="Experiment"
+            )
             plt.xlabel("Elastic strain (mm/mm)")
             plt.ylabel("Counts")
             plt.legend(loc="best")
@@ -300,8 +332,7 @@ class MaterialCalibration:
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
 
         params_dict = {
-            k: float(v)
-            for k, v in zip(self.model.opt_vars, self.opt_params)
+            k: float(v) for k, v in zip(self.model.opt_vars, self.opt_params)
         }
 
         with open(filepath, "w") as f:
@@ -310,7 +341,7 @@ class MaterialCalibration:
         print(f"[MaterialCalibration] Saved calibrated parameters to {filepath}")
 
         return filepath
-    
+
     def load(self, filepath: str):
         """
         Load previously saved optimized material parameters from a JSON file.

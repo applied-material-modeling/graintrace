@@ -49,8 +49,8 @@
 []
 
 [Outputs]
-    exodus = true
     file_base = '${base_folder}/sim_output_grid'
+    exodus = true
     [console]
         type = Console
         execute_postprocessors_on = 'NONE'

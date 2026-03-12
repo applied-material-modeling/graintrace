@@ -125,12 +125,6 @@ class ScanStitchingComparison:
         self.df_true[base_cols] = self.df_true[base_cols].astype(float)
         self.df_stitch[base_cols] = self.df_stitch[base_cols].astype(float)
 
-        # --- Convert Euler angles to radians if specified in degrees ---
-        if self.orientation_units == "degrees":
-            for col in ["Eul0", "Eul1", "Eul2"]:
-                self.df_true[col] = np.deg2rad(self.df_true[col])
-                self.df_stitch[col] = np.deg2rad(self.df_stitch[col])
-
         # --- Basic console summary ---
         print(f"Loaded {len(self.df_true)} grains from true dataset.")
         print(f"Loaded {len(self.df_stitch)} grains from stitched dataset.\n")
@@ -160,74 +154,113 @@ class ScanStitchingComparison:
         if self.df_true is None or self.df_stitch is None:
             raise RuntimeError("Data not loaded. Run load_data() first.")
 
-        self.matches = self._build_mapping(
-            self.df_stitch, self.df_true, self.kdtree_true
-        )
-        print(f"\nMatched {len(self.matches)} stitched grains to true grains.\n")
+        self.matches = self._build_mapping(self.df_stitch, self.df_true, self.kdtree_true)
+        mask = self._valid_match_mask(self.matches)
+        print(f"\nMatched {mask.sum()} stitched grains to true grains (unmatched: {len(self.matches)-mask.sum()}).\n")
 
-        self.inverse_matches = self._build_mapping(
-            self.df_true, self.df_stitch, self.kdtree_stitch
-        )
-        print(f"Matched {len(self.inverse_matches)} true grains to stitched grains.\n")
+        self.inverse_matches = self._build_mapping(self.df_true, self.df_stitch, self.kdtree_stitch)
+        mask = self._valid_match_mask(self.inverse_matches)
+        print(f"Matched {mask.sum()} true grains to stitched grains (unmatched: {len(self.inverse_matches)-mask.sum()}).\n")
 
     def _build_mapping(self, source_df, target_df, target_tree):
         """
-        Build nearest-neighbor mapping between two datasets.
-
-        No hard cutoff in the cost. All k-NN candidates are allowed,
-        and tolerances are enforced later via masks.
+        Build a 1-1 mapping from source -> target using Hungarian assignment,
+        while allowing unmatched sources and unmatched targets via dummy nodes.
+        Output: one row per source (always), with idx_target = -1 if unmatched.
         """
-
         coords_source = source_df[["X", "Y", "Z"]].to_numpy()
         n_source, n_target = len(source_df), len(target_df)
 
         if n_source == 0 or n_target == 0:
             return pd.DataFrame(
+                [
+                    (int(s), -1, np.inf, np.inf, np.inf,
+                     np.inf, np.inf, np.inf)
+                    for s in range(n_source)
+                ],
                 columns=[
                     "idx_source", "idx_target",
                     "diff_pos_norm2", "diff_rad_percentage", "diff_ori",
-                ]
+                    "diff_pos_x", "diff_pos_y", "diff_pos_z",
+                ],
             )
 
-        # KD-tree query
+        # --- NEW: keep full coordinates for component-wise diffs ---
+        coords_target = target_df[["X", "Y", "Z"]].to_numpy()
+
+        # KD-tree query for candidate edges
         k = min(self.min_neighbors, n_target)
         dist, idx = target_tree.query(coords_source, k=k, workers=-1)
-
         if k == 1:
             dist = dist[:, None]
             idx = idx[:, None]
 
         s_idx, _ = np.indices(dist.shape)
-        s_idx = s_idx.ravel()
-        t_idx = idx.ravel()
-        diff_pos = dist.ravel()
+        s_idx = s_idx.ravel().astype(int)
+        t_idx = idx.ravel().astype(int)
+        diff_pos = dist.ravel().astype(float)
 
-        ori_source = source_df[["Eul0", "Eul1", "Eul2"]].to_numpy()
-        ori_target = target_df[["Eul0", "Eul1", "Eul2"]].to_numpy()
-        rad_source = source_df["GrainRadius"].to_numpy()
-        rad_target = target_df["GrainRadius"].to_numpy()
+        dx_all = coords_source[s_idx, 0] - coords_target[t_idx, 0]
+        dy_all = coords_source[s_idx, 1] - coords_target[t_idx, 1]
+        dz_all = coords_source[s_idx, 2] - coords_target[t_idx, 2]
 
-        
-        # diff_ori = np.linalg.norm(ori_source[s_idx] - ori_target[t_idx], axis=1)
+        ori_source = source_df[["Eul0", "Eul1", "Eul2"]].to_numpy(float)
+        ori_target = target_df[["Eul0", "Eul1", "Eul2"]].to_numpy(float)
+        rad_source = source_df["GrainRadius"].to_numpy(float)
+        rad_target = target_df["GrainRadius"].to_numpy(float)
+
         diff_ori_t = misorientation(
             ori_source[s_idx], ori_target[t_idx],
-            angle_convention=self.orientation_convention,   # e.g. "kocks"
-            angle_type=self.orientation_units,        # "degrees" or "radians"
-            symmetry=self.symmetry,                   # e.g. "432"
+            angle_convention=self.orientation_convention,
+            angle_type=self.orientation_units,
+            symmetry=self.symmetry,
         )
         diff_ori = diff_ori_t.detach().cpu().numpy().astype(float)
-        
-        diff_rad = np.abs(rad_source[s_idx] - rad_target[t_idx]) / rad_target[t_idx]
+        diff_rad = np.abs(rad_source[s_idx] - rad_target[t_idx]) / np.maximum(rad_target[t_idx], 1e-14)
 
-        # tolerances and weights
-        w_pos = self.weights.get("pos", 1.0)
-        w_ori = self.weights.get("ori", 0.0)
-        w_rad = self.weights.get("rad", 0.0)
+        # weights + scaling
+        w_pos = float(self.weights.get("pos", 1.0))
+        w_ori = float(self.weights.get("ori", 0.0))
+        w_rad = float(self.weights.get("rad", 0.0))
 
         eps = 1e-14
         ptol = self.position_tolerance if self.position_tolerance != 0.0 else eps
         otol = self.orientation_tolerance if self.orientation_tolerance != 0.0 else eps
         rtol = self.radius_tolerance if self.radius_tolerance != 0.0 else eps
+
+        # ---- feasibility mask ----
+        ok = np.ones_like(diff_pos, dtype=bool)
+        if self.position_tolerance != -1:
+            ok &= (diff_pos <= self.position_tolerance)
+        if self.orientation_tolerance != -1:
+            ok &= (diff_ori <= self.orientation_tolerance)
+        if self.radius_tolerance != -1 and w_rad > 0.0:
+            ok &= (diff_rad <= self.radius_tolerance)
+
+        s_idx = s_idx[ok]
+        t_idx = t_idx[ok]
+        diff_pos = diff_pos[ok]
+        diff_ori = diff_ori[ok]
+        diff_rad = diff_rad[ok]
+        
+        dx_all = dx_all[ok]
+        dy_all = dy_all[ok]
+        dz_all = dz_all[ok]
+
+        # If nothing feasible, everything unmatched
+        if s_idx.size == 0:
+            return pd.DataFrame(
+                [
+                    (int(s), -1, np.inf, np.inf, np.inf,
+                     np.inf, np.inf, np.inf)
+                    for s in range(n_source)
+                ],
+                columns=[
+                    "idx_source", "idx_target",
+                    "diff_pos_norm2", "diff_rad_percentage", "diff_ori",
+                    "diff_pos_x", "diff_pos_y", "diff_pos_z",
+                ],
+            )
 
         cost = (
             w_pos * (diff_pos / ptol) +
@@ -235,44 +268,110 @@ class ScanStitchingComparison:
             w_rad * (diff_rad / rtol)
         )
 
-        order = np.lexsort((cost, s_idx))  # group by source, then cost
-        s_s = s_idx[order]
-        t_s = t_idx[order]
-        dp_s = diff_pos[order]
-        dr_s = diff_rad[order]
-        do_s = diff_ori[order]
+        # Compute unmatch cost slightly above max feasible cost
+        max_real = 0.0
+        if w_pos > 0 and self.position_tolerance != -1:
+            max_real += w_pos * 1.0
+        if w_ori > 0 and self.orientation_tolerance != -1:
+            max_real += w_ori * 1.0
+        if w_rad > 0 and self.radius_tolerance != -1:
+            max_real += w_rad * 1.0
+        UNMATCH_COST = max_real + 1e-6
+        BIG = 1e9
 
-        best_t = np.full(n_source, -1, dtype=int)
-        best_dp = np.full(n_source, np.inf)
-        best_dr = np.full(n_source, np.inf)
-        best_do = np.full(n_source, np.inf)
+        # Build best edge per (s,t) if duplicates show up
+        pair = {}
+        for s, t, dp, dr, do, cc, dx, dy, dz in zip(
+            s_idx, t_idx, diff_pos, diff_rad, diff_ori, cost,
+            dx_all, dy_all, dz_all
+        ):
+            key = (int(s), int(t))
+            # store dx, dy, dz as well
+            if key not in pair or cc < pair[key][7]:
+                pair[key] = (
+                    float(dp),  # 0
+                    float(dr),  # 1
+                    float(do),  # 2
+                    float(dx),  # 3
+                    float(dy),  # 4
+                    float(dz),  # 5
+                    float(cc),  # 6
+                    float(cc),  # 7 (for comparison)
+                )
 
-        seen = np.zeros(n_source, dtype=bool)
-        for s, t, dp, dr, do in zip(s_s, t_s, dp_s, dr_s, do_s):
-            if not seen[s]:
-                best_t[s] = int(t)
-                best_dp[s] = float(dp)
-                best_dr[s] = float(dr)
-                best_do[s] = float(do)
-                seen[s] = True
+        # Augmented square matrix:
+        N = n_source + n_target
+        C = np.full((N, N), BIG, dtype=float)
 
-                rows = []
+        for (s, t), vals in pair.items():
+            cc = vals[6]
+            C[s, t] = cc
+
+        # Real source -> dummy cols (unmatch each source)
+        C[0:n_source, n_target:n_target + n_source] = UNMATCH_COST
+        # Dummy rows (for target unmatched) -> real target cols
+        C[n_source:n_source + n_target, 0:n_target] = UNMATCH_COST
+        # Dummy rows -> dummy cols
+        C[n_source:n_source + n_target, n_target:n_target + n_source] = 0.0
+
+        row_ind, col_ind = linear_sum_assignment(C)
+
+        # Build per-source result, default unmatched
+        idx_target_out = np.full(n_source, -1, dtype=int)
+        dp_out = np.full(n_source, np.inf, dtype=float)
+        dr_out = np.full(n_source, np.inf, dtype=float)
+        do_out = np.full(n_source, np.inf, dtype=float)
+        
+        dx_out = np.full(n_source, np.inf, dtype=float)
+        dy_out = np.full(n_source, np.inf, dtype=float)
+        dz_out = np.full(n_source, np.inf, dtype=float)
+
+        # Interpret assignments for REAL source rows only
+        for r, c in zip(row_ind, col_ind):
+            if r >= n_source:
+                continue  # dummy row
+            s = int(r)
+            if c < n_target:
+                # matched to real target only if cheaper than unmatch
+                if C[r, c] < UNMATCH_COST and C[r, c] < BIG * 0.5:
+                    t = int(c)
+                    idx_target_out[s] = t
+                    dp, dr, do, dx, dy, dz, _, _ = pair.get(
+                        (s, t),
+                        (np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan),
+                    )
+                    dp_out[s] = dp
+                    dr_out[s] = dr
+                    do_out[s] = do
+                    dx_out[s] = dx
+                    dy_out[s] = dy
+                    dz_out[s] = dz
+                else:
+                    # matched to dummy => unmatched source
+                    pass
 
         rows = [
-            (int(s), int(best_t[s]), best_dp[s], best_dr[s], best_do[s])
-            for s in range(n_source) if best_t[s] >= 0
+            (
+                int(s),
+                int(idx_target_out[s]),
+                dp_out[s],
+                dr_out[s],
+                do_out[s],
+                dx_out[s],
+                dy_out[s],
+                dz_out[s],
+            )
+            for s in range(n_source)
         ]
-
         return pd.DataFrame(
             rows,
             columns=[
-                "idx_source",
-                "idx_target",
-                "diff_pos_norm2",
-                "diff_rad_percentage",
-                "diff_ori",
+                "idx_source", "idx_target",
+                "diff_pos_norm2", "diff_rad_percentage", "diff_ori",
+                "diff_pos_x", "diff_pos_y", "diff_pos_z",
             ],
         )
+
 
     def _valid_match_mask(self, df_matches, pos_tol=None, ori_tol=None):
         if df_matches is None:
@@ -285,6 +384,7 @@ class ScanStitchingComparison:
             return np.zeros(0, dtype=bool)
 
         return (
+            (df_matches["idx_target"] >= 0) &
             (df_matches["diff_pos_norm2"] <= pos_tol ) &
             (df_matches["diff_ori"] <= ori_tol )
         )
@@ -336,7 +436,10 @@ class ScanStitchingComparison:
             "n_inverse_matched": len(inverse_valid),
             "n_splits": len(split_detail),
             "n_merges": len(merge_detail),
-            "mean_pos_error": safe_stat(matches_valid["diff_pos_norm2"], np.mean),
+            "mean_pos_abs_error": safe_stat(matches_valid["diff_pos_norm2"], np.mean),
+            "mean_pos_error_x": safe_stat(matches_valid["diff_pos_x"], np.mean),
+            "mean_pos_error_y": safe_stat(matches_valid["diff_pos_y"], np.mean),
+            "mean_pos_error_z": safe_stat(matches_valid["diff_pos_z"], np.mean),
             "mean_ori_error": safe_stat(matches_valid["diff_ori"], np.mean),
             "mean_rad_error": safe_stat(matches_valid["diff_rad_percentage"], np.mean),
             "median_pos_error": safe_stat(matches_valid["diff_pos_norm2"], np.median),
@@ -366,7 +469,7 @@ class ScanStitchingComparison:
         fig, axes = plt.subplots(3, 1, figsize=(6, 9), tight_layout=True)
         plot_info = [
             ("diff_pos_norm2", "Position Error (length units)"),
-            ("diff_ori", "Orientation Error (degrees)"),
+            ("diff_ori", f"Orientation Error ({self.orientation_units})"),
             ("diff_rad_percentage", "Radius Error (relative)"),
         ]
 
@@ -407,24 +510,31 @@ class ScanStitchingComparison:
         """
         if self.matches is None:
             raise RuntimeError("Matches not computed. Run _match_grains() first.")
+        if self.inverse_matches is None:
+            raise RuntimeError("inverse_matches not computed. Run _match_grains() first.")
 
         pos_tol = pos_tol or self.position_tolerance
         ori_tol = ori_tol or self.orientation_tolerance
 
         # --- Identify unmatched grains ---
-        valid_mask = self._valid_match_mask(self.matches, pos_tol, ori_tol)
 
-        matched_true = set(self.matches.loc[valid_mask, "idx_target"])
-        matched_stitch = set(self.matches.loc[valid_mask, "idx_source"])
+        # valid forward links: stitched -> true
+        valid_fwd = self._valid_match_mask(self.matches, pos_tol, ori_tol)
+        claimed_true_by_fwd = set(self.matches.loc[valid_fwd, "idx_target"])
+
+        # valid inverse links: true -> stitched
+        valid_inv = self._valid_match_mask(self.inverse_matches, pos_tol, ori_tol)
+        claimed_stitch_by_inv = set(self.inverse_matches.loc[valid_inv, "idx_target"])
 
         all_true = set(range(len(self.df_true)))
         all_stitch = set(range(len(self.df_stitch)))
 
-        unmatched_true = list(all_true - matched_true)
-        unmatched_stitch = list(all_stitch - matched_stitch)
+        # THIS is what you described
+        unmatched_true_fwd = list(all_true - claimed_true_by_fwd)          # plot RED
+        unmatched_stitch_inv = list(all_stitch - claimed_stitch_by_inv)    # plot BLUE
 
-        df_unmatched_true = self.df_true.iloc[unmatched_true]
-        df_unmatched_stitch = self.df_stitch.iloc[unmatched_stitch]
+        df_unmatched_true = self.df_true.iloc[unmatched_true_fwd]
+        df_unmatched_stitch = self.df_stitch.iloc[unmatched_stitch_inv]
 
         df_unmatched_true.to_csv(
             os.path.join(self.output_dir, "unmatched_true.csv"), index=False
@@ -468,9 +578,9 @@ class ScanStitchingComparison:
             else:
                 ax1 = fig.add_subplot(2, 1, 1)
             if len(df_unmatched_true) > 0:
-                ax1.scatter(df_unmatched_true["X"], df_unmatched_true["Y"], c="red", s=8, label="True")
+                ax1.scatter(df_unmatched_true["X"], df_unmatched_true["Y"], c="red", s=8, label="forward")
             if len(df_unmatched_stitch) > 0:
-                ax1.scatter(df_unmatched_stitch["X"], df_unmatched_stitch["Y"], c="blue", s=8, label="Stitch")
+                ax1.scatter(df_unmatched_stitch["X"], df_unmatched_stitch["Y"], c="blue", s=8, label="backward")
             draw_box_2d(ax1, [(xmin, ymin), (xmax, ymin), (xmax, ymax), (xmin, ymax)])
             ax1.set_xlabel("X")
             ax1.set_ylabel("Y")
@@ -484,9 +594,9 @@ class ScanStitchingComparison:
             else:
                 ax2 = fig.add_subplot(2, 1, 2)
             if len(df_unmatched_true) > 0:
-                ax2.scatter(df_unmatched_true["X"], df_unmatched_true["Z"], c="red", s=8, label="True")
+                ax2.scatter(df_unmatched_true["X"], df_unmatched_true["Z"], c="red", s=8, label="forward")
             if len(df_unmatched_stitch) > 0:
-                ax2.scatter(df_unmatched_stitch["X"], df_unmatched_stitch["Z"], c="blue", s=8, label="Stitch")
+                ax2.scatter(df_unmatched_stitch["X"], df_unmatched_stitch["Z"], c="blue", s=8, label="backward")
             draw_box_2d(ax2, [(xmin, zmin), (xmax, zmin), (xmax, zmax), (xmin, zmax)])
             ax2.set_xlabel("X")
             ax2.set_ylabel("Z")
@@ -498,9 +608,9 @@ class ScanStitchingComparison:
             if view3D:
                 ax3 = fig.add_subplot(3, 1, 3, projection="3d")
                 if len(df_unmatched_true) > 0:
-                    ax3.scatter(df_unmatched_true["X"], df_unmatched_true["Y"], df_unmatched_true["Z"], c="red", s=8, label="True")
+                    ax3.scatter(df_unmatched_true["X"], df_unmatched_true["Y"], df_unmatched_true["Z"], c="red", s=8, label="forward")
                 if len(df_unmatched_stitch) > 0:
-                   ax3.scatter(df_unmatched_stitch["X"], df_unmatched_stitch["Y"], df_unmatched_stitch["Z"], c="blue", s=8, label="Stitch")
+                   ax3.scatter(df_unmatched_stitch["X"], df_unmatched_stitch["Y"], df_unmatched_stitch["Z"], c="blue", s=8, label="backward")
 
                 # Bounding box (3D)
                 for s, e in [

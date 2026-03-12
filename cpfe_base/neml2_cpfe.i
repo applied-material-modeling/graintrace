@@ -16,8 +16,19 @@
 [Schedulers]
   [simple]
     type = SimpleScheduler
-    batch_size = ${device_batch}
-    device = ${device}
+    batch_size = ${device_neml2_batch}
+    device = ${device_neml2}
+  []
+  [hybrid]
+    type = StaticHybridScheduler
+    batch_sizes = "${nbatchdevice1} ${nbatchdevice2}"
+    devices = ${hybrid_devices}
+    # trace_file = "hybrid_scheduler_trace.json"
+  []
+  [simple_MPI]
+    type = SimpleMPIScheduler
+    batch_sizes = "${nbatchdevice1} ${nbatchdevice2}"
+    devices = ${hybrid_devices}
   []
 []
 
@@ -34,7 +45,18 @@
     [newton]
         type = NewtonWithLineSearch
         max_linesearch_iterations = 5
+        linear_solver = 'lu'
         # verbose = true
+    []
+    [lu]
+        type = DenseLU
+    []
+[]
+
+[EquationSystems]
+    [eq_sys]
+        type = NonlinearSystem
+        model = 'implicit_rate'
     []
 []
 
@@ -125,7 +147,7 @@
     []
     [model_without_stress]
         type = ImplicitUpdate
-        implicit_model = 'implicit_rate'
+        equation_system = 'eq_sys'
         solver = 'newton'
     []
     [full_stress]

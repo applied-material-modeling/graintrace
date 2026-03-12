@@ -1,6 +1,9 @@
 import numpy as np
 from simulation_postprocessing import SimulationResults, FieldFileNaming
-from experiment_postprocessing import ExperimentResults, FieldFileNaming as ExpFieldFileNaming
+from experiment_postprocessing import (
+    ExperimentResults,
+    FieldFileNaming as ExpFieldFileNaming,
+)
 import plot_postprocessing as postprocess
 
 # Input simulation
@@ -8,8 +11,8 @@ block_csv = "mwe_data/out.csv"
 field_dir = "mwe_data/grid_out"
 
 field_naming = FieldFileNaming(
-    prefix="out_element_centroid",   # must match your field filenames
-    index_width = 4,
+    prefix="out_element_centroid",  # must match your field filenames
+    index_width=4,
     sep="_",
     suffix=".csv",
 )
@@ -20,23 +23,23 @@ test_time_sim = 1.0
 test_sim = True
 
 # Input Experiment
-grain_folder = "mwe_data/synthetic_load_exp"
+grain_folder = "experiment_workflow_aps_28Feb"  # "mwe_data/synthetic_load_exp"
 
 exp_field_naming = ExpFieldFileNaming(
-    prefix="expsyn",
-    index_width=2,
-    sep="_",
+    prefix="stitched_output",
+    index_width=1,
+    sep="",
     suffix=".csv",
 )
 
-test_tim_exp = 36
+test_tim_exp = 0
 test_exp = True
 
 # Main ---------------------------------------------------
 
 field_naming = FieldFileNaming(
-    prefix="out_element_centroid",   # must match your field filenames
-    index_width = 4,
+    prefix="out_element_centroid",  # must match your field filenames
+    index_width=4,
     sep="_",
     suffix=".csv",
 )
@@ -49,10 +52,7 @@ res = SimulationResults(
 
 print(f"Loaded block data with {res.n_steps} steps")
 
-exp_res = ExperimentResults(
-    exp_dir=grain_folder,
-    exp_naming=exp_field_naming
-)
+exp_res = ExperimentResults(exp_dir=grain_folder, exp_naming=exp_field_naming)
 
 print(f"Loaded experiment data with {exp_res.n_steps} steps")
 
@@ -62,25 +62,41 @@ if test_exp:
         exp_res,
         time=test_tim_exp,
         tensor_prefix="eKen",
-        order=2,    
+        order=2,
         output_folder=output_folder,
         bins=10,
     )
     print(f"Tensor distribution plotted at time_index={time_index}")
 
-    # postprocess.plot_pole_figure(
-    #     exp_res,
-    #     tensor_prefix="Eul",
-    #     time = 1.0,
-    #     direction = [1, 1, 1],
-    #     crystal_symmetry = "432",
-    #     device = "cpu",
-    #     output_folder=output_folder,
-    #     construct_odf=False,
-    # )
-    # print(f"Pole figure plotted")
+    postprocess.plot_pole_figure(
+        exp_res,
+        tensor_prefix="Eul",
+        time=test_tim_exp,
+        direction=[1, 1, 1],
+        crystal_symmetry="432",
+        device="cpu",
+        output_folder=output_folder,
+        construct_odf=False,
+        orientation_type="bunge",
+        orientation_units="radians",
+    )
+    print(f"Pole figure 111 plotted")
 
+    postprocess.plot_pole_figure(
+        exp_res,
+        tensor_prefix="Eul",
+        time=test_tim_exp,
+        direction=[0, 0, 1],
+        crystal_symmetry="432",
+        device="cpu",
+        output_folder=output_folder,
+        construct_odf=False,
+        orientation_type="bunge",
+        orientation_units="radians",
+    )
+    print(f"Pole figure plotted")
 
+dfas
 if test_sim:
     # 1) scalar distribution
     time_index = postprocess.plot_block_properties_distribution(
@@ -109,7 +125,7 @@ if test_sim:
         res,
         time=test_time_sim,
         tensor_prefix="ee",
-        order=2,    
+        order=2,
         output_folder=output_folder,
         bins=10,
     )
@@ -119,7 +135,7 @@ if test_sim:
         res,
         time=test_time_sim,
         tensor_prefix="strain",
-        order=2,    
+        order=2,
         output_folder=output_folder,
         bins=10,
     )
@@ -174,4 +190,3 @@ if test_sim:
     #     construct_odf=False,
     # )
     # print(f"Pole figure plotted")
-

@@ -7,14 +7,16 @@ import matplotlib.pyplot as plt
 import sys
 
 fsize = 14
-plt.rcParams.update({
-    "font.size": fsize,           # Global font size
-    "axes.labelsize": fsize,      # Axis label size
-    "axes.titlesize": fsize,      # Title size
-    "xtick.labelsize": fsize,     # X tick label size
-    "ytick.labelsize": fsize,     # Y tick label size
-    "legend.fontsize": fsize,     # Legend font size
-})
+plt.rcParams.update(
+    {
+        "font.size": fsize,  # Global font size
+        "axes.labelsize": fsize,  # Axis label size
+        "axes.titlesize": fsize,  # Title size
+        "xtick.labelsize": fsize,  # X tick label size
+        "ytick.labelsize": fsize,  # Y tick label size
+        "legend.fontsize": fsize,  # Legend font size
+    }
+)
 
 # INPUT -------------------------------------------------------
 output_dir = "hedm_demonstrate"
@@ -22,29 +24,33 @@ output_dir = "hedm_demonstrate"
 # True crystal structure parameters
 bounding_box = [-500, 500, -500, 500, -1000, 500]
 # crystal_morpho_args = {"type": "gg", "mean": 80.0}
-crystal_morpho_args = {"type": "diameq", 
-                       "distribution": "lognormal",
-                         "params": (130.0, 5.0)}
+crystal_morpho_args = {
+    "type": "diameq",
+    "distribution": "lognormal",
+    "params": (130.0, 5.0),
+}
 
 # HEDM scan parameters
 nscan = 4
-overlap_percentage = 61 # percentage units (0-100)
+overlap_percentage = 25  # percentage units (0-100)
 
 # Mimic experiment noise conditions
-apply_noise=True
-remove_minimum_volume=False
+apply_noise = False
+remove_minimum_volume = False
 
 # gaussian distribution noise, 0.005 = 0.5%
-noise_level=0.01
+noise_level = 0.01
 # grain volume minimum threshold
-min_vol=0.0 
+min_vol = 0.0
 
 # Acceptable tolerance for comparison and stitching
-position_tolerance = 20 # length units
-orientation_tolerance = 1 # degrees
-radius_tolerance = 0 # percentage units -- set to -1 to disable radius consideration
+position_tolerance = 20  # length units
+orientation_tolerance = 1  # degrees
+radius_tolerance = 0  # percentage units -- set to -1 to disable radius consideration
 
-compare_position_tolerance = 20 # adjusted such that max_pos_error remains the same as this value increases
+compare_position_tolerance = (
+    20  # adjusted such that max_pos_error remains the same as this value increases
+)
 compare_orientation_tolerance = 5.0
 
 ### -------------------------------------------------------------
@@ -52,7 +58,7 @@ compare_orientation_tolerance = 5.0
 # CrystalGenerator.show_morpho_options(exit_after=True)
 ### -------------------------------------------------------------
 
-seed_number = 42 # for reproducibility
+seed_number = 42  # for reproducibility
 test = False
 
 # MAIN ----------------------------------------------------------
@@ -84,10 +90,7 @@ cg.hedm_zscan(
 
 # Perform stitching
 # List of scan files
-scan_files = [
-    output_dir + f"/hedm_scan/scan_{i}.csv"
-      for i in range(nscan)
-]
+scan_files = [output_dir + f"/hedm_scan/scan_{i}.csv" for i in range(nscan)]
 stitch_output_csv = output_dir + "/huy_stitched.csv"
 
 
@@ -157,14 +160,6 @@ compare._get_unmatched_grains(
 ### -------------------------------------------------------------
 
 
-
-
-
-
-
-
-
-
 ###
 ### Testing stuff
 ###
@@ -172,7 +167,7 @@ compare._get_unmatched_grains(
 if test:
     CrystalGenerator.show_morpho_options()
 
-    tests  = [
+    tests = [
         {"type": "gg", "mean": 1.0},
         {"type": "lamellar", "n": 8, "v": "z"},
         {"type": "columnar", "n": 8, "v": "x"},
@@ -215,6 +210,3 @@ if test:
         rad_tol=radius_tolerance,
         plot=True,
     )
-
-
-

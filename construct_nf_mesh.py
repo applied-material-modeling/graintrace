@@ -10,6 +10,7 @@ from nf import convert, segment, mesh
 
 PathLike = Union[str, Path]
 
+
 class NearFieldMeshBuilder:
 
     DEFAULT_SEGMENTATION: Dict[str, Any] = {
@@ -51,7 +52,7 @@ class NearFieldMeshBuilder:
         default_mesh_filename: str = "mesh.e",
         default_mapped_orientations_filename: str = "orientations",
     ) -> None:
-        
+
         self.input_folder = Path(input_folder)
         self.save_dir = Path(save_dir)
         self.save_dir.mkdir(parents=True, exist_ok=True)
@@ -69,9 +70,13 @@ class NearFieldMeshBuilder:
         self.spn_path = self.save_dir / f"{self.prefix}.spn"
         self.orientations_path = self.save_dir / f"{self.prefix}.orientations"
         self.mesh_path = self.save_dir / default_mesh_filename
-        self.mapped_orientations_path = self.save_dir / default_mapped_orientations_filename
+        self.mapped_orientations_path = (
+            self.save_dir / default_mapped_orientations_filename
+        )
 
-    def _normalize_segmentation(self, segmentation: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    def _normalize_segmentation(
+        self, segmentation: Optional[Dict[str, Any]]
+    ) -> Dict[str, Any]:
         cfg = dict(self.DEFAULT_SEGMENTATION)
         if segmentation:
             cfg.update(segmentation)
@@ -84,7 +89,10 @@ class NearFieldMeshBuilder:
                 "Missing segmentation keys: "
                 + ", ".join(sorted(missing))
                 + "\nRequired keys and defaults:\n"
-                + "\n".join(f"  {k}: {self.DEFAULT_SEGMENTATION[k]!r}" for k in self.DEFAULT_SEGMENTATION)
+                + "\n".join(
+                    f"  {k}: {self.DEFAULT_SEGMENTATION[k]!r}"
+                    for k in self.DEFAULT_SEGMENTATION
+                )
             )
         if extra:
             raise ValueError("Unknown segmentation keys: " + ", ".join(sorted(extra)))
@@ -92,7 +100,12 @@ class NearFieldMeshBuilder:
         if cfg["connectivity"] not in (6, 26):
             raise ValueError("segmentation['connectivity'] must be 6 or 26")
 
-        for k in ("batch_norm", "grain_threshold", "stop_count", "grain_threshold_final"):
+        for k in (
+            "batch_norm",
+            "grain_threshold",
+            "stop_count",
+            "grain_threshold_final",
+        ):
             if int(cfg[k]) <= 0:
                 raise ValueError(f"segmentation['{k}'] must be > 0")
 
@@ -109,7 +122,9 @@ class NearFieldMeshBuilder:
 
     def _validate_sculpt_config(self, sculpt_config: Dict[str, Any]) -> Dict[str, Any]:
         if not isinstance(sculpt_config, dict):
-            raise TypeError("mesh_config must be a dict containing sculpt configuration")
+            raise TypeError(
+                "mesh_config must be a dict containing sculpt configuration"
+            )
 
         missing = [k for k in self.REQUIRED_SCULPT_KEYS if k not in sculpt_config]
         if missing:
@@ -249,9 +264,15 @@ class NearFieldMeshBuilder:
           - Path to Exodus mesh
         """
         cfg = self._validate_sculpt_config(sculpt_config)
-        options = list(sculpt_options) if sculpt_options is not None else list(self.DEFAULT_SCULPT_OPTIONS)
+        options = (
+            list(sculpt_options)
+            if sculpt_options is not None
+            else list(self.DEFAULT_SCULPT_OPTIONS)
+        )
 
-        grid_path = Path(merged_grid) if merged_grid is not None else self.merged_grid_npy
+        grid_path = (
+            Path(merged_grid) if merged_grid is not None else self.merged_grid_npy
+        )
         if not grid_path.exists():
             raise FileNotFoundError(
                 f"Required merged grid not found: {grid_path}\n"
@@ -259,7 +280,11 @@ class NearFieldMeshBuilder:
             )
 
         spn_out = Path(spn_path) if spn_path is not None else self.spn_path
-        ori_out = Path(orientations_path) if orientations_path is not None else self.orientations_path
+        ori_out = (
+            Path(orientations_path)
+            if orientations_path is not None
+            else self.orientations_path
+        )
         mesh_out = Path(mesh_path) if mesh_path is not None else self.mesh_path
         map_out = (
             Path(mapped_orientations_path)

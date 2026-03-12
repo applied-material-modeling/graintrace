@@ -6,18 +6,22 @@ import copy
 from orientation_helper import load_orientations
 import pandas as pd
 
+
 class CPFESimulation:
-    
+
     # Default required informations for CPFE simulation
     DEFAULT_PARAMS = {
         "simulation_parameters": {
             "base_folder": "simulation_out",
+            "sync_times": "0.1 1.0 2.0 3.0 4.0 5.0",
             "dt": 0.1,
             "total_time": 5.0,
             "strain_unit_conversion": 1.0,
             "initialize_time": 1.0,
             "device": "cpu",
             "device_batch": 100,
+            "scheduler_name": "hybrid",
+            "hybrid_batch_sizes": (2000, 2000),
         },
         "material": {
             "slip_constant_strength": 130.0,
@@ -31,41 +35,52 @@ class CPFESimulation:
             "burger_scale": 2.22,
         },
         "boundary": {
-            "bounding_box": [0.0, 1.0, 0.0, 1.0, 0.0, 1.0], #xlo, xhi, ylo, yhi, zlo, zhi
-            "fix_tolerance": 1e-8,    
+            "bounding_box": [
+                0.0,
+                1.0,
+                0.0,
+                1.0,
+                0.0,
+                1.0,
+            ],  # xlo, xhi, ylo, yhi, zlo, zhi
+            "fix_tolerance": 1e-8,
             "bc": {
                 "x": {"negative": "stress_free", "positive": "stress_free"},
                 "y": {"negative": "stress_free", "positive": "stress_free"},
                 "z": {"negative": 0, "positive": 0.001},
-                },
+            },
+            "bounding_box_buffer": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
         },
         "grid_properties": {
             "number_of_elements": [20, 20, 20],
             "bounding_box": [0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
-        }
+        },
     }
 
-    def __init__(self, 
-                mesh_file,
-                save_simulation_folder,
-                moose_run_file,
-                element_order="SECOND",
-                eeres_file=None, 
-                ori_file=None,
-                dim=3):
-        
+    def __init__(
+        self,
+        mesh_file,
+        save_simulation_folder,
+        moose_run_file,
+        element_order="SECOND",
+        eeres_file=None,
+        ori_file=None,
+        use_ff_initial_field=False,
+        dim=3,
+    ):
+
         self.mesh_file = Path(mesh_file)
         if not self.mesh_file.exists():
             raise FileNotFoundError(f"Mesh file not found: {self.mesh_file}")
-        
+
         self.eeres_file = Path(eeres_file) if eeres_file else None
         if eeres_file and not self.eeres_file.exists():
             raise FileNotFoundError(f"Elastic strain file not found: {self.eeres_file}")
-        
+
         self.ori_file = Path(ori_file) if ori_file else None
         if ori_file and not self.ori_file.exists():
             raise FileNotFoundError(f"Orientation file not found: {self.ori_file}")
-        
+
         self.save_simulation_folder = Path(save_simulation_folder).resolve()
         if self.save_simulation_folder.name == "cpfe_base":
             raise ValueError("save_simulation_folder cannot be 'cpfe_base'")
@@ -74,28 +89,31 @@ class CPFESimulation:
         self.moose_run_file = Path(moose_run_file).resolve()
         if not self.moose_run_file.exists():
             raise FileNotFoundError(f"MOOSE run file not found: {self.moose_run_file}")
-        
+
         if dim not in (2, 3):
             raise ValueError(f"Invalid dimension {dim}. Must be 2 or 3.")
         self.dim = dim
 
         if element_order not in ("FIRST", "SECOND"):
-            raise ValueError(f"Invalid element_order {element_order}. Must be 'FIRST' or 'SECOND'.")
+            raise ValueError(
+                f"Invalid element_order {element_order}. Must be 'FIRST' or 'SECOND'."
+            )
 
         self.element_order = element_order
         self.params = copy.deepcopy(self.DEFAULT_PARAMS)
-        self.ncell_nf = None
+        self.ncell_ff = None
+        self.use_ff_initial_field = use_ff_initial_field
 
     def set_parameters(self, section, **kwargs):
         if section not in self.params:
             raise KeyError(f"Unknown parameter section: {section}")
         self.params[section].update(kwargs)
-    
+
     def get_section(self, section):
         if section not in self.params:
             raise KeyError(f"Unknown parameter section: {section}")
         return self.params[section]
-    
+
     def validate_geometry_and_bcs(self):
         """Validate bounding box and boundary conditions based on dimension."""
         b = self.params["boundary"]
@@ -105,9 +123,13 @@ class CPFESimulation:
         if not isinstance(bb, (list, tuple)):
             raise ValueError("bounding_box must be a list or tuple.")
         if self.dim == 3 and len(bb) != 6:
-            raise ValueError("For dim=3, bounding_box must have 6 entries: [xlo, xhi, ylo, yhi, zlo, zhi].")
+            raise ValueError(
+                "For dim=3, bounding_box must have 6 entries: [xlo, xhi, ylo, yhi, zlo, zhi]."
+            )
         if self.dim == 2 and len(bb) != 4:
-            raise ValueError("For dim=2, bounding_box must have 4 entries: [xlo, xhi, ylo, yhi].")
+            raise ValueError(
+                "For dim=2, bounding_box must have 4 entries: [xlo, xhi, ylo, yhi]."
+            )
 
         if not all(isinstance(v, (int, float)) for v in bb):
             raise ValueError("All bounding_box entries must be numeric.")
@@ -116,11 +138,15 @@ class CPFESimulation:
         if self.dim == 3:
             xlo, xhi, ylo, yhi, zlo, zhi = bb
             if not (xhi > xlo and yhi > ylo and zhi > zlo):
-                raise ValueError(f"Invalid 3D bounding_box: {bb}. Upper bounds must exceed lower bounds.")
+                raise ValueError(
+                    f"Invalid 3D bounding_box: {bb}. Upper bounds must exceed lower bounds."
+                )
         else:  # dim == 2
             xlo, xhi, ylo, yhi = bb
             if not (xhi > xlo and yhi > ylo):
-                raise ValueError(f"Invalid 2D bounding_box: {bb}. Upper bounds must exceed lower bounds.")
+                raise ValueError(
+                    f"Invalid 2D bounding_box: {bb}. Upper bounds must exceed lower bounds."
+                )
 
         # --- Boundary conditions check ---
         for axis in ("x", "y") + (("z",) if self.dim == 3 else ()):
@@ -139,12 +165,17 @@ class CPFESimulation:
 
         if self.dim == 3:
             xlo, xhi, ylo, yhi, zlo, zhi = b["bounding_box"]
+            xbufflo, xbuffhi, ybufflo, ybuffhi, zbufflo, zbuffhi = b[
+                "bounding_box_buffer"
+            ]
         else:
             xlo, xhi, ylo, yhi = b["bounding_box"]
+            xbufflo, xbuffhi, ybufflo, ybuffhi = b["bounding_box_buffer"]
             zlo, zhi = 0.0, 0.0
+            zbufflo, zbuffhi = 0.0, 0.0
 
-        fixnode_x, fixnode_y, fixnode_z = xlo, ylo, zlo
-        yroll_x, yroll_y, yroll_z = xlo, yhi, zlo
+        fixnode_x, fixnode_y, fixnode_z = xlo + xbufflo, ylo + ybufflo, zlo + zbufflo
+        yroll_x, yroll_y, yroll_z = xlo + xbufflo, yhi + ybuffhi, zlo + zbufflo
 
         coupled_axes = set()
 
@@ -274,7 +305,9 @@ class CPFESimulation:
             f.write(f"        end_time = {(sim['total_time']+1):.12g}\n")
 
             enable_objs = [f"BCs::{bname}_boundary" for _, bname, _ in coupled_bcs]
-            disable_objs = [f"AuxKernels::disp_{axis}_residual" for axis, _, _ in coupled_bcs]
+            disable_objs = [
+                f"AuxKernels::disp_{axis}_residual" for axis, _, _ in coupled_bcs
+            ]
 
             f.write(f"        enable_objects = '{' '.join(enable_objs)}'\n")
             f.write(f"        disable_objects = '{' '.join(disable_objs)}'\n")
@@ -284,16 +317,18 @@ class CPFESimulation:
 
         return fixnode_x, fixnode_y, fixnode_z, yroll_x, yroll_y, yroll_z
 
-    def write_strain_postprocess_file(self, ncell=None):
+    def write_postprocess_file(self, ncell=None):
         """
         Generate grain_average_postprocessor.i.
         """
 
         out = self.save_simulation_folder / "grain_average_postprocessor.i"
-   
+
         if self.eeres_file is None:
             if ncell is None or not isinstance(ncell, int):
-                raise ValueError("ncell must be provided as an integer when eeres_file is None")
+                raise ValueError(
+                    "ncell must be provided as an integer when eeres_file is None"
+                )
 
             ee_file = self.save_simulation_folder / "zero_initial_strain.ee"
             strain_data = np.zeros((ncell, 9), dtype=float)
@@ -302,9 +337,14 @@ class CPFESimulation:
             self.eeres_file = ee_file
         else:
             # read self.eeres_file and count number of lines using pandas
-            df = pd.read_csv(self.eeres_file, sep=r"[,\s]+", engine="python", header=None)
-            self.ncell_nf = df.shape[0]
-            shutil.copy(self.eeres_file, self.save_simulation_folder / Path(self.eeres_file).name)
+            df = pd.read_csv(
+                self.eeres_file, sep=r"[,\s]+", engine="python", header=None
+            )
+            self.ncell_ff = df.shape[0]
+            shutil.copy(
+                self.eeres_file,
+                self.save_simulation_folder / Path(self.eeres_file).name,
+            )
 
         # --- Generate grain_average_postprocessor.i ---
         with open(out, "w") as f:
@@ -341,6 +381,18 @@ class CPFESimulation:
                     f.write("    []\n")
                 f.write("\n")
 
+            components = ["11", "12", "13", "21", "22", "23", "31", "32", "33"]
+            for comp in components:
+                # nye_tensor_*
+                f.write(f"    # --- nye_tensor_{comp} ---\n")
+                for i in range(1, ncell + 1):
+                    f.write(f"    [nye_tensor_{comp}_{i}]\n")
+                    f.write("        type = ElementAverageValue\n")
+                    f.write(f"        variable = nye_tensor_{comp}\n")
+                    f.write(f"        block = {i}\n")
+                    f.write("    []\n")
+                f.write("\n")
+
             components = ["x", "y", "z"]
             for comp in components:
                 # geometric centroid
@@ -373,10 +425,9 @@ class CPFESimulation:
                 f.write(f"        block = {i}\n")
                 f.write("    []\n")
             f.write("\n")
-            
 
             f.write("[]\n")
-    
+
     def write_orientation_file(self):
 
         df = pd.read_csv(self.ori_file, sep=r"[,\s]+", engine="python", header=None)
@@ -397,13 +448,15 @@ class CPFESimulation:
         # do nothing if 3 columns, otherwise raise error
         elif df.shape[1] == 3:
             import torch
+
             shutil.copy(
-                self.ori_file,
-                self.save_simulation_folder / "mrps_orientation.csv"
+                self.ori_file, self.save_simulation_folder / "mrps_orientation.csv"
             )
             mrps = torch.tensor(df.values, dtype=torch.float32)
         else:
-            raise ValueError("Orientation file must have either 3 (MRPs) or 9 (rotation matrix) columns.")
+            raise ValueError(
+                "Orientation file must have either 3 (MRPs) or 9 (rotation matrix) columns."
+            )
 
         return mrps.shape[0]
 
@@ -419,18 +472,31 @@ class CPFESimulation:
                 "Input file generation for dim=2 is not yet implemented. "
                 "Currently only dim=3 simulations are supported."
             )
-        
+
         # cpfe_base is a reserved folder containing base files
         cpfe_base = Path("cpfe_base").resolve()
         if not cpfe_base.exists():
             raise FileNotFoundError("cpfe_base folder not found.")
 
         # list of shared base files
-        base_files = ["initial_conditions.i",
-                      "neml2_cpfe.i",
-                      "run_cpfe.i",
-                      "grid_file.i",
-                      "transfer.i"]
+        if self.use_ff_initial_field:
+            base_files = [
+                "initial_conditions_ff.i",
+                "neml2_cpfe.i",
+                "run_cpfe.i",
+                "grid_file.i",
+                "transfer.i",
+            ]
+            initial_conditions_file = "initial_conditions_ff.i"
+        else:
+            base_files = [
+                "initial_conditions.i",
+                "neml2_cpfe.i",
+                "run_cpfe.i",
+                "grid_file.i",
+                "transfer.i",
+            ]
+            initial_conditions_file = "initial_conditions.i"
 
         for fname in base_files:
             src = cpfe_base / fname
@@ -438,14 +504,21 @@ class CPFESimulation:
             if not src.exists():
                 raise FileNotFoundError(f"Required base file missing: {src}")
             shutil.copy(src, dst)
-        
+
         # copy the mesh file
         shutil.copy(self.mesh_file, self.save_simulation_folder / self.mesh_file.name)
 
         # generate the new specific file
-        fixnode_x, fixnode_y, fixnode_z, yroll_x, yroll_y, yroll_z = self.write_bc_file()
+        fixnode_x, fixnode_y, fixnode_z, yroll_x, yroll_y, yroll_z = (
+            self.write_bc_file()
+        )
         ncells = self.write_orientation_file()
-        self.write_strain_postprocess_file(ncell=ncells)
+        self.write_postprocess_file(ncell=ncells)
+
+        if self.use_ff_initial_field:
+            ncell_args = [f"ncell={ncells}"]
+        else:
+            ncell_args = [f"ncell={ncells:.12g}", f"ncell_ff={self.ncell_ff:.12g}"]
 
         # transfer grid info
         grid_info = self.params["grid_properties"]
@@ -459,21 +532,24 @@ class CPFESimulation:
         argv = [
             "nohup",
             "mpiexec",
-            "-n", str(ncore),
+            "-n",
+            str(ncore),
             str(self.moose_run_file),
             "-i",
             "run_cpfe.i",
             "boundary_conditions.i",
-            "initial_conditions.i",
+            initial_conditions_file,
             "grain_average_postprocessor.i",
             "transfer.i",
             "orientation_file=mrps_orientation.csv",
-            f"device={self.params['simulation_parameters']['device']}",
-            f"device_batch={self.params['simulation_parameters']['device_batch']}",
+            f"sync_times={self.params['simulation_parameters']['sync_times']}",
+            f"scheduler_name={self.params['simulation_parameters']['scheduler_name']}",
+            f"device_neml2={self.params['simulation_parameters']['device']}",
+            f"device_neml2_batch={self.params['simulation_parameters']['device_batch']}",
+            f"nbatchdevice1={self.params['simulation_parameters']['hybrid_batch_sizes'][0]}",
+            f"nbatchdevice2={self.params['simulation_parameters']['hybrid_batch_sizes'][1]}",
             f"mesh_file={self.mesh_file.name}",
             f"residual_strain_file={self.eeres_file.name}",
-            f"ncell_ff={ncells:.12g}",
-            f"ncell_nf={self.ncell_nf:.12g}",
             f"base_folder={self.params['simulation_parameters']['base_folder']}",
             f"dt={self.params['simulation_parameters']['dt']:.12g}",
             f"total_time={self.params['simulation_parameters']['total_time']:.12g}",
@@ -503,10 +579,13 @@ class CPFESimulation:
             f"grid_ymax={grid_bbox[3]:.12g}",
             f"grid_zmin={grid_bbox[4]:.12g}",
             f"grid_zmax={grid_bbox[5]:.12g}",
-        ]
+        ] + ncell_args
 
         # Run the simulation with persistent background process
-        print(f"\n==> Running CPFE simulation in {self.save_simulation_folder}", flush=True)
+        print(
+            f"\n==> Running CPFE simulation in {self.save_simulation_folder}",
+            flush=True,
+        )
         Path(log_path).parent.mkdir(parents=True, exist_ok=True)
 
         with open(log_path, "w", buffering=1) as lf:

@@ -14,7 +14,7 @@
         prop_file_name = ${residual_strain_file}
         read_type = 'block'
         nblock = ${ncell}
-        nprop = 9
+        nprop = 12
         use_zero_based_block_indexing = false
         execute_on = TIMESTEP_BEGIN
     []
@@ -41,37 +41,37 @@
     []
     [eixx]
         type = PiecewiseConstantFromCSV
-        column_number = 0
+        column_number = 3
         read_prop_user_object = 'residual_strain' 
         read_type = 'block'
     []
     [eiyy]
         type = PiecewiseConstantFromCSV
-        column_number = 4
+        column_number = 7
         read_prop_user_object = 'residual_strain' 
         read_type = 'block'
     []
     [eizz]
         type = PiecewiseConstantFromCSV
-        column_number = 8
+        column_number = 11
         read_prop_user_object = 'residual_strain' 
         read_type = 'block'
     []
     [eixy]
         type = PiecewiseConstantFromCSV
-        column_number = 1
+        column_number = 4
         read_prop_user_object = 'residual_strain' 
         read_type = 'block'
     []
     [eixz]
         type = PiecewiseConstantFromCSV
-        column_number = 2
+        column_number = 5
         read_prop_user_object = 'residual_strain' 
         read_type = 'block'
     []
     [eiyz]
         type = PiecewiseConstantFromCSV
-        column_number = 5
+        column_number = 8
         read_prop_user_object = 'residual_strain' 
         read_type = 'block'
     []

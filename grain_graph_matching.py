@@ -11,36 +11,47 @@ import tqdm
 import math
 import json
 
+
 class GraphGrainMatcher:
-    
-    def __init__(self,
-                 graph_a,
-                 graph_b,
-                 output_dir="grain_matching_results",
-                 output_prefix="out_"):
+
+    def __init__(
+        self,
+        graph_a,
+        graph_b,
+        output_dir="grain_matching_results",
+        output_prefix="out_",
+    ):
 
         self.graph_a = graph_a
         self.graph_b = graph_b
         self.output_dir = output_dir
         self.output_prefix = output_prefix
 
-    def match_grains(self,
-                     message_passing_function=None,
-                     neighbor_selection_cost_function=None,
-                     message_passing_iter: int = 6,
-                     neighbor_selection_param: dict = {"lambda": 0.125,
-                                                       "iterations": 100,
-                                                       "tolerance": 1e-6},):
+    def match_grains(
+        self,
+        message_passing_function=None,
+        neighbor_selection_cost_function=None,
+        message_passing_iter: int = 6,
+        neighbor_selection_param: dict = {
+            "lambda": 0.125,
+            "iterations": 100,
+            "tolerance": 1e-6,
+        },
+    ):
 
         if message_passing_function is None:
-            message_passing_function = GraphGrainMatcher.default_message_passing_function
+            message_passing_function = (
+                GraphGrainMatcher.default_message_passing_function
+            )
             use_default = True
             print("Using default message passing function.\n")
         else:
             use_default = False
 
         if neighbor_selection_cost_function is None:
-            neighbor_selection_cost_function = GraphGrainMatcher.default_neighbor_selection_cost_function
+            neighbor_selection_cost_function = (
+                GraphGrainMatcher.default_neighbor_selection_cost_function
+            )
             print("Using default neighbor selection cost function.\n")
 
         print("\nStart grain matching\n")
@@ -118,7 +129,9 @@ class GraphGrainMatcher:
 
         spec, phi_operator = message_passing_function()
         if not isinstance(spec, dict):
-            raise TypeError("message_passing_function() must return (spec: dict, phi_operator: callable)")
+            raise TypeError(
+                "message_passing_function() must return (spec: dict, phi_operator: callable)"
+            )
 
         required = spec.get("required_node_features", None)
         if not required:
@@ -129,7 +142,9 @@ class GraphGrainMatcher:
         if use_default:
             for name in ("Eul0", "Eul1", "Eul2"):
                 if name not in graph_slices:
-                    raise KeyError(f"Required feature '{name}' not found in graph.feature_slices")
+                    raise KeyError(
+                        f"Required feature '{name}' not found in graph.feature_slices"
+                    )
 
         e0a, e0b = graph_slices["Eul0"]
         e1a, e1b = graph_slices["Eul1"]
@@ -145,7 +160,9 @@ class GraphGrainMatcher:
         if use_default:
             for name in ("X", "Y", "Z"):
                 if name not in graph_slices:
-                    raise KeyError(f"Required feature '{name}' not found in graph.feature_slices")
+                    raise KeyError(
+                        f"Required feature '{name}' not found in graph.feature_slices"
+                    )
                 a, b = graph_slices[name]
                 width = b - a
                 blocks.append(x[:, a:b])
@@ -159,7 +176,9 @@ class GraphGrainMatcher:
         else:
             for name in required:
                 if name not in graph_slices:
-                    raise KeyError(f"Required feature '{name}' not found in graph.feature_slices")
+                    raise KeyError(
+                        f"Required feature '{name}' not found in graph.feature_slices"
+                    )
                 a, b = graph_slices[name]
                 width = b - a
                 blocks.append(x[:, a:b])
@@ -172,9 +191,9 @@ class GraphGrainMatcher:
         ctx = {
             "F_slices": F_slices,
             "required_node_features": list(required),
-            "euler": euler,         # [N,3] static
-            "edge_src": src,        # [E]
-            "edge_dst": dst,        # [E]
+            "euler": euler,  # [N,3] static
+            "edge_src": src,  # [E]
+            "edge_dst": dst,  # [E]
         }
 
         # ---------- Message passing loop ----------
@@ -189,7 +208,9 @@ class GraphGrainMatcher:
             # phi_operator MUST accept (F_src, F_dst, ctx, k)
             Phi = phi_operator(F_src, F_dst, ctx, k)
             if (not torch.is_tensor(Phi)) or Phi.ndim != 2 or Phi.shape != (E, d):
-                raise ValueError(f"phi_operator must return tensor of shape [E, {d}], got {getattr(Phi, 'shape', None)}")
+                raise ValueError(
+                    f"phi_operator must return tensor of shape [E, {d}], got {getattr(Phi, 'shape', None)}"
+                )
 
             m = torch.zeros((N, d), dtype=F.dtype, device=F.device)
             m.index_add_(0, dst, Phi)
@@ -243,7 +264,10 @@ class GraphGrainMatcher:
             src_cpu = src.detach().cpu()
             dst_cpu = dst.detach().cpu()
 
-            N = int(getattr(graph, "num_nodes", 0) or (max(src_cpu.max().item(), dst_cpu.max().item()) + 1))
+            N = int(
+                getattr(graph, "num_nodes", 0)
+                or (max(src_cpu.max().item(), dst_cpu.max().item()) + 1)
+            )
             neigh = [set() for _ in range(N)]
             for s, t in zip(src_cpu.tolist(), dst_cpu.tolist()):
                 if s != t:
@@ -260,22 +284,24 @@ class GraphGrainMatcher:
             Fi = Fa[i0:i1]  # [c, d]
             dist = torch.cdist(Fi, Fb, p=2.0) ** 2  # [c, Nb]
             _, idx = torch.topk(dist, k=min(topk, Nb), dim=1, largest=False)
-            cand_j[i0:i1, :idx.shape[1]] = idx
+            cand_j[i0:i1, : idx.shape[1]] = idx
             if idx.shape[1] < topk:
-                cand_j[i0:i1, idx.shape[1]:] = -1  # pad
+                cand_j[i0:i1, idx.shape[1] :] = -1  # pad
 
-        a_to_b = [-1] * Na 
+        a_to_b = [-1] * Na
         mean_cost_history = []
         prev_mean = math.inf
 
         for _it in tqdm.tqdm(range(max_it), desc="Neighbor Selection"):
-            
+
             best_for_i = [(-1, math.inf)] * Na  # (j, cost)
             for i in range(Na):
                 for j in cand_j[i].tolist():
                     if j < 0:
                         continue
-                    c = neighbor_selection_cost_function(Fa, Fb, neigh_a, neigh_b, a_to_b, i, j, lam)
+                    c = neighbor_selection_cost_function(
+                        Fa, Fb, neigh_a, neigh_b, a_to_b, i, j, lam
+                    )
                     if c < best_for_i[i][1]:
                         best_for_i[i] = (j, c)
 
@@ -294,7 +320,12 @@ class GraphGrainMatcher:
             if not assigned:
                 break
 
-            costs = [neighbor_selection_cost_function(Fa, Fb, neigh_a, neigh_b, new_a_to_b, i, j, lam) for i, j in assigned]
+            costs = [
+                neighbor_selection_cost_function(
+                    Fa, Fb, neigh_a, neigh_b, new_a_to_b, i, j, lam
+                )
+                for i, j in assigned
+            ]
             mean_cost = float(sum(costs) / len(costs))
             mean_cost_history.append(mean_cost)
 
@@ -327,7 +358,13 @@ class GraphGrainMatcher:
             "costs": final_costs,
             "a_to_b": a_to_b_tensor,
             "mean_cost_history": mean_cost_history,
-            "params": {"lambda": lam, "iterations": max_it, "tolerance": tol, "topk": topk, "chunk": chunk},
+            "params": {
+                "lambda": lam,
+                "iterations": max_it,
+                "tolerance": tol,
+                "topk": topk,
+                "chunk": chunk,
+            },
         }
 
     def write_results(self, result):
@@ -339,7 +376,7 @@ class GraphGrainMatcher:
           - <run>_meta.json : params + mean_cost_history + feature names (if present)
         """
         out_dir = getattr(self, "output_dir", "match_results")
-        run = getattr(self,"run_name", "run")
+        run = getattr(self, "run_name", "run")
 
         os.makedirs(out_dir, exist_ok=True)
 
@@ -362,7 +399,9 @@ class GraphGrainMatcher:
         df_matches.to_csv(os.path.join(out_dir, f"{run}_matches.csv"), index=False)
 
         # per-node mapping table
-        df_map = pd.DataFrame({"i_in_A": list(range(a_to_b.numel())), "j_in_B": a_to_b.numpy()})
+        df_map = pd.DataFrame(
+            {"i_in_A": list(range(a_to_b.numel())), "j_in_B": a_to_b.numpy()}
+        )
         df_map.to_csv(os.path.join(out_dir, f"{run}_a_to_b.csv"), index=False)
 
         # embeddings
@@ -375,7 +414,9 @@ class GraphGrainMatcher:
             "mean_cost_history": match_out.get("mean_cost_history", []),
             "graph_a_feature_names": getattr(self.graph_a, "feature_names", None),
             "graph_b_feature_names": getattr(self.graph_b, "feature_names", None),
-            "message_passing_required_features": result["graph_a_ctx"].get("required_node_features", None),
+            "message_passing_required_features": result["graph_a_ctx"].get(
+                "required_node_features", None
+            ),
         }
         with open(os.path.join(out_dir, f"{run}_meta.json"), "w") as f:
             json.dump(meta, f, indent=2)
@@ -383,10 +424,10 @@ class GraphGrainMatcher:
     ## some predefine functions
     @staticmethod
     def default_message_passing_function(
-            angle_convention="kocks",
-            angle_type="radians",
-            symmetry="432",
-        ):
+        angle_convention="kocks",
+        angle_type="radians",
+        symmetry="432",
+    ):
 
         spec = {
             "required_node_features": ["X", "Y", "Z", "Eul0", "Eul1", "Eul2"],
@@ -399,7 +440,9 @@ class GraphGrainMatcher:
 
             Fs = ctx["F_slices"]
             if "M" not in Fs:
-                raise ValueError("default_message_passing_function requires packed 'M' in ctx['F_slices'].")
+                raise ValueError(
+                    "default_message_passing_function requires packed 'M' in ctx['F_slices']."
+                )
 
             aM, bM = Fs["M"]
 
@@ -408,11 +451,11 @@ class GraphGrainMatcher:
             dZ = torch.zeros((E, 1), device=device, dtype=dtype)
 
             if k == 0:
-                euler = ctx["euler"]              # [N,3]
-                src = ctx["edge_src"]             # [E]
-                dst = ctx["edge_dst"]             # [E]
-                e1 = euler[src]                   # [E,3]
-                e2 = euler[dst]                   # [E,3]
+                euler = ctx["euler"]  # [N,3]
+                src = ctx["edge_src"]  # [E]
+                dst = ctx["edge_dst"]  # [E]
+                e1 = euler[src]  # [E,3]
+                e2 = euler[dst]  # [E,3]
 
                 #
                 # R1 = neml2.tensors.Rot.fill_euler_angles(
@@ -421,13 +464,13 @@ class GraphGrainMatcher:
                 # R2 = neml2.tensors.Rot.fill_euler_angles(
                 #     neml2.tensors.Vec(e2), angle_convention, angle_type
                 # )
-                # 
+                #
 
                 ## NEED TO REMOVE THIS IF EUL ANGLE IS ACTUALLY PROVIDED
                 R1 = neml2.tensors.Rot.fill_rodrigues(
                     neml2.tensors.Scalar(e1[:, 0]),
                     neml2.tensors.Scalar(e1[:, 1]),
-                    neml2.tensors.Scalar(e1[:, 2])
+                    neml2.tensors.Scalar(e1[:, 2]),
                 )
                 R2 = neml2.tensors.Rot.fill_rodrigues(
                     neml2.tensors.Scalar(e2[:, 0]),
@@ -439,7 +482,9 @@ class GraphGrainMatcher:
                 if rad_mis.ndim == 1:
                     rad_mis = rad_mis.unsqueeze(1)
                 elif not (rad_mis.ndim == 2 and rad_mis.shape[1] == 1):
-                    raise ValueError(f"Expected misorientation shape [E] or [E,1], got {rad_mis.shape}")
+                    raise ValueError(
+                        f"Expected misorientation shape [E] or [E,1], got {rad_mis.shape}"
+                    )
 
                 mis = torch.rad2deg(rad_mis) if angle_type == "degrees" else rad_mis
                 Phi = torch.zeros((E, F_src.shape[1]), device=device, dtype=dtype)
@@ -461,7 +506,9 @@ class GraphGrainMatcher:
         return spec, phi_operator
 
     @staticmethod
-    def default_neighbor_selection_cost_function(Fa, Fb, neigh_a, neigh_b, a_to_b, i, j, lam):
+    def default_neighbor_selection_cost_function(
+        Fa, Fb, neigh_a, neigh_b, a_to_b, i, j, lam
+    ):
         def psi(u, v):
             return -torch.sum((u - v) ** 2).item()
 
@@ -488,4 +535,3 @@ class GraphGrainMatcher:
             cost += lam * (cons / cnt)
 
         return cost
-

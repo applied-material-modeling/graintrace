@@ -5,7 +5,8 @@ test.csv
 *.pyc
 __pycache__/
 experiment_try*/
-log.out
+log*.out
+err*.out
 tmp*
 hedm_study/
 hedm_demonstrate/
@@ -16,3 +17,6 @@ postprocess_test*/
 test*/
 grain_tracking_output*/
 minimum_example_nfff_cpfe/
+experiment_data/
+run_experiment_*
+experiment_*/
