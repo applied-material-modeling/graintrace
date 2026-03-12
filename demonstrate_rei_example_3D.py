@@ -21,8 +21,8 @@ import time
 
 filename = "test_data/test_pipeline/synthetic_vms.csv"
 
-if_plot = False
-second_step = False
+if_plot = True
+second_step = True
 
 ## graph spatial cluster parameters
 gsc_csv_path = filename
@@ -30,43 +30,49 @@ gsc_id_col = "id"
 gsc_coord_cols = ("x", "y", "z")
 
 # graph build
-gsc_graph_mode = "grid"          # "grid" | "knn" | "auto"
-gsc_k = 120                       # used only if graph_mode="knn"
-gsc_grid_radius = 1        # manhattan radius for grid connectivity if graph_mode="grid"
+gsc_graph_mode = "grid"  # "grid" | "knn" | "auto"
+gsc_k = 120  # used only if graph_mode="knn"
+gsc_grid_radius = 1  # manhattan radius for grid connectivity if graph_mode="grid"
 gsc_grid_tol = 1e-6
-reduce_edges_topweights_k = None        # if not None, keep only top k edges per node by weight before clustering          
+reduce_edges_topweights_k = (
+    None  # if not None, keep only top k edges per node by weight before clustering
+)
 reduce_edges_chunk_size = 10_000_000
 
 # edge weights
 gsc_eps = 1e-8
 gsc_n_jobs = 12
-gsc_weight_chunk_size = 50_000_000 # how many edges to process in
-                                   # a chunk when computing weights
+gsc_weight_chunk_size = 50_000_000  # how many edges to process in
+# a chunk when computing weights
 weight_cfg = WeightConfig(
     mode="rbf",
     power=2.0,
-    sigma=None,  # if None, will be set to 
-                 # quantile distance of the graph edges
-    sigma_auto={"sample_size": 500_000, 
-                "random_state": 42,
-                "quantile": 0.5},  # if sigma is None, sample this many
-                                   # edges to estimate quantile distance
+    sigma=None,  # if None, will be set to
+    # quantile distance of the graph edges
+    sigma_auto={
+        "sample_size": 500_000,
+        "random_state": 42,
+        "quantile": 0.5,
+    },  # if sigma is None, sample this many
+    # edges to estimate quantile distance
 )
 
 # segmentation
-gsc_segmenter: str = "leiden"           # leiden" | "plm" | "plp"
+gsc_segmenter: str = "leiden"  # leiden" | "plm" | "plp"
 gsc_seed: int = 42
 graph_cluster_arguments = {"gamma": 1.0}
 ## for all parameters: https://networkit.github.io/dev-docs/python_api/community.html
 
 
-generate_synthetic = False
-nx = 1000
-ny = 1000
-nz = 1000
+generate_synthetic = True
+nx = 100
+ny = 100
+nz = 1
 
 threshold = 0.1
-radius_elements_range = (60,160) # (60,160)
+radius_elements_range = (6, 16)
+
+os.makedirs(os.path.dirname(filename), exist_ok=True)
 
 if generate_synthetic:
     ## generate synthetic cluster data for testing purpose
@@ -127,7 +133,9 @@ if generate_synthetic:
         if nx < 1 or ny < 1 or nz < 1:
             raise ValueError("nx, ny, nz must be >= 1")
         if radius_range[0] < 1 or radius_range[1] <= radius_range[0]:
-            raise ValueError("radius_range must be (min_radius>=1, max_radius>min_radius)")
+            raise ValueError(
+                "radius_range must be (min_radius>=1, max_radius>min_radius)"
+            )
 
         rng = np.random.default_rng(random_state)
 
@@ -148,7 +156,9 @@ if generate_synthetic:
             layer_index[start:end] = i
 
         # Base VM field: shape (nz, ny, nx)
-        vm_field = layer_vm_levels[layer_index][:, None, None] * np.ones((nz, ny, nx), dtype=np.float64)
+        vm_field = layer_vm_levels[layer_index][:, None, None] * np.ones(
+            (nz, ny, nx), dtype=np.float64
+        )
 
         # Add rare high-VM spherical patches (in index space)
         zz, yy, xx = np.ogrid[:nz, :ny, :nx]
@@ -159,7 +169,7 @@ if generate_synthetic:
             radius = int(rng.integers(low=radius_range[0], high=radius_range[1]))
             vm_boost = float(rng.uniform(1.5, 2.5))
 
-            mask = (xx - cx) ** 2 + (yy - cy) ** 2 + (zz - cz) ** 2 <= radius ** 2
+            mask = (xx - cx) ** 2 + (yy - cy) ** 2 + (zz - cz) ** 2 <= radius**2
             vm_field[mask] *= vm_boost
 
         # Convert VM field to stress components (approx uniaxial), chunked over z
@@ -167,7 +177,17 @@ if generate_synthetic:
         for k0 in range(0, nz, z_chunk):
             k1 = min(nz, k0 + z_chunk)
             # stable per-chunk seed for reproducibility
-            tasks.append((k0, k1, x_coords, y_coords, z_coords, vm_field, random_state + 10_000 + k0))
+            tasks.append(
+                (
+                    k0,
+                    k1,
+                    x_coords,
+                    y_coords,
+                    z_coords,
+                    vm_field,
+                    random_state + 10_000 + k0,
+                )
+            )
 
         if gsc_n_jobs is None or gsc_n_jobs < 2:
             parts = [_slice_to_array_worker(t) for t in tasks]
@@ -182,21 +202,22 @@ if generate_synthetic:
         N = data.shape[0]
         ids = np.arange(1, N + 1, dtype=np.int64)
 
-        df = pd.DataFrame({
-            "id": ids,
-            "x": data[:, 0],
-            "y": data[:, 1],
-            "z": data[:, 2],
-            "sxx": data[:, 3],
-            "syy": data[:, 4],
-            "szz": data[:, 5],
-            "sxy": data[:, 6],
-            "sxz": data[:, 7],
-            "syz": data[:, 8],
-        })
+        df = pd.DataFrame(
+            {
+                "id": ids,
+                "x": data[:, 0],
+                "y": data[:, 1],
+                "z": data[:, 2],
+                "sxx": data[:, 3],
+                "syy": data[:, 4],
+                "szz": data[:, 5],
+                "sxy": data[:, 6],
+                "sxz": data[:, 7],
+                "syz": data[:, 8],
+            }
+        )
 
         df.to_csv(path, index=False)
-
 
     ## main ---------------------------------------------------------- ##
     print("Generating synthetic VMS data...")
@@ -212,8 +233,8 @@ if generate_synthetic:
         vm_high=200.0,
         random_state=42,
         radius_range=radius_elements_range,
-        gsc_n_jobs = gsc_n_jobs,
-        z_chunk = gsc_weight_chunk_size,
+        gsc_n_jobs=gsc_n_jobs,
+        z_chunk=gsc_weight_chunk_size,
     )
 
 print("Running clustering analysis...")
@@ -246,8 +267,8 @@ gsc_res = gsc.run(
     weight_cfg=weight_cfg,
     reduce_edges_topweights_k=reduce_edges_topweights_k,
     nodes_chunk=reduce_edges_chunk_size,
-    ## networkit_kwargs can be used to pass additional 
-    # arguments to the chosen networkit community detection 
+    ## networkit_kwargs can be used to pass additional
+    # arguments to the chosen networkit community detection
     # algorithm (e.g. resolution parameter for Leiden)
     networkit_kwargs=graph_cluster_arguments,
 )
@@ -261,9 +282,9 @@ print(f"GSC elapsed time: {elapsed_time:.2f} seconds")
 
 if second_step:
     # This goes through the second steps to merge the clusters globally
-    indicator = ClusterAnalysisIndicator(gsc_res["csv_path"],
-                                        id_col="cluster_id",
-                                        coord_cols=("x", "y", "z"))
+    indicator = ClusterAnalysisIndicator(
+        gsc_res["csv_path"], id_col="cluster_id", coord_cols=("x", "y", "z")
+    )
 
     spec_reduced = SimilarityMetric(
         name=spec.name + "_mean",
@@ -275,9 +296,9 @@ if second_step:
         method_type="scipy_hierarchical",
         spec=spec_reduced,
         threshold=threshold,
-        method = "average",
-        criterion = "distance",
-        dendrogram_path="test_speed_gsc/dendrogram.png",
+        method="average",
+        criterion="distance",
+        dendrogram_path=os.path.join(os.path.dirname(filename), "dendrogram.png"),
         minimal_return=False,
     )
 
@@ -288,15 +309,21 @@ if second_step:
 ### PLOTTING TO CHECK
 # plot to check:
 if if_plot:
-    labels_gsc = gsc_res["extras"]["labels"]          # point-level cluster id from NetworKit
+    labels_gsc = gsc_res["extras"]["labels"]  # point-level cluster id from NetworKit
     points_df = pd.read_csv(filename)
 
     # dendrogram info (from CAI scipy_hierarchical extras)
     dinfo = out["extras"]["dendrogram"]
-    leaf_order = dinfo["leaves"]                      # indices of samples in dendrogram order (0..n_reduced-1)
-    leaf_colors = dinfo["leaves_color_list"]          # same length as leaves; strings like 'C0', '#rrggbb', etc.
+    leaf_order = dinfo[
+        "leaves"
+    ]  # indices of samples in dendrogram order (0..n_reduced-1)
+    leaf_colors = dinfo[
+        "leaves_color_list"
+    ]  # same length as leaves; strings like 'C0', '#rrggbb', etc.
 
-    reduced_points = out["points"]                    # reduced CSV rows + final cluster_label (for scipy_hierarchical too)
+    reduced_points = out[
+        "points"
+    ]  # reduced CSV rows + final cluster_label (for scipy_hierarchical too)
     # IMPORTANT: leaf indices refer to row positions used in linkage input.
     # In your CAI scipy_hierarchical implementation, linkage is built from X in df row order.
     # So leaf indices map to reduced_points row positions.
@@ -309,7 +336,7 @@ if if_plot:
     sxz = points_df["sxz"].to_numpy()
     syz = points_df["syz"].to_numpy()
 
-    term1 = ((sxx - syy)**2 + (syy - szz)**2 + (szz - sxx)**2) / 2
+    term1 = ((sxx - syy) ** 2 + (syy - szz) ** 2 + (szz - sxx) ** 2) / 2
     term2 = 3 * (sxy**2 + sxz**2 + syz**2)
     vm = np.sqrt(term1 + term2)
 
@@ -339,7 +366,9 @@ if if_plot:
     cluster_id_to_rgba = {}
     for row_idx in range(reduced_points.shape[0]):
         cid = int(reduced_points.loc[row_idx, "cluster_id"])
-        cluster_id_to_rgba[cid] = rowidx_to_rgba.get(row_idx, (0.0, 0.0, 0.0, 1.0))  # fallback black
+        cluster_id_to_rgba[cid] = rowidx_to_rgba.get(
+            row_idx, (0.0, 0.0, 0.0, 1.0)
+        )  # fallback black
 
     # Step C: build an RGBA image for the original points by looking up each point's gsc cluster id
     final_rgba = np.empty((labels_gsc.size, 4), dtype=np.float32)
@@ -363,4 +392,6 @@ if if_plot:
     axes[2].set_title("Final (post-merge) colored by dendrogram leaves")
 
     plt.tight_layout()
-    plt.savefig("test_speed_gsc/gsc_cluster_labels_check.png", dpi=300)
+    plt.savefig(
+        os.path.join(os.path.dirname(filename), "gsc_cluster_labels_check.png"), dpi=300
+    )

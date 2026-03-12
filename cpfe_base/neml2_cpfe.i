@@ -45,7 +45,18 @@
     [newton]
         type = NewtonWithLineSearch
         max_linesearch_iterations = 5
+        linear_solver = 'lu'
         # verbose = true
+    []
+    [lu]
+        type = DenseLU
+    []
+[]
+
+[EquationSystems]
+    [eq_sys]
+        type = NonlinearSystem
+        model = 'implicit_rate'
     []
 []
 
@@ -136,7 +147,7 @@
     []
     [model_without_stress]
         type = ImplicitUpdate
-        implicit_model = 'implicit_rate'
+        equation_system = 'eq_sys'
         solver = 'newton'
     []
     [full_stress]

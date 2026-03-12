@@ -19,11 +19,13 @@ gsc_id_col = "id"
 gsc_coord_cols = ("x", "y", "z")
 
 # graph build
-gsc_graph_mode = "grid"          # "grid" | "knn" | "auto"
-gsc_k = 120                      # used only if graph_mode="knn"
-gsc_grid_radius = 4              # manhattan radius for grid connectivity if graph_mode="grid"
+gsc_graph_mode = "grid"  # "grid" | "knn" | "auto"
+gsc_k = 120  # used only if graph_mode="knn"
+gsc_grid_radius = 4  # manhattan radius for grid connectivity if graph_mode="grid"
 gsc_grid_tol = 1e-6
-reduce_edges_topweights_k = 20   # keep only top k edges per node by weight before clustering
+reduce_edges_topweights_k = (
+    20  # keep only top k edges per node by weight before clustering
+)
 
 # edge weights
 gsc_eps = 1e-8
@@ -33,9 +35,7 @@ weight_cfg = WeightConfig(
     mode="rbf",
     power=2.0,
     sigma=None,
-    sigma_auto={"sample_size": 500_000,
-                "random_state": 42,
-                "quantile": 0.5},
+    sigma_auto={"sample_size": 500_000, "random_state": 42, "quantile": 0.5},
 )
 
 # segmentation
@@ -46,9 +46,9 @@ graph_cluster_arguments = {"gamma": 1.0}
 
 # synthetic generation
 generate_synthetic = True
-nx = 50
-ny = 50
-nz = 50
+nx = 20
+ny = 20
+nz = 20
 
 # second-stage merge params (same semantics as your script)
 threshold = 0.05
@@ -57,11 +57,13 @@ radius_elements_range = (3, 8)
 # exporter / rarity selection
 vtk_out = "test_rei_pipeline/rare_clusters.vtk"
 rare_criteria = RareCriteria(
-    selector=None,       # use size_quantile logic
+    selector=None,  # use size_quantile logic
     size_quantile=0.05,  # bottom 5% by merged cluster size (stage 2)
     min_size=1,
     max_rare=None,
 )
+
+os.makedirs(os.path.dirname(vtk_out), exist_ok=True)
 
 
 # Synthetic data generation
@@ -98,6 +100,7 @@ def _slice_to_array_worker(args):
     out[:, 7] = sxz.reshape(-1)
     out[:, 8] = syz.reshape(-1)
     return k0, out
+
 
 def generate_layered_vms_csv(
     path: str,
@@ -136,7 +139,9 @@ def generate_layered_vms_csv(
         end = nz if i == n_layers - 1 else min(nz, (i + 1) * layer_thickness)
         layer_index[start:end] = i
 
-    vm_field = layer_vm_levels[layer_index][:, None, None] * np.ones((nz, ny, nx), dtype=np.float64)
+    vm_field = layer_vm_levels[layer_index][:, None, None] * np.ones(
+        (nz, ny, nx), dtype=np.float64
+    )
 
     zz, yy, xx = np.ogrid[:nz, :ny, :nx]
     for _ in range(rare_patches):
@@ -146,13 +151,15 @@ def generate_layered_vms_csv(
         radius = int(rng.integers(low=radius_range[0], high=radius_range[1]))
         vm_boost = float(rng.uniform(1.5, 2.5))
 
-        mask = (xx - cx) ** 2 + (yy - cy) ** 2 + (zz - cz) ** 2 <= radius ** 2
+        mask = (xx - cx) ** 2 + (yy - cy) ** 2 + (zz - cz) ** 2 <= radius**2
         vm_field[mask] *= vm_boost
 
     tasks = []
     for k0 in range(0, nz, z_chunk):
         k1 = min(nz, k0 + z_chunk)
-        tasks.append((k0, k1, x_coords, y_coords, z_coords, vm_field, random_state + 10_000 + k0))
+        tasks.append(
+            (k0, k1, x_coords, y_coords, z_coords, vm_field, random_state + 10_000 + k0)
+        )
 
     if gsc_n_jobs is None or gsc_n_jobs < 2:
         parts = [_slice_to_array_worker(t) for t in tasks]
@@ -167,20 +174,21 @@ def generate_layered_vms_csv(
     N = data.shape[0]
     ids = np.arange(1, N + 1, dtype=np.int64)
 
-    df = pd.DataFrame({
-        "id": ids,
-        "x": data[:, 0],
-        "y": data[:, 1],
-        "z": data[:, 2],
-        "sxx": data[:, 3],
-        "syy": data[:, 4],
-        "szz": data[:, 5],
-        "sxy": data[:, 6],
-        "sxz": data[:, 7],
-        "syz": data[:, 8],
-    })
+    df = pd.DataFrame(
+        {
+            "id": ids,
+            "x": data[:, 0],
+            "y": data[:, 1],
+            "z": data[:, 2],
+            "sxx": data[:, 3],
+            "syy": data[:, 4],
+            "szz": data[:, 5],
+            "sxy": data[:, 6],
+            "sxz": data[:, 7],
+            "syz": data[:, 8],
+        }
+    )
     df.to_csv(path, index=False)
-
 
 
 # Main
@@ -206,7 +214,7 @@ if generate_synthetic:
 
 
 PICK_CLUSTER_RESTART = False
-FINAL_CLUSTERING_RESTART = False      
+FINAL_CLUSTERING_RESTART = False
 GRAPH_SEGMENTATION_RESTART = True
 
 
@@ -228,11 +236,14 @@ irc = IdentifyRareClusters(
 base = os.path.splitext(filename)[0]
 graph_cluster_out = base + "_reduced.csv"
 bundle_checkpoint = base + "_bundle.pkl"
-gsc_labels_path = base + "_reduced_gsc_labels.npy"   
-gsc_ckpt_base = base + "_gsc_ckpt"                   
+gsc_labels_path = base + "_reduced_gsc_labels.npy"
+gsc_ckpt_base = base + "_gsc_ckpt"
 
 # warning messages
-if sum([PICK_CLUSTER_RESTART, FINAL_CLUSTERING_RESTART, GRAPH_SEGMENTATION_RESTART]) > 1:
+if (
+    sum([PICK_CLUSTER_RESTART, FINAL_CLUSTERING_RESTART, GRAPH_SEGMENTATION_RESTART])
+    > 1
+):
     print(
         "\nMultiple restart flags enabled. Priority order:\n"
         "   1) PICK_CLUSTER_RESTART\n"
@@ -244,28 +255,35 @@ if sum([PICK_CLUSTER_RESTART, FINAL_CLUSTERING_RESTART, GRAPH_SEGMENTATION_RESTA
     )
 
     print("  PICK_CLUSTER_RESTART (bundle):")
-    print(f"     {bundle_checkpoint}  "
-          f"[{'FOUND' if os.path.exists(bundle_checkpoint) else 'MISSING'}]")
+    print(
+        f"     {bundle_checkpoint}  "
+        f"[{'FOUND' if os.path.exists(bundle_checkpoint) else 'MISSING'}]"
+    )
 
     print("  FINAL_CLUSTERING_RESTART (reduced CSV + GSC labels):")
-    print(f"     {graph_cluster_out}  "
-          f"[{'FOUND' if os.path.exists(graph_cluster_out) else 'MISSING'}]")
-    print(f"     {gsc_labels_path}  "
-          f"[{'FOUND' if os.path.exists(gsc_labels_path) else 'MISSING'}]")
+    print(
+        f"     {graph_cluster_out}  "
+        f"[{'FOUND' if os.path.exists(graph_cluster_out) else 'MISSING'}]"
+    )
+    print(
+        f"     {gsc_labels_path}  "
+        f"[{'FOUND' if os.path.exists(gsc_labels_path) else 'MISSING'}]"
+    )
 
     print("  GRAPH_SEGMENTATION_RESTART (edges/weights/meta):")
     edges_f = gsc_ckpt_base + ".edges.npy"
     weights_f = gsc_ckpt_base + ".weights.npy"
     meta_f = gsc_ckpt_base + ".meta.json"
 
-    print(f"     {edges_f}  "
-          f"[{'FOUND' if os.path.exists(edges_f) else 'MISSING'}]")
-    print(f"     {weights_f}  "
-          f"[{'FOUND' if os.path.exists(weights_f) else 'MISSING'}]")
-    print(f"     {meta_f}  "
-          f"[{'FOUND' if os.path.exists(meta_f) else 'MISSING'}]\n")
+    print(f"     {edges_f}  " f"[{'FOUND' if os.path.exists(edges_f) else 'MISSING'}]")
+    print(
+        f"     {weights_f}  " f"[{'FOUND' if os.path.exists(weights_f) else 'MISSING'}]"
+    )
+    print(f"     {meta_f}  " f"[{'FOUND' if os.path.exists(meta_f) else 'MISSING'}]\n")
 
-if not any([PICK_CLUSTER_RESTART, FINAL_CLUSTERING_RESTART, GRAPH_SEGMENTATION_RESTART]):
+if not any(
+    [PICK_CLUSTER_RESTART, FINAL_CLUSTERING_RESTART, GRAPH_SEGMENTATION_RESTART]
+):
     print("No restart requested → full pipeline will run from scratch.")
 
 
@@ -310,7 +328,9 @@ if bundle is None and FINAL_CLUSTERING_RESTART:
             "indicator_extras": ind_out.get("extras", {}),
         }
     else:
-        print("FINAL_CLUSTERING_RESTART requested, but reduced CSV or GSC labels missing.")
+        print(
+            "FINAL_CLUSTERING_RESTART requested, but reduced CSV or GSC labels missing."
+        )
 
 if bundle is None:
     gsc, indicator = irc.make_stage_objects(graph_cluster_out=graph_cluster_out)

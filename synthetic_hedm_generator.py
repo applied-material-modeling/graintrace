@@ -3,17 +3,18 @@ import numpy as np
 import os
 from generate_random_crystal import CrystalGenerator
 
+
 class SyntheticHEDMGenerator:
     def __init__(
-            self,
-            output_dir,
-            ff_bounding_box,
-            ff_strain_stdev,
-            ff_grain_characteristics,
-            nf_bounding_box,
-            nf_dz,
-            nf_spacing,
-            random_seed=42,
+        self,
+        output_dir,
+        ff_bounding_box,
+        ff_strain_stdev,
+        ff_grain_characteristics,
+        nf_bounding_box,
+        nf_dz,
+        nf_spacing,
+        random_seed=42,
     ):
         self.output_dir = os.path.abspath(output_dir)
         self.ff_bounding_box = np.array(ff_bounding_box, dtype=float).ravel()
@@ -47,13 +48,13 @@ class SyntheticHEDMGenerator:
         print(f"NF lattice vertices per layer: {len(vertices_xy)}")
         print(f"NF number of layers: {len(z_layers)}")
         print(f"NF total points: {len(vertices_xy) * len(z_layers)}")
-    
+
     ## FAR FIELD METHODS ------------------------------------------------
     def generate_ff(self, iterations=10):
         """
         Generates:
-          - output_dir/FF/neper/voronoi.csv 
-          - output_dir/FF/ff.csv            
+          - output_dir/FF/neper/voronoi.csv
+          - output_dir/FF/ff.csv
         """
         os.makedirs(self.ff_neper_dir, exist_ok=True)
 
@@ -96,7 +97,7 @@ class SyntheticHEDMGenerator:
         )
 
         base_csv = os.path.join(self.ff_neper_dir, "voronoi.csv")
-       
+
         return base_csv
 
     def _append_elastic_strain(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -115,7 +116,7 @@ class SyntheticHEDMGenerator:
         exx = np.random.normal(0.0, stdev, n)
         eyy = np.random.normal(0.0, stdev, n)
         ezz = np.random.normal(0.0, stdev, n)
-        
+
         exy = np.random.normal(0.0, stdev, n)
         eyz = np.random.normal(0.0, stdev, n)
         exz = np.random.normal(0.0, stdev, n)
@@ -132,7 +133,7 @@ class SyntheticHEDMGenerator:
         df["eKen33"] = ezz
 
         return df
-    
+
     ## NEAR FIELD METHODS ------------------------------------------------
     def generate_nf(self):
         """
@@ -154,22 +155,32 @@ class SyntheticHEDMGenerator:
 
         np.random.seed(self.random_seed)
 
-        seeds_xyz, seed_eulers = self._read_voronoi_tess_seeds_and_orientations(tess_path)
+        seeds_xyz, seed_eulers = self._read_voronoi_tess_seeds_and_orientations(
+            tess_path
+        )
         self._build_nf_hex_vertex_lattice()
         self._compute_nf_z_layers()
 
         for k, z_layer in enumerate(self.z_layers):
-            eulers_at_vertices = self._assign_eulers_for_layer(z_layer=z_layer,
+            eulers_at_vertices = self._assign_eulers_for_layer(
+                z_layer=z_layer,
                 seeds_xyz=seeds_xyz,
                 seed_eulers=seed_eulers,
             )
             self._write_nf_layer_csv(k, eulers_at_vertices)
-            self._nf_visualize(plot_grid=False, plot_layer_property=True, layer_idx=k, eulers=eulers_at_vertices)
+            self._nf_visualize(
+                plot_grid=False,
+                plot_layer_property=True,
+                layer_idx=k,
+                eulers=eulers_at_vertices,
+            )
 
         print(f"\nGenerated Near Field synthetic HEDM data in folder: {self.nf_dir}\n")
-        
+
         self._nf_visualize()
-        print(f"NF lattice visualization saved in: {os.path.join(self.nf_dir, 'visualize')}\n")
+        print(
+            f"NF lattice visualization saved in: {os.path.join(self.nf_dir, 'visualize')}\n"
+        )
 
         return self.nf_dir
 
@@ -201,7 +212,7 @@ class SyntheticHEDMGenerator:
             raise ValueError("Failed to find '*seed' block in tess file.")
 
         seeds = np.zeros((ncell, 3), dtype=float)
-        
+
         row = 0
         for i in range(seed_idx + 1, len(lines)):
             s = lines[i].strip()
@@ -264,19 +275,22 @@ class SyntheticHEDMGenerator:
         rt3 = np.sqrt(3.0)
 
         # Flat-top hex center spacing
-        dx = 1.5 * a              # center-to-center in x
-        dy = rt3 * a              # center-to-center in y
-        y_off = 0.5 * rt3 * a     # odd-column y offset
+        dx = 1.5 * a  # center-to-center in x
+        dy = rt3 * a  # center-to-center in y
+        y_off = 0.5 * rt3 * a  # odd-column y offset
 
         # Vertex offsets around a flat-top hex center
-        voff = np.array([
-            [ a, 0.0],
-            [ 0.5 * a,  0.5 * rt3 * a],
-            [-0.5 * a,  0.5 * rt3 * a],
-            [-a, 0.0],
-            [-0.5 * a, -0.5 * rt3 * a],
-            [ 0.5 * a, -0.5 * rt3 * a],
-        ], dtype=float)
+        voff = np.array(
+            [
+                [a, 0.0],
+                [0.5 * a, 0.5 * rt3 * a],
+                [-0.5 * a, 0.5 * rt3 * a],
+                [-a, 0.0],
+                [-0.5 * a, -0.5 * rt3 * a],
+                [0.5 * a, -0.5 * rt3 * a],
+            ],
+            dtype=float,
+        )
 
         # Make a generous grid of centers that covers bbox (include margin of 1 hex)
         i_min = int(np.floor((xmin - a) / dx)) - 2
@@ -295,15 +309,19 @@ class SyntheticHEDMGenerator:
                 v = voff + np.array([cx, cy])
                 # clip vertices to bbox
                 mask = (
-                    (v[:, 0] >= xmin - 1e-9) & (v[:, 0] <= xmax + 1e-9) &
-                    (v[:, 1] >= ymin - 1e-9) & (v[:, 1] <= ymax + 1e-9)
+                    (v[:, 0] >= xmin - 1e-9)
+                    & (v[:, 0] <= xmax + 1e-9)
+                    & (v[:, 1] >= ymin - 1e-9)
+                    & (v[:, 1] <= ymax + 1e-9)
                 )
                 vv = v[mask]
                 if len(vv):
                     verts.append(vv)
 
         if not verts:
-            raise ValueError("NF hex vertex generation produced zero vertices. Check a_nf and nf_bounding_box.")
+            raise ValueError(
+                "NF hex vertex generation produced zero vertices. Check a_nf and nf_bounding_box."
+            )
 
         verts = np.vstack(verts)
 
@@ -351,19 +369,23 @@ class SyntheticHEDMGenerator:
 
         return z_layers
 
-    def _assign_eulers_for_layer(self, z_layer, seeds_xyz, seed_eulers, chunk_size=5000):
+    def _assign_eulers_for_layer(
+        self, z_layer, seeds_xyz, seed_eulers, chunk_size=5000
+    ):
         """
         Assign Euler angles to each vertex using nearest Voronoi seed in 3D (Euclidean).
         """
         vertices_xy = self.vertices_xy
-        
+
         nverts = vertices_xy.shape[0]
         out = np.zeros((nverts, 3), dtype=float)
 
         for start in range(0, nverts, chunk_size):
             end = min(start + chunk_size, nverts)
             qxy = vertices_xy[start:end]
-            q = np.column_stack([qxy[:, 0], qxy[:, 1], np.full(end - start, z_layer, dtype=float)])
+            q = np.column_stack(
+                [qxy[:, 0], qxy[:, 1], np.full(end - start, z_layer, dtype=float)]
+            )
 
             diff = q[:, None, :] - seeds_xyz[None, :, :]
             d2 = np.einsum("qmk,qmk->qm", diff, diff)
@@ -416,8 +438,11 @@ class SyntheticHEDMGenerator:
 
         return out_path
 
-    def _nf_visualize(self, plot_grid=True, plot_layer_property=False, layer_idx=0, eulers=None):
+    def _nf_visualize(
+        self, plot_grid=True, plot_layer_property=False, layer_idx=0, eulers=None
+    ):
         import matplotlib.pyplot as plt
+
         vis_dir = os.path.join(self.nf_dir, "visualize")
         os.makedirs(vis_dir, exist_ok=True)
 
@@ -447,10 +472,10 @@ class SyntheticHEDMGenerator:
             axs[0].plot(
                 [xmin, xmax, xmax, xmin, xmin],
                 [ymin, ymin, ymax, ymax, ymin],
-                color='red',
+                color="red",
             )
-            axs[0].scatter(X, Y, s=10,color='black')
-            
+            axs[0].scatter(X, Y, s=10, color="black")
+
             axs[0].set_aspect("equal")
             axs[0].set_xlabel("X")
             axs[0].set_ylabel("Y")
@@ -459,9 +484,9 @@ class SyntheticHEDMGenerator:
             axs[1].plot(
                 [xmin, xmax, xmax, xmin, xmin],
                 [zmin, zmin, zmax, zmax, zmin],
-                color='red',
+                color="red",
             )
-            axs[1].scatter(X, Z, s=10,color='black')
+            axs[1].scatter(X, Z, s=10, color="black")
 
             axs[1].set_xlabel("X")
             axs[1].set_ylabel("Z")
@@ -505,8 +530,14 @@ class SyntheticHEDMGenerator:
 
         fx0, fx1, fy0, fy1, fz0, fz1 = self.ff_bounding_box
         nx0, nx1, ny0, ny1, nz0, nz1 = self.nf_bounding_box
-        if not (fx0 <= nx0 <= nx1 <= fx1 and fy0 <= ny0 <= ny1 <= fy1 and fz0 <= nz0 <= nz1 <= fz1):
-            raise ValueError("nf_bounding_box must be fully enclosed within ff_bounding_box.")
+        if not (
+            fx0 <= nx0 <= nx1 <= fx1
+            and fy0 <= ny0 <= ny1 <= fy1
+            and fz0 <= nz0 <= nz1 <= fz1
+        ):
+            raise ValueError(
+                "nf_bounding_box must be fully enclosed within ff_bounding_box."
+            )
 
         if self.ff_strain_stdev < 0:
             raise ValueError("ff_strain_stdev must be >= 0.")
@@ -517,4 +548,6 @@ class SyntheticHEDMGenerator:
             raise ValueError("a_nf must be > 0.")
 
         if not isinstance(self.ff_grain_characteristics, dict):
-            raise TypeError("ff_grain_characteristics must be a dict (crystal_morpho_args).")
+            raise TypeError(
+                "ff_grain_characteristics must be a dict (crystal_morpho_args)."
+            )

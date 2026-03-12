@@ -5,11 +5,12 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from graph_spatial_cluster import GraphSpatialCluster
 from cluster_indicator import ClusterAnalysisIndicator
 
+
 class IdentifyRareClusters:
     """
-      Stage 1: GraphSpatialCluster -> per-point labels + reduced cluster CSV
-      Stage 2: ClusterAnalysisIndicator -> merged labels on reduced CSV
-      Stage 3: select rare merged clusters + export VTK (grid vs points)
+    Stage 1: GraphSpatialCluster -> per-point labels + reduced cluster CSV
+    Stage 2: ClusterAnalysisIndicator -> merged labels on reduced CSV
+    Stage 3: select rare merged clusters + export VTK (grid vs points)
     """
 
     def __init__(
@@ -38,7 +39,6 @@ class IdentifyRareClusters:
 
         input_df = self._load_input_df()
 
-
         ## Run the graph based
         gsc_out = gsc.run(
             output_csv_path=reduced_csv_path,
@@ -48,7 +48,9 @@ class IdentifyRareClusters:
         ##-------------------------
 
         if "extras" not in gsc_out or "labels" not in gsc_out["extras"]:
-            raise ValueError("GraphSpatialCluster must be run with return_labels=True to obtain per-point labels.")
+            raise ValueError(
+                "GraphSpatialCluster must be run with return_labels=True to obtain per-point labels."
+            )
 
         gsc_labels = np.asarray(gsc_out["extras"]["labels"], dtype=np.int64)
 
@@ -57,7 +59,9 @@ class IdentifyRareClusters:
         print("Saved GSC labels:", labels_path)
 
         if len(gsc_labels) != len(input_df):
-            raise ValueError("Length mismatch: per-point labels must align with input rows.")
+            raise ValueError(
+                "Length mismatch: per-point labels must align with input rows."
+            )
 
         print("Reduced CSV saved:", gsc_out["csv_path"])
 
@@ -67,13 +71,20 @@ class IdentifyRareClusters:
         ##-------------------------
 
         if "points" not in ind_out or ind_out["points"] is None:
-            raise ValueError("ClusterAnalysisIndicator must return 'points' (minimal_return=False) to build mapping.")
+            raise ValueError(
+                "ClusterAnalysisIndicator must return 'points' (minimal_return=False) to build mapping."
+            )
 
         indicator_points_df = ind_out["points"]
         indicator_clusters_df = ind_out["clusters"]
 
-        if "cluster_id" not in indicator_points_df.columns or "cluster_label" not in indicator_points_df.columns:
-            raise ValueError("indicator 'points' must include columns: 'cluster_id' and 'cluster_label'.")
+        if (
+            "cluster_id" not in indicator_points_df.columns
+            or "cluster_label" not in indicator_points_df.columns
+        ):
+            raise ValueError(
+                "indicator 'points' must include columns: 'cluster_id' and 'cluster_label'."
+            )
 
         return {
             "input_df": input_df,
@@ -107,17 +118,23 @@ class IdentifyRareClusters:
         super_label_map = self._build_super_label_map(indicator_points_df)
 
         final_label = np.vectorize(super_label_map.get, otypes=[np.int64])(gsc_labels)
-        
-        if np.any(pd.isna(final_label)):
-            raise ValueError("Some stage-1 cluster_ids were not found in indicator mapping (cluster_id -> cluster_label).")
 
-        rare_super_labels = self._select_rare_super_labels(indicator_clusters_df, criteria)
+        if np.any(pd.isna(final_label)):
+            raise ValueError(
+                "Some stage-1 cluster_ids were not found in indicator mapping (cluster_id -> cluster_label)."
+            )
+
+        rare_super_labels = self._select_rare_super_labels(
+            indicator_clusters_df, criteria
+        )
 
         block_id = np.full(len(input_df), background_block_id, dtype=np.int32)
         rare_super_labels_sorted = list(rare_super_labels)
 
         if "n" in indicator_clusters_df.columns:
-            n_map = dict(zip(indicator_clusters_df["cluster_label"], indicator_clusters_df["n"]))
+            n_map = dict(
+                zip(indicator_clusters_df["cluster_label"], indicator_clusters_df["n"])
+            )
             rare_super_labels_sorted.sort(key=lambda lab: n_map.get(lab, np.inf))
 
         label_to_block: Dict[int, int] = {}
@@ -130,10 +147,14 @@ class IdentifyRareClusters:
             cdf = indicator_clusters_df.copy()
 
             if "cluster_label" not in cdf.columns or "n" not in cdf.columns:
-                raise ValueError("indicator_clusters_df must contain 'cluster_label' and 'n'.")
+                raise ValueError(
+                    "indicator_clusters_df must contain 'cluster_label' and 'n'."
+                )
 
             cdf = cdf[cdf["cluster_label"].isin(rare_super_labels_sorted)].copy()
-            cdf["rare_cluster_id"] = cdf["cluster_label"].map(label_to_block).astype("Int64")
+            cdf["rare_cluster_id"] = (
+                cdf["cluster_label"].map(label_to_block).astype("Int64")
+            )
 
             sum_cols = [c for c in cdf.columns if c.endswith("_sum")]
             bases = [c[:-4] for c in sum_cols if (c[:-4] + "_sumsq") in cdf.columns]
@@ -142,7 +163,7 @@ class IdentifyRareClusters:
             n = pd.to_numeric(cdf["n"], errors="coerce").astype(float)
 
             for b in bases:
-                s  = pd.to_numeric(cdf[f"{b}_sum"], errors="coerce").astype(float)
+                s = pd.to_numeric(cdf[f"{b}_sum"], errors="coerce").astype(float)
                 ss = pd.to_numeric(cdf[f"{b}_sumsq"], errors="coerce").astype(float)
 
                 mean = s / n
@@ -150,8 +171,8 @@ class IdentifyRareClusters:
                 var_pop = var_pop.clip(lower=0.0)
 
                 new_cols[f"{b}_mean"] = mean
-                new_cols[f"{b}_var"]  = var_pop
-                new_cols[f"{b}_std"]  = np.sqrt(var_pop)
+                new_cols[f"{b}_var"] = var_pop
+                new_cols[f"{b}_std"] = np.sqrt(var_pop)
 
             cdf = pd.concat([cdf, pd.DataFrame(new_cols, index=cdf.index)], axis=1)
 
@@ -162,7 +183,9 @@ class IdentifyRareClusters:
                     if extra in cdf.columns:
                         keep.append(extra)
 
-            out_df = cdf[keep].sort_values(["n", "cluster_label"], ascending=[True, True])
+            out_df = cdf[keep].sort_values(
+                ["n", "cluster_label"], ascending=[True, True]
+            )
             out_df.to_csv(rare_reduced_stats_csv_path, index=False)
 
             print("\nSaved rare cluster stats CSV:", rare_reduced_stats_csv_path)
@@ -184,7 +207,11 @@ class IdentifyRareClusters:
         if also_write_final_label:
             point_data["final_label"] = final_label.astype(np.int64)
 
-        feature_cols = [c for c in input_df.columns if c not in ([self.id_col] + list(self.coord_cols))]
+        feature_cols = [
+            c
+            for c in input_df.columns
+            if c not in ([self.id_col] + list(self.coord_cols))
+        ]
         for c in feature_cols:
             s = pd.to_numeric(input_df[c], errors="coerce")
             point_data[c] = s.to_numpy(dtype=np.float64)
@@ -204,23 +231,31 @@ class IdentifyRareClusters:
             "rare_reduced_stats_csv_path": rare_reduced_stats_csv_path,
         }
 
-    # mapping 
-    def _build_super_label_map(self, indicator_points_df: pd.DataFrame) -> Dict[int, int]:
+    # mapping
+    def _build_super_label_map(
+        self, indicator_points_df: pd.DataFrame
+    ) -> Dict[int, int]:
         cluster_id = indicator_points_df["cluster_id"].to_numpy()
         cluster_label = indicator_points_df["cluster_label"].to_numpy()
         return {int(cid): int(clab) for cid, clab in zip(cluster_id, cluster_label)}
 
     # selection of rare clusters
-    def _select_rare_super_labels(self, indicator_clusters_df: pd.DataFrame, criteria: RareCriteria) -> List[int]:
+    def _select_rare_super_labels(
+        self, indicator_clusters_df: pd.DataFrame, criteria: RareCriteria
+    ) -> List[int]:
         if criteria.selector is not None:
             out = criteria.selector(indicator_clusters_df)
             labs = list(np.asarray(out).tolist())
             return [int(x) for x in labs]
 
         if "cluster_label" not in indicator_clusters_df.columns:
-            raise ValueError("indicator_clusters_df must contain 'cluster_label' to select rare clusters.")
+            raise ValueError(
+                "indicator_clusters_df must contain 'cluster_label' to select rare clusters."
+            )
         if "n" not in indicator_clusters_df.columns:
-            raise ValueError("Default rarity selection requires 'n' column in indicator_clusters_df. Provide criteria.selector.")
+            raise ValueError(
+                "Default rarity selection requires 'n' column in indicator_clusters_df. Provide criteria.selector."
+            )
 
         df = indicator_clusters_df.copy()
         df["n"] = pd.to_numeric(df["n"], errors="coerce")
@@ -242,24 +277,23 @@ class IdentifyRareClusters:
 
     # utility
     def make_stage_objects(
-            self,
-            *,
-            graph_cluster_out: str,
-        ) -> Tuple[GraphSpatialCluster, ClusterAnalysisIndicator]:
-            gsc = GraphSpatialCluster(
-                csv_path=self.input_csv_path,
-                id_col=self.id_col,
-                coord_cols=self.coord_cols,
-            )
+        self,
+        *,
+        graph_cluster_out: str,
+    ) -> Tuple[GraphSpatialCluster, ClusterAnalysisIndicator]:
+        gsc = GraphSpatialCluster(
+            csv_path=self.input_csv_path,
+            id_col=self.id_col,
+            coord_cols=self.coord_cols,
+        )
 
-            indicator = ClusterAnalysisIndicator(
-                csv_path=graph_cluster_out,
-                id_col="cluster_id",          # fixed by reduced CSV schema
-                coord_cols=self.coord_cols,   # fixed: same coordinate names passed through
-            )
+        indicator = ClusterAnalysisIndicator(
+            csv_path=graph_cluster_out,
+            id_col="cluster_id",  # fixed by reduced CSV schema
+            coord_cols=self.coord_cols,  # fixed: same coordinate names passed through
+        )
 
-            return gsc, indicator
-
+        return gsc, indicator
 
     def _load_input_df(self) -> pd.DataFrame:
         if self._input_df is not None:
@@ -285,7 +319,11 @@ class IdentifyRareClusters:
 
     def _detect_full_grid(self, coords: np.ndarray, tol: float = 1e-6) -> bool:
         x, y, z = coords[:, 0], coords[:, 1], coords[:, 2]
-        if not (self._is_regular_1d_grid(x, tol) and self._is_regular_1d_grid(y, tol) and self._is_regular_1d_grid(z, tol)):
+        if not (
+            self._is_regular_1d_grid(x, tol)
+            and self._is_regular_1d_grid(y, tol)
+            and self._is_regular_1d_grid(z, tol)
+        ):
             return False
         ux, uy, uz = np.unique(x), np.unique(y), np.unique(z)
         return (ux.size * uy.size * uz.size) == coords.shape[0]
@@ -335,7 +373,9 @@ class IdentifyRareClusters:
             pos = np.searchsorted(uniques, vals)
             pos = np.clip(pos, 0, uniques.size - 1)
             left = np.maximum(pos - 1, 0)
-            choose_left = (np.abs(vals - uniques[left]) <= np.abs(vals - uniques[pos]) + tol)
+            choose_left = (
+                np.abs(vals - uniques[left]) <= np.abs(vals - uniques[pos]) + tol
+            )
             return np.where(choose_left, left, pos).astype(np.int64)
 
         ix = map_to_bins(coords[:, 0], xs)
@@ -366,7 +406,9 @@ class IdentifyRareClusters:
     def _write_vtk_scalar_array(f, name: str, arr: np.ndarray) -> None:
         arr = np.asarray(arr)
         if arr.ndim != 1:
-            raise ValueError(f"VTK writer supports 1D scalar arrays only; got {name} with shape {arr.shape}")
+            raise ValueError(
+                f"VTK writer supports 1D scalar arrays only; got {name} with shape {arr.shape}"
+            )
 
         # Choose VTK type
         if np.issubdtype(arr.dtype, np.integer):

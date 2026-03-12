@@ -9,15 +9,16 @@ import json
 import re
 from nf.metrics import average_rotations
 
+
 class GraphSpatialCluster:
-        
+
     def __init__(
         self,
         csv_path: str,
         id_col: str = "id",
         coord_cols: Tuple[str, str, str] = ("x", "y", "z"),
     ) -> None:
-        
+
         self.csv_path: str = csv_path
         self.id_col: str = id_col
         self.coord_cols: Tuple[str, str, str] = coord_cols
@@ -27,7 +28,7 @@ class GraphSpatialCluster:
         """Load CSV and populate data, features, coords."""
         if self.data is not None:
             return
-        
+
         df = pd.read_csv(self.csv_path)
 
         # check essential columns
@@ -35,11 +36,11 @@ class GraphSpatialCluster:
         missing = [c for c in required if c not in df.columns]
         if missing:
             raise ValueError(f"Missing required columns: {missing}")
-        
+
         # if there are no other columns other than required, raise error
         if len(df.columns) == len(required):
             raise ValueError("No feature columns found in the data.")
-        
+
         self.data = df
 
     def check_feature_matrix(self, spec: SimilarityMetric) -> None:
@@ -59,25 +60,27 @@ class GraphSpatialCluster:
     def run(
         self,
         spec: SimilarityMetric,
-        graph_mode: str = "auto",            # "auto" | "knn" | "grid"
-        k: int = 16,                         # knn
-        manhattan_radius: int = 1,          # manhattan radius for grid connectivity if graph_mode="grid"
+        graph_mode: str = "auto",  # "auto" | "knn" | "grid"
+        k: int = 16,  # knn
+        manhattan_radius: int = 1,  # manhattan radius for grid connectivity if graph_mode="grid"
         grid_tol: float = 1e-6,
         n_jobs: int = 1,
         weight_chunk_size: int = 1_000_000,
         nodes_chunk: int = 50_000,
-        segmenter: str = "auto",             # "auto" | "leiden" | "plm"
+        segmenter: str = "auto",  # "auto" | "leiden" | "plm"
         seed: int = 42,
-        feature_names: Optional[List[str]] = None, 
+        feature_names: Optional[List[str]] = None,
         output_csv_path: Optional[str] = None,
         return_labels: bool = False,
-        reduce_edges_topweights_k: Optional[int] = None,  # if not None, keep only top k edges per node by weight before clustering
+        reduce_edges_topweights_k: Optional[
+            int
+        ] = None,  # if not None, keep only top k edges per node by weight before clustering
         weight_cfg: WeightConfig = WeightConfig(mode="inverse", eps=1e-8),
         networkit_kwargs: Optional[Dict[str, Any]] = None,
         checkpoint_base_path: Optional[str] = None,
         resume_from_checkpoint: bool = False,
     ) -> Dict[str, Any]:
-    
+
         print("\n=== Running GraphSpatialCluster ===\n")
 
         self.load_data()
@@ -91,12 +94,14 @@ class GraphSpatialCluster:
 
         if resume_from_checkpoint:
             if checkpoint_base_path is None:
-                raise ValueError("resume_from_checkpoint=True requires checkpoint_base_path")
+                raise ValueError(
+                    "resume_from_checkpoint=True requires checkpoint_base_path"
+                )
 
             print(f"Resuming from checkpoint: {checkpoint_base_path}")
             edges_ck, weights_ck, meta = self._load_checkpoint(checkpoint_base_path)
 
-            edges = np.asarray(edges_ck)     # still mmapped underneath
+            edges = np.asarray(edges_ck)  # still mmapped underneath
             weights = np.asarray(weights_ck)
 
             # Hard sanity checks (cheap, prevents silent corruption)
@@ -105,7 +110,9 @@ class GraphSpatialCluster:
             if weights.ndim != 1 or weights.shape[0] != edges.shape[0]:
                 raise ValueError("Checkpoint weights/edges length mismatch")
             if int(meta.get("n_nodes", -1)) != int(coords.shape[0]):
-                raise ValueError("Checkpoint n_nodes does not match current CSV row count")
+                raise ValueError(
+                    "Checkpoint n_nodes does not match current CSV row count"
+                )
 
             # Skip graph construction + weight computation below
             mode = "checkpoint"
@@ -120,14 +127,18 @@ class GraphSpatialCluster:
             print("Building graph with mode:", mode)
 
             if mode == "grid":
-                edges = self._build_grid_edges(coords, manhattan_radius=manhattan_radius, tol=grid_tol)
+                edges = self._build_grid_edges(
+                    coords, manhattan_radius=manhattan_radius, tol=grid_tol
+                )
             else:
                 edges = self._build_mutual_knn_edges(coords, k=k)
 
-            print(f"Graph is built. Number of edges: {edges.shape[0]}, "
+            print(
+                f"Graph is built. Number of edges: {edges.shape[0]}, "
                 f"Number of nodes: {coords.shape[0]},"
-                f" Number of features: {X.shape[1]}\n")
-            
+                f" Number of features: {X.shape[1]}\n"
+            )
+
             if weight_cfg.mode.lower() in ("rbf", "exp") and weight_cfg.sigma is None:
                 sigma = self.estimate_sigma_from_sampled_edges(
                     edges=edges,
@@ -152,7 +163,9 @@ class GraphSpatialCluster:
             )
 
             if reduce_edges_topweights_k is not None:
-                print(f"\nRemoving edges to keep only top {reduce_edges_topweights_k} weights per node")
+                print(
+                    f"\nRemoving edges to keep only top {reduce_edges_topweights_k} weights per node"
+                )
                 edges, weights = self.prune_topk_per_node_parallel(
                     n_nodes=coords.shape[0],
                     edges=edges,
@@ -170,17 +183,25 @@ class GraphSpatialCluster:
                 "metric": spec.name,
                 "weight_mode": weight_cfg.mode,
                 "segmenter": segmenter,
-                "reduced_topk": int(reduce_edges_topweights_k) if reduce_edges_topweights_k is not None else None,
+                "reduced_topk": (
+                    int(reduce_edges_topweights_k)
+                    if reduce_edges_topweights_k is not None
+                    else None
+                ),
                 "graph_mode": mode,
                 "k": int(k),
                 "manhattan_radius": int(manhattan_radius),
                 "grid_tol": float(grid_tol),
             }
             print(f"Saving checkpoint: {checkpoint_base_path} (edges/weights/meta)")
-            self._save_checkpoint(checkpoint_base_path, edges=edges, weights=weights, meta=meta)
+            self._save_checkpoint(
+                checkpoint_base_path, edges=edges, weights=weights, meta=meta
+            )
 
         print("\nSegmenting graph with method:", segmenter)
-        print("Segmenter parameters:", networkit_kwargs if networkit_kwargs else "default")
+        print(
+            "Segmenter parameters:", networkit_kwargs if networkit_kwargs else "default"
+        )
 
         if networkit_kwargs is None:
             networkit_kwargs = {}
@@ -196,7 +217,8 @@ class GraphSpatialCluster:
 
         if feature_names is None:
             feature_names = [
-                c for c in df.columns
+                c
+                for c in df.columns
                 if c not in ([self.id_col] + list(self.coord_cols))
             ]
         else:
@@ -234,8 +256,9 @@ class GraphSpatialCluster:
             "csv_path": csv_path,
             "extras": extras,
         }
+
     ##
-        
+
     # graph clustering
     def segment_graph_networkit(
         self,
@@ -246,7 +269,7 @@ class GraphSpatialCluster:
         seed: int = 42,
         **networkit_kwargs: Any,
     ) -> np.ndarray:
-        
+
         import networkit as nk
 
         if edges.shape[0] != weights.shape[0]:
@@ -262,7 +285,9 @@ class GraphSpatialCluster:
 
         if chosen == "leiden":
             if not hasattr(nk.community, "ParallelLeiden"):
-                raise ValueError("NetworKit ParallelLeiden not available in this install.")
+                raise ValueError(
+                    "NetworKit ParallelLeiden not available in this install."
+                )
             algo = nk.community.ParallelLeiden(G, **networkit_kwargs)
         elif chosen == "plm":
             algo = nk.community.PLM(G, **networkit_kwargs)
@@ -274,12 +299,14 @@ class GraphSpatialCluster:
         algo.run()
         part = algo.getPartition()
 
-        labels = np.fromiter((part.subsetOf(i) for i in range(n_nodes)), dtype=np.int64, count=n_nodes)
+        labels = np.fromiter(
+            (part.subsetOf(i) for i in range(n_nodes)), dtype=np.int64, count=n_nodes
+        )
         return labels
-    
+
     # detect grid and build edges from that
     @staticmethod
-    def _is_regular_1d_grid(vals: np.ndarray, tol: float) -> bool:   
+    def _is_regular_1d_grid(vals: np.ndarray, tol: float) -> bool:
         u = np.unique(vals)
         if u.size < 3:
             return False
@@ -291,7 +318,11 @@ class GraphSpatialCluster:
 
     def _detect_grid(self, coords: np.ndarray, tol: float = 1e-6) -> bool:
         x, y, z = coords[:, 0], coords[:, 1], coords[:, 2]
-        if not (self._is_regular_1d_grid(x, tol) and self._is_regular_1d_grid(y, tol) and self._is_regular_1d_grid(z, tol)):
+        if not (
+            self._is_regular_1d_grid(x, tol)
+            and self._is_regular_1d_grid(y, tol)
+            and self._is_regular_1d_grid(z, tol)
+        ):
             return False
         ux, uy, uz = np.unique(x), np.unique(y), np.unique(z)
         return (ux.size * uy.size * uz.size) == coords.shape[0]
@@ -314,7 +345,7 @@ class GraphSpatialCluster:
         """
         if manhattan_radius < 1:
             raise ValueError("manhattan_radius must be >= 1")
-        
+
         def unique_with_tolerance(arr, tol):
             sorted_arr = np.sort(arr)
             diffs = np.diff(sorted_arr)
@@ -329,12 +360,12 @@ class GraphSpatialCluster:
             pos = np.searchsorted(uniques, vals)
             pos = np.clip(pos, 0, uniques.size - 1)
             left = np.maximum(pos - 1, 0)
-            choose_left = (np.abs(vals - uniques[left]) <= np.abs(vals - uniques[pos]))
+            choose_left = np.abs(vals - uniques[left]) <= np.abs(vals - uniques[pos])
             return np.where(choose_left, left, pos).astype(np.int64)
 
-        ix = map_to_bins(coords[:,0], xs)
-        iy = map_to_bins(coords[:,1], ys)
-        iz = map_to_bins(coords[:,2], zs)
+        ix = map_to_bins(coords[:, 0], xs)
+        iy = map_to_bins(coords[:, 1], ys)
+        iz = map_to_bins(coords[:, 2], zs)
 
         nx, ny, nz = xs.size, ys.size, zs.size
         lin = ix + nx * (iy + ny * iz)
@@ -360,9 +391,12 @@ class GraphSpatialCluster:
             iz2 = iz + dz
 
             mask = (
-                (ix2 >= 0) & (ix2 < nx) &
-                (iy2 >= 0) & (iy2 < ny) &
-                (iz2 >= 0) & (iz2 < nz)
+                (ix2 >= 0)
+                & (ix2 < nx)
+                & (iy2 >= 0)
+                & (iy2 < ny)
+                & (iz2 >= 0)
+                & (iz2 < nz)
             )
             if not np.any(mask):
                 continue
@@ -384,14 +418,14 @@ class GraphSpatialCluster:
 
     # if not grid, build edges via mutual kNN (edge (i,j) exists if i in kNN(j) and j in kNN(i))
     def _build_mutual_knn_edges(self, coords: np.ndarray, k: int) -> np.ndarray:
-        
+
         if k < 1:
             raise ValueError("k must be >= 1")
 
         from scipy.spatial import cKDTree
 
         tree = cKDTree(coords)
-        _, idx = tree.query(coords, k=k+1, workers=-1)
+        _, idx = tree.query(coords, k=k + 1, workers=-1)
         nbrs = idx[:, 1:]  # (N,k)
 
         N = coords.shape[0]
@@ -408,16 +442,18 @@ class GraphSpatialCluster:
         starts = np.flatnonzero(np.r_[True, dst_s[1:] != dst_s[:-1]])
         ends = np.r_[starts[1:], dst_s.size]
 
-        for a, b in tqdm(zip(starts, ends), total=starts.size, desc="Building edges from nodes"):
+        for a, b in tqdm(
+            zip(starts, ends), total=starts.size, desc="Building edges from nodes"
+        ):
             j = int(dst_s[a])
             block = src_s[a:b]
             row = nbrs_sorted[j]
             pos = np.searchsorted(row, block)
             ok = np.zeros(block.shape[0], dtype=bool)
             m = pos < row.size
-            ok[m] = (row[pos[m]] == block[m])
+            ok[m] = row[pos[m]] == block[m]
             keep[order[a:b]] = ok
-        
+
         keep = keep & (src < dst)
 
         u = src[keep]
@@ -425,7 +461,7 @@ class GraphSpatialCluster:
         edges = np.stack([u, v], axis=1)
 
         return edges
-    
+
     # parallel operations for edge weight computation
     @staticmethod
     def _dist_to_weight(d: float, cfg: WeightConfig) -> float:
@@ -436,7 +472,7 @@ class GraphSpatialCluster:
             if cfg.sigma <= 0:
                 raise ValueError("sigma must be > 0 for rbf")
             x = d / cfg.sigma
-            return float(np.exp(-(x ** cfg.power)))
+            return float(np.exp(-(x**cfg.power)))
         if m == "exp":
             if cfg.sigma <= 0:
                 raise ValueError("sigma must be > 0 for exp")
@@ -444,7 +480,7 @@ class GraphSpatialCluster:
         if m == "log_inv":
             return float(-np.log(d + cfg.eps))
         raise ValueError(f"Unknown weight mode: {cfg.mode}")
-    
+
     @staticmethod
     def _dist_to_weight_vec(d: np.ndarray, cfg: WeightConfig) -> np.ndarray:
         m = cfg.mode.lower()
@@ -454,7 +490,7 @@ class GraphSpatialCluster:
             if cfg.sigma <= 0:
                 raise ValueError("sigma must be > 0 for rbf")
             x = d / cfg.sigma
-            return np.exp(-(x ** cfg.power))
+            return np.exp(-(x**cfg.power))
         if m == "exp":
             if cfg.sigma <= 0:
                 raise ValueError("sigma must be > 0 for exp")
@@ -462,11 +498,13 @@ class GraphSpatialCluster:
         if m == "log_inv":
             return -np.log(d + cfg.eps)
         raise ValueError(f"Unknown weight mode: {cfg.mode}")
-    
+
     @staticmethod
-    def _weights_worker(args: Tuple[np.ndarray, np.ndarray, SimilarityMetric, WeightConfig]) -> np.ndarray:
+    def _weights_worker(
+        args: Tuple[np.ndarray, np.ndarray, SimilarityMetric, WeightConfig],
+    ) -> np.ndarray:
         edges_chunk, X, spec, cfg = args
-        
+
         dist_edges = getattr(spec, "dist_edges", None)
         if dist_edges is not None:
             d = np.asarray(dist_edges(X, edges_chunk), dtype=np.float64)
@@ -474,10 +512,14 @@ class GraphSpatialCluster:
             if d.shape != (edges_chunk.shape[0],):
                 d = d.reshape(-1)
             if d.shape != (edges_chunk.shape[0],):
-                raise ValueError(f"dist_edges must return shape ({edges_chunk.shape[0]},), got {d.shape}")
+                raise ValueError(
+                    f"dist_edges must return shape ({edges_chunk.shape[0]},), got {d.shape}"
+                )
             d = spec.dist_edges(X, edges_chunk)
             d = np.asarray(d, dtype=np.float64)
-            return GraphSpatialCluster._dist_to_weight_vec(d, cfg).astype(np.float64, copy=False)
+            return GraphSpatialCluster._dist_to_weight_vec(d, cfg).astype(
+                np.float64, copy=False
+            )
 
         w = np.empty(edges_chunk.shape[0], dtype=np.float64)
         for t, (i, j) in enumerate(edges_chunk):
@@ -494,7 +536,7 @@ class GraphSpatialCluster:
         n_jobs: int = 1,
         chunk_size: int = 1_000_000,
     ) -> np.ndarray:
-        
+
         if edges.ndim != 2 or edges.shape[1] != 2:
             raise ValueError("edges must be shape (E,2)")
         if edges.shape[0] == 0:
@@ -522,20 +564,21 @@ class GraphSpatialCluster:
             with tqdm(total=total_edges, desc="Edge weights", unit="edge") as pbar:
                 for w_chunk in pool.imap(self._weights_worker, tasks, chunksize=1):
                     chunk_size_actual = w_chunk.size
-                    weights[off:off + chunk_size_actual] = w_chunk
+                    weights[off : off + chunk_size_actual] = w_chunk
                     off += chunk_size_actual
                     pbar.update(chunk_size_actual)
 
         return weights
-    
+
     # in case too much edges, this allow to remove of weak edges via topk
-    @staticmethod    
+    @staticmethod
     def _topk_nodes_worker(args) -> np.ndarray:
         indptr, adj_eid, adj_w, a, b, k = args
         kept_chunks = []
 
         for n in range(a, b):
-            s = int(indptr[n]); e = int(indptr[n + 1])
+            s = int(indptr[n])
+            e = int(indptr[n + 1])
             m = e - s
             if m <= 0:
                 continue
@@ -550,7 +593,7 @@ class GraphSpatialCluster:
         if kept_chunks:
             return np.concatenate(kept_chunks)
         return np.empty((0,), dtype=np.int64)
-    
+
     @staticmethod
     def prune_topk_per_node_parallel(
         n_nodes: int,
@@ -574,7 +617,7 @@ class GraphSpatialCluster:
         w = weights.astype(np.float64, copy=False)
 
         node = np.concatenate([u, v], axis=0)  # (2E,)
-        eid  = np.concatenate(
+        eid = np.concatenate(
             [np.arange(E, dtype=np.int64), np.arange(E, dtype=np.int64)],
             axis=0,
         )
@@ -588,7 +631,7 @@ class GraphSpatialCluster:
         # Sort half-edges by node so each node's incidence is a contiguous slice
         order = np.argsort(node, kind="mergesort")  # stable; C-level
         adj_eid = eid[order]
-        adj_w   = adj_w_half[order]
+        adj_w = adj_w_half[order]
 
         keep_edge = np.zeros(E, dtype=bool)
 
@@ -608,10 +651,14 @@ class GraphSpatialCluster:
             print("n_jobs:", n_jobs, "n_nodes:", n_nodes, "nodes_chunk:", nodes_chunk)
 
             with ctx.Pool(processes=n_jobs) as pool:
-                with tqdm(total=n_nodes, desc="Reducing edges from weights for nodes") as pbar:
+                with tqdm(
+                    total=n_nodes, desc="Reducing edges from weights for nodes"
+                ) as pbar:
                     for task, kept in zip(
                         tasks,
-                        pool.imap(GraphSpatialCluster._topk_nodes_worker, tasks, chunksize=1),
+                        pool.imap(
+                            GraphSpatialCluster._topk_nodes_worker, tasks, chunksize=1
+                        ),
                     ):
                         a, b = task[3], task[4]
                         if kept.size:
@@ -619,7 +666,7 @@ class GraphSpatialCluster:
                         pbar.update(b - a)
 
         return edges[keep_edge], weights[keep_edge]
-    
+
     ## DEFINE HOW TO GET CLUSTER PROPERTIES / FEATURES
     def get_cluster_properties(
         self,
@@ -655,9 +702,9 @@ class GraphSpatialCluster:
             out[f"{fname}_mean"] = sums / n
 
         # other cluster properties can be added here as needed
-        
+
         # norm of 3x3
-        ij_set = {"11","12","13","21","22","23","31","32","33"}
+        ij_set = {"11", "12", "13", "21", "22", "23", "31", "32", "33"}
         pat = re.compile(r"^(?P<prefix>.+)_(?P<ij>[123]{2})$")
 
         # prefix -> {ij: column_index}
@@ -676,7 +723,10 @@ class GraphSpatialCluster:
         full_prefixes = [p for p, mp in tensors.items() if len(mp) == 9]
 
         for prefix in full_prefixes:
-            idx = [tensors[prefix][ij] for ij in ("11","12","13","21","22","23","31","32","33")]
+            idx = [
+                tensors[prefix][ij]
+                for ij in ("11", "12", "13", "21", "22", "23", "31", "32", "33")
+            ]
 
             # per-point Frobenius norm of the 9-vector
             norm_per_point = np.linalg.norm(X[:, idx], axis=1)
@@ -685,7 +735,7 @@ class GraphSpatialCluster:
             out[f"{prefix}_norm_mean"] = sums / n
 
         return pd.DataFrame(out)
-    
+
     # other utility methods
     def estimate_sigma_from_sampled_edges(
         self,
@@ -693,7 +743,7 @@ class GraphSpatialCluster:
         X: np.ndarray,
         spec: SimilarityMetric,
         sample_size: int = 200_000,
-        quantile: float = 0.5,      # 0.5 = median
+        quantile: float = 0.5,  # 0.5 = median
         seed: int = 0,
     ) -> float:
         if edges.shape[0] == 0:
@@ -705,7 +755,8 @@ class GraphSpatialCluster:
 
         ds = np.empty(m, dtype=np.float64)
         for t, (i, j) in enumerate(edges[idx]):
-            ii = int(i); jj = int(j)
+            ii = int(i)
+            jj = int(j)
             ds[t] = float(spec.func(X[ii], X[jj]))
 
         sigma = float(np.quantile(ds, quantile))
@@ -723,21 +774,35 @@ class GraphSpatialCluster:
         }
 
     @staticmethod
-    def _save_checkpoint(base_path: str, *, edges: np.ndarray, weights: np.ndarray, meta: Dict[str, Any]) -> None:
+    def _save_checkpoint(
+        base_path: str, *, edges: np.ndarray, weights: np.ndarray, meta: Dict[str, Any]
+    ) -> None:
         os.makedirs(os.path.dirname(base_path) or ".", exist_ok=True)
         p = GraphSpatialCluster._ckpt_paths(base_path)
         # Fast, no compression. Best for very large arrays.
         np.save(p["edges"], edges.astype(np.int64, copy=False), allow_pickle=False)
-        np.save(p["weights"], weights.astype(np.float64, copy=False), allow_pickle=False)
+        np.save(
+            p["weights"], weights.astype(np.float64, copy=False), allow_pickle=False
+        )
         with open(p["meta"], "w", encoding="utf-8") as f:
             json.dump(meta, f)
 
     @staticmethod
-    def _load_checkpoint(base_path: str) -> Tuple[np.ndarray, np.ndarray, Dict[str, Any]]:
+    def _load_checkpoint(
+        base_path: str,
+    ) -> Tuple[np.ndarray, np.ndarray, Dict[str, Any]]:
         p = GraphSpatialCluster._ckpt_paths(base_path)
-        if not (os.path.exists(p["edges"]) and os.path.exists(p["weights"]) and os.path.exists(p["meta"])):
-            raise FileNotFoundError(f"Checkpoint files not found for base_path={base_path}")
-        edges = np.load(p["edges"], mmap_mode="r")   # mmap avoids loading full file immediately
+        if not (
+            os.path.exists(p["edges"])
+            and os.path.exists(p["weights"])
+            and os.path.exists(p["meta"])
+        ):
+            raise FileNotFoundError(
+                f"Checkpoint files not found for base_path={base_path}"
+            )
+        edges = np.load(
+            p["edges"], mmap_mode="r"
+        )  # mmap avoids loading full file immediately
         weights = np.load(p["weights"], mmap_mode="r")
         with open(p["meta"], "r", encoding="utf-8") as f:
             meta = json.load(f)

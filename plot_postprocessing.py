@@ -6,14 +6,16 @@ from matplotlib import pyplot as plt
 
 import torch
 import neml2
+
 # --- barycentric coordinates in 2D triangle ---
+
 
 def plot_block_properties_distribution(
     results,
     time,
     tensor_prefix,
     order,
-    output_folder = "postprocess_out",
+    output_folder="postprocess_out",
     bins=50,
 ):
     """
@@ -62,7 +64,7 @@ def plot_block_properties_distribution(
         axes[0].hist(data, bins=bins, density=True)
         axes[0].set_title(f"{tensor_prefix}")
         axes[0].set_xlabel(tensor_prefix)
-        #axes[0].set_ylabel("count")
+        # axes[0].set_ylabel("count")
     else:
         for i in range(nplots):
             axes[i].hist(data[:, i], bins=bins, density=True)
@@ -71,17 +73,18 @@ def plot_block_properties_distribution(
             # axes[i].set_ylabel("count")
 
     fig.tight_layout()
-    
+
     output_folder = Path(output_folder)
 
     output_folder.mkdir(parents=True, exist_ok=True)
-    
+
     filename = output_folder / f"{tensor_prefix}_pdf_timeindex{block_id}.png"
-    
+
     fig.savefig(filename, dpi=300)
     plt.close(fig)
 
     return block_id
+
 
 def plot_macroscopic_stress_strain(
     results,
@@ -93,15 +96,23 @@ def plot_macroscopic_stress_strain(
 
     grain_ids = results.grain_ids
 
-    T = results.get_tensor_block(volume_prefix, 0, sample="time", grain_id=grain_ids[0]).shape[0]
-    denom = np.zeros(T-1)
-    num_stress = np.zeros((T-1, 9))
-    num_strain = np.zeros((T-1, 9))
+    T = results.get_tensor_block(
+        volume_prefix, 0, sample="time", grain_id=grain_ids[0]
+    ).shape[0]
+    denom = np.zeros(T - 1)
+    num_stress = np.zeros((T - 1, 9))
+    num_strain = np.zeros((T - 1, 9))
 
     for gid in grain_ids:
-        vol = results.get_tensor_block(volume_prefix, 0, sample="time", grain_id=gid)[1:, 0]
-        sig = results.get_tensor_block(stress_tensor_prefix, 2, sample="time", grain_id=gid)[1:,:]
-        eps = results.get_tensor_block(strain_tensor_prefix, 2, sample="time", grain_id=gid)[1:,:]
+        vol = results.get_tensor_block(volume_prefix, 0, sample="time", grain_id=gid)[
+            1:, 0
+        ]
+        sig = results.get_tensor_block(
+            stress_tensor_prefix, 2, sample="time", grain_id=gid
+        )[1:, :]
+        eps = results.get_tensor_block(
+            strain_tensor_prefix, 2, sample="time", grain_id=gid
+        )[1:, :]
 
         denom += vol
         num_stress += sig * vol[:, None]
@@ -129,7 +140,10 @@ def plot_macroscopic_stress_strain(
 
     output_folder = Path(output_folder)
     output_folder.mkdir(parents=True, exist_ok=True)
-    outpath = output_folder / f"macro_stress_strain_{stress_tensor_prefix}_vs_{strain_tensor_prefix}.png"
+    outpath = (
+        output_folder
+        / f"macro_stress_strain_{stress_tensor_prefix}_vs_{strain_tensor_prefix}.png"
+    )
 
     fig.savefig(outpath)
     plt.close(fig)
@@ -139,6 +153,7 @@ def plot_macroscopic_stress_strain(
     #   print(f"Time step {t+1}: Ezz = {macro_strain[t,8]:.6e}")
 
     return outpath
+
 
 def plot_block_properties_over_time(
     results,
@@ -220,19 +235,21 @@ def plot_block_properties_over_time(
     return fname
 
 
-def plot_pole_figure(results,
-                        time,
-                        tensor_prefix,
-                        direction = [1, 1, 1],
-                        crystal_symmetry = "432",
-                        device = "cpu",
-                        output_folder="postprocess_out",
-                        construct_odf = False,
-                        DeLaValleePoussinKernel_val = 0.1,
-                        odf_limits = [0.0, 3.0],
-                        orientation_type = "mrp",
-                        orientation_units = "radians",
-                        odf_ncontour = 12,):
+def plot_pole_figure(
+    results,
+    time,
+    tensor_prefix,
+    direction=[1, 1, 1],
+    crystal_symmetry="432",
+    device="cpu",
+    output_folder="postprocess_out",
+    construct_odf=False,
+    DeLaValleePoussinKernel_val=0.1,
+    odf_limits=[0.0, 3.0],
+    orientation_type="mrp",
+    orientation_units="radians",
+    odf_ncontour=12,
+):
     import neml2
     import torch
     import neml2.tensors
@@ -257,49 +274,70 @@ def plot_pole_figure(results,
 
     if orientation_type != "mrp":
         data = torch.tensor(data, dtype=torch.double, device=device)
-        orientations = neml2.tensors.Rot.fill_euler_angles(neml2.tensors.Vec(data), orientation_type, orientation_units)
+        orientations = neml2.tensors.Rot.fill_euler_angles(
+            neml2.tensors.Vec(data), orientation_type, orientation_units
+        )
     else:
         orientations = neml2.tensors.Rot(torch.tensor(data, dtype=torch.double))
-    
-    neml2.postprocessing.pretty_plot_inverse_pole_figure(orientations,
-                                                        pdirection,
-                                                        crystal_symmetry = crystal_symmetry,
-                                                        sample_symmetry = crystal_symmetry)
-    
+
+    neml2.postprocessing.pretty_plot_inverse_pole_figure(
+        orientations,
+        pdirection,
+        crystal_symmetry=crystal_symmetry,
+        sample_symmetry=crystal_symmetry,
+    )
+
     output_folder = Path(output_folder)
     output_folder.mkdir(parents=True, exist_ok=True)
 
-    fname = output_folder / f"inversepolefigure_discrete_{direction[0]}{direction[1]}{direction[2]}_timeindex{block_id}.png"
+    fname = (
+        output_folder
+        / f"inversepolefigure_discrete_{direction[0]}{direction[1]}{direction[2]}_timeindex{block_id}.png"
+    )
     plt.tight_layout()
-    
+
     plt.savefig(fname, dpi=300)
     plt.close()
 
-    neml2.postprocessing.pretty_plot_pole_figure_points(orientations, 
-                                                pdirection,
-                                                crystal_symmetry = crystal_symmetry,)
-    
-    fname = output_folder / f"polefigure_discrete_{direction[0]}{direction[1]}{direction[2]}_timeindex{block_id}.png"
+    neml2.postprocessing.pretty_plot_pole_figure_points(
+        orientations,
+        pdirection,
+        crystal_symmetry=crystal_symmetry,
+    )
+
+    fname = (
+        output_folder
+        / f"polefigure_discrete_{direction[0]}{direction[1]}{direction[2]}_timeindex{block_id}.png"
+    )
     plt.tight_layout()
     plt.savefig(fname, dpi=300)
     plt.close()
 
     if construct_odf:
-        odf = neml2.postprocessing.odf.KDEODF(orientations, neml2.postprocessing.odf.DeLaValleePoussinKernel(torch.tensor(DeLaValleePoussinKernel_val)))
-        odf.optimize_kernel(verbose = True)
+        odf = neml2.postprocessing.odf.KDEODF(
+            orientations,
+            neml2.postprocessing.odf.DeLaValleePoussinKernel(
+                torch.tensor(DeLaValleePoussinKernel_val)
+            ),
+        )
+        odf.optimize_kernel(verbose=True)
         print(odf.kernel.h)
-        neml2.postprocessing.pretty_plot_pole_figure_odf(odf, 
-                                                            pdirection,
-                                                            crystal_symmetry = crystal_symmetry,
-                                                            limits = odf_limits,
-                                                            ncontour = odf_ncontour)
+        neml2.postprocessing.pretty_plot_pole_figure_odf(
+            odf,
+            pdirection,
+            crystal_symmetry=crystal_symmetry,
+            limits=odf_limits,
+            ncontour=odf_ncontour,
+        )
 
-        fname_odf = output_folder / f"polefigure_odf_{direction[0]}{direction[1]}{direction[2]}_timeindex{block_id}.png"
+        fname_odf = (
+            output_folder
+            / f"polefigure_odf_{direction[0]}{direction[1]}{direction[2]}_timeindex{block_id}.png"
+        )
         plt.tight_layout()
         plt.savefig(fname_odf, dpi=300)
         plt.close()
 
         return fname, fname_odf
-    
-    return fname
 
+    return fname

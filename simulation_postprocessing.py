@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 from matplotlib import pyplot as plt
 
+
 class FieldFileNaming:
     """
     Naming convention for per-time-step field CSVs, no path for prefix.
@@ -29,7 +30,7 @@ class SimulationResults:
         field_dir,
         field_naming,
     ):
-        
+
         self.block_csv = Path(block_csv).expanduser().resolve()
         self.field_dir = Path(field_dir).expanduser().resolve()
         self.field_naming = field_naming
@@ -45,9 +46,11 @@ class SimulationResults:
         self.check_input()
 
     def check_input(self):
-        
+
         if not self.block_csv.exists() or not self.block_csv.is_file():
-            raise FileNotFoundError(f"Block (per grain) properties CSV not found: {self.block_csv}")
+            raise FileNotFoundError(
+                f"Block (per grain) properties CSV not found: {self.block_csv}"
+            )
 
         block = self.load_block_data()
 
@@ -74,9 +77,10 @@ class SimulationResults:
 
         self.grain_ids = sorted(grain_ids)
 
-       
         if not self.field_dir.exists() or not self.field_dir.is_dir():
-            raise FileNotFoundError(f"Field (per element) properties directory not found: {self.field_dir}")
+            raise FileNotFoundError(
+                f"Field (per element) properties directory not found: {self.field_dir}"
+            )
 
         prefix = re.escape(self.field_naming.prefix)
         sep = re.escape(self.field_naming.sep)
@@ -126,8 +130,10 @@ class SimulationResults:
         df = pd.read_csv(self.field_files[block_row_idx])
         df.columns = [c.strip() for c in df.columns]
         return df
-    
-    def _tensor_from_df(self, df, tensor_prefix, order, suffix="", return_comp_names=False):
+
+    def _tensor_from_df(
+        self, df, tensor_prefix, order, suffix="", return_comp_names=False
+    ):
         """
         df: pandas DataFrame
         suffix: "" for element df; for block df use f"_{grain_id}" or f"_{gid}"
@@ -160,35 +166,61 @@ class SimulationResults:
             ]
             require(cols, "order-1 vector")
             data = df[cols].to_numpy()
-            comp_names = [f"{tensor_prefix}_x", f"{tensor_prefix}_y", f"{tensor_prefix}_z"]
+            comp_names = [
+                f"{tensor_prefix}_x",
+                f"{tensor_prefix}_y",
+                f"{tensor_prefix}_z",
+            ]
             return (data, comp_names) if return_comp_names else data
 
         # if order == 2
-        full = ["11","12","13","21","22","23","31","32","33"]
+        full = ["11", "12", "13", "21", "22", "23", "31", "32", "33"]
         full_cols = [f"{tensor_prefix}_{ij}{suffix}" for ij in full]
         if all(c in df.columns for c in full_cols):
             data = df[full_cols].to_numpy()
             comp_names = [f"{tensor_prefix}_{ij}" for ij in full]
             return (data, comp_names) if return_comp_names else data
 
-        sym = ["xx","xy","xz","yy","yz","zz"]
+        sym = ["xx", "xy", "xz", "yy", "yz", "zz"]
         sym_cols = [f"{tensor_prefix}_{c}{suffix}" for c in sym]
         require(sym_cols, "order-2 symmetric tensor")
 
         a = df[sym_cols].to_numpy()
-        data = np.column_stack([
-            a[:, 0], a[:, 1], a[:, 2],
-            a[:, 1], a[:, 3], a[:, 4],
-            a[:, 2], a[:, 4], a[:, 5],
-        ])
+        data = np.column_stack(
+            [
+                a[:, 0],
+                a[:, 1],
+                a[:, 2],
+                a[:, 1],
+                a[:, 3],
+                a[:, 4],
+                a[:, 2],
+                a[:, 4],
+                a[:, 5],
+            ]
+        )
         comp_names = [
-            f"{tensor_prefix}_xx", f"{tensor_prefix}_xy", f"{tensor_prefix}_xz",
-            f"{tensor_prefix}_yx", f"{tensor_prefix}_yy", f"{tensor_prefix}_yz",
-            f"{tensor_prefix}_zx", f"{tensor_prefix}_zy", f"{tensor_prefix}_zz",
+            f"{tensor_prefix}_xx",
+            f"{tensor_prefix}_xy",
+            f"{tensor_prefix}_xz",
+            f"{tensor_prefix}_yx",
+            f"{tensor_prefix}_yy",
+            f"{tensor_prefix}_yz",
+            f"{tensor_prefix}_zx",
+            f"{tensor_prefix}_zy",
+            f"{tensor_prefix}_zz",
         ]
         return (data, comp_names) if return_comp_names else data
-    
-    def get_tensor_block(self, tensor_prefix, order, sample, grain_id=None, block_id=None, return_comp_names=False):
+
+    def get_tensor_block(
+        self,
+        tensor_prefix,
+        order,
+        sample,
+        grain_id=None,
+        block_id=None,
+        return_comp_names=False,
+    ):
         """
         Block (per-grain) extraction.
 
@@ -248,7 +280,15 @@ class SimulationResults:
             return data, comp_names
         return data
 
-    def get_tensor_element(self, tensor_prefix, order, sample, element_id=None, block_id=None, return_comp_names=False):
+    def get_tensor_element(
+        self,
+        tensor_prefix,
+        order,
+        sample,
+        element_id=None,
+        block_id=None,
+        return_comp_names=False,
+    ):
         """
         Element (per-point/per-element) extraction.
 
@@ -284,9 +324,7 @@ class SimulationResults:
             df = self.load_field_data(bid)
 
             if "id" not in df.columns:
-                raise KeyError(
-                    f"Field CSV for block_id={bid} has no 'id' column."
-                )
+                raise KeyError(f"Field CSV for block_id={bid} has no 'id' column.")
 
             row = df.loc[df["id"] == element_id]
             if row.shape[0] == 0:
@@ -316,5 +354,3 @@ class SimulationResults:
         if return_comp_names:
             return data, comp_names
         return data
-
-

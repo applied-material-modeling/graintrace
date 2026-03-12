@@ -2,18 +2,22 @@ import torch
 from torch_geometric.data import Data
 import os
 
+
 class NeperTessToGraphNN:
     """
     Parse a Neper .tess file and build a graph representation (pytorch_geometric Data)
     with grains as nodes and faces as edges.
     """
 
-    def __init__(self,
-                 tess_path,
-                 geometry_cell_file=None,
-                 geometry_face_file=None,
-                 device="cpu", dtype=torch.float64):
-        
+    def __init__(
+        self,
+        tess_path,
+        geometry_cell_file=None,
+        geometry_face_file=None,
+        device="cpu",
+        dtype=torch.float64,
+    ):
+
         self.tess_path = tess_path
         self.device = device
         self.dtype = dtype
@@ -56,7 +60,7 @@ class NeperTessToGraphNN:
         # call default feature registration
         self.register_default_features()
         self.activate_all_registered_features()
-    
+
     # install NEPER to easily access .tess files geometry information
     def install_neper(self):
         pass
@@ -95,13 +99,13 @@ class NeperTessToGraphNN:
 
         for line in lines:
             if line.startswith("**"):
-                section = line.strip('*').lower()
+                section = line.strip("*").lower()
                 subsection = None
                 continue
 
             if section == "cell":
                 if line.startswith("*"):
-                    name = line.strip('*').lower()
+                    name = line.strip("*").lower()
                     subsection = name if name in sections["cell"] else None
                     continue
 
@@ -149,7 +153,9 @@ class NeperTessToGraphNN:
                     _, x, y, z, w = parts[:5]
                     seeds.append([float(x), float(y), float(z), float(w)])
             if seeds:
-                self.cell_seeds = torch.tensor(seeds, dtype=self.dtype, device=self.device)
+                self.cell_seeds = torch.tensor(
+                    seeds, dtype=self.dtype, device=self.device
+                )
 
         # *ori
         if "ori" in cell_data:
@@ -164,7 +170,9 @@ class NeperTessToGraphNN:
                         vals = list(map(float, line.split()))[:3]
                         ori_vals.append(vals)
                 if ori_vals:
-                    self.orientations = torch.tensor(ori_vals, dtype=self.dtype, device=self.device)
+                    self.orientations = torch.tensor(
+                        ori_vals, dtype=self.dtype, device=self.device
+                    )
 
         # =============== 2. VERTICES ===============
         if "vertex" in sections:
@@ -206,14 +214,14 @@ class NeperTessToGraphNN:
                     # line 1
                     header = list(map(int, lines[i].split()))
                     _, nverts = header[0:2]
-                    verts = [v - 1 for v in header[2:2 + nverts]]
+                    verts = [v - 1 for v in header[2 : 2 + nverts]]
 
                     # line 2
                     edge_line = list(map(int, lines[i + 1].split()))
                     nedges = edge_line[0]
                     edges_signed = [
                         e - 1 if e > 0 else -(abs(e) - 1)
-                        for e in edge_line[1:1 + nedges]
+                        for e in edge_line[1 : 1 + nedges]
                     ]
 
                     face_vertices.append(verts)
@@ -239,14 +247,13 @@ class NeperTessToGraphNN:
 
                     # keep sign but fix 1-based indexing
                     faces_signed = [
-                        f - 1 if f > 0 else -(abs(f) - 1)
-                        for f in parts[2:2 + nfaces]
+                        f - 1 if f > 0 else -(abs(f) - 1) for f in parts[2 : 2 + nfaces]
                     ]
 
                     cell_to_faces.append(faces_signed)
 
             self.cell_to_faces = cell_to_faces
-    
+
     def validate_topology(self, verbose=True):
         """
         Validate the graph connectivity:
@@ -277,8 +284,10 @@ class NeperTessToGraphNN:
             print(f"Isolated (0 cell): {len(isolated)}")
 
             if len(nonmanifold) or len(isolated):
-                raise ValueError("Faces not properly shared. " \
-                "Either non-manifold or isolated faces detected.")
+                raise ValueError(
+                    "Faces not properly shared. "
+                    "Either non-manifold or isolated faces detected."
+                )
             else:
                 print("\nAll faces belong to 1 or 2 cells.\n")
 
@@ -300,7 +309,7 @@ class NeperTessToGraphNN:
         def seed_centroid(self):
             # right now return just cell_seeds , this will be implemented later
             return self.cell_seeds
-            #return self.cell_centroid
+            # return self.cell_centroid
 
         # these are the information required later on for Gary Approximation
         # will be implemented later
@@ -319,9 +328,8 @@ class NeperTessToGraphNN:
         # self.node_feature_registry["volume"] = node_volume
         # self.edge_feature_registry["centroid"] = edge_centroid
         # self.edge_feature_registry["area"] = edge_area
-    
-    def register_dataframe_features(self, data, verbose=True):
 
+    def register_dataframe_features(self, data, verbose=True):
         """
         Register every column in a pandas DataFrame as a node feature.
         """
@@ -342,7 +350,7 @@ class NeperTessToGraphNN:
         # storage for tensors created from dataframe columns
         if not hasattr(self, "_df_node_tensors") or self._df_node_tensors is None:
             self._df_node_tensors = {}
-        
+
         if verbose:
             print("this dataframe has the following columns:")
             print(list(data.columns))
@@ -369,12 +377,11 @@ class NeperTessToGraphNN:
 
         # Ensure new features are active
         self.activate_all_registered_features()
-    
+
     def activate_all_registered_features(self):
         """Activate all currently registered node and edge features."""
         self.active_node_features = list(self.node_feature_registry.keys())
         self.active_edge_features = list(self.edge_feature_registry.keys())
-
 
     # ---------- BUILD GRAPH ----------
     def build_cell_graph(self):
@@ -410,7 +417,9 @@ class NeperTessToGraphNN:
 
             feat = func(self)
             if feat.ndim != 2:
-                raise ValueError(f"Node feature '{name}' must be 2D, got shape {feat.shape}")
+                raise ValueError(
+                    f"Node feature '{name}' must be 2D, got shape {feat.shape}"
+                )
 
             k = feat.shape[1]
             feature_slices[name] = (start, start + k)
@@ -419,8 +428,12 @@ class NeperTessToGraphNN:
             node_feats.append(feat)
 
         # x - node features
-        x = torch.cat(node_feats, dim=1) if node_feats else torch.empty(
-            (len(self.cell_seeds), 0), dtype=self.dtype, device=self.device
+        x = (
+            torch.cat(node_feats, dim=1)
+            if node_feats
+            else torch.empty(
+                (len(self.cell_seeds), 0), dtype=self.dtype, device=self.device
+            )
         )
 
         # --- Edge features ---
@@ -430,10 +443,14 @@ class NeperTessToGraphNN:
             if func is None:
                 raise KeyError(f"Unregistered edge feature: {name}")
             edge_feats.append(func(self, edge_index))
-        
+
         # edge_attr - edge features, shape should be [num_edges, num_edge_features]
-        edge_attr = torch.cat(edge_feats, dim=1) if edge_feats else torch.empty(
-            (edge_index.shape[1], 0), dtype=self.dtype, device=self.device
+        edge_attr = (
+            torch.cat(edge_feats, dim=1)
+            if edge_feats
+            else torch.empty(
+                (edge_index.shape[1], 0), dtype=self.dtype, device=self.device
+            )
         )
 
         graph = Data(x=x, edge_index=edge_index, edge_attr=edge_attr)
@@ -444,13 +461,16 @@ class NeperTessToGraphNN:
 
         return graph
 
-    def visualize_graph_2D(self, graph,
-                        node_attr=None,
-                        edge_attr=None,
-                        cmap="viridis",
-                        outpath="graph_2D.png",
-                        show_node_labels=True,
-                        show_edge_labels=True):
+    def visualize_graph_2D(
+        self,
+        graph,
+        node_attr=None,
+        edge_attr=None,
+        cmap="viridis",
+        outpath="graph_2D.png",
+        show_node_labels=True,
+        show_edge_labels=True,
+    ):
 
         import matplotlib.pyplot as plt
         import networkx as nx
@@ -511,7 +531,8 @@ class NeperTessToGraphNN:
 
         # --- Draw ---
         nx.draw(
-            G, pos,
+            G,
+            pos,
             node_color=node_colors,
             edge_color=edge_colors,
             cmap=cmap,
@@ -523,24 +544,30 @@ class NeperTessToGraphNN:
         # --- Add node labels ---
         if show_node_labels:
             node_labels = {i: str(i) for i in range(num_nodes)}
-            nx.draw_networkx_labels(G, pos, labels=node_labels, font_size=8, font_color="white")
+            nx.draw_networkx_labels(
+                G, pos, labels=node_labels, font_size=8, font_color="white"
+            )
 
         # --- Add edge labels ---
         if show_edge_labels:
             edge_labels = {edge: str(i) for i, edge in enumerate(G.edges())}
-            nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_size=6, rotate=False)
+            nx.draw_networkx_edge_labels(
+                G, pos, edge_labels=edge_labels, font_size=6, rotate=False
+            )
 
         plt.savefig(outpath, dpi=300)
         plt.close()
-    
-    def visualize_graph_3D(self, 
-                           graph,
-                           outpath = "graph_3D.png",
-                           node_attr=None, 
-                           edge_attr=None, 
-                           cmap="viridis",
-                           show_node_labels=False,
-                           show_edge_labels=False):
+
+    def visualize_graph_3D(
+        self,
+        graph,
+        outpath="graph_3D.png",
+        node_attr=None,
+        edge_attr=None,
+        cmap="viridis",
+        show_node_labels=False,
+        show_edge_labels=False,
+    ):
         """
         3D visualization of the cell-cell graph using centroid positions if available.
         Falls back to seed positions if centroids are not yet computed.
@@ -553,7 +580,9 @@ class NeperTessToGraphNN:
             pos = self.node_feature_registry["centroid"](self).detach().cpu()
         else:
             pos = self.cell_seeds[:, :3].detach().cpu()
-            print("WARNING: Using seed positions (centroid node feature not available).")
+            print(
+                "WARNING: Using seed positions (centroid node feature not available)."
+            )
 
         num_nodes = pos.shape[0]
         edges = graph.edge_index.t().cpu()
@@ -596,8 +625,13 @@ class NeperTessToGraphNN:
 
         # --- Draw nodes ---
         sc = ax.scatter(
-            pos[:, 0], pos[:, 1], pos[:, 2],
-            c=node_colors, cmap=cmap, s=40, edgecolor="k"
+            pos[:, 0],
+            pos[:, 1],
+            pos[:, 2],
+            c=node_colors,
+            cmap=cmap,
+            s=40,
+            edgecolor="k",
         )
 
         if show_node_labels:
@@ -611,14 +645,11 @@ class NeperTessToGraphNN:
         plt.tight_layout()
         plt.savefig(outpath, dpi=300)
 
+
 if __name__ == "__main__":
     tess_path = "output_test/voronoi.tess"
 
-    parser = NeperTessToGraphNN(
-        tess_path=tess_path,
-        device="cpu",
-        dtype=torch.float64
-    )
+    parser = NeperTessToGraphNN(tess_path=tess_path, device="cpu", dtype=torch.float64)
 
     print("\n=== Basic Stats ===")
     print("num_cells    :", parser.cell_seeds.shape[0])
@@ -628,16 +659,16 @@ if __name__ == "__main__":
     print("ori_type     :", parser.ori_type)
 
     print("\n=== Quick Data Check ===")
-    print("cell_seeds:\n", parser.cell_seeds[:5])      # first 5 cells
+    print("cell_seeds:\n", parser.cell_seeds[:5])  # first 5 cells
     print("orientations:\n", parser.orientations[:5])  # first 5 orientations
-    print("vertices:\n", parser.vertices[:5])          # first 5 vertices
-    print("edges:\n", parser.edges[:5])                # first 5 edges
+    print("vertices:\n", parser.vertices[:5])  # first 5 vertices
+    print("edges:\n", parser.edges[:5])  # first 5 edges
     print("face_vertices (first 5):")
     for fv in parser.face_vertices[:5]:
         print(" ", fv)
     print("face_edges (first 5):")
     for fe in parser.face_edges[:5]:
-        print(" ", fe) 
+        print(" ", fe)
     print("polyhedra (first 5 cells → their faces):")
     for faces in parser.cell_to_faces[:5]:
         print(" ", faces)
@@ -646,4 +677,3 @@ if __name__ == "__main__":
     graph = parser.build_cell_graph()
     parser.visualize_graph_2D(graph)
     parser.visualize_graph_3D(graph)
-    

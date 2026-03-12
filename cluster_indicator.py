@@ -4,12 +4,13 @@ import numpy as np
 from typing import List, Optional, Tuple, Callable, Dict, Any
 from user_data_class import SimilarityMetric
 
+
 class ClusterAnalysisIndicator:
     def __init__(
-            self,
-            csv_path: str,
-            id_col: str = "id",
-            coord_cols: Tuple[str, str, str] = ("x", "y", "z"),
+        self,
+        csv_path: str,
+        id_col: str = "id",
+        coord_cols: Tuple[str, str, str] = ("x", "y", "z"),
     ):
         self.csv_path = csv_path
         self.id_col = id_col
@@ -21,7 +22,7 @@ class ClusterAnalysisIndicator:
         """Load CSV and populate data, features, coords."""
         if self.data is not None:
             return
-        
+
         df = pd.read_csv(self.csv_path)
 
         # check essential columns
@@ -29,11 +30,11 @@ class ClusterAnalysisIndicator:
         missing = [c for c in required if c not in df.columns]
         if missing:
             raise ValueError(f"Missing required columns: {missing}")
-        
+
         # if there are no other columns other than required, raise error
         if len(df.columns) == len(required):
             raise ValueError("No feature columns found in the data.")
-        
+
         self.data = df
 
     def check_feature_matrix(self, spec: SimilarityMetric) -> None:
@@ -48,7 +49,7 @@ class ClusterAnalysisIndicator:
             raise ValueError(
                 f"Metric '{spec.name}' requires missing columns: {missing}"
             )
-        
+
     def _build_cluster_summaries_from_arrays(
         self,
         labels: np.ndarray,
@@ -72,10 +73,14 @@ class ClusterAnalysisIndicator:
         if labels.size == 0:
             cols = (
                 [label_col, "n"]
-                + [f"{c}_min" for c in coord_names] + [f"{c}_max" for c in coord_names]
-                + [f"{c}_sum" for c in coord_names] + [f"{c}_sumsq" for c in coord_names]
-                + [f"{f}_sum" for f in feat_names] + [f"{f}_sumsq" for f in feat_names]
-                + [f"{c}_mean" for c in coord_names] + [f"{f}_mean" for f in feat_names]
+                + [f"{c}_min" for c in coord_names]
+                + [f"{c}_max" for c in coord_names]
+                + [f"{c}_sum" for c in coord_names]
+                + [f"{c}_sumsq" for c in coord_names]
+                + [f"{f}_sum" for f in feat_names]
+                + [f"{f}_sumsq" for f in feat_names]
+                + [f"{c}_mean" for c in coord_names]
+                + [f"{f}_mean" for f in feat_names]
             )
             return pd.DataFrame(columns=cols)
 
@@ -127,7 +132,7 @@ class ClusterAnalysisIndicator:
             data[f"{f}_mean"] = feat_sum[:, j] / n
 
         return pd.DataFrame(data)
-    
+
     def _get_all_feature_cols(self, df: pd.DataFrame) -> List[str]:
         required = [self.id_col, *self.coord_cols]
         return [c for c in df.columns if c not in required]
@@ -163,7 +168,7 @@ class ClusterAnalysisIndicator:
 
         if minimal_return:
             return {"clusters": clusters}
-        
+
         return {"points": points, "clusters": clusters, "extras": extras}
 
     ## different clustering methods
@@ -188,10 +193,11 @@ class ClusterAnalysisIndicator:
         X = df[spec.feature_cols].to_numpy(dtype=float)
         coords = df[list(self.coord_cols)].to_numpy(dtype=float)
 
-        all_feat_cols = self._get_all_feature_cols(df)         
+        all_feat_cols = self._get_all_feature_cols(df)
         X_all = df[all_feat_cols].to_numpy(dtype=float)
 
         from sklearn.cluster import DBSCAN
+
         clustering = DBSCAN(
             eps=eps,
             min_samples=min_samples,
@@ -203,7 +209,7 @@ class ClusterAnalysisIndicator:
         ).fit(X)
 
         labels = clustering.labels_
-    
+
         clusters = self._build_cluster_summaries_from_arrays(
             labels=labels,
             coords=coords,
@@ -216,7 +222,9 @@ class ClusterAnalysisIndicator:
         )
 
         extras = {
-            "n_clusters_excluding_noise": int(len(set(labels)) - (1 if noise_label in labels else 0)),
+            "n_clusters_excluding_noise": int(
+                len(set(labels)) - (1 if noise_label in labels else 0)
+            ),
             "n_noise": int(np.sum(labels == noise_label)),
         }
 
@@ -253,10 +261,11 @@ class ClusterAnalysisIndicator:
         X = df[spec.feature_cols].to_numpy(dtype=float)
         coords = df[list(self.coord_cols)].to_numpy(dtype=float)
 
-        all_feat_cols = self._get_all_feature_cols(df)         
+        all_feat_cols = self._get_all_feature_cols(df)
         X_all = df[all_feat_cols].to_numpy(dtype=float)
 
         from sklearn.cluster import AgglomerativeClustering
+
         clustering = AgglomerativeClustering(
             n_clusters=n_clusters,
             metric=spec.func,
@@ -276,7 +285,7 @@ class ClusterAnalysisIndicator:
             feats=X_all,
             coord_names=list(self.coord_cols),
             feat_names=all_feat_cols,
-            include_noise=True,   # agglomerative has no noise label
+            include_noise=True,  # agglomerative has no noise label
             noise_label=-1,
             label_col="cluster_label",
         )
@@ -322,6 +331,7 @@ class ClusterAnalysisIndicator:
         X_all = df[all_feat_cols].to_numpy(dtype=float)
 
         from sklearn.cluster import OPTICS
+
         clustering = OPTICS(
             min_samples=min_samples,
             max_eps=max_eps,
@@ -353,7 +363,9 @@ class ClusterAnalysisIndicator:
         )
 
         extras = {
-            "n_clusters_excluding_noise": int(len(set(labels)) - (1 if noise_label in labels else 0)),
+            "n_clusters_excluding_noise": int(
+                len(set(labels)) - (1 if noise_label in labels else 0)
+            ),
             "n_noise": int(np.sum(labels == noise_label)),
         }
 
@@ -372,7 +384,7 @@ class ClusterAnalysisIndicator:
         ax=None,
         no_labels: bool = True,
     ) -> Dict[str, Any]:
-        
+
         import matplotlib.pyplot as plt
         from scipy.cluster.hierarchy import dendrogram
 
@@ -419,7 +431,7 @@ class ClusterAnalysisIndicator:
         X = df[spec.feature_cols].to_numpy(dtype=float)
         coords = df[list(self.coord_cols)].to_numpy(dtype=float)
 
-        all_feat_cols = self._get_all_feature_cols(df)         
+        all_feat_cols = self._get_all_feature_cols(df)
         X_all = df[all_feat_cols].to_numpy(dtype=float)
 
         from scipy.cluster.hierarchy import linkage, cophenet, fclusterdata
@@ -441,7 +453,9 @@ class ClusterAnalysisIndicator:
         coph_corr, coph_dists = cophenet(Z, D)
         D_ultra = squareform(coph_dists)
 
-        mds_1d = MDS(n_components=1, dissimilarity="precomputed", random_state=42, n_init=4)
+        mds_1d = MDS(
+            n_components=1, dissimilarity="precomputed", random_state=42, n_init=4
+        )
         X_1d = mds_1d.fit_transform(D_ultra).ravel()
 
         clusters = self._build_cluster_summaries_from_arrays(

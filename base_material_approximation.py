@@ -1,6 +1,7 @@
 import torch
 import neml2
 
+
 class BaseMaterialApproximationModel:
     """
     Abstract interface for any constitutive or homogenized material model
@@ -8,9 +9,7 @@ class BaseMaterialApproximationModel:
     model evaluation.
     """
 
-    def __init__(self,
-                 neml2_path: str,
-                 neml2_model_name: str = "model"):
+    def __init__(self, neml2_path: str, neml2_model_name: str = "model"):
         """
         Initialize a material model approximation interface.
 
@@ -31,7 +30,9 @@ class BaseMaterialApproximationModel:
     def _load_model(self):
         return neml2.load_model(self.neml2_path, self.neml2_model_name)
 
-    def load_experiment_data(self, data_dir: str, strain_stress_file: str, npoints: int):
+    def load_experiment_data(
+        self, data_dir: str, strain_stress_file: str, npoints: int
+    ):
         """
         Expected inputs and outputs depend on model type but generally, should always include:
         ----------
@@ -44,13 +45,15 @@ class BaseMaterialApproximationModel:
         """
         return None
 
-    def simulate(self,
-                 params,
-                 d: torch.Tensor,
-                 assumed_rate: float,
-                 experiment_data=None,
-                 return_state: bool = False,
-                 initial_strains=None):
+    def simulate(
+        self,
+        params,
+        d: torch.Tensor,
+        assumed_rate: float,
+        experiment_data=None,
+        return_state: bool = False,
+        initial_strains=None,
+    ):
         """
         Run a stress–strain simulation for given model parameters.
 

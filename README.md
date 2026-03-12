@@ -63,10 +63,9 @@ Here are the resources to successfully compile MOOSE with NEML2
 
 __Instructions__: at least worked for `Ubuntu 20.04` with the appropriate `mpi` and compiler packages. Check the above websites for prerequisites and dependencies.
 
-- Here we assume the current path is in an empty folder. This folder will contain all of the MOOSE related programs. Also there is a current conda environment activated with the necessary dependencies. 
+- Here we assume the current path is in an empty folder. This folder will contain all of the MOOSE related programs. Also there is a current conda environment activated with the necessary dependencies.
 
 ```bash
-conda activate graintrace_env
 mkdir projects
 cd projects
 ```
@@ -91,7 +90,7 @@ cd ../../
 
 ```bash
 wget https://download.pytorch.org/libtorch/cu126/libtorch-shared-with-deps-2.10.0%2Bcu126.zip
-unzip ibtorch-shared-with-deps-2.10.0%2Bcu126.zip
+unzip libtorch-shared-with-deps-2.10.0+cu126.zip
 export LIBTORCH_DIR=${PWD}/libtorch
 ```
 
@@ -128,6 +127,7 @@ make -j 12
 - Make sure the conda environment from `environment.ymal` is active. Then do:
 
 ```bash
+conda activate graintrace_env
 ./run_tests
 ```
 
@@ -143,19 +143,19 @@ pip install . -v
 
 ## Minimum working example
 
-Run code `cpfe_nfff_demonstrate.py` to check if the required programs are installed correctly.
+Run code `demonstrate_cpfe_nfff.py` to check if the required programs are installed correctly.
 
 - Ensure that the environment variables for the programs are specified correctly. For `Coreform CUBIT`, Locate this line of codes and change the correct environment variables.
 
 ```python
 sculpt_config = {
-    "mpirun": "/opt/Coreform-Cubit-2025.12/bin/mpi/bin/mpirun",
-    "psculpt": "/opt/Coreform-Cubit-2025.12/bin/psculpt",
-    "epu": "/opt/Coreform-Cubit-2025.12/bin/epu",
+    "launcher": "/home/tranh/Progs/cubit_gov/bin/mpi/bin/mpiexec",
+    "psculpt": "/home/tranh/Progs/cubit_gov/bin/psculpt",
+    "epu": "/home/tranh/Progs/cubit_gov/bin/epu",
     "nprocs": int(ncore),
     "environment": {
-        "OPAL_LIBDIR": "/opt/Coreform-Cubit-2025.12/bin/mpi/lib",
-        "OPAL_PREFIX": "/opt/Coreform-Cubit-2025.12/bin/mpi",
+        "OPAL_LIBDIR": "/home/tranh/Progs/cubit_gov/bin/mpi/lib",
+        "OPAL_PREFIX": "/home/tranh/Progs/cubit_gov/bin/mpi",
     },
 }
 ```
@@ -181,7 +181,7 @@ This code will:
 - Use CUBIT/SCULPT/NEML2 to reconstruct crystal structure from NF
 - Use MOOSE/NEML2 to run CPFE simulations
 
-In the end, navigate to `minimum_eexample_cpfe/simulation/cpfe_run.log` to make sure the simulation is completed.
+In the end, navigate to `minimum_example_cpfe/simulation/cpfe_run.log` to make sure the simulation is completed.
 
 ## Check other python packages
 
@@ -191,6 +191,10 @@ Run these scripts to check if all required python packages are installed. If the
 
 - `demonstrate_postprocess.py`
 
-- `rei_demonstrate_example_2D.py`
+- `demonstrate_rei_pipeline.py`
 
-- `hedm_study_demonstrate.py`
+- `demonstrate_rei_example_2D.py`
+
+- `demonstrate_rei_example_3D.py`
+
+- `demonstrate_hedm_study.py`

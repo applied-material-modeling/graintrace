@@ -4,6 +4,7 @@ import torch
 inds = ["11", "22", "33", "23", "13", "12"]
 facts = [1.0, 1.0, 1.0, sqrt(2.0), sqrt(2.0), sqrt(2.0)]
 
+
 def misorientation(
     e1, e2, angle_convention="kocks", angle_type="degrees", symmetry="1"
 ):
@@ -24,7 +25,7 @@ def misorientation(
     import neml2
     from neml2 import tensors
     from neml2 import crystallography
-    
+
     e1 = torch.tensor(e1, dtype=torch.float64)
     e2 = torch.tensor(e2, dtype=torch.float64)
 
@@ -80,23 +81,24 @@ def misorientation(
 
     return rad_mis
 
+
 if __name__ == "__main__":
 
     def check(e1, e2, expected, tol=1e-3):
         val = misorientation(
-            e1, e2,
+            e1,
+            e2,
             angle_convention="bunge",
             angle_type="degrees",
             symmetry="432",
         )
 
         val = val.item() if isinstance(val, torch.Tensor) else val
-        
+
         print(f"e1={e1}, e2={e2} -> {val:.4f} deg")
 
         if expected is not None:
-            assert abs(val - expected) < tol, \
-                f"Expected {expected} deg, got {val} deg"
+            assert abs(val - expected) < tol, f"Expected {expected} deg, got {val} deg"
 
     check([0, 0, 0], [0, 0, 0], 0.0)
     check([0, 0, 0], [90, 0, 0], 0.0)
@@ -104,7 +106,8 @@ if __name__ == "__main__":
     check([12.0, 0, 27.0], [102.0, 0, 27.0], 0.0)
 
     val = misorientation(
-        [10, 20, 30], [40, 50, 60],
+        [10, 20, 30],
+        [40, 50, 60],
         angle_convention="kocks",
         angle_type="degrees",
         symmetry="432",
@@ -112,9 +115,10 @@ if __name__ == "__main__":
     val = val.item() if isinstance(val, torch.Tensor) else val
     print(f"random -> {val:.4f} deg")
     assert val > 0.0, "Random orientations should not give zero misorientation"
-    
+
     val = misorientation(
-        [0, 0, 0], [45.0, 45.0, 0.0],
+        [0, 0, 0],
+        [45.0, 45.0, 0.0],
         angle_convention="kocks",
         angle_type="degrees",
         symmetry="432",
@@ -124,6 +128,7 @@ if __name__ == "__main__":
     assert 62.5 <= val <= 63.0, "Cubic max misorientation out of range"
 
     print("\nAll misorientation tests PASSED.")
+
 
 def load_orientations(df, field="O"):
     """Load orientations from dataframe and convert to torch tensor giving the modified Rodrigues parameters.
@@ -138,7 +143,7 @@ def load_orientations(df, field="O"):
         torch.Tensor: Tensor containing orientation data.
     """
     if field is None:
-         # assume columns are ordered row-major
+        # assume columns are ordered row-major
         n = len(df)
         matrix = torch.tensor(df.iloc[:, :9].values, dtype=torch.float32)
         matrix = matrix.view(n, 3, 3)
