@@ -1,5 +1,7 @@
 import numpy as np
 from cluster_indicator import SimilarityMetric  # adjust import path
+import functools
+from dataclasses import dataclass
 
 
 # von Mises stress distance
@@ -36,33 +38,108 @@ def von_mises_stress_distance_batch(X: np.ndarray, edges: np.ndarray) -> np.ndar
     return np.abs(a - b) / (np.abs(a) + np.abs(b) + 1e-8)
 
 
-# misorientation - batch by default
-def make_misorientation_dist_edges(
+# misorientation
+def misorientation_distance(
+    u: np.ndarray,
+    v: np.ndarray,
     angle_convention: str = "bunge",
-    angle_type: str = "degrees",
+    input_angle_type: str = "degrees",
     symmetry: str = "432",
-):
+    output_unit: str = "degrees",
+) -> float:
     import torch
     from neml2 import tensors, crystallography
 
-    def dist_edges(X: np.ndarray, edges: np.ndarray) -> np.ndarray:
+    valid_euler = {"bunge", "kocks", "roe"}
+    valid_special = {"mrp"}
+
+    if angle_convention not in (valid_euler | valid_special):
+        raise ValueError(f"Unsupported angle_convention: {angle_convention}")
+    if input_angle_type not in {"degrees", "radians"}:
+        raise ValueError(f"Unsupported input_angle_type: {input_angle_type}")
+    if output_unit not in {"degrees", "radians"}:
+        raise ValueError(f"Unsupported output_unit: {output_unit}")
+
+    e1 = torch.as_tensor(u, dtype=torch.float64).reshape(1, 3)
+    e2 = torch.as_tensor(v, dtype=torch.float64).reshape(1, 3)
+
+    if angle_convention == "mrp":
+        r1 = tensors.Rot(e1)
+        r2 = tensors.Rot(e2)
+    else:
+        r1 = tensors.Rot.fill_euler_angles(
+            tensors.Vec(e1), angle_convention, input_angle_type
+        )
+        r2 = tensors.Rot.fill_euler_angles(
+            tensors.Vec(e2), angle_convention, input_angle_type
+        )
+
+    mis = crystallography.misorientation(r1, r2, symmetry).torch()
+
+    if output_unit == "degrees":
+        mis = torch.rad2deg(mis)
+
+    return float(mis.detach().cpu().numpy().reshape(-1)[0])
+
+
+@dataclass(frozen=True)
+class MisorientationDistEdges:
+    angle_convention: str = "bunge"
+    input_angle_type: str = "degrees"
+    symmetry: str = "432"
+    output_unit: str = "degrees"
+
+    def __call__(self, X: np.ndarray, edges: np.ndarray) -> np.ndarray:
+        import torch
+        from neml2 import tensors, crystallography
+
+        valid_euler = {"bunge", "kocks", "roe"}
+        valid_special = {"mrp"}
+
+        if self.angle_convention not in (valid_euler | valid_special):
+            raise ValueError(f"Unsupported angle_convention: {self.angle_convention}")
+        if self.input_angle_type not in {"degrees", "radians"}:
+            raise ValueError(f"Unsupported input_angle_type: {self.input_angle_type}")
+        if self.output_unit not in {"degrees", "radians"}:
+            raise ValueError(f"Unsupported output_unit: {self.output_unit}")
+
         I = edges[:, 0]
         J = edges[:, 1]
 
         e1 = torch.as_tensor(X[I], dtype=torch.float64)
         e2 = torch.as_tensor(X[J], dtype=torch.float64)
 
-        e1 = tensors.Rot(e1)
-        e2 = tensors.Rot(e2)
+        if self.angle_convention == "mrp":
+            r1 = tensors.Rot(e1)
+            r2 = tensors.Rot(e2)
+        else:
+            r1 = tensors.Rot.fill_euler_angles(
+                tensors.Vec(e1), self.angle_convention, self.input_angle_type
+            )
+            r2 = tensors.Rot.fill_euler_angles(
+                tensors.Vec(e2), self.angle_convention, self.input_angle_type
+            )
 
-        rad_mis = crystallography.misorientation(e1, e2, symmetry).torch()
+        mis = crystallography.misorientation(r1, r2, self.symmetry).torch()
 
-        if angle_type == "degrees":
-            rad_mis = torch.rad2deg(rad_mis)
+        if self.output_unit == "degrees":
+            mis = torch.rad2deg(mis)
 
-        return rad_mis.detach().cpu().numpy().astype(np.float64, copy=False)
+        return mis.detach().cpu().numpy().astype(np.float64, copy=False)
 
-    return dist_edges
+
+def make_misorientation_dist_edges(
+    angle_convention: str = "bunge",
+    input_angle_type: str = "degrees",
+    symmetry: str = "432",
+    output_unit: str = "degrees",
+):
+    return MisorientationDistEdges(
+        angle_convention=angle_convention,
+        input_angle_type=input_angle_type,
+        symmetry=symmetry,
+        output_unit=output_unit,
+    )
 
 
 # 3by3 tensor norm distance
@@ -143,19 +220,35 @@ class SimilarityMetricLibrary:
         )
 
     def misorientation(
-        self, symmetry="432", angle_type="degrees", angle_convention="bunge"
+        self,
+        feature_cols=None,
+        symmetry="432",
+        input_angle_type="degrees",
+        angle_convention="mrp",
+        output_unit="degrees",
     ) -> SimilarityMetric:
 
-        cols = ["ori_rodrigues_x", "ori_rodrigues_y", "ori_rodrigues_z"]
+        if feature_cols is None:
+            feature_cols = ["ori_rodrigues_x", "ori_rodrigues_y", "ori_rodrigues_z"]
+
+        if len(feature_cols) != 3:
+            raise ValueError("misorientation requires exactly 3 feature columns")
 
         return SimilarityMetric(
             name="misorientation",
-            feature_cols=cols,
-            func=lambda u, v: float("nan"),
+            feature_cols=list(feature_cols),
+            func=functools.partial(
+                misorientation_distance,
+                angle_convention=angle_convention,
+                input_angle_type=input_angle_type,
+                symmetry=symmetry,
+                output_unit=output_unit,
+            ),
             dist_edges=make_misorientation_dist_edges(
                 symmetry=symmetry,
-                angle_type=angle_type,
+                input_angle_type=input_angle_type,
                 angle_convention=angle_convention,
+                output_unit=output_unit,
             ),
         )
 

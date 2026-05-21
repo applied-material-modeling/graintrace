@@ -105,7 +105,7 @@ def flood(
                     front = torch.empty((0, 3), dtype=torch.long)
 
             size_current = torch.sum(phase == current_segment).item()
-            
+
             if size_current < grain_threshold:
                 # Remove small segments
                 phase[phase == current_segment] = -1
@@ -267,5 +267,11 @@ def remove_small_segments(grid, min_size, connectivity=6):
                     # Copy attributes from first voxel of target segment to all voxels of small segment
                     target_values = grid[target_x[0], target_y[0], target_z[0]].clone()
                     grid[seg_x, seg_y, seg_z, 0:4] = target_values[0:4]
+                else:
+                    grid[seg_x, seg_y, seg_z, 0] = -1
+            else:
+                grid[seg_x, seg_y, seg_z, 0] = -1
+        else:
+            grid[seg_x, seg_y, seg_z, 0] = -1
 
     return grid

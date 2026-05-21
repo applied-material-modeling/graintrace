@@ -7,7 +7,6 @@ from tqdm import tqdm
 import os
 import json
 import re
-from nf.metrics import average_rotations
 
 
 class GraphSpatialCluster:
@@ -66,7 +65,7 @@ class GraphSpatialCluster:
         grid_tol: float = 1e-6,
         n_jobs: int = 1,
         weight_chunk_size: int = 1_000_000,
-        nodes_chunk: int = 50_000,
+        nodes_chunk: int = 250_000,
         segmenter: str = "auto",  # "auto" | "leiden" | "plm"
         seed: int = 42,
         feature_names: Optional[List[str]] = None,
@@ -75,10 +74,14 @@ class GraphSpatialCluster:
         reduce_edges_topweights_k: Optional[
             int
         ] = None,  # if not None, keep only top k edges per node by weight before clustering
+        max_edge_distance: Optional[
+            float
+        ] = None,  # if not None, remove edges with distances below threshold
         weight_cfg: WeightConfig = WeightConfig(mode="inverse", eps=1e-8),
         networkit_kwargs: Optional[Dict[str, Any]] = None,
         checkpoint_base_path: Optional[str] = None,
         resume_from_checkpoint: bool = False,
+        mp_start_method: Optional[str] = None,
     ) -> Dict[str, Any]:
 
         print("\n=== Running GraphSpatialCluster ===\n")
@@ -139,28 +142,42 @@ class GraphSpatialCluster:
                 f" Number of features: {X.shape[1]}\n"
             )
 
-            if weight_cfg.mode.lower() in ("rbf", "exp") and weight_cfg.sigma is None:
-                sigma = self.estimate_sigma_from_sampled_edges(
-                    edges=edges,
-                    X=X,
-                    spec=spec,
-                    sample_size=weight_cfg.sigma_auto["sample_size"],
-                    quantile=weight_cfg.sigma_auto["quantile"],
-                    seed=weight_cfg.sigma_auto["random_state"],
-                )
-                weight_cfg = WeightConfig(**{**weight_cfg.__dict__, "sigma": sigma})
-                print(f"Estimated sigma for weight function: {sigma}\n")
-
-            print("Computing edge weights with metric:", spec.name)
-
-            weights = self.compute_edge_weights(
+            print("Computing edge distances with metric:", spec.name)
+            distances = self.compute_edge_distances(
                 edges=edges,
                 X=X,
                 spec=spec,
                 n_jobs=n_jobs,
                 chunk_size=weight_chunk_size,
-                weight_cfg=weight_cfg,
+                mp_start_method=mp_start_method,
             )
+
+            if max_edge_distance is not None:
+                max_edge_distance = float(max_edge_distance)
+                if max_edge_distance <= 0:
+                    raise ValueError("max_edge_distance must be > 0")
+
+                keep = distances <= max_edge_distance
+                edges = edges[keep]
+                distances = distances[keep]
+
+                print(f"\nKeeping edges with distance <= {max_edge_distance}")
+                print(f"Updated number of edges: {edges.shape[0]}\n")
+
+            if weight_cfg.mode.lower() in ("rbf", "exp") and weight_cfg.sigma is None:
+                if distances.shape[0] == 0:
+                    raise ValueError(
+                        "No edges remain after max_edge_distance filtering; cannot estimate sigma."
+                    )
+                sigma = self.estimate_sigma_from_distances(
+                    distances=distances,
+                    quantile=weight_cfg.sigma_auto["quantile"],
+                )
+                weight_cfg = WeightConfig(**{**weight_cfg.__dict__, "sigma": sigma})
+                print(f"Estimated sigma for weight function: {sigma}\n")
+
+            print("Converting edge distances to weights")
+            weights = self.distances_to_weights(distances, weight_cfg)
 
             if reduce_edges_topweights_k is not None:
                 print(
@@ -173,6 +190,7 @@ class GraphSpatialCluster:
                     k=reduce_edges_topweights_k,
                     n_jobs=n_jobs,
                     nodes_chunk=nodes_chunk,
+                    mp_start_method=mp_start_method,
                 )
                 print(f"Updated number of edges: {edges.shape[0]}\n")
 
@@ -192,6 +210,9 @@ class GraphSpatialCluster:
                 "k": int(k),
                 "manhattan_radius": int(manhattan_radius),
                 "grid_tol": float(grid_tol),
+                "max_edge_distance": (
+                    float(max_edge_distance) if max_edge_distance is not None else None
+                ),
             }
             print(f"Saving checkpoint: {checkpoint_base_path} (edges/weights/meta)")
             self._save_checkpoint(
@@ -500,41 +521,35 @@ class GraphSpatialCluster:
         raise ValueError(f"Unknown weight mode: {cfg.mode}")
 
     @staticmethod
-    def _weights_worker(
-        args: Tuple[np.ndarray, np.ndarray, SimilarityMetric, WeightConfig],
+    def _distances_worker(
+        args: Tuple[np.ndarray, np.ndarray, SimilarityMetric],
     ) -> np.ndarray:
-        edges_chunk, X, spec, cfg = args
+        edges_chunk, X, spec = args
 
         dist_edges = getattr(spec, "dist_edges", None)
         if dist_edges is not None:
             d = np.asarray(dist_edges(X, edges_chunk), dtype=np.float64)
-
             if d.shape != (edges_chunk.shape[0],):
                 d = d.reshape(-1)
             if d.shape != (edges_chunk.shape[0],):
                 raise ValueError(
                     f"dist_edges must return shape ({edges_chunk.shape[0]},), got {d.shape}"
                 )
-            d = spec.dist_edges(X, edges_chunk)
-            d = np.asarray(d, dtype=np.float64)
-            return GraphSpatialCluster._dist_to_weight_vec(d, cfg).astype(
-                np.float64, copy=False
-            )
+            return d.astype(np.float64, copy=False)
 
-        w = np.empty(edges_chunk.shape[0], dtype=np.float64)
+        d = np.empty(edges_chunk.shape[0], dtype=np.float64)
         for t, (i, j) in enumerate(edges_chunk):
-            d = float(spec.func(X[i], X[j]))
-            w[t] = GraphSpatialCluster._dist_to_weight(d, cfg)
-        return w
+            d[t] = float(spec.func(X[i], X[j]))
+        return d
 
-    def compute_edge_weights(
+    def compute_edge_distances(
         self,
         edges: np.ndarray,
         X: np.ndarray,
         spec: SimilarityMetric,
-        weight_cfg: WeightConfig,
         n_jobs: int = 1,
         chunk_size: int = 1_000_000,
+        mp_start_method: Optional[str] = None,
     ) -> np.ndarray:
 
         if edges.ndim != 2 or edges.shape[1] != 2:
@@ -546,29 +561,71 @@ class GraphSpatialCluster:
             n_jobs = 1
 
         if n_jobs == 1:
-            return self._weights_worker((edges, X, spec, weight_cfg))
+            return self._distances_worker((edges, X, spec))
 
-        ctx = mp.get_context()
+        if mp_start_method is None:
+            ctx = mp.get_context()
+        else:
+            ctx = mp.get_context(mp_start_method)
         tasks = (
-            (edges[s:e], X, spec, weight_cfg)
+            (edges[s:e], X, spec)
             for s in range(0, edges.shape[0], chunk_size)
             for e in [min(edges.shape[0], s + chunk_size)]
         )
 
-        weights = np.empty(edges.shape[0], dtype=np.float64)
+        distances = np.empty(edges.shape[0], dtype=np.float64)
         off = 0
-
         total_edges = edges.shape[0]
 
         with ctx.Pool(processes=n_jobs) as pool:
-            with tqdm(total=total_edges, desc="Edge weights", unit="edge") as pbar:
-                for w_chunk in pool.imap(self._weights_worker, tasks, chunksize=1):
-                    chunk_size_actual = w_chunk.size
-                    weights[off : off + chunk_size_actual] = w_chunk
+            with tqdm(total=total_edges, desc="Edge distances", unit="edge") as pbar:
+                for d_chunk in pool.imap(self._distances_worker, tasks, chunksize=1):
+                    chunk_size_actual = d_chunk.size
+                    distances[off : off + chunk_size_actual] = d_chunk
                     off += chunk_size_actual
                     pbar.update(chunk_size_actual)
 
-        return weights
+        return distances
+
+    @staticmethod
+    def distances_to_weights(
+        distances: np.ndarray,
+        weight_cfg: WeightConfig,
+    ) -> np.ndarray:
+        return GraphSpatialCluster._dist_to_weight_vec(
+            np.asarray(distances, dtype=np.float64),
+            weight_cfg,
+        ).astype(np.float64, copy=False)
+
+    @staticmethod
+    def estimate_sigma_from_distances(
+        distances: np.ndarray,
+        quantile: float = 0.5,
+    ) -> float:
+        if distances.shape[0] == 0:
+            raise ValueError("No distances available to estimate sigma from.")
+        sigma = float(np.quantile(distances, quantile))
+        if not np.isfinite(sigma) or sigma <= 0:
+            raise ValueError(f"Bad sigma estimate: {sigma}")
+        return sigma
+
+    def compute_edge_weights(
+        self,
+        edges: np.ndarray,
+        X: np.ndarray,
+        spec: SimilarityMetric,
+        weight_cfg: WeightConfig,
+        n_jobs: int = 1,
+        chunk_size: int = 1_000_000,
+    ) -> np.ndarray:
+        distances = self.compute_edge_distances(
+            edges=edges,
+            X=X,
+            spec=spec,
+            n_jobs=n_jobs,
+            chunk_size=chunk_size,
+        )
+        return self.distances_to_weights(distances, weight_cfg)
 
     # in case too much edges, this allow to remove of weak edges via topk
     @staticmethod
@@ -602,6 +659,7 @@ class GraphSpatialCluster:
         k: Optional[int],
         n_jobs: int = 1,
         nodes_chunk: int = 250_000,
+        mp_start_method: Optional[str] = None,
     ) -> Tuple[np.ndarray, np.ndarray]:
 
         if k is None:
@@ -642,7 +700,10 @@ class GraphSpatialCluster:
             if kept.size:
                 keep_edge[kept] = True
         else:
-            ctx = mp.get_context()
+            if mp_start_method is None:
+                ctx = mp.get_context()
+            else:
+                ctx = mp.get_context(mp_start_method)
             tasks = []
             for a in range(0, n_nodes, nodes_chunk):
                 b = min(n_nodes, a + nodes_chunk)

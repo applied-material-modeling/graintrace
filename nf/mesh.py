@@ -32,9 +32,8 @@ def write_spn(
         symmetry (str): crystal symmetry in orbifold notation (default: '1')
     """
     flat_data = data.reshape(-1, 7)
-    phases = torch.sort(torch.unique(flat_data[:, 0])).values[
-        1:
-    ]  # Exclude void phase (0)
+    phases = torch.sort(torch.unique(flat_data[:, 0])).values
+    phases = phases[phases != 0]
 
     orientations = torch.zeros((len(phases), 3))
     orientations_sameconv = torch.zeros((len(phases), 3))
@@ -55,7 +54,11 @@ def write_spn(
 
     # Apparently it wants -1 for voids
     np.savetxt(filename_orientations, orientations.numpy(), delimiter=",")
-    np.savetxt(filename_orientations + "_sameconv", orientations_sameconv.numpy(), delimiter=",")
+    np.savetxt(
+        filename_orientations + "_sameconv",
+        orientations_sameconv.numpy(),
+        delimiter=",",
+    )
     np.savetxt(filename_spn, flat_data[:, 0].numpy().flatten(), delimiter=" ", fmt="%d")
 
 
@@ -99,7 +102,9 @@ def mesh_sculpt(
     elif base == "srun":
         nflag = "-n"
     else:
-        raise ValueError(f"Unsupported launcher {launcher!r}. Use mpiexec, mpirun, or srun.")
+        raise ValueError(
+            f"Unsupported launcher {launcher!r}. Use mpiexec, mpirun, or srun."
+        )
 
     with tempfile.TemporaryDirectory() as tmpdir:
         sclupt_call = [
@@ -218,4 +223,8 @@ def map_orientations(
         orientations_sameconv = np.stack(orientations_sameconv, axis=0)
 
         np.savetxt(output_angle_filename + ".csv", orientations, delimiter=",")
-        np.savetxt(output_angle_filename + "_sameconv.csv", orientations_sameconv, delimiter=",")
+        np.savetxt(
+            output_angle_filename + "_sameconv.csv",
+            orientations_sameconv,
+            delimiter=",",
+        )

@@ -15,6 +15,7 @@ import tqdm
 import os
 import re
 
+
 def layer_number(path: str, token: str = "layer") -> int:
     """
     Extract layer index from a filename.
@@ -54,14 +55,14 @@ def nf_to_pointcloud(folder, dz, layer_token="layer"):
         folder (str): folder with nearfield data
         dz (float): spacing between layers in the z-direction
     """
-    
+
     mic_files = glob.glob(f"{folder}/*.mic")
     csv_files = glob.glob(f"{folder}/*.csv")
 
     if mic_files:
-        files = sorted(mic_files, key=layer_number)
+        files = sorted(mic_files, key=lambda f: layer_number(f, token=layer_token))
     elif csv_files:
-        files = sorted(csv_files, key=layer_number)
+        files = sorted(csv_files, key=lambda f: layer_number(f, token=layer_token))
     else:
         raise FileNotFoundError("No .mic or .csv files found in the specified folder")
 
@@ -183,9 +184,21 @@ def fixed_grid_to_vtk(
     """
     varray = vtkStructuredGrid()
     nx, ny, nz, nvars = fixed_grid.shape
-    dx = fixed_grid[1, 0, 0, 4] - fixed_grid[0, 0, 0, 4]
-    dy = fixed_grid[0, 1, 0, 5] - fixed_grid[0, 0, 0, 5]
-    dz = fixed_grid[0, 0, 1, 6] - fixed_grid[0, 0, 0, 6]
+    if nz == 1:
+        dz = 1.0
+    else:
+        dz = fixed_grid[0, 0, 1, 6] - fixed_grid[0, 0, 0, 6]
+
+    if nx == 1:
+        dx = 1.0
+    else:
+        dx = fixed_grid[1, 0, 0, 4] - fixed_grid[0, 0, 0, 4]
+
+    if ny == 1:
+        dy = 1.0
+    else:
+        dy = fixed_grid[0, 1, 0, 5] - fixed_grid[0, 0, 0, 5]
+
     x = np.linspace(
         fixed_grid[0, 0, 0, 4] - dx / 2, fixed_grid[-1, 0, 0, 4] + dx / 2, nx + 1
     )

@@ -64,13 +64,16 @@ graph_cluster_arguments = {"gamma": 1.0}
 ## for all parameters: https://networkit.github.io/dev-docs/python_api/community.html
 
 
-generate_synthetic = True
+generate_synthetic = False
 nx = 100
 ny = 100
-nz = 1
+nz = 100
 
 threshold = 0.1
 radius_elements_range = (6, 16)
+
+if nz > 1:
+    if_plot = False
 
 os.makedirs(os.path.dirname(filename), exist_ok=True)
 

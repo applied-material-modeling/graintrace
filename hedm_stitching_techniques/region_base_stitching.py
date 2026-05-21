@@ -8,7 +8,7 @@ from orientation_helper import misorientation
 from scipy.optimize import linear_sum_assignment
 
 
-class RegionBaseStitching():
+class RegionBaseStitching:
     def __init__(
         self,
         scan_files: List[str],
@@ -21,9 +21,18 @@ class RegionBaseStitching():
         orientation_convention: str = "bunge",
         orientation_units: str = "degrees",
         symmetry: str = "432",
-        output_column: List[str] = ["X", "Y", "Z", "GrainRadius", "Eul0", "Eul1", "Eul2", "ScanID"],
+        output_column: List[str] = [
+            "X",
+            "Y",
+            "Z",
+            "GrainRadius",
+            "Eul0",
+            "Eul1",
+            "Eul2",
+            "ScanID",
+        ],
     ):
-        self.scan_files = scan_files            # raw per-scan CSVs
+        self.scan_files = scan_files  # raw per-scan CSVs
         self.output_csv = output_csv
         self.position_tolerance = position_tolerance
         self.orientation_tolerance = orientation_tolerance
@@ -36,7 +45,7 @@ class RegionBaseStitching():
         self.angle_type = orientation_units
         self.symmetry = symmetry
 
-        self.scans: List[GrainSet] = []         # loaded & sorted
+        self.scans: List[GrainSet] = []  # loaded & sorted
         self.stitched: Optional[GrainSet] = None
 
     def run(self, zlo: float, zhi: float, overlap_fraction: float) -> GrainSet:
@@ -48,7 +57,7 @@ class RegionBaseStitching():
           2. Load scans and sort them.
           3. Compute uniform overlap region (zol, zoh).
           4. Iteratively stitch:
-                S0 → S01 → S012 → ... 
+                S0 → S01 → S012 → ...
           5. Write final stitched output.
         """
         if zhi <= zlo:
@@ -70,18 +79,20 @@ class RegionBaseStitching():
         #     raise ValueError(
         #         f"Given zhi={zhi} is BELOW the actual highest scan boundary {all_zmax}."
         #     )
-        
+
         # if there is no overlap
         if overlap_fraction == 0.0:
             current = self.scans[0]
             for k in range(len(self.scans) - 1):
-                current = self._nonoverlap_stitch_pair(current, self.scans[k + 1], pair_id=k)
+                current = self._nonoverlap_stitch_pair(
+                    current, self.scans[k + 1], pair_id=k
+                )
 
             self.stitched = current
             self._write_output(self.stitched, self.output_column)
 
             return self.stitched
-        
+
         # if there is overlap
         nscan = len(self.scans)
         if nscan == 0:
@@ -91,7 +102,7 @@ class RegionBaseStitching():
             self.stitched = self.scans[0]
             self._write_output(self.stitched, self.output_column)
             return self.stitched
-        
+
         # Pass in zol and zoh of the overlap region
         H = zhi - zlo
         denom = nscan - (nscan - 1) * overlap_fraction
@@ -142,7 +153,7 @@ class RegionBaseStitching():
                     f"Scan file '{path}' is missing required columns: {missing}. "
                     f"Each scan CSV must contain at least: {required_cols}."
                 )
-            
+
             df["ScanID"] = idx
 
             base = os.path.basename(path)
@@ -160,7 +171,9 @@ class RegionBaseStitching():
 
         self.scans = scans
 
-    def _overlap_stitch_pair(self, A: GrainSet, B: GrainSet, zol: float, zoh: float, pair_id: int) -> GrainSet:
+    def _overlap_stitch_pair(
+        self, A: GrainSet, B: GrainSet, zol: float, zoh: float, pair_id: int
+    ) -> GrainSet:
         """
         Apply the pairwise stiching algorithm to GrainSets A and B
         over the overlap region [zol, zoh].
@@ -174,10 +187,15 @@ class RegionBaseStitching():
 
         debug_log_csv = os.path.join(
             debug_folder,
-            f"{stem}_pair{pair_id}_{A.meta.name}_to_{B.meta.name}_decision_log.csv"
+            # f"{stem}_pair{pair_id}_{A.meta.name}_to_{B.meta.name}_decision_log.csv"
+            f"{stem}_pair{pair_id}_decision_log.csv",
         )
 
-        print("Debug log for this pairwise stitching step will be saved to:", debug_log_csv, "\n")
+        print(
+            "Debug log for this pairwise stitching step will be saved to:",
+            debug_log_csv,
+            "\n",
+        )
 
         stitcher = PairwiseStitcher(
             A=A,
@@ -197,7 +215,9 @@ class RegionBaseStitching():
 
         return stitcher.run()
 
-    def _nonoverlap_stitch_pair(self, A: GrainSet, B: GrainSet, pair_id: int) -> GrainSet:
+    def _nonoverlap_stitch_pair(
+        self, A: GrainSet, B: GrainSet, pair_id: int
+    ) -> GrainSet:
         """
         Non-overlap stitching (orientation-first, per-A selection):
 
@@ -273,7 +293,8 @@ class RegionBaseStitching():
 
         # Misorientation for each candidate edge
         dori_t = misorientation(
-            eA, eB,
+            eA,
+            eB,
             angle_convention=self.angle_convention,
             angle_type=self.angle_type,
             symmetry=self.symmetry,
@@ -341,13 +362,13 @@ class RegionBaseStitching():
             C[a, b] = cc
 
         # Real A -> dummy cols (unmatch A)
-        C[0:nA, nB:nB+nA] = UNMATCH_COST
+        C[0:nA, nB : nB + nA] = UNMATCH_COST
 
         # Dummy rows (B unmatched) -> real B
-        C[nA:nA+nB, 0:nB] = UNMATCH_COST
+        C[nA : nA + nB, 0:nB] = UNMATCH_COST
 
         # Dummy rows -> dummy cols
-        C[nA:nA+nB, nB:nB+nA] = 0.0
+        C[nA : nA + nB, nB : nB + nA] = 0.0
 
         row_ind, col_ind = linear_sum_assignment(C)
 
@@ -415,4 +436,3 @@ class RegionBaseStitching():
 
         df = df[required]
         df.to_csv(self.output_csv, index=False)
-

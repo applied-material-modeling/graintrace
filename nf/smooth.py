@@ -19,7 +19,7 @@ def smooth(
         angle_convention (str): 'kocks', 'bunge', or 'roe' (default: 'bunge')
         angle_type (str): 'degrees' or 'radians' (default: 'radians')
     """
-    print("Smoothing")
+    print("Smoothing...")
     R = tensors.Rot.fill_euler_angles(
         tensors.Vec(data[..., 1:4]), angle_convention, angle_type
     )

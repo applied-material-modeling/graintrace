@@ -43,6 +43,7 @@ class NearFieldMeshBuilder:
         *,
         input_folder: PathLike,
         save_dir: PathLike,
+        exp_file_token: str = "layer",
         angle_convention: str = "bunge",
         angle_type: str = "radians",
         symmetry: str = "432",
@@ -64,6 +65,7 @@ class NearFieldMeshBuilder:
         self.prefix = str(prefix)
         self.write_intermediate = bool(write_intermediate)
         self.write_vtk = bool(write_vtk)
+        self.exp_file_token = str(exp_file_token)
 
         self.merged_grid_npy = self.save_dir / "merged_segmented_fixed_grid.npy"
 
@@ -196,7 +198,9 @@ class NearFieldMeshBuilder:
         merged_grid_vtk = self.save_dir / "merged_segmented_fixed_grid.vtk"
 
         # 1) NearField -> pointcloud
-        pc = convert.nf_to_pointcloud(str(self.input_folder), dz)
+        pc = convert.nf_to_pointcloud(
+            str(self.input_folder), dz, layer_token=self.exp_file_token
+        )
 
         if self.write_intermediate:
             pc.to_csv(pointcloud_csv, index=False)

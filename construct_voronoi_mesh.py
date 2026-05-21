@@ -9,6 +9,7 @@ import subprocess
 import shutil
 import numpy as np
 
+
 class VoronoiMeshBuilder:
     def __init__(
         self,
@@ -23,16 +24,16 @@ class VoronoiMeshBuilder:
         bbox_fix_mode=None,
         bbox_tolerance=0.0,  # percentage tolerance (e.g., 5.0 = 5%)
         auto_rotate=False,
-        rotate_angles=(0, 0, 0),    # rotation angles (rotate around X -> Y -> Z)
-        rotate_convention= "xyz", 
+        rotate_angles=(0, 0, 0),  # rotation angles (rotate around X -> Y -> Z)
+        rotate_convention="xyz",
         angle_identifier=None,
-        orientation_descriptor = "euler-bunge",
+        orientation_descriptor="euler-bunge",
         orientation_active_convention=False,
-        unit="deg",          # rotation unit ('deg' or 'rad')
+        unit="deg",  # rotation unit ('deg' or 'rad')
         elastic_strain_identifier=None,
         ori_rotmat_identifier=None,
         strain_unit="microstrain",
-        env=None
+        env=None,
     ):
         self.input_csv = input_csv
         self.output_dir = output_dir
@@ -80,25 +81,41 @@ class VoronoiMeshBuilder:
                     f"Warning: bbox_fix_mode='{self.bbox_fix_mode}' "
                     f"is ignored since auto_fix_bbox=False."
                 )
-        
+
         # -- check strain validity ---
         if self.elastic_strain_id is not None:
             if len(self.elastic_strain_id) != 9:
-                raise ValueError("elastic_strain_identifier must contain exactly 9 components.")
+                raise ValueError(
+                    "elastic_strain_identifier must contain exactly 9 components."
+                )
             if self.strain_unit not in ("microstrain", "strain"):
-                raise ValueError(f"Invalid strain_unit '{self.strain_unit}'. Must be 'microstrain' or 'strain'.")
+                raise ValueError(
+                    f"Invalid strain_unit '{self.strain_unit}'. Must be 'microstrain' or 'strain'."
+                )
 
         if self.ori_rotmat_id is not None:
             if len(self.ori_rotmat_id) != 9:
-                raise ValueError("ori_rotmat_identifier must contain exactly 9 components.")
+                raise ValueError(
+                    "ori_rotmat_identifier must contain exactly 9 components."
+                )
         else:
-            self.ori_rotmat_id = ["O11","O12","O13",
-                                  "O21","O22","O23",
-                                  "O31","O32","O33"]
+            self.ori_rotmat_id = [
+                "O11",
+                "O12",
+                "O13",
+                "O21",
+                "O22",
+                "O23",
+                "O31",
+                "O32",
+                "O33",
+            ]
 
         if self.angle_id is not None:
             if not isinstance(self.angle_id, (list, tuple)) or len(self.angle_id) != 3:
-                raise ValueError("angle_identifier must contain 3 elements if provided.")
+                raise ValueError(
+                    "angle_identifier must contain 3 elements if provided."
+                )
 
         # -- check dim validity ---
         if self.dim not in [2, 3]:
@@ -129,6 +146,7 @@ class VoronoiMeshBuilder:
         gmsh_installed = False
         try:
             import gmsh
+
             gmsh_installed = True
             print(f"Gmsh already available (v{gmsh.__version__})")
         except ImportError:
@@ -141,11 +159,22 @@ class VoronoiMeshBuilder:
         gsl_lib = os.path.join(prefix, "lib", "libgsl.so")
         if not os.path.exists(gsl_lib):
             print("Installing GSL locally...")
-            run(["wget", "https://ftp.gnu.org/gnu/gsl/gsl-latest.tar.gz", "-O", os.path.join(home, "gsl.tar.gz")])
+            run(
+                [
+                    "wget",
+                    "https://ftp.gnu.org/gnu/gsl/gsl-latest.tar.gz",
+                    "-O",
+                    os.path.join(home, "gsl.tar.gz"),
+                ]
+            )
             run(["tar", "-xzf", "gsl.tar.gz"], cwd=home)
             gsl_src = next(
-                (os.path.join(home, d) for d in os.listdir(home) if d.startswith("gsl-")),
-                None
+                (
+                    os.path.join(home, d)
+                    for d in os.listdir(home)
+                    if d.startswith("gsl-")
+                ),
+                None,
             )
             if gsl_src:
                 run(["./configure", f"--prefix={prefix}"], cwd=gsl_src)
@@ -160,20 +189,26 @@ class VoronoiMeshBuilder:
             print("Installing OpenBLAS locally...")
             progs_dir = os.path.expanduser("~/Progs")
             os.makedirs(progs_dir, exist_ok=True)
-            run(["git", "clone", "https://github.com/xianyi/OpenBLAS.git"], cwd=progs_dir)
+            run(
+                ["git", "clone", "https://github.com/xianyi/OpenBLAS.git"],
+                cwd=progs_dir,
+            )
             openblas_src = os.path.join(progs_dir, "OpenBLAS")
             conda_prefix = os.environ.get("CONDA_PREFIX", "")
-            run([
-                "make",
-                f"PREFIX={prefix}",
-                f"FC={conda_prefix}/bin/x86_64-conda-linux-gnu-gfortran",
-                "-j", str(os.cpu_count())
-            ], cwd=openblas_src)
+            run(
+                [
+                    "make",
+                    f"PREFIX={prefix}",
+                    f"FC={conda_prefix}/bin/x86_64-conda-linux-gnu-gfortran",
+                    "-j",
+                    str(os.cpu_count()),
+                ],
+                cwd=openblas_src,
+            )
             run(["make", "install", f"PREFIX={prefix}"], cwd=openblas_src)
 
         # --- Neper installation ---
         neper_installed = is_installed("neper")
-        
 
         if not neper_installed:
             print("Installing Neper locally...")
@@ -185,9 +220,18 @@ class VoronoiMeshBuilder:
             try:
                 # --- TR2 stable release first ---
                 print(f"Attempting official stable release v{stable_version}...")
-                run(["wget", stable_url, "-O", os.path.join(progs_dir, f"neper-{stable_version}.tar.gz")])
+                run(
+                    [
+                        "wget",
+                        stable_url,
+                        "-O",
+                        os.path.join(progs_dir, f"neper-{stable_version}.tar.gz"),
+                    ]
+                )
                 run(["tar", "-zxf", f"neper-{stable_version}.tar.gz"], cwd=progs_dir)
-                neper_src_dir = os.path.join(progs_dir, f"neper-{stable_version}", "src")
+                neper_src_dir = os.path.join(
+                    progs_dir, f"neper-{stable_version}", "src"
+                )
             except subprocess.CalledProcessError:
                 # --- Fallback to GitHub repositoR2 ---
                 print("Stable release unavailable, cloning GitHub master instead...")
@@ -201,12 +245,15 @@ class VoronoiMeshBuilder:
             # --- Build & install ---
             build_dir = os.path.join(neper_src_dir, "build")
             os.makedirs(build_dir, exist_ok=True)
-            run([
-                "cmake",
-                f"-DCMAKE_INSTALL_PREFIX={prefix}",
-                "-DNEPER_INSTALL_BASH_COMPLETION=OFF",  # disable sudo path
-                ".."
-            ], cwd=build_dir)
+            run(
+                [
+                    "cmake",
+                    f"-DCMAKE_INSTALL_PREFIX={prefix}",
+                    "-DNEPER_INSTALL_BASH_COMPLETION=OFF",  # disable sudo path
+                    "..",
+                ],
+                cwd=build_dir,
+            )
             run(["make", "-j", str(os.cpu_count())], cwd=build_dir)
             run(["make", "install"], cwd=build_dir)
 
@@ -218,7 +265,7 @@ class VoronoiMeshBuilder:
 
         else:
             print("Neper already available in PATH.")
-        
+
         home = os.path.expanduser("~")
         prefix = os.path.join(home, ".local")
 
@@ -251,11 +298,13 @@ class VoronoiMeshBuilder:
 
         missing = [c for c in required_cols if c not in df.columns]
         if missing:
-            raise ValueError(f"Missing required columns for {self.dim}D input: {missing}")
+            raise ValueError(
+                f"Missing required columns for {self.dim}D input: {missing}"
+            )
 
         # --- Include GrainRadius if available ---
         optional_cols = ["GrainRadius"] if "GrainRadius" in df.columns else []
-        
+
         # --- Include angle if available ---
         angle_cols = []
 
@@ -274,21 +323,30 @@ class VoronoiMeshBuilder:
                     angle_cols = present
                     print(f"Orientation columns found: {angle_cols}")
                 else:
-                    print("No orientation columns detected (angle_identifier not present in file).")
+                    print(
+                        "No orientation columns detected (angle_identifier not present in file)."
+                    )
             else:
-                raise TypeError("angle_identifier must be a list or tuple of 3 names if provided.")
+                raise TypeError(
+                    "angle_identifier must be a list or tuple of 3 names if provided."
+                )
         else:
             print("angle_identifier=None -> skipping orientation column parsing.")
-        
+
         # --- Include elastic strain if available ---
         strain_cols = []
 
         if self.elastic_strain_id is not None:
-            if isinstance(self.elastic_strain_id, (list, tuple)) and len(self.elastic_strain_id) > 0:
+            if (
+                isinstance(self.elastic_strain_id, (list, tuple))
+                and len(self.elastic_strain_id) > 0
+            ):
                 present = [c for c in self.elastic_strain_id if c in df.columns]
 
                 if len(present) not in (0, len(self.elastic_strain_id)):
-                    missing_strain = [c for c in self.elastic_strain_id if c not in df.columns]
+                    missing_strain = [
+                        c for c in self.elastic_strain_id if c not in df.columns
+                    ]
                     raise ValueError(
                         f"Partial strain columns found. Present: {present}; "
                         f"Missing: {missing_strain}. Either include all of {self.elastic_strain_id} or none."
@@ -298,9 +356,13 @@ class VoronoiMeshBuilder:
                     strain_cols = present
                     print(f"Elastic strain columns found: {strain_cols}")
                 else:
-                    print("No elastic strain columns detected (elastic_strain_identifier not present in file).")
+                    print(
+                        "No elastic strain columns detected (elastic_strain_identifier not present in file)."
+                    )
             else:
-                raise TypeError("elastic_strain_identifier must be a list or tuple of 9 names if provided.")
+                raise TypeError(
+                    "elastic_strain_identifier must be a list or tuple of 9 names if provided."
+                )
         else:
             print("elastic_strain_identifier=None → skipping strain column parsing.")
 
@@ -311,7 +373,7 @@ class VoronoiMeshBuilder:
         if angle_cols and self.unit == "rad":
             print("Converting orientation angles from radians to degrees.")
             df[angle_cols] = np.degrees(df[angle_cols])
-        
+
         # --- Convert strain units if necessary ---
         if strain_cols:
             if self.strain_unit == "microstrain":
@@ -323,7 +385,7 @@ class VoronoiMeshBuilder:
 
         # Apply rotation
         self.rotate()
-    
+
     def rotate(self):
         """
         Rotate or align data based on user settings.
@@ -351,7 +413,11 @@ class VoronoiMeshBuilder:
             print("Auto-rotation enabled: aligning data to principal axes.")
             eigenvectors, _ = self.compute_principal_axes()
 
-            coords = df[["X", "Y", "Z"]].to_numpy() if self.dim == 3 else df[["X", "Y"]].to_numpy()
+            coords = (
+                df[["X", "Y", "Z"]].to_numpy()
+                if self.dim == 3
+                else df[["X", "Y"]].to_numpy()
+            )
             mean = np.mean(coords, axis=0)
             centered = coords - mean
 
@@ -391,12 +457,18 @@ class VoronoiMeshBuilder:
                 rot = R.from_euler("xyz", ang, degrees=False)
                 self.rotate_matrix = rot.as_matrix()
                 if self.dim == 3:
-                    df[["X", "Y", "Z"]] = np.dot(df[["X", "Y", "Z"]].to_numpy(), self.rotate_matrix.T)
+                    df[["X", "Y", "Z"]] = np.dot(
+                        df[["X", "Y", "Z"]].to_numpy(), self.rotate_matrix.T
+                    )
                 else:
-                    df[["X", "Y"]] = np.dot(df[["X", "Y"]].to_numpy(), self.rotate_matrix[:2, :2].T)
+                    df[["X", "Y"]] = np.dot(
+                        df[["X", "Y"]].to_numpy(), self.rotate_matrix[:2, :2].T
+                    )
 
             self.data = df
-            print(f"Rotated dataset by rotate_angles {self.rotate_angles} ({self.unit}).\n")
+            print(
+                f"Rotated dataset by rotate_angles {self.rotate_angles} ({self.unit}).\n"
+            )
 
     def compute_principal_axes(self):
         """
@@ -416,7 +488,11 @@ class VoronoiMeshBuilder:
             raise RuntimeError("Data not loaded. Call read_input() first.")
 
         df = self.data.copy()
-        coords = df[["X", "Y"]].to_numpy() if self.dim == 2 else df[["X", "Y", "Z"]].to_numpy()
+        coords = (
+            df[["X", "Y"]].to_numpy()
+            if self.dim == 2
+            else df[["X", "Y", "Z"]].to_numpy()
+        )
 
         # --- Center coordinates ---
         mean = np.mean(coords, axis=0)
@@ -435,7 +511,7 @@ class VoronoiMeshBuilder:
         # --- Ensure right-handed orientation ---
         if self.dim == 3 and np.linalg.det(eigenvectors) < 0:
             eigenvectors[:, 2] *= -1
-        
+
         # --- Renormalize ---
         u, _, vT = np.linalg.svd(eigenvectors)
         eigenvectors = np.dot(u, vT)
@@ -444,7 +520,7 @@ class VoronoiMeshBuilder:
 
         return eigenvectors, eigenvalues
 
-    def plot_centroids(self, plot_box=True,save_path="centroid_plot.png"):
+    def plot_centroids(self, plot_box=True, save_path="centroid_plot.png"):
         import matplotlib.pyplot as plt
         from matplotlib.patches import Rectangle
 
@@ -473,8 +549,17 @@ class VoronoiMeshBuilder:
 
             # bbox rectangle
             if plot_box:
-                ax.add_patch(Rectangle((bb[0], bb[2]), bb[1] - bb[0], bb[3] - bb[2],
-                                   fill=False, lw=1, ls="-", ec="r"))
+                ax.add_patch(
+                    Rectangle(
+                        (bb[0], bb[2]),
+                        bb[1] - bb[0],
+                        bb[3] - bb[2],
+                        fill=False,
+                        lw=1,
+                        ls="-",
+                        ec="r",
+                    )
+                )
 
             fig.tight_layout()
             fig.savefig(save_path, dpi=300)
@@ -488,8 +573,17 @@ class VoronoiMeshBuilder:
 
         # Z view (X-Y)
         if plot_box:
-            axes[0].add_patch(Rectangle((xmin, ymin), xmax - xmin, ymax - ymin,
-                                fill=False, lw=1, ls="-", ec="r"))
+            axes[0].add_patch(
+                Rectangle(
+                    (xmin, ymin),
+                    xmax - xmin,
+                    ymax - ymin,
+                    fill=False,
+                    lw=1,
+                    ls="-",
+                    ec="r",
+                )
+            )
 
         axes[0].scatter(df["X"], df["Y"], s=10, color="black", alpha=0.6)
         axes[0].set_xlabel("X")
@@ -498,8 +592,17 @@ class VoronoiMeshBuilder:
 
         # X view (Y-Z)
         if plot_box:
-            axes[1].add_patch(Rectangle((ymin, zmin), ymax - ymin, zmax - zmin,
-                                    fill=False, lw=1, ls="-", ec="r"))
+            axes[1].add_patch(
+                Rectangle(
+                    (ymin, zmin),
+                    ymax - ymin,
+                    zmax - zmin,
+                    fill=False,
+                    lw=1,
+                    ls="-",
+                    ec="r",
+                )
+            )
         axes[1].scatter(df["Y"], df["Z"], s=10, color="black", alpha=0.6)
         axes[1].set_xlabel("Y")
         axes[1].set_ylabel("Z")
@@ -507,8 +610,17 @@ class VoronoiMeshBuilder:
 
         # Y view (X-Z)
         if plot_box:
-            axes[2].add_patch(Rectangle((xmin, zmin), xmax - xmin, zmax - zmin,
-                                    fill=False, lw=1, ls="-", ec="r"))
+            axes[2].add_patch(
+                Rectangle(
+                    (xmin, zmin),
+                    xmax - xmin,
+                    zmax - zmin,
+                    fill=False,
+                    lw=1,
+                    ls="-",
+                    ec="r",
+                )
+            )
         axes[2].scatter(df["X"], df["Z"], s=10, color="black", alpha=0.6)
         axes[2].set_xlabel("X")
         axes[2].set_ylabel("Z")
@@ -571,14 +683,19 @@ class VoronoiMeshBuilder:
         # mask for in-box points
         if self.dim == 2:
             mask = (
-                (df["X"] >= bbox[0]) & (df["X"] <= bbox[1]) &
-                (df["Y"] >= bbox[2]) & (df["Y"] <= bbox[3])
+                (df["X"] >= bbox[0])
+                & (df["X"] <= bbox[1])
+                & (df["Y"] >= bbox[2])
+                & (df["Y"] <= bbox[3])
             )
         else:
             mask = (
-                (df["X"] >= bbox[0]) & (df["X"] <= bbox[1]) &
-                (df["Y"] >= bbox[2]) & (df["Y"] <= bbox[3]) &
-                (df["Z"] >= bbox[4]) & (df["Z"] <= bbox[5])
+                (df["X"] >= bbox[0])
+                & (df["X"] <= bbox[1])
+                & (df["Y"] >= bbox[2])
+                & (df["Y"] <= bbox[3])
+                & (df["Z"] >= bbox[4])
+                & (df["Z"] <= bbox[5])
             )
 
         before = len(df)
@@ -616,12 +733,13 @@ class VoronoiMeshBuilder:
         print("Validating bounding box...")
 
         if self.data is None:
-            raise RuntimeError("validate_bounding_box() called before reading input data.")
+            raise RuntimeError(
+                "validate_bounding_box() called before reading input data."
+            )
 
         if not self.auto_fix_bbox:
             print("Auto-fix disabled — using provided bounding box as-is.")
         else:
-        
 
             df = self.data.copy()
 
@@ -644,14 +762,19 @@ class VoronoiMeshBuilder:
                 # Determine data extents
                 if self.dim == 2:
                     data_extents = [
-                        df["X"].min(), df["X"].max(),
-                        df["Y"].min(), df["Y"].max()
+                        df["X"].min(),
+                        df["X"].max(),
+                        df["Y"].min(),
+                        df["Y"].max(),
                     ]
                 else:
                     data_extents = [
-                        df["X"].min(), df["X"].max(),
-                        df["Y"].min(), df["Y"].max(),
-                        df["Z"].min(), df["Z"].max()
+                        df["X"].min(),
+                        df["X"].max(),
+                        df["Y"].min(),
+                        df["Y"].max(),
+                        df["Z"].min(),
+                        df["Z"].max(),
                     ]
 
                 # Expand bounding box to include data + margin
@@ -678,7 +801,7 @@ class VoronoiMeshBuilder:
                     f"Unexpected bbox_fix_mode='{self.bbox_fix_mode}'. "
                     "Valid options are: ['remove_points', 'extend_bounding_box']."
                 )
-        
+
         df = self.data
         bx = self.bounding_box
 
@@ -696,9 +819,12 @@ class VoronoiMeshBuilder:
             min_y, max_y = df["Y"].min(), df["Y"].max()
             min_z, max_z = df["Z"].min(), df["Z"].max()
             if (
-                bx[0] > min_x or bx[1] < max_x or
-                bx[2] > min_y or bx[3] < max_y or
-                bx[4] > min_z or bx[5] < max_z
+                bx[0] > min_x
+                or bx[1] < max_x
+                or bx[2] > min_y
+                or bx[3] < max_y
+                or bx[4] > min_z
+                or bx[5] < max_z
             ):
                 raise ValueError(
                     f"Bounding box invalid for 3D data.\n"
@@ -706,14 +832,16 @@ class VoronoiMeshBuilder:
                     f"Bounding box X=({bx[0]}, {bx[1]}), Y=({bx[2]}, {bx[3]}), Z=({bx[4]}, {bx[5]})"
                 )
 
-    def build_voronoi(self, 
-                      option: str = "voronoi", 
-                      generate_mesh: bool = False, 
-                      relative_el_size: float = None,
-                      morphoalgo: str = "praxis",
-                      mesh_quality_min: float = 0.9,
-                      tesr_size: list = [20,20,20],
-                      CVT_iter: int = 1000):
+    def build_voronoi(
+        self,
+        option: str = "voronoi",
+        generate_mesh: bool = False,
+        relative_el_size: float = None,
+        morphoalgo: str = "praxis",
+        mesh_quality_min: float = 0.9,
+        tesr_size: list = [20, 20, 20],
+        CVT_iter: int = 1000,
+    ):
         """
         Build Voronoi (or Laguerre) tessellation using Neper.
         """
@@ -721,7 +849,9 @@ class VoronoiMeshBuilder:
         # check options validity
         valid_options = ["voronoi", "centroid", "centroidal", "centroidsize"]
         if option not in valid_options:
-            raise ValueError(f"Invalid option='{option}'. Must be one of {valid_options}.")
+            raise ValueError(
+                f"Invalid option='{option}'. Must be one of {valid_options}."
+            )
 
         if self.data is None or self.data.empty:
             self.read_input()
@@ -729,7 +859,7 @@ class VoronoiMeshBuilder:
         self.validate_bounding_box()
 
         df = self.data.copy()
-        
+
         os.makedirs(self.output_dir, exist_ok=True)
 
         input_path = os.path.join(self.output_dir, "points.dat")
@@ -772,9 +902,11 @@ class VoronoiMeshBuilder:
 
         # --- Orientation (3-column) ---
         if all(c in df.columns for c in self.angle_id):
-            df[self.angle_id].to_csv(orientation_path, sep=" ", index=False, header=False)
+            df[self.angle_id].to_csv(
+                orientation_path, sep=" ", index=False, header=False
+            )
             print(f"Neper orientation file created: {orientation_path}")
-            ori_args =["-ori", f"file({orientation_path},des={self.ori_descriptor})"]
+            ori_args = ["-ori", f"file({orientation_path},des={self.ori_descriptor})"]
         else:
             ori_args = []
 
@@ -783,57 +915,96 @@ class VoronoiMeshBuilder:
             xmin, xmax, ymin, ymax = self.bounding_box
             sx, sy = xmax - xmin, ymax - ymin
             tx, ty = xmin, ymin
-            domain_arg = f'square({sx},{sy}):translate({tx},{ty})'
+            domain_arg = f"square({sx},{sy}):translate({tx},{ty})"
         else:
             xmin, xmax, ymin, ymax, zmin, zmax = self.bounding_box
             sx, sy, sz = xmax - xmin, ymax - ymin, zmax - zmin
             tx, ty, tz = xmin, ymin, zmin
-            domain_arg = f'cube({sx},{sy},{sz}):translate({tx},{ty},{tz})'
+            domain_arg = f"cube({sx},{sy},{sz}):translate({tx},{ty},{tz})"
 
         # --- Morphological arguments ---
         if option == "centroidsize":
-            morpho_args = ["-morpho", f"centroidsize:file({input_path})",
-                           "-morphooptistop", f"iter={CVT_iter}",
-                           "-morphooptialgo", morphoalgo]
-            print(f"\nCentroid-size tessellation ({self.dim}D): combined coordinate+size input.")
+            morpho_args = [
+                "-morpho",
+                f"centroidsize:file({input_path})",
+                "-morphooptistop",
+                f"iter={CVT_iter}",
+                "-morphooptialgo",
+                morphoalgo,
+            ]
+            print(
+                f"\nCentroid-size tessellation ({self.dim}D): combined coordinate+size input."
+            )
         elif option == "centroid":
-            morpho_args = ["-morpho", f"centroid:file({input_path})",
-                           "-morphooptiini", "coo:LLLFP2011",
-                           "-morphooptistop", f"iter={CVT_iter}",
-                           "-morphooptialgo", morphoalgo]
-            print(f"\nCentroid tessellation ({self.dim}D): only coordinate input. Weighted option will be ignored.")
+            morpho_args = [
+                "-morpho",
+                f"centroid:file({input_path})",
+                "-morphooptiini",
+                "coo:LLLFP2011",
+                "-morphooptistop",
+                f"iter={CVT_iter}",
+                "-morphooptialgo",
+                morphoalgo,
+            ]
+            print(
+                f"\nCentroid tessellation ({self.dim}D): only coordinate input. Weighted option will be ignored."
+            )
         elif self.weighted:
             morphoalgo = "lloyd"
             morpho_args = [
-                "-morpho", f"{option}",
-                "-morphooptiini", f"coo:file({input_path}),weight:file({weight_path})",
-                "-morphooptistop", f"iter={CVT_iter}",
-                "-morphooptialgo", morphoalgo
+                "-morpho",
+                f"{option}",
+                "-morphooptiini",
+                f"coo:file({input_path}),weight:file({weight_path})",
+                "-morphooptistop",
+                f"iter={CVT_iter}",
+                "-morphooptialgo",
+                morphoalgo,
             ]
-            print(f"\nWeighted tessellation ({self.dim}D): using weight file {weight_path}.")
+            print(
+                f"\nWeighted tessellation ({self.dim}D): using weight file {weight_path}."
+            )
         else:
             morpho_args = [
-                "-morpho", f"{option}",
-                "-morphooptiini", f"coo:file({input_path})",
-                "-morphooptistop", f"iter={CVT_iter}",
-                "-morphooptialgo", morphoalgo
+                "-morpho",
+                f"{option}",
+                "-morphooptiini",
+                f"coo:file({input_path})",
+                "-morphooptistop",
+                f"iter={CVT_iter}",
+                "-morphooptialgo",
+                morphoalgo,
             ]
             print(f"\nUnweighted tessellation ({self.dim}D): standard Poisson-Voronoi.")
 
         tess_name = os.path.join(self.output_dir, "reconstruction")
 
-        neper_cmd = [
-            "neper", "-T",
-            "-n", str(len(df)),
-            "-reg", str(1),
-            "-dim", str(self.dim),
-            "-domain", domain_arg,
-            "-oridescriptor", "rotmat",
-            "-o", tess_name,
-            "-format", "tess,geo,tesr",
-            "-tesrsize", f"{tesr_size[0]},{tesr_size[1]},{tesr_size[2]}",
-            "-tesrformat", "ascii",
-        ] + morpho_args + ori_args
+        neper_cmd = (
+            [
+                "neper",
+                "-T",
+                "-n",
+                str(len(df)),
+                "-reg",
+                str(1),
+                "-dim",
+                str(self.dim),
+                "-domain",
+                domain_arg,
+                "-oridescriptor",
+                "rotmat",
+                "-o",
+                tess_name,
+                "-format",
+                "tess,geo,tesr",
+                "-tesrsize",
+                f"{tesr_size[0]},{tesr_size[1]},{tesr_size[2]}",
+                "-tesrformat",
+                "ascii",
+            ]
+            + morpho_args
+            + ori_args
+        )
 
         print("\n=== Running Neper Tessellation ===\n")
         print("> " + " ".join(neper_cmd))
@@ -849,7 +1020,7 @@ class VoronoiMeshBuilder:
                 neper_cmd,
                 check=True,
                 env=self.env,
-                #stdout=logf,
+                # stdout=logf,
                 stderr=subprocess.STDOUT,
             )
 
@@ -868,26 +1039,34 @@ class VoronoiMeshBuilder:
             self.generate_mesh(
                 tess_file=tess_name + ".tess",
                 output_name=tess_name,
-                format_type=["msh","vtk"],
+                format_type=["msh", "vtk"],
                 relative_cl=relative_el_size if relative_el_size else 1.0,
                 mesh_quality_min=mesh_quality_min,
             )
-    
-    def build_graph(self,
-                    device: str = "cpu",
-                    option: str = "centroid",
-                    CVT_iter: int = 100,
-                    morphoalgo: str = "praxis",
-                    visualize2D: bool = False,
-                    visualize3D: bool = False):
-        
-        self.build_voronoi(generate_mesh=False,
-                           option=option,
-                           relative_el_size=None,
-                           morphoalgo=morphoalgo,
-                           CVT_iter=CVT_iter
-                           )
-        
+
+        print(f"\n=== Reformatting .tesr file ===\n")
+        self.reformat_tesr_file(
+            tesr_file=tess_name + ".tesr", orientation_file=orientation_path
+        )
+
+    def build_graph(
+        self,
+        device: str = "cpu",
+        option: str = "centroid",
+        CVT_iter: int = 100,
+        morphoalgo: str = "praxis",
+        visualize2D: bool = False,
+        visualize3D: bool = False,
+    ):
+
+        self.build_voronoi(
+            generate_mesh=False,
+            option=option,
+            relative_el_size=None,
+            morphoalgo=morphoalgo,
+            CVT_iter=CVT_iter,
+        )
+
         from tess_to_gnn import NeperTessToGraphNN
         import torch
 
@@ -896,7 +1075,7 @@ class VoronoiMeshBuilder:
         parser = NeperTessToGraphNN(
             tess_path=os.path.join(self.output_dir, "reconstruction.tess"),
             device=device,
-            dtype=torch.float64
+            dtype=torch.float64,
         )
 
         parser.register_dataframe_features(data=self.data, verbose=False)
@@ -907,22 +1086,25 @@ class VoronoiMeshBuilder:
 
         if visualize3D:
             os.makedirs(self.output_dir + "/figures/gnn", exist_ok=True)
-            parser.visualize_graph_3D(graph,outpath=self.output_dir+"/figures/gnn/graph_3D.png")
+            parser.visualize_graph_3D(
+                graph, outpath=self.output_dir + "/figures/gnn/graph_3D.png"
+            )
 
         if visualize2D:
             os.makedirs(self.output_dir + "/figures/gnn", exist_ok=True)
-            parser.visualize_graph_2D(graph,outpath=self.output_dir+"/figures/gnn/graph_2D.png")
-        
+            parser.visualize_graph_2D(
+                graph, outpath=self.output_dir + "/figures/gnn/graph_2D.png"
+            )
+
         return graph
 
-    def apply_rotation_to_properties(self,
-                                     tess_file: str):
-        '''
+    def apply_rotation_to_properties(self, tess_file: str):
+        """
          Parameters
         ----------
         tess_file : str
             Path to the Neper .tess file to modify.
-        '''
+        """
 
         # --- Check that data has been loaded ---
         if not hasattr(self, "data") or self.data is None or self.data.empty:
@@ -949,7 +1131,11 @@ class VoronoiMeshBuilder:
             if line.strip().lower().startswith("*ori"):
                 ori_start = i
                 continue
-            if ori_start is not None and line.strip().startswith("*") and i > ori_start + 1:
+            if (
+                ori_start is not None
+                and line.strip().startswith("*")
+                and i > ori_start + 1
+            ):
                 ori_end = i
                 break
 
@@ -959,7 +1145,7 @@ class VoronoiMeshBuilder:
             ori_end = len(lines)
 
         # skip descriptor line
-        ori_lines = lines[ori_start + 2:ori_end]
+        ori_lines = lines[ori_start + 2 : ori_end]
         num_cells = len(ori_lines)
 
         if num_cells == 0:
@@ -971,7 +1157,9 @@ class VoronoiMeshBuilder:
             identity_rot = np.eye(3)
             ori_rot = np.tile(identity_rot, (num_cells, 1, 1))
         else:
-            ori_data = np.array([list(map(float, ln.split())) for ln in ori_lines], dtype=float)
+            ori_data = np.array(
+                [list(map(float, ln.split())) for ln in ori_lines], dtype=float
+            )
             if ori_data.shape[1] != 9:
                 raise ValueError(
                     f"Each *ori line must have 9 numbers; found {ori_data.shape[1]}."
@@ -981,7 +1169,9 @@ class VoronoiMeshBuilder:
             if transpose:
                 ori_rot = np.array([np.dot(self.rotate_matrix, R) for R in ori_mats])
             else:
-                ori_rot = np.array([np.dot(self.rotate_matrix, R.T).T for R in ori_mats])
+                ori_rot = np.array(
+                    [np.dot(self.rotate_matrix, R.T).T for R in ori_mats]
+                )
 
         self.data[self.ori_rotmat_id] = ori_rot.reshape(-1, 9)
 
@@ -989,7 +1179,7 @@ class VoronoiMeshBuilder:
         new_ori_lines = [
             " ".join(f"{val:.8f}" for val in R.flatten()) + "\n" for R in ori_rot
         ]
-        lines[ori_start + 2:ori_end] = new_ori_lines
+        lines[ori_start + 2 : ori_end] = new_ori_lines
 
         with open(tess_file, "w") as f:
             f.writelines(lines)
@@ -1001,7 +1191,11 @@ class VoronoiMeshBuilder:
         if self.elastic_strain_id is not None:
             print("\nApply rotation to elastic strain tensors\n")
 
-            strain_tensors = self.data[self.elastic_strain_id].to_numpy(dtype=float).reshape(-1, 3, 3)
+            strain_tensors = (
+                self.data[self.elastic_strain_id]
+                .to_numpy(dtype=float)
+                .reshape(-1, 3, 3)
+            )
 
             # Rotate: e' = R e R^T
             R = self.rotate_matrix
@@ -1015,7 +1209,7 @@ class VoronoiMeshBuilder:
         self,
         tess_file: str,
         output_name: str = "voronoi",
-        format_type = ("msh4",),
+        format_type=("msh4",),
         relative_cl: float = 1.0,
         mesh_quality_min: float = 0.9,
         interface_type: str = "continuous",
@@ -1048,21 +1242,32 @@ class VoronoiMeshBuilder:
 
         # --- Build Neper command ---
         neper_cmd = [
-            "neper", "-M",
+            "neper",
+            "-M",
             tess_file,
-            "-elttype", element_type,
-            "-rcl", str(relative_cl),
-            "-order", "2",  # always 2nd order
-            "-meshqualmin", str(mesh_quality_min),
-            "-interface", interface_type,
-            "-format", fmt_arg,
-            "-o", output_name,
-            "-part", str(partition),
+            "-elttype",
+            element_type,
+            "-rcl",
+            str(relative_cl),
+            "-order",
+            "2",  # always 2nd order
+            "-meshqualmin",
+            str(mesh_quality_min),
+            "-interface",
+            interface_type,
+            "-format",
+            fmt_arg,
+            "-o",
+            output_name,
+            "-part",
+            str(partition),
         ]
 
         # --- Run meshing ---
-        print("\n=== Running Neper Meshing ===\n" \
-        "(this could take a while for large system)...\n")
+        print(
+            "\n=== Running Neper Meshing ===\n"
+            "(this could take a while for large system)...\n"
+        )
         print("> " + " ".join(neper_cmd))
         print("\n")
 
@@ -1071,23 +1276,25 @@ class VoronoiMeshBuilder:
         with open(log_path, "w") as logf:
             print("> " + " ".join(neper_cmd), file=logf)
             logf.flush()
-            subprocess.run(neper_cmd,
+            subprocess.run(
+                neper_cmd,
                 check=True,
                 env=self.env,
                 stdout=logf,
-                stderr=subprocess.STDOUT)
-        
+                stderr=subprocess.STDOUT,
+            )
+
         for fmt in fmt_arg.split(","):
             print(f"Generated mesh file: {output_name}.{fmt}")
 
         print("\n")
-        
-            
 
-    def export_cell_properties(self, 
-                           tess_file: str, 
-                           output_cell="id,vol,w,x,y,z,radeq", 
-                           output_seed="id,w,x,y,z"):
+    def export_cell_properties(
+        self,
+        tess_file: str,
+        output_cell="id,vol,w,x,y,z,radeq",
+        output_seed="id,w,x,y,z",
+    ):
         """
         Compute cell and seed properties using Neper's built-in stats,
         then merge them into a single .dat file named <tess_file>_out.dat.
@@ -1101,12 +1308,18 @@ class VoronoiMeshBuilder:
 
         # Run Neper to generate .statcell and .statseed
         neper_cmd = [
-            "neper", "-T",
-            "-loadtess", tess_file,
-            "-statcell", output_cell,
-            "-statseed", output_seed,
-            "-format", "ori", 
-            "-oridescriptor", "rotmat"
+            "neper",
+            "-T",
+            "-loadtess",
+            tess_file,
+            "-statcell",
+            output_cell,
+            "-statseed",
+            output_seed,
+            "-format",
+            "ori",
+            "-oridescriptor",
+            "rotmat",
         ]
         print("> " + " ".join(neper_cmd))
         subprocess.run(neper_cmd, check=True, env=self.env)
@@ -1134,7 +1347,9 @@ class VoronoiMeshBuilder:
         df_seed = df_seed.add_suffix("_seed")
 
         # Merge on IDs
-        df_merged = pd.merge(df_cell, df_seed, left_on="id_cell", right_on="id_seed", how="outer")
+        df_merged = pd.merge(
+            df_cell, df_seed, left_on="id_cell", right_on="id_seed", how="outer"
+        )
 
         # Write combined output
         df_merged.to_csv(out_file, sep=",", index=False)
@@ -1144,7 +1359,11 @@ class VoronoiMeshBuilder:
         num_cells = len(df_cell)
         ee_file = Path(self.output_dir) / (base.name + ".ee")
 
-        if self.elastic_strain_id is not None and hasattr(self, "data") and not self.data.empty:
+        if (
+            self.elastic_strain_id is not None
+            and hasattr(self, "data")
+            and not self.data.empty
+        ):
             strain_data = self.data[self.elastic_strain_id].to_numpy(dtype=float)
         else:
             strain_data = np.zeros((num_cells, 9), dtype=float)
@@ -1153,7 +1372,7 @@ class VoronoiMeshBuilder:
         with open(ee_file, "w") as f:
             for row in strain_data:
                 f.write(" ".join(f"{v:.8e}" for v in row) + "\n")
-        
+
         print(f"Exported elastic strain tensors to {ee_file}\n")
 
         # --- Write .csv file for MOOSE ---
@@ -1162,7 +1381,6 @@ class VoronoiMeshBuilder:
         moose_dat = df_seed[["x_seed", "y_seed", "z_seed"]].copy()
         moose_dat = pd.merge(moose_dat, df_strain, left_index=True, right_index=True)
         moose_dat.to_csv(moose_file, sep=",", index=False, header=False)
-            
 
     def evaluate_output_voronoi(self, tess_file: str, length_norm: bool = False):
         """
@@ -1188,14 +1406,15 @@ class VoronoiMeshBuilder:
         df = pd.read_csv(df_path)
 
         # --- Plot centroids for quick inspection ---
-        self.plot_centroids(save_path=os.path.join(outputdir, "figures", "centroids.png"))
+        self.plot_centroids(
+            save_path=os.path.join(outputdir, "figures", "centroids.png")
+        )
 
         # --- Consistency check between IDs ---
         id_cell = np.array(df["id_cell"])
         id_seed = np.array(df["id_seed"])
         if not np.array_equal(id_cell, id_seed):
             print("Warning: id_cell and id_seed are not identical!")
-
 
         dfdat = self.data.copy()
         if self.dim == 2:
@@ -1208,7 +1427,7 @@ class VoronoiMeshBuilder:
         dfdat[coord_cols]
 
         # --- Extract fields ---
-        seed_w = np.array(df["w_seed"])                      # input weight
+        seed_w = np.array(df["w_seed"])  # input weight
         cell_xyz = np.array(df[["x_cell", "y_cell", "z_cell"]])
         input_xyz = np.array(dfdat[coord_cols])
         cell_radeq = np.array(df["radeq_cell"])
@@ -1230,7 +1449,7 @@ class VoronoiMeshBuilder:
             Lbox = np.maximum(Lbox, eps)
 
         # --- Position error (normalized by box lengths per-axis) ---
-        
+
         norm_cell = cell_xyz / Lbox
         norm_seed = input_xyz / Lbox
         delta = norm_cell - norm_seed
@@ -1277,8 +1496,239 @@ class VoronoiMeshBuilder:
         plt.ylabel("Frequency")
 
         plt.tight_layout()
-        plt.savefig(os.path.join(outputdir, "figures", "distribution_comparison.png"), dpi=300)
+        plt.savefig(
+            os.path.join(outputdir, "figures", "distribution_comparison.png"), dpi=300
+        )
         plt.close()
 
         print(f"Evaluation figures saved in {os.path.join(outputdir, 'figures')}")
-    
+
+    def reformat_tesr_file(self, tesr_file: str, orientation_file: str):
+        """
+        Output CSV columns:
+        X, Y, Z, CellID, Eul0, Eul1, Eul2
+        """
+
+        if not os.path.exists(tesr_file):
+            raise FileNotFoundError(f"TESR file not found: {tesr_file}")
+
+        if not os.path.exists(orientation_file):
+            raise FileNotFoundError(f"Orientation file not found: {orientation_file}")
+
+        if self.dim == 2:
+            xmin, xmax, ymin, ymax = map(float, self.bounding_box)
+            zmin = 0.0
+        else:
+            xmin, xmax, ymin, ymax, zmin, zmax = map(float, self.bounding_box)
+
+        with open(tesr_file, "r") as f:
+            lines = [ln.rstrip("\n") for ln in f]
+
+        dim = None
+        size = None
+        voxsize = None
+        num_cells = None
+        voxel_ids = None
+
+        i = 0
+        nlines = len(lines)
+
+        while i < nlines:
+            s = lines[i].strip()
+
+            if s.lower() == "**general":
+                dim = int(lines[i + 1].strip())
+                size_tokens = lines[i + 2].split()
+                voxsize_tokens = lines[i + 3].split()
+                size = tuple(int(v) for v in size_tokens)
+                voxsize = tuple(float(v) for v in voxsize_tokens)
+                i += 4
+                continue
+
+            if s.lower() == "**cell":
+                j = i + 1
+                while j < nlines:
+                    sj = lines[j].strip()
+                    if not sj:
+                        j += 1
+                        continue
+                    if sj.startswith("***") or (sj.startswith("**") and j > i + 1):
+                        break
+                    if sj.startswith("*"):
+                        j += 1
+                        continue
+                    try:
+                        num_cells = int(sj)
+                        break
+                    except ValueError:
+                        pass
+                    j += 1
+                i = j
+                continue
+
+            if s.lower() == "**data":
+                if i + 1 >= nlines:
+                    raise RuntimeError(
+                        "Malformed TESR: missing data format after **data."
+                    )
+                data_format = lines[i + 1].strip().lower()
+                if data_format != "ascii":
+                    raise ValueError(
+                        f"Unsupported **data format '{data_format}'. Only inline ascii is supported."
+                    )
+                data_tokens = []
+                j = i + 2
+                while j < nlines:
+                    sj = lines[j].strip()
+                    if not sj:
+                        j += 1
+                        continue
+                    if sj.startswith("***") or sj.startswith("**"):
+                        break
+                    data_tokens.extend(sj.split())
+                    j += 1
+                voxel_ids = np.array([int(tok) for tok in data_tokens], dtype=int)
+                i = j
+                continue
+            i += 1
+
+        if dim is None or size is None or voxsize is None:
+            raise RuntimeError("Failed to parse required TESR general information.")
+
+        if dim != self.dim:
+            raise RuntimeError(
+                f"TESR dimension ({dim}) does not match self.dim ({self.dim})."
+            )
+
+        if num_cells is None:
+            raise RuntimeError("Failed to parse number_of_cells from **cell block.")
+
+        if voxel_ids is None:
+            raise RuntimeError("Failed to parse inline voxel IDs from **data block.")
+
+        if dim == 2:
+            nx, ny = size
+            dx, dy = voxsize
+            nz = 1
+            dz = 1.0
+            nvox = nx * ny
+        else:
+            nx, ny, nz = size
+            dx, dy, dz = voxsize
+            nvox = nx * ny * nz
+
+        if voxel_ids.size != nvox:
+            raise RuntimeError(
+                f"TESR voxel count mismatch: expected {nvox}, found {voxel_ids.size}."
+            )
+
+        # print out voxel dimensions
+        print(f"TESR voxel grid: {nx} x {ny} x {nz} = {nvox} voxels")
+        print(f"Voxel size: dx={dx}, dy={dy}, dz={dz}")
+
+        # Read orientation file (Nx3)
+        ori = np.loadtxt(orientation_file, dtype=float)
+
+        if ori.ndim == 1:
+            if ori.size != 3:
+                raise ValueError("Orientation file must contain exactly 3 columns.")
+            ori = ori.reshape(1, 3)
+
+        if ori.shape[1] != 3:
+            raise ValueError(
+                f"Orientation file must have exactly 3 columns; got shape {ori.shape}."
+            )
+
+        if ori.shape[0] != num_cells:
+            raise ValueError(
+                f"Orientation row count ({ori.shape[0]}) does not match "
+                f"TESR number_of_cells ({num_cells})."
+            )
+
+        # Reconstruct voxel centers in column-major order
+        xs = xmin + (np.arange(nx) + 0.5) * dx
+        ys = ymin + (np.arange(ny) + 0.5) * dy
+
+        X = np.empty(nvox, dtype=float)
+        Y = np.empty(nvox, dtype=float)
+        Z = np.empty(nvox, dtype=float)
+
+        idx = 0
+        if dim == 2:
+            for j in range(ny):
+                for i in range(nx):
+                    X[idx] = xs[i]
+                    Y[idx] = ys[j]
+                    Z[idx] = 0.0
+                    idx += 1
+        else:
+            zs = zmin + (np.arange(nz) + 0.5) * dz
+            for k in range(nz):
+                for j in range(ny):
+                    for i in range(nx):
+                        X[idx] = xs[i]
+                        Y[idx] = ys[j]
+                        Z[idx] = zs[k]
+                        idx += 1
+
+        # Map CellID -> Euler angles; void voxels get -1
+        eul = np.full((nvox, 3), -1.0, dtype=float)
+
+        nonvoid = voxel_ids > 0
+        if np.any(nonvoid):
+            if voxel_ids[nonvoid].max() > num_cells:
+                raise ValueError(
+                    f"Found CellID {voxel_ids[nonvoid].max()} in **data, "
+                    f"but TESR declares only {num_cells} cells."
+                )
+            eul[nonvoid] = ori[voxel_ids[nonvoid] - 1]
+
+        # Write CSV
+        base, ext = os.path.splitext(tesr_file)
+        csv_out = base + "_reformatted.csv"
+        vtk_out = base + "_reformatted.vtk"
+
+        df = pd.DataFrame(
+            {
+                "X": X,
+                "Y": Y,
+                "Z": Z,
+                "CellID": voxel_ids,
+                "Eul0": eul[:, 0],
+                "Eul1": eul[:, 1],
+                "Eul2": eul[:, 2],
+            }
+        )
+        df.to_csv(csv_out, index=False)
+        print(f"Wrote CSV: {csv_out}")
+
+        # Write legacy ASCII VTK as structured points / image-style raster
+        with open(vtk_out, "w") as f:
+            f.write("# vtk DataFile Version 3.0\n")
+            f.write("TESR reformatted voxel data\n")
+            f.write("ASCII\n")
+            f.write("DATASET STRUCTURED_POINTS\n")
+
+            if dim == 2:
+                f.write(f"DIMENSIONS {nx + 1} {ny + 1} 2\n")
+                f.write(f"ORIGIN {xmin:.12g} {ymin:.12g} 0\n")
+                f.write(f"SPACING {dx:.12g} {dy:.12g} 1.0\n")
+            else:
+                f.write(f"DIMENSIONS {nx + 1} {ny + 1} {nz + 1}\n")
+                f.write(f"ORIGIN {xmin:.12g} {ymin:.12g} {zmin:.12g}\n")
+                f.write(f"SPACING {dx:.12g} {dy:.12g} {dz:.12g}\n")
+
+            f.write(f"CELL_DATA {nvox}\n")
+
+            def write_scalar_array(name, arr, fmt):
+                f.write(f"SCALARS {name} {fmt} 1\n")
+                f.write("LOOKUP_TABLE default\n")
+                for val in arr:
+                    f.write(f"{val}\n")
+
+            write_scalar_array("CellID", voxel_ids, "int")
+            write_scalar_array("Eul0", eul[:, 0], "float")
+            write_scalar_array("Eul1", eul[:, 1], "float")
+            write_scalar_array("Eul2", eul[:, 2], "float")
+
+        print(f"Wrote VTK: {vtk_out}")
