@@ -1,6 +1,10 @@
 output_test/
 .vscode/
 testing_during_code_not_upload_to_github/
+graintrace.egg-info/
+dist/
+build/
+.claude/settings.local.json
 test.csv
 *.pyc
 __pycache__/
@@ -14,10 +18,11 @@ test_moose_*/
 cpfe_ff_nf_demonstrate/
 cpfe_ff_nf_demonstrate_v*/
 postprocess_test*/
-test*/
+test_*/
 grain_tracking_output*/
 minimum_example_nfff_cpfe/
 experiment_data/
 run_experiment_*
 experiment_*/
 test_
+scan_location/
