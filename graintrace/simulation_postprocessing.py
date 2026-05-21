@@ -264,7 +264,7 @@ class SimulationResults:
         if block_id < 0 or block_id >= self.n_steps:
             raise IndexError(f"block_id out of range: {block_id}")
 
-        one_row = block.loc[[block_id], :]
+        one_row = block.iloc[[block_id]]
         data_list = []
         comp_names = None
 

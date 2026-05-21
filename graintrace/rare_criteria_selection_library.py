@@ -33,13 +33,11 @@ def select_highest_von_mises_from_components(
             "sxz_mean_mean",
         ]
 
-    d = df[df["n"] >= min_size]
-
     missing = [c for c in required_cols if c not in df.columns]
     if missing:
         raise ValueError(f"Missing required columns for von Mises: {missing}")
 
-    d = df.copy()
+    d = df[df["n"] >= min_size].copy()
     for c in required_cols:
         d[c] = pd.to_numeric(d[c], errors="coerce")
     d = d.dropna(subset=required_cols)
@@ -65,9 +63,7 @@ def select_highest_scalar(
     if col not in df.columns:
         raise ValueError(f"Missing required column for scalar selection: {col}")
 
-    d = df[df["n"] >= min_size]
-
-    d = df.copy()
+    d = df[df["n"] >= min_size].copy()
     d[col] = pd.to_numeric(d[col], errors="coerce")
     d = d.dropna(subset=[col])
 
@@ -97,9 +93,7 @@ def select_highest_norm_3x3_tensor(
     if missing:
         raise ValueError(f"Missing required columns for 3x3 tensor norm: {missing}")
 
-    d = df[df["n"] >= min_size]
-
-    d = df.copy()
+    d = df[df["n"] >= min_size].copy()
     for c in required_cols:
         d[c] = pd.to_numeric(d[c], errors="coerce")
     d = d.dropna(subset=required_cols)
