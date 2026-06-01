@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "graintrace"
+version = "0.1.0"
+description = "Crystal plasticity FE pipeline for APS HEDM experiments"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "numpy>=1.26",
+    "pandas>=2.0",
+    "scipy>=1.10",
+    "matplotlib>=3.7",
+    "torch>=2.0",
+    "torch-geometric>=2.3",
+    "networkx>=3.0",
+    "networkit",
+    "tqdm",
+    "pyvista>=0.40",
+    "meshio>=5.0",
+    "vtk>=9.0",
+    "textual>=0.40",
+    "scikit-learn>=1.3",
+    "gmsh>=4.12",
+    "psutil",
+    "pyevtk",
+    "trimesh",
+    "emcee",
+    "gstools",
+    "multiprocess",
+    "pyro-ppl",
+    "pyzag",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "black", "isort"]
+
+# neml2 is NOT on PyPI — install from source:
+#   cd moose/framework/contrib/neml2 && pip install . -v
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["graintrace*"]
+
+[tool.setuptools.package-data]
+graintrace = ["cpfe_base/*.i"]

@@ -30,10 +30,10 @@ conda activate graintrace_env
 
 - After installing gmsh, install NEPER via `https://neper.info/doc/introduction.html`. Often, a local `GSL` is required to install, as well as `OpenBLAS`. Gmsh installation is recommend before NEPER to avoid linking issues.
 
-- Alternatively, the code `construct_voronoi_mesh.py` provide an automatic installations in its `check_dependencies` function. This only works on LINUX system and have been verified with `Ubuntu 20.04`. This code also should set the correct environment, pull the compatible `gmsh` and `NEPER` versions, as well as download and compile the relevant programs inside the system's home path directory via `home = os.path.expanduser("~")`. To set up automatic installation under this approach, create a new python file and run:
+- Alternatively, the code `graintrace/construct_voronoi_mesh.py` provide an automatic installations in its `check_dependencies` function. This only works on LINUX system and have been verified with `Ubuntu 20.04`. This code also should set the correct environment, pull the compatible `gmsh` and `NEPER` versions, as well as download and compile the relevant programs inside the system's home path directory via `home = os.path.expanduser("~")`. To set up automatic installation under this approach, create a new python file and run:
 
 ```python
-from construct_voronoi_mesh import VoronoiMeshBuilder
+from graintrace import VoronoiMeshBuilder
 builder = VoronoiMeshBuilder(
     input_csv="mwe_data/synthetic_data.csv",
     output_dir="synethic_out",
@@ -143,7 +143,7 @@ pip install . -v
 
 ## Minimum working example
 
-Run code `demonstrate_cpfe_nfff.py` to check if the required programs are installed correctly.
+Run code `examples/demonstrate_cpfe_nfff.py` to check if the required programs are installed correctly.
 
 - Ensure that the environment variables for the programs are specified correctly. For `Coreform CUBIT`, Locate this line of codes and change the correct environment variables.
 
@@ -181,20 +181,43 @@ This code will:
 - Use CUBIT/SCULPT/NEML2 to reconstruct crystal structure from NF
 - Use MOOSE/NEML2 to run CPFE simulations
 
-In the end, navigate to `minimum_example_cpfe/simulation/cpfe_run.log` to make sure the simulation is completed.
+In the end, navigate to `minimum_example_nfff_cpfe/simulation/cpfe_run.log` to make sure the simulation is completed.
 
 ## Check other python packages
 
-Run these scripts to check if all required python packages are installed. If the scripts can run to completion without errors, then the python packages can be considered properly installed and functional.
+Run these scripts from the repo root to check if all required python packages are installed. If the scripts can run to completion without errors, then the python packages can be considered properly installed and functional.
 
-- `demonstrate_graintracking.py`
+- `examples/demonstrate_graintracking.py`
 
-- `demonstrate_postprocess.py`
+- `examples/demonstrate_postprocess.py`
 
-- `demonstrate_rei_pipeline.py`
+- `examples/demonstrate_rei_pipeline.py`
 
-- `demonstrate_rei_example_2D.py`
+- `examples/demonstrate_rei_example_2D.py`
 
-- `demonstrate_rei_example_3D.py`
+- `examples/demonstrate_rei_example_3D.py`
 
-- `demonstrate_hedm_study.py`
+- `examples/demonstrate_hedm_study.py`
+
+## Running the test suite
+
+After installing the package (`pip install -e .`), run the pytest test suite from the repo root to verify that the core Python components are working correctly:
+
+```bash
+conda activate graintrace_env
+pytest tests/
+```
+
+All 72 tests should pass. The suite covers: data classes, similarity metrics, clustering, orientation math, simulation/experiment postprocessing, and stitching utilities. It also checks that `neml2` is importable and that the CUBIT/SCULPT binaries are present and executable.
+
+To run only the fast pure-Python tests (no heavy external tools):
+
+```bash
+pytest tests/ -m "not slow"
+```
+
+To run a specific test file:
+
+```bash
+pytest tests/test_dependencies.py -v
+```

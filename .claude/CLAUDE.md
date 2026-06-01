@@ -1,0 +1,821 @@
+# CLAUDE.md — graintrace Working Reference
+
+This file is for Claude's use when helping write or debug experiment scripts. It is not a user README.
+
+---
+
+## 1. Package Overview
+
+`graintrace` is a Python toolkit that links experimental grain-scale characterization data (FF HEDM, NF HEDM, EBSD) to crystal plasticity finite element (CPFE) simulations. It reconstructs 3D microstructure meshes from raw experimental data, sets up and runs MOOSE/PUMA CPFE simulations with NEML2 material models, and post-processes results for rare-event identification (REI).
+
+**Key external dependencies:**
+
+| Dependency | Role |
+|---|---|
+| **NEPER** | Voronoi/CVT tessellation from FF centroids; produces `.tess` and `.msh` files |
+| **CUBIT/SCULPT** (`psculpt`) | Hexahedral mesh generation from voxel `.spn` files (NF/EBSD meshes) |
+| **MOOSE/PUMA** (`puma-opt`) | Runs CPFE simulations; outputs CSV field data at grid points |
+| **neml2** | Crystal plasticity material model (Taylor model, CPFE model); Python bindings used for orientation math and calibration |
+
+---
+
+## 2. Data Types
+
+### FF HEDM data (per scan layer, CSV format)
+Raw files are whitespace-delimited with an 8-line header (skip lines 0-7). Column names appear on line 8, possibly prefixed with `%`. Key columns:
+
+```
+X, Y, Z           — grain centroid position (micrometers)
+GrainRadius       — equivalent sphere radius (micrometers)
+Eul0, Eul1, Eul2 — Bunge Euler angles (degrees or radians; detect via "auto")
+Confidence        — fit quality, filter to >= 0.7 or 0.9
+eFab11..eFab33    — fabric/lattice strain tensor (row-major, 9 components)
+eKen11..eKen33    — Kenesei elastic strain tensor (row-major, 9 components), typically in microstrain
+ScanID            — assigned during stitching
+```
+
+To read raw FF files:
+```python
+with open(fpath) as fh:
+    lines = fh.readlines()
+data_lines = lines[8:]
+if data_lines[0].lstrip().startswith("%"):
+    line = data_lines[0]
+    idx = line.find("%")
+    data_lines[0] = line[:idx] + line[idx+1:]
+df = pd.read_csv(StringIO("".join(data_lines)), sep=r"\s+")
+```
+
+Detect units automatically: if any Euler value > 2π, units are degrees, else radians.
+
+Multiple scan layers are Z-shifted before stitching:
+```python
+df["Z"] = df["Z"] + scan_idx * Zheight_per_file * (1 - overlap_fraction)
+```
+
+### NF HEDM data (per-layer `.mic` files in a folder)
+Expected `.mic` format (tab-delimited, with `%` header lines):
+```
+%OrientationRowNr  OrientationID  RunTime  X  Y  TriEdgeSize  UpDown  Eul1  Eul2  Eul3  Confidence  PhaseNr
+```
+`NearFieldMeshBuilder` reads a folder of `.mic` files. The `exp_file_token` parameter is the filename prefix token used to find files. If the source data is `.ang` files (8-column, no header), convert them to `.mic` format first (see `run_experiment_afrl.py` for the conversion pattern).
+
+For the alternate path using `NFGridConversion` (pre-gridded NF data):
+```python
+from graintrace.nf_grid_conversion import NFGridConversion
+nf_converter = NFGridConversion(
+    input_folder="...",
+    save_dir="...",
+    exp_file_token="layer_prefix",
+    prefix="reconstructed",
+)
+nf_grid_csv = nf_converter.convert(dz=nf_dz, nx=nx, ny=ny)
+```
+
+### EBSD data (CSV, merged from per-layer `.ang` files)
+After converting and merging from `.ang` files, the expected format is a flat CSV:
+```
+x, y, z, Eul0, Eul1, Eul2
+```
+`z` is `file_index * zstep_ebsd`. Columns `Eul0/1/2` hold Bunge Euler angles in degrees or radians. The file is then fed to `VoxelMeshBuilder`.
+
+---
+
+## 3. FF-Only Workflow
+
+Full pipeline: stitch → reconstruct → (optional) voxel mesh → CPFE simulation.
+
+### Step 1: Stitch multiple scan layers
+```python
+from graintrace.hedm_stitching_techniques.region_base_stitching import RegionBaseStitching
+
+stitcher = RegionBaseStitching(
+    scan_files=file_list,           # list of pre-processed CSVs (Z already shifted)
+    output_csv="out/stitched_output.csv",
+    position_tolerance=50,          # micrometers
+    orientation_tolerance=5.0,      # degrees (convert to radians if ori_units="radians")
+    radius_tolerance=0.0,
+    weights={"pos": 0.1, "ori": 1.0, "rad": 0},
+    min_neighbors=5,
+    orientation_convention="bunge",
+    orientation_units="degrees",    # or "radians"
+    symmetry="432",
+    output_column=important_columns,
+)
+stitched = stitcher.run(zlo=bounding_box[4], zhi=bounding_box[5],
+                        overlap_fraction=overlap_percentage/100.0)
+```
+
+### Step 2: Build Voronoi reconstruction (NEPER/GMSH)
+```python
+from graintrace.construct_voronoi_mesh import VoronoiMeshBuilder
+
+builder_ff = VoronoiMeshBuilder(
+    input_csv="out/stitched_output.csv",
+    output_dir="out/FF",
+    bounding_box=[-560, 580, -360, 410, -120, 0],  # [xlo,xhi,ylo,yhi,zlo,zhi] micrometers
+    dim=3,
+    weighted=False,
+    auto_fix_bbox=True,
+    bbox_fix_mode="remove_points",   # "remove_points" for production; "extend_bounding_box" for debug
+    bbox_tolerance=2.5,
+    auto_rotate=False,
+    rotate_angles=[0, 0, 8.1],       # sample tilt correction, must match ori_units
+    rotate_convention="xyz",
+    angle_identifier=["Eul0", "Eul1", "Eul2"],
+    orientation_descriptor="euler-bunge",
+    orientation_active_convention=True,
+    elastic_strain_identifier=["eKen11","eKen12","eKen13",
+                               "eKen21","eKen22","eKen23",
+                               "eKen31","eKen32","eKen33"],
+    strain_unit="microstrain",
+    unit="deg",                      # "deg" or "rad", must match actual data units
+)
+
+builder_ff.build_voronoi(
+    generate_mesh=False,             # True = also generate .msh via GMSH (slow)
+    option="centroid",               # "voronoi" | "centroid" | "centroidsize"
+    CVT_iter=1000,                   # CVT optimization iterations
+    morphoalgo="subplex",            # "subplex" | "lloyd" | "praxis"
+    mesh_quality_min=0.7,
+    relative_el_size=2.0,            # mesh element size relative to grain size
+    tesr_size=[100, 100, 100],       # voxel grid resolution [nx, ny, nz]
+)
+```
+
+Key outputs in `output_dir`:
+- `reconstruction.msh` — GMSH mesh (if `generate_mesh=True`)
+- `reconstruction_reformatted.csv` — per-voxel grain IDs and orientations
+- `reconstruction_cpfe_ee.csv` — per-grain elastic strain for CPFE initial conditions
+- `orientations.dat` — Euler angles for each grain (always degrees after FF build)
+
+### Step 3 (optional): Build graph from tessellation
+```python
+from graintrace.tess_to_gnn import NeperTessToGraphNN
+parser = NeperTessToGraphNN(tess_path="out/FF/voronoi.tess", device="cpu")
+graph = parser.build_cell_graph()
+```
+
+### Step 4: Run CPFE simulation
+The orientation file output from FF is always in degrees (Bunge). Convert to Modified Rodrigues Parameters (MRP) before passing to `CPFESimulation`:
+```python
+import torch
+from neml2 import tensors
+e_np = np.loadtxt("out/FF/orientations.dat")
+e = torch.tensor(e_np, dtype=torch.float64)
+R = tensors.Rot.fill_euler_angles(tensors.Vec(e), "bunge", "degrees")
+mrp_np = R.torch().cpu().numpy()
+np.savetxt("out/FF/orientations_MRP.dat", mrp_np, fmt="%.8f")
+```
+
+```python
+from graintrace.run_cpfe_simulation import CPFESimulation
+
+sim = CPFESimulation(
+    mesh_file="out/FF/reconstruction.msh",
+    save_simulation_folder="out/simulation",
+    element_order="SECOND",          # "FIRST" or "SECOND"
+    eeres_file="out/FF/reconstruction_cpfe_ee.csv",
+    ori_file="out/FF/orientations_MRP.dat",
+    dim=3,
+    moose_run_file="/path/to/puma-opt",
+    use_ff_initial_field=True,       # True when mesh and ee file are co-registered FF
+)
+
+sim.set_parameters("material",
+    slip_constant_strength=100.0,
+    voce_hardening_initial_slope=1650.0,
+    voce_hardening_saturation=220.0,
+    power_slip_n=25,
+    power_slip_g0=1e-4,
+    elastic_E=109000.0,
+    elastic_nu=0.307,
+    elastic_G=41700.0,
+    burger_scale=2.54,
+)
+
+sim.set_parameters("simulation_parameters",
+    dt=0.2, total_time=5.0,
+    device="cuda:0",                 # "cpu" or "cuda:N"
+    device_batch=100,
+    scheduler_name="simple",         # "simple" | "hybrid" | "simple_MPI"
+    hybrid_batch_sizes=(1000, 1000),
+    sync_times="1.0 2.0 3.0 4.0 5.0",  # space-separated string of MOOSE times
+)
+
+displace_amount = total_strain * (bounding_box[5] - bounding_box[4])
+sim.set_parameters("boundary",
+    bounding_box=bounding_box,
+    bc={
+        "x": {"negative": "stress_free", "positive": "stress_free"},
+        "y": {"negative": "stress_free", "positive": "stress_free"},
+        "z": {"negative": 0, "positive": displace_amount},
+    },
+)
+
+sim.set_parameters("grid_properties",
+    number_of_elements=[100, 100, 100],
+    bounding_box=grid_bb,            # bounding_box shrunk by 0.0001 on each face
+)
+
+sim.run(ncore=8)
+```
+
+Converting `sync_strain` list to MOOSE sync times:
+```python
+sync_times = np.asarray(sync_strain) / total_strain * (total_time - 1) + 1
+string_sync_times = " ".join(map(str, sync_times))
+```
+
+---
+
+## 4. NF-Only Workflow
+
+### Using NearFieldMeshBuilder (`.mic` files)
+```python
+from graintrace.construct_nf_mesh import NearFieldMeshBuilder
+
+builder_nf = NearFieldMeshBuilder(
+    input_folder="experiment_data/NF",   # folder containing .mic files
+    save_dir="out/NF",
+    exp_file_token="layer",              # filename token to match files in folder
+    angle_convention="bunge",
+    angle_type="radians",                # "radians" or "degrees"
+    symmetry="432",
+    prefix="reconstructed",
+    write_intermediate=True,
+    write_vtk=True,
+)
+
+merged_grid_path = builder_nf.reconstruct(
+    dz=5.0,          # layer thickness in micrometers
+    nx=200,          # in-plane grid resolution x
+    ny=300,          # in-plane grid resolution y
+    segmentation={   # legacy flat dict for NearFieldMeshBuilder
+        "misorientation_tol": 5.0/180*np.pi,   # radians
+        "connectivity": 6,
+        "batch_norm": 200_000,
+        "grain_threshold": 1000,
+        "stop_count": 500,
+        "grain_threshold_final": 10000,
+    },
+)
+
+mesh_path = builder_nf.mesh(
+    sculpt_config=sculpt_config,
+    sculpt_options=sculpt_options,
+    merged_grid=merged_grid_path,
+)
+# Orientations saved to: builder_nf.mapped_orientations_path + ".csv"
+# Use output_nf + "/orientations.csv" for CPFESimulation ori_file
+```
+
+Key outputs in `save_dir`:
+- `merged_segmented_fixed_grid.npy` — segmented voxel grid (restart checkpoint)
+- `mesh.e` — Exodus mesh file for CPFE
+- `orientations.csv` — per-element MRP orientations
+
+---
+
+## 5. EBSD Workflow
+
+Use `VoxelMeshBuilder` with a merged CSV (columns: `x, y, z, Eul0, Eul1, Eul2`):
+
+```python
+from graintrace.construct_voxel_mesh import VoxelMeshBuilder
+
+ebsd_voxel_builder = VoxelMeshBuilder(
+    file_path="out/ebsd/EBSD_merged_downsampled_5x.csv",
+    save_dir="out/ebsd/mesh",
+    euler_cols=["Eul0", "Eul1", "Eul2"],
+    angle_convention="bunge",
+    angle_type="radians",            # or "degrees"
+    symmetry="432",
+)
+
+merged_grid_path = ebsd_voxel_builder.reconstruct(
+    apply_smoothing=True,
+    segmentation={
+        "method": "graph",           # "graph" or "flood"
+        "params": {
+            "misorientation_tol": 5.0,   # degrees if angle_type="degrees", radians otherwise
+            "connectivity": 26,
+            "grain_threshold_final": 100,
+        },
+        "graph_params": {
+            "segmenter": "leiden",
+            "graph_mode": "grid",
+            "manhattan_radius": 2,
+            "grid_tol": 1e-6,
+            "n_jobs": 10,
+            "weight_chunk_size": 1_000_000,
+            "reduce_edges_topweights_k": 8,
+            "nodes_chunk": 500_000,
+            "seed": 42,
+            "networkit_kwargs": {"gamma": 0.001},   # lower gamma = fewer clusters
+            "weight_cfg": {
+                "mode": "rbf",
+                "sigma": None,
+                "sigma_auto": {"sample_size": 20_000, "random_state": 42, "quantile": 0.5},
+                "power": 2.0,
+            },
+            "plot": True,
+        },
+    },
+)
+
+mesh_path = ebsd_voxel_builder.mesh(
+    sculpt_config=sculpt_config,
+    sculpt_options=sculpt_options,
+    merged_grid=merged_grid_path,
+)
+```
+
+Note: `VoxelMeshBuilder` also accepts an optional `cell_id_col` parameter if the input CSV has a pre-existing grain ID column (used when processing FF `reconstruction_reformatted.csv`).
+
+---
+
+## 6. Combined NF+FF Workflow
+
+The typical use case: NF provides the high-resolution mesh geometry; FF provides initial elastic strain field.
+
+```python
+# 1. Build NF mesh (as in Section 4)
+builder_nf = NearFieldMeshBuilder(...)
+merged_grid_path = builder_nf.reconstruct(...)
+mesh_path = builder_nf.mesh(...)
+
+# 2. Build FF reconstruction for initial strain (build_voronoi only, no mesh generation)
+builder_ff = VoronoiMeshBuilder(...)
+builder_ff.build_voronoi(generate_mesh=False, ...)
+# produces: out/FF/reconstruction_cpfe_ee.csv
+
+# 3. Spatially shift FF ee data to align with NF coordinate frame
+ff_translation = (dx, dy, dz)   # determined by experiment geometry
+ee_data = pd.read_csv("out/FF/reconstruction_cpfe_ee.csv", header=None, index_col=False)
+ee_data.iloc[:, 0] += ff_translation[0]
+ee_data.iloc[:, 1] += ff_translation[1]
+ee_data.iloc[:, 2] += ff_translation[2]
+ee_data.to_csv("out/FF/reconstruction_cpfe_ee_shifted.csv", index=False, header=False)
+
+# 4. Run CPFE using NF mesh, NF orientations, FF initial strain
+sim = CPFESimulation(
+    mesh_file="out/NF/mesh.e",
+    save_simulation_folder="out/simulation",
+    element_order="FIRST",           # NF mesh typically uses FIRST order
+    eeres_file="out/FF/reconstruction_cpfe_ee_shifted.csv",
+    ori_file="out/NF/orientations.csv",
+    dim=3,
+    moose_run_file="/path/to/puma-opt",
+    use_ff_initial_field=False,      # False when eeres_file is from a different mesh
+)
+# ... set_parameters and run as normal
+```
+
+Derive NF bounding box from the saved voxel grid:
+```python
+data = np.load("out/NF/merged_segmented_fixed_grid.npy")
+coords = data[..., 4:7].reshape(-1, 3)
+x_min, y_min, z_min = coords.min(axis=0)
+x_max, y_max, z_max = coords.max(axis=0)
+bounding_box_nf = [x_min, x_max, y_min, y_max, z_min, z_max]
+```
+
+---
+
+## 7. Post-CPFE Analysis Workflow
+
+### Load simulation results
+```python
+from graintrace.simulation_postprocessing import SimulationResults, FieldFileNaming
+from graintrace import plot_postprocessing as postprocess
+
+field_naming = FieldFileNaming(
+    prefix="out_element_centroid",
+    index_width=4,
+    sep="_",
+    suffix=".csv",
+)
+res = SimulationResults(
+    block_csv="out/simulation/simulation_out/out.csv",
+    field_dir="out/simulation/simulation_out/grid_out",
+    field_naming=field_naming,
+)
+```
+
+### Plot distributions at sync times
+```python
+postprocess.plot_block_properties_distribution(
+    res, time=sync_times[i], tensor_prefix="ee", order=2, output_folder="out/postprocess"
+)
+postprocess.plot_block_properties_distribution(
+    res, time=sync_times[i], tensor_prefix="nye_tensor", order=2, output_folder="out/postprocess"
+)
+```
+
+### Plot macroscopic stress-strain
+```python
+postprocess.plot_macroscopic_stress_strain(
+    res,
+    stress_tensor_prefix="cauchy_stress",
+    strain_tensor_prefix="strain",
+    volume_prefix="volume",
+    output_folder="out/postprocess",
+)
+```
+
+### Plot pole figure (requires updated neml2)
+```python
+postprocess.plot_pole_figure(
+    res,
+    tensor_prefix="ori_rodrigues",
+    time=sync_times[i],
+    direction=[0, 0, 1],
+    crystal_symmetry="432",
+    device="cpu",
+    output_folder="out/postprocess",
+    construct_odf=False,
+)
+```
+
+### IPF coloring of mesh
+```python
+from graintrace.ipf_postprocess import IPFProcessor
+
+ipf = IPFProcessor(crystal_symmetry="432", sample_symmetry="432", save_dir="out/mesh")
+ipf.ipf_color_chart(savefig_name="ipf_color_chart.png")
+ipf.add_block_rgb_to_exodus(
+    mesh_file="out/mesh/mesh.e",
+    orientations_csv="out/mesh/orientations.csv",
+    output_file="mesh_rgb.e",
+    direction=[0.0, 0.0, 1.0],
+    angle_convention="mrp",
+)
+ipf.add_block_rgb_to_vtk(
+    vtk_file="out/mesh/fixed_grid.vtk",
+    output_file="merged_segmented_fixed_grid_rgb.vtk",
+    direction=[0.0, 0.0, 1.0],
+    angle_convention="bunge",
+    angle_type="degrees",
+    orientation_fields=("Eul1", "Eul2", "Eul3"),
+)
+```
+
+### Rare event identification (REI) — IdentifyRareClusters
+Takes the last grid output CSV (from `grid_out/`) and identifies spatially coherent rare regions.
+
+```python
+from graintrace.rare_cluster_indicator import IdentifyRareClusters
+from graintrace.similarity_metric_library import SimilarityMetricLibrary
+from graintrace.user_data_class import SimilarityMetric, WeightConfig, RareCriteria
+from graintrace import rare_criteria_selection_library as rcs
+
+metric_lib = SimilarityMetricLibrary()
+spec = metric_lib.nye_tensor_norm(cols=["nye_tensor_11", ..., "nye_tensor_33"])
+spec_reduced = SimilarityMetric(
+    name=spec.name + "_mean",
+    feature_cols=[f"{c}_mean" for c in spec.feature_cols],
+    func=spec.func,
+)
+rare_criteria = RareCriteria(
+    selector=lambda df: rcs.select_highest_scalar(
+        df, k=5, required_cols="nye_tensor_norm_mean_mean", min_size=1
+    )
+)
+
+weight_cfg = WeightConfig(
+    mode="rbf", power=2.0, sigma=None,
+    sigma_auto={"sample_size": 500_000, "random_state": 42, "quantile": 0.5},
+)
+
+irc = IdentifyRareClusters(
+    input_csv_path=filename,
+    id_col="id",
+    coord_cols=("x", "y", "z"),
+)
+gsc, indicator = irc.make_stage_objects(graph_cluster_out=base + "_reduced.csv")
+
+bundle = irc.run_clustering(
+    gsc=gsc,
+    indicator=indicator,
+    reduced_csv_path=base + "_reduced.csv",
+    gsc_run_kwargs=dict(
+        spec=spec,
+        graph_mode="grid",           # "grid" | "knn" | "auto"
+        manhattan_radius=4,
+        grid_tol=1e-6,
+        n_jobs=12,
+        weight_chunk_size=500_000,
+        segmenter="leiden",
+        seed=42,
+        weight_cfg=weight_cfg,
+        reduce_edges_topweights_k=20,
+        networkit_kwargs={"gamma": 10.0},
+        checkpoint_base_path=base + "_gsc_ckpt",
+        resume_from_checkpoint=False,
+    ),
+    indicator_run_kwargs=dict(
+        method_type="scipy_hierarchical",
+        spec=spec_reduced,
+        threshold=0.0005,
+        method="average",
+        criterion="distance",
+        dendrogram_path="out/rei/dendrogram.png",
+    ),
+)
+pd.to_pickle(bundle, base + "_bundle.pkl")
+
+out = irc.run_get_rare_cluster(
+    bundle=bundle,
+    criteria=rare_criteria,
+    output_vtk_path="out/rei/rare_clusters.vtk",
+    export_control="auto",
+    background_block_id=1,
+    first_rare_block_id=2,
+    also_write_final_label=True,
+    rare_reduced_stats_csv_path="out/rei/rare_cluster_stats.csv",
+    use_sample_std=False,
+)
+```
+
+---
+
+## 8. Material Calibration
+
+Uses a Taylor model to fit material parameters to experimental stress-strain data and optional full-field strain measurements.
+
+```python
+import graintrace as _gt
+from pathlib import Path
+from graintrace.material_calibration import MaterialCalibration
+from graintrace.taylor import TaylorModel
+
+_cpfe_base = str(Path(_gt.__file__).parent / "cpfe_base")
+
+calib = MaterialCalibration(
+    model_class=TaylorModel,
+    model_args=dict(
+        neml2_path=_cpfe_base + "/neml2_cpfe_calibration.i",
+        neml2_model_name="model_with_stress",
+    ),
+    data_args=dict(
+        data_dir="out/rotated_experiments",      # folder of per-stress-level CSVs
+        strain_stress_file="exp_data/strain-stress.csv",
+        npoints=50,
+        full_field_strain_units="microstrain",
+        straintype="eKen",
+    ),
+    save_dir="out/material_calibration",
+    apply_elastic_correction=False,
+    strain_window=(0.0, 0.0015),
+)
+
+calib.plot_texture(direction=[1, 1, 1])
+calib.plot_stress_strain()
+calib.calibrate(maxiter=50)                      # saves calibrated_material.json
+calib.load("out/material_calibration/calibrated_material.json")
+```
+
+Before calibration, experimental CSV files must have orientations and strains rotated to match the simulation frame. Use `experiment_rotation_helper`:
+```python
+from graintrace.experiment_rotation_helper import update_experiments, collect_experiment_files
+
+files, stress_levels = collect_experiment_files(exp_data_dir)
+update_experiments(
+    input_files=files,
+    output_root="out/rotated_experiments",
+    bounding_box=bounding_box,
+    auto_fix_bbox=True,
+    bbox_fix_mode="remove_points",
+    rotate_angles=rotate_angles,
+    unit="rad",
+    angle_identifier=["Eul0", "Eul1", "Eul2"],
+    orientation_descriptor="euler-bunge",
+    orientation_active_convention=True,
+    elastic_strain_identifier=["eKen11", ..., "eKen33"],
+)
+```
+
+---
+
+## 9. Key Config Patterns
+
+### `sculpt_config` dict
+Required for any step calling `builder.mesh(sculpt_config=...)`:
+```python
+sculpt_config = {
+    "launcher": "/path/to/cubit/bin/mpi/bin/mpiexec",
+    "psculpt":  "/path/to/cubit/bin/psculpt",
+    "epu":      "/path/to/cubit/bin/epu",
+    "nprocs":   10,
+    "environment": {
+        "OPAL_LIBDIR": "/path/to/cubit/bin/mpi/lib",
+        "OPAL_PREFIX": "/path/to/cubit/bin/mpi",
+    },
+}
+```
+
+Required keys: `psculpt`, `epu`, `nprocs`. `launcher` and `environment` are needed for MPI-based execution.
+
+### `sculpt_options` tuple
+Passed as a tuple of CLI flag strings. Common options:
+```python
+sculpt_options = (
+    "--adapt", "-A", "7",    # mesh adaptation level
+    "-df", "1",              # dilation factor
+    "-S", "2",               # smoothing passes
+    "-CS", "4",              # curve smoothing
+    "--void_mat", "0",       # void material ID
+)
+```
+For FF Voronoi meshes without adaptation, use just `("--void_mat", "0")`.
+
+### `segmentation_prop` dict (VoxelMeshBuilder / EBSD / NF-as-voxel)
+Two methods:
+```python
+# Flood fill (simpler, faster)
+segmentation = {
+    "method": "flood",
+    "params": {
+        "misorientation_tol": 5.0/180*np.pi,  # always radians for VoxelMeshBuilder
+        "connectivity": 26,                    # 6 or 26
+        "grain_threshold_final": 1000,
+        "batch_norm": 200_000,                 # flood-only
+        "grain_threshold": 1000,               # flood-only
+        "stop_count": 500,                     # flood-only
+    },
+}
+
+# Graph-based (better for complex textures)
+segmentation = {
+    "method": "graph",
+    "params": {
+        "misorientation_tol": 5.0,    # degrees when angle_type="degrees", else radians
+        "connectivity": 26,
+        "grain_threshold_final": 100,
+    },
+    "graph_params": {
+        "segmenter": "leiden",
+        "graph_mode": "grid",
+        "manhattan_radius": 2,
+        "grid_tol": 1e-6,
+        "n_jobs": 10,
+        "weight_chunk_size": 1_000_000,
+        "reduce_edges_topweights_k": 8,
+        "nodes_chunk": 500_000,
+        "seed": 42,
+        "networkit_kwargs": {"gamma": 0.001},   # lower = fewer clusters
+        "weight_cfg": {
+            "mode": "rbf",
+            "sigma": None,
+            "sigma_auto": {"sample_size": 20_000, "random_state": 42, "quantile": 0.5},
+            "power": 2.0,
+        },
+        "plot": True,
+    },
+}
+```
+
+Note: For `NearFieldMeshBuilder.reconstruct()`, the `segmentation` argument is the legacy flat dict (no `method`/`params` nesting), using `misorientation_tol` directly in radians.
+
+### `bc` dict format
+```python
+bc = {
+    "x": {"negative": "stress_free", "positive": "stress_free"},
+    "y": {"negative": "stress_free", "positive": "stress_free"},
+    "z": {"negative": 0, "positive": displace_amount},  # 0 = fixed, float = displacement
+}
+```
+`"stress_free"` means traction-free (no constraint). Integer/float means prescribed displacement.
+
+### `WeightConfig` dataclass
+```python
+from graintrace.user_data_class import WeightConfig
+
+weight_cfg = WeightConfig(
+    mode="rbf",           # "rbf" | "inverse"
+    power=2.0,
+    sigma=None,           # if None, use sigma_auto
+    sigma_auto={
+        "sample_size": 500_000,
+        "random_state": 42,
+        "quantile": 0.5,
+    },
+)
+```
+
+---
+
+## 10. Common Pitfalls
+
+### cpfe_base path
+Always derive the cpfe_base path dynamically — do not hardcode it:
+```python
+import graintrace as _gt
+from pathlib import Path
+_cpfe_base = str(Path(_gt.__file__).parent / "cpfe_base")
+# Contains: neml2_cpfe.i, neml2_cpfe_calibration.i, run_cpfe.i, etc.
+```
+
+### `if __name__ == "__main__"` is required
+Scripts using `GraphSpatialCluster` (inside `IdentifyRareClusters.run_clustering()`) spawn worker processes via `multiprocessing`. On Linux with the `fork` start method this usually works, but best practice — and required for correctness on macOS/Windows — is to always wrap the main body:
+```python
+def main():
+    # ... all experiment logic ...
+
+if __name__ == "__main__":
+    main()
+```
+All example scripts in `examples/` follow this pattern.
+
+### Pole figure requires updated neml2
+`plot_pole_figure` uses `neml2.postprocessing.polefigure`. If this import fails, the neml2 Python bindings are outdated. Reinstall from `moose/framework/contrib/neml2`:
+```bash
+cd moose/framework/contrib/neml2 && pip install . -v
+```
+
+### `orientation_tolerance` units must match `ori_units`
+When `ori_units="radians"`, convert `orientation_tolerance` before passing to `RegionBaseStitching`:
+```python
+if ori_units == "radians":
+    orientation_tolerance = np.deg2rad(orientation_tolerance)
+    sample_rotate_angle = np.deg2rad(sample_rotate_angle)
+```
+
+### FF output orientations are always in degrees
+`VoronoiMeshBuilder.build_voronoi()` always writes `orientations.dat` in degrees regardless of input units. When feeding to `VoxelMeshBuilder` afterward:
+```python
+ff_voxel_builder = VoxelMeshBuilder(
+    file_path=os.path.join(output_ff, "reconstruction_reformatted.csv"),
+    ...
+    angle_type="degrees",   # always degrees after FF build
+)
+```
+
+### `bounding_box` for grid_properties should be inset
+Set `grid_bb` as `bounding_box ± 0.0001` to avoid mesh boundary issues:
+```python
+grid_bb = bounding_box.copy()
+for i in range(0, 6, 2):   # xlo, ylo, zlo
+    grid_bb[i] += 0.0001
+for i in range(1, 6, 2):   # xhi, yhi, zhi
+    grid_bb[i] -= 0.0001
+sim.set_parameters("grid_properties", number_of_elements=[nx, ny, nz], bounding_box=grid_bb)
+sim.set_parameters("boundary", bounding_box=bounding_box, bc={...})  # full box for BCs
+```
+
+### NF reconstruction restart
+If segmentation already ran, skip it with a restart flag and load the `.npy` directly:
+```python
+if NF_RECONSTRUCTION_MESH_RESTART:
+    merged_grid_path = os.path.join(output_nf, "merged_segmented_fixed_grid.npy")
+else:
+    merged_grid_path = builder_nf.reconstruct(...)
+```
+
+### Auto-detection of orientation units
+Use `ori_units = "auto"` and detect from values: if any Euler component exceeds `2π`, units are degrees.
+
+### REI checkpoint pattern
+Three checkpointing levels in order of priority:
+1. `PICK_CLUSTER_RESTART` — load bundle pickle (fastest restart)
+2. `FINAL_CLUSTERING_RESTART` — load reduced CSV + GSC labels numpy
+3. `GRAPH_SEGMENTATION_RESTART` — load graph edges/weights/meta from `_gsc_ckpt.*`
+
+---
+
+## 11. Module Map
+
+```
+graintrace/
+  construct_voronoi_mesh.py    VoronoiMeshBuilder    — FF HEDM reconstruction (NEPER)
+  construct_nf_mesh.py         NearFieldMeshBuilder  — NF HEDM reconstruction (SCULPT)
+  construct_voxel_mesh.py      VoxelMeshBuilder      — EBSD/NF voxel meshing (SCULPT)
+  nf_grid_conversion.py        NFGridConversion      — Pre-gridded NF data to CSV
+  run_cpfe_simulation.py       CPFESimulation        — MOOSE/PUMA CPFE runner
+  simulation_postprocessing.py SimulationResults     — Load/query CPFE output CSVs
+  experiment_postprocessing.py ExperimentResults     — Load experimental data
+  plot_postprocessing.py       plot_*                — Distribution/stress-strain/pole figures
+  ipf_postprocess.py           IPFProcessor          — IPF coloring on mesh
+  rare_cluster_indicator.py    IdentifyRareClusters  — REI full pipeline
+  graph_spatial_cluster.py     GraphSpatialCluster   — Graph segmentation of field data
+  cluster_indicator.py         ClusterAnalysisIndicator — Hierarchical clustering stage
+  similarity_metric_library.py SimilarityMetricLibrary  — Built-in feature metrics
+  rare_criteria_selection_library.py                 — select_highest_scalar, etc.
+  material_calibration.py      MaterialCalibration   — Taylor model parameter fitting
+  taylor.py                    TaylorModel           — NEML2 Taylor model wrapper
+  experiment_rotation_helper.py                      — Rotate experiment CSVs
+  hedm_stitching_techniques/
+    region_base_stitching.py   RegionBaseStitching   — Multi-scan Z-stitching
+  scan_stitching_comparison.py ScanStitchingComparison — Compare stitching results
+  tess_to_gnn.py               NeperTessToGraphNN    — .tess → graph data structure
+  user_data_class.py           SimilarityMetric, WeightConfig, RareCriteria
+  cpfe_base/                   MOOSE/NEML2 input templates (.i files)
+    neml2_cpfe.i               — CPFE material model definition
+    neml2_cpfe_calibration.i   — Taylor model for calibration
+    run_cpfe.i                 — Main MOOSE simulation input
+    grid_file.i                — Grid output configuration
+    initial_conditions.i       — Initial condition setup (NF orientation)
+    initial_conditions_ff.i    — Initial condition setup (FF-registered)
+    transfer.i                 — Variable transfer between meshes
+```
