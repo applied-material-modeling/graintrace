@@ -32,10 +32,7 @@ import pandas as pd
 
 
 class FieldFileNaming:
-    """
-    Naming convention for per-step CSVs.
-    The "identifier" is whatever appears between sep and suffix.
-    """
+    """Naming convention for per-step CSVs (identifier is between sep and suffix)."""
 
     def __init__(self, prefix: str, index_width: Optional[int] = None, sep: str = "_", suffix: str = ".csv") -> None:
         self.prefix = prefix
@@ -230,7 +227,6 @@ class ExperimentResults:
                 df, tensor_prefix, order, suffix="", return_comp_names=return_comp_names
             )
 
-        # sample == "time"
         if grain_id is None:
             raise ValueError("grain_id must be provided when sample='time'")
         if not isinstance(grain_id, int):
@@ -242,7 +238,7 @@ class ExperimentResults:
         for sid in self.step_ids:
             row_idx = self._grain_row_map[sid].get(grain_id, None)
             if row_idx is None:
-                # missing grain in this step (placeholder behavior)
+                # missing grain in this step
                 if order == 0:
                     d = np.array([[np.nan]])
                     cn = [tensor_prefix]
@@ -288,9 +284,7 @@ class ExperimentResults:
         raise NotImplementedError("Near-field experiment support not yet implemented.")
 
     def _run_grain_tracking(self) -> None:
-        """
-        just assign grain IDs based on row indices in the first step
-        """
+        """Assign grain IDs based on row indices in the first step."""
         first_step = self.step_ids[0]
         df0 = self.load_data(first_step)
         n0 = df0.shape[0]

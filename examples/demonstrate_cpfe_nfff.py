@@ -34,12 +34,12 @@ import numpy as np
 fsize = 14
 plt.rcParams.update(
     {
-        "font.size": fsize,  # Global font size
-        "axes.labelsize": fsize,  # Axis label size
-        "axes.titlesize": fsize,  # Title size
-        "xtick.labelsize": fsize,  # X tick label size
-        "ytick.labelsize": fsize,  # Y tick label size
-        "legend.fontsize": fsize,  # Legend font size
+        "font.size": fsize,
+        "axes.labelsize": fsize,
+        "axes.titlesize": fsize,
+        "xtick.labelsize": fsize,
+        "ytick.labelsize": fsize,
+        "legend.fontsize": fsize,
     }
 )
 
@@ -85,9 +85,9 @@ sculpt_options = (
 )
 
 # postprocess grid parameters
-grid_nx = 10  # 5
-grid_ny = 10  # 5
-grid_nz = 10  # 5
+grid_nx = 10
+grid_ny = 10
+grid_nz = 10
 
 reconstruction_needed = True
 initialize_data = True
@@ -98,16 +98,18 @@ device = "cuda:0"
 device_batch = 1000
 
 # program parameters
-moose_run_file = "/home/tranh/projects/aps_build/puma/puma-opt"
+# EDIT: path to your built PUMA binary (e.g. external/puma/puma-opt).
+moose_run_file = "external/puma/puma-opt"
 
+# EDIT: point these at your Coreform CUBIT/SCULPT install (paths only, never a license).
 sculpt_config = {
-    "launcher": "/home/tranh/Progs/cubit_gov/bin/mpi/bin/mpiexec",
-    "psculpt": "/home/tranh/Progs/cubit_gov/bin/psculpt",
-    "epu": "/home/tranh/Progs/cubit_gov/bin/epu",
+    "launcher": "/path/to/cubit/bin/mpi/bin/mpiexec",
+    "psculpt": "/path/to/cubit/bin/psculpt",
+    "epu": "/path/to/cubit/bin/epu",
     "nprocs": int(ncore),
     "environment": {
-        "OPAL_LIBDIR": "/home/tranh/Progs/cubit_gov/bin/mpi/lib",
-        "OPAL_PREFIX": "/home/tranh/Progs/cubit_gov/bin/mpi",
+        "OPAL_LIBDIR": "/path/to/cubit/bin/mpi/lib",
+        "OPAL_PREFIX": "/path/to/cubit/bin/mpi",
     },
 }
 
@@ -177,7 +179,6 @@ if initialize_data:
         print(f"Mapped orientations: {builder_nf.mapped_orientations_path}.csv")
 
         ## RECONSTRUCTED FROM FF DATA -------------------------------------------
-        # this to see if we could improve from the geometric centroid vs voronoi centroid
         if not os.path.exists(output_ff):
             os.makedirs(output_ff)
 
@@ -230,9 +231,6 @@ sim = CPFESimulation(
     dim=3,
     moose_run_file=moose_run_file,
 )
-
-# sim.set_parameters("material", **optimized_material)
-# print(nf_bounding_box.tolist())
 
 sim.set_parameters(
     "simulation_parameters",

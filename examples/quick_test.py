@@ -122,9 +122,7 @@ def generate_layered_euler_csv(
     pd.DataFrame(rows).to_csv(path, index=False)
 
 
-# -----------------------------
 # test setup
-# -----------------------------
 os.makedirs("test_graph_direct", exist_ok=True)
 csv_path = "test_graph_direct/synthetic_euler.csv"
 

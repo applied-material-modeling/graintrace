@@ -33,11 +33,7 @@ from .cluster_indicator import ClusterAnalysisIndicator
 
 
 class IdentifyRareClusters:
-    """
-    Stage 1: GraphSpatialCluster -> per-point labels + reduced cluster CSV
-    Stage 2: ClusterAnalysisIndicator -> merged labels on reduced CSV
-    Stage 3: select rare merged clusters + export VTK (grid vs points)
-    """
+    """Graph cluster -> merge via indicator -> select rare clusters and export VTK."""
 
     def __init__(
         self,
@@ -65,13 +61,11 @@ class IdentifyRareClusters:
 
         input_df = self._load_input_df()
 
-        ## Run the graph based
         gsc_out = gsc.run(
             output_csv_path=reduced_csv_path,
             return_labels=True,
             **gsc_run_kwargs,
         )
-        ##-------------------------
 
         if "extras" not in gsc_out or "labels" not in gsc_out["extras"]:
             raise ValueError(
@@ -91,10 +85,8 @@ class IdentifyRareClusters:
 
         print("Reduced CSV saved:", gsc_out["csv_path"])
 
-        ## Run the cluster
         print("\nRunning cluster indicator\n")
         ind_out = indicator.run(minimal_return=False, **indicator_run_kwargs)
-        ##-------------------------
 
         if "points" not in ind_out or ind_out["points"] is None:
             raise ValueError(
@@ -257,7 +249,6 @@ class IdentifyRareClusters:
             "rare_reduced_stats_csv_path": rare_reduced_stats_csv_path,
         }
 
-    # mapping
     def _build_super_label_map(
         self, indicator_points_df: pd.DataFrame
     ) -> Dict[int, int]:
@@ -265,7 +256,6 @@ class IdentifyRareClusters:
         cluster_label = indicator_points_df["cluster_label"].to_numpy()
         return {int(cid): int(clab) for cid, clab in zip(cluster_id, cluster_label)}
 
-    # selection of rare clusters
     def _select_rare_super_labels(
         self, indicator_clusters_df: pd.DataFrame, criteria: RareCriteria
     ) -> List[int]:
@@ -301,7 +291,6 @@ class IdentifyRareClusters:
 
         return [int(x) for x in rare_df["cluster_label"].to_list()]
 
-    # utility
     def make_stage_objects(
         self,
         *,
@@ -315,8 +304,8 @@ class IdentifyRareClusters:
 
         indicator = ClusterAnalysisIndicator(
             csv_path=graph_cluster_out,
-            id_col="cluster_id",  # fixed by reduced CSV schema
-            coord_cols=self.coord_cols,  # fixed: same coordinate names passed through
+            id_col="cluster_id",
+            coord_cols=self.coord_cols,
         )
 
         return gsc, indicator
@@ -370,7 +359,6 @@ class IdentifyRareClusters:
             for x, y, z in coords:
                 f.write(f"{x:.9g} {y:.9g} {z:.9g}\n")
 
-            # one vertex cell per point
             f.write(f"VERTICES {n} {2*n}\n")
             for i in range(n):
                 f.write(f"1 {i}\n")
@@ -436,7 +424,6 @@ class IdentifyRareClusters:
                 f"VTK writer supports 1D scalar arrays only; got {name} with shape {arr.shape}"
             )
 
-        # Choose VTK type
         if np.issubdtype(arr.dtype, np.integer):
             vtk_type = "int"
         else:

@@ -33,12 +33,12 @@ import sys
 fsize = 14
 plt.rcParams.update(
     {
-        "font.size": fsize,  # Global font size
-        "axes.labelsize": fsize,  # Axis label size
-        "axes.titlesize": fsize,  # Title size
-        "xtick.labelsize": fsize,  # X tick label size
-        "ytick.labelsize": fsize,  # Y tick label size
-        "legend.fontsize": fsize,  # Legend font size
+        "font.size": fsize,
+        "axes.labelsize": fsize,
+        "axes.titlesize": fsize,
+        "xtick.labelsize": fsize,
+        "ytick.labelsize": fsize,
+        "legend.fontsize": fsize,
     }
 )
 
@@ -47,7 +47,6 @@ output_dir = "hedm_demonstrate"
 
 # True crystal structure parameters
 bounding_box = [-500, 500, -500, 500, -1000, 500]
-# crystal_morpho_args = {"type": "gg", "mean": 80.0}
 crystal_morpho_args = {
     "type": "diameq",
     "distribution": "lognormal",
@@ -77,10 +76,8 @@ compare_position_tolerance = (
 )
 compare_orientation_tolerance = 5.0
 
-### -------------------------------------------------------------
-# uncomment the line below to see available morphology options
+# uncomment to see available morphology options:
 # CrystalGenerator.show_morpho_options(exit_after=True)
-### -------------------------------------------------------------
 
 seed_number = 42  # for reproducibility
 test = False
@@ -99,7 +96,7 @@ cg.generate_tessellation(
     morpho_args=crystal_morpho_args,
 )
 
-# # Simulate HEDM scans
+# Simulate HEDM scans
 cg.hedm_zscan(
     tess_file=output_dir + "/voronoi.tess",
     nstep=nscan,
@@ -113,20 +110,10 @@ cg.hedm_zscan(
 )
 
 # Perform stitching
-# List of scan files
 scan_files = [output_dir + f"/hedm_scan/scan_{i}.csv" for i in range(nscan)]
 stitch_output_csv = output_dir + "/huy_stitched.csv"
 
-
-### TO DO: change stitching technique here -----------------------
-# (demonstration of NaiveStitching)
-# stitch = NaiveStitching(
-#     scan_files=scan_files,
-#     output_csv=stitch_output_csv,
-# )
-# stitch.run()
-
-# Huy version of Stitching
+# TODO: change stitching technique here (region-based shown below)
 weights = {
     "pos": 0.1,
     "ori": 1.0,
@@ -153,11 +140,8 @@ stitched = stitcher.run(zlo=zlo, zhi=zhi, overlap_fraction=overlap_fraction)
 print("\nStitching complete.")
 print(f"Stitched df shape: {stitched.df.shape}")
 print(f"Output written to: {stitch_output_csv}\n")
-### -------------------------------------------------------------
-
 
 # Run comparison between true and stitched structures
-
 weights = {
     "pos": 0.1,
     "ori": 1.0,
@@ -181,13 +165,7 @@ compare._get_unmatched_grains(
     plot=True,
 )
 
-### -------------------------------------------------------------
-
-
-###
-### Testing stuff
-###
-
+# Testing stuff
 if test:
     CrystalGenerator.show_morpho_options()
 

@@ -27,7 +27,7 @@ from __future__ import annotations
 from typing import Any, Callable, Dict, List, Optional, Tuple
 import numpy as np
 import torch
-import neml2
+from .orientation_helper import mrp_to_matrix, misorientation_matrix
 from torch_geometric.data import Data
 import os
 import pandas as pd
@@ -100,7 +100,6 @@ class GraphGrainMatcher:
         )
 
         print("\n--- Perform neighborhood selection ---\n")
-        # neighborhood selection / matching
         match_out = self.neighbor_selection(
             Fa,
             Fb,
@@ -126,7 +125,6 @@ class GraphGrainMatcher:
         message_passing_iter: int = 6,
         use_default: bool = False,
     ):
-        # ---------- Validate graph ----------
         if not isinstance(graph, Data):
             raise TypeError("graph must be a torch_geometric.data.Data")
         if getattr(graph, "x", None) is None or graph.x.ndim != 2:
@@ -176,7 +174,7 @@ class GraphGrainMatcher:
         e0a, e0b = graph_slices["Eul0"]
         e1a, e1b = graph_slices["Eul1"]
         e2a, e2b = graph_slices["Eul2"]
-        euler = torch.cat([x[:, e0a:e0b], x[:, e1a:e1b], x[:, e2a:e2b]], dim=1)  # [N,3]
+        euler = torch.cat([x[:, e0a:e0b], x[:, e1a:e1b], x[:, e2a:e2b]], dim=1)
         if euler.ndim != 2 or euler.shape[1] != 3:
             raise ValueError(f"Euler must be [N,3], got {euler.shape}")
 
@@ -218,12 +216,11 @@ class GraphGrainMatcher:
         ctx = {
             "F_slices": F_slices,
             "required_node_features": list(required),
-            "euler": euler,  # [N,3] static
-            "edge_src": src,  # [E]
-            "edge_dst": dst,  # [E]
+            "euler": euler,
+            "edge_src": src,
+            "edge_dst": dst,
         }
 
-        # ---------- Message passing loop ----------
         message_passing_iter = int(message_passing_iter)
         if message_passing_iter < 0:
             raise ValueError("message_passing_iter must be >= 0")
@@ -233,6 +230,7 @@ class GraphGrainMatcher:
             F_dst = F[dst]
 
             # phi_operator MUST accept (F_src, F_dst, ctx, k)
+            # phi_operator must accept (F_src, F_dst, ctx, k) and return [E, d]
             Phi = phi_operator(F_src, F_dst, ctx, k)
             if (not torch.is_tensor(Phi)) or Phi.ndim != 2 or Phi.shape != (E, d):
                 raise ValueError(
@@ -308,12 +306,12 @@ class GraphGrainMatcher:
 
         for i0 in range(0, Na, chunk):
             i1 = min(Na, i0 + chunk)
-            Fi = Fa[i0:i1]  # [c, d]
-            dist = torch.cdist(Fi, Fb, p=2.0) ** 2  # [c, Nb]
+            Fi = Fa[i0:i1]
+            dist = torch.cdist(Fi, Fb, p=2.0) ** 2
             _, idx = torch.topk(dist, k=min(topk, Nb), dim=1, largest=False)
             cand_j[i0:i1, : idx.shape[1]] = idx
             if idx.shape[1] < topk:
-                cand_j[i0:i1, idx.shape[1] :] = -1  # pad
+                cand_j[i0:i1, idx.shape[1] :] = -1
 
         a_to_b = [-1] * Na
         mean_cost_history = []
@@ -356,8 +354,6 @@ class GraphGrainMatcher:
             mean_cost = float(sum(costs) / len(costs))
             mean_cost_history.append(mean_cost)
 
-            # if mean_cost >= prev_mean - tol:
-            #     break
             prev_mean = mean_cost
             a_to_b = new_a_to_b
 
@@ -395,13 +391,7 @@ class GraphGrainMatcher:
         }
 
     def write_results(self, result: Dict[str, Any]) -> None:
-        """
-        Writes:
-          - <run>_matches.csv : i_in_A, j_in_B, cost
-          - <run>_a_to_b.csv  : per-node mapping A->B (-1 unmatched)
-          - <run>_Fa.pt, <run>_Fb.pt : embeddings
-          - <run>_meta.json : params + mean_cost_history + feature names (if present)
-        """
+        """Write matches CSV, per-node A->B mapping, embeddings (.pt), and meta JSON."""
         out_dir = getattr(self, "output_dir", "match_results")
         run = getattr(self, "run_name", "run")
 
@@ -415,7 +405,6 @@ class GraphGrainMatcher:
         costs = match_out["costs"].detach().cpu()
         a_to_b = match_out["a_to_b"].detach().cpu()
 
-        # matches table
         df_matches = pd.DataFrame(
             {
                 "i_in_A": matches[:, 0].numpy() if matches.numel() else [],
@@ -425,17 +414,15 @@ class GraphGrainMatcher:
         )
         df_matches.to_csv(os.path.join(out_dir, f"{run}_matches.csv"), index=False)
 
-        # per-node mapping table
         df_map = pd.DataFrame(
             {"i_in_A": list(range(a_to_b.numel())), "j_in_B": a_to_b.numpy()}
         )
         df_map.to_csv(os.path.join(out_dir, f"{run}_a_to_b.csv"), index=False)
 
-        # embeddings
         torch.save(Fa.detach().cpu(), os.path.join(out_dir, f"{run}_Fa.pt"))
         torch.save(Fb.detach().cpu(), os.path.join(out_dir, f"{run}_Fb.pt"))
 
-        # metadata (keep JSON-serializable only)
+        # metadata (JSON-serializable only)
         meta = {
             "neighbor_selection_params": match_out.get("params", {}),
             "mean_cost_history": match_out.get("mean_cost_history", []),
@@ -448,7 +435,6 @@ class GraphGrainMatcher:
         with open(os.path.join(out_dir, f"{run}_meta.json"), "w") as f:
             json.dump(meta, f, indent=2)
 
-    ## some predefine functions
     @staticmethod
     def default_message_passing_function(
         angle_convention="kocks",
@@ -478,34 +464,18 @@ class GraphGrainMatcher:
             dZ = torch.zeros((E, 1), device=device, dtype=dtype)
 
             if k == 0:
-                euler = ctx["euler"]  # [N,3]
-                src = ctx["edge_src"]  # [E]
-                dst = ctx["edge_dst"]  # [E]
-                e1 = euler[src]  # [E,3]
-                e2 = euler[dst]  # [E,3]
+                euler = ctx["euler"]
+                src = ctx["edge_src"]
+                dst = ctx["edge_dst"]
+                e1 = euler[src]
+                e2 = euler[dst]
 
-                #
-                # R1 = neml2.tensors.Rot.fill_euler_angles(
-                #     neml2.tensors.Vec(e1), angle_convention, angle_type
-                # )
-                # R2 = neml2.tensors.Rot.fill_euler_angles(
-                #     neml2.tensors.Vec(e2), angle_convention, angle_type
-                # )
-                #
+                # Assumes graintrace MRP (Gibbs) params; for Euler input swap in
+                # euler_to_matrix(e, angle_convention, angle_type) below.
+                R1 = mrp_to_matrix(e1)
+                R2 = mrp_to_matrix(e2)
 
-                ## NEED TO REMOVE THIS IF EUL ANGLE IS ACTUALLY PROVIDED
-                R1 = neml2.tensors.Rot.fill_rodrigues(
-                    neml2.tensors.Scalar(e1[:, 0]),
-                    neml2.tensors.Scalar(e1[:, 1]),
-                    neml2.tensors.Scalar(e1[:, 2]),
-                )
-                R2 = neml2.tensors.Rot.fill_rodrigues(
-                    neml2.tensors.Scalar(e2[:, 0]),
-                    neml2.tensors.Scalar(e2[:, 1]),
-                    neml2.tensors.Scalar(e2[:, 2]),
-                )
-
-                rad_mis = neml2.crystallography.misorientation(R1, R2, symmetry).torch()
+                rad_mis = misorientation_matrix(R1, R2, symmetry, angle_type="radians")
                 if rad_mis.ndim == 1:
                     rad_mis = rad_mis.unsqueeze(1)
                 elif not (rad_mis.ndim == 2 and rad_mis.shape[1] == 1):
@@ -521,7 +491,7 @@ class GraphGrainMatcher:
                 Phi[:, aM:bM] = mis
                 return Phi
 
-            l2 = torch.linalg.norm(F_dst - F_src, dim=1, ord=2).unsqueeze(1)  # [E,1]
+            l2 = torch.linalg.norm(F_dst - F_src, dim=1, ord=2).unsqueeze(1)
 
             Phi = torch.zeros((E, F_src.shape[1]), device=device, dtype=dtype)
             Phi[:, 0:1] = dX
@@ -539,7 +509,7 @@ class GraphGrainMatcher:
         def psi(u, v):
             return -torch.sum((u - v) ** 2).item()
 
-        # base term: ||Fi - Fj||^2  (paper’s -psi(Fi,Fj))
+        # base term: ||Fi - Fj||^2
         cost = -psi(Fa[i], Fb[j])
 
         ni = neigh_a[i]
@@ -557,7 +527,7 @@ class GraphGrainMatcher:
                 cons += psi(Fa[p], Fb[q])
                 cnt += 1
 
-        # degree-normalize so high-degree nodes don’t automatically win
+        # degree-normalize so high-degree nodes don't automatically win
         if cnt > 0:
             cost += lam * (cons / cnt)
 

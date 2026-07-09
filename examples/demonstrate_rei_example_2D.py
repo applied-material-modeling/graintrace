@@ -39,6 +39,9 @@ from graintrace.similarity_metric_library import SimilarityMetricLibrary
 filename = "mwe_data/synthetic_vms.csv"
 generate_synthetic = True
 
+output_folder = "rei_2d_out"
+os.makedirs(output_folder, exist_ok=True)
+
 if generate_synthetic:
     ## generate synthetic cluster data for testing purpose
     def generate_layered_vms_csv(
@@ -59,10 +62,10 @@ if generate_synthetic:
         x_coords = np.linspace(0.0, 1.0, nx)
         y_coords = np.linspace(0.0, 1.0, ny)
 
-        # Define baseline layer VM levels (evenly spaced between vm_low and vm_high)
+        # baseline layer VM levels, evenly spaced vm_low..vm_high
         layer_vm_levels = np.linspace(vm_low, vm_high, n_layers)
 
-        # Assign each row (in y) to a layer
+        # assign each row (in y) to a layer
         layer_height = ny // n_layers
         layer_index = np.zeros(ny, dtype=int)
         for i in range(n_layers):
@@ -90,7 +93,7 @@ if generate_synthetic:
 
             vm_field[mask] *= vm_boost
 
-        # Now convert VM field to actual stress components (approx uniaxial)
+        # convert VM field to stress components (approx uniaxial)
         rows = []
         element_id = 0
         for j in range(ny):
@@ -167,14 +170,6 @@ _run = indicator.run(
 result = _run["points"]
 linkage = _run["extras"]["linkage_Z"]
 
-# result = indicator.run(
-#     method_type = "sklearn_dbscan",
-#     spec = spec,
-#     eps = 0.01,
-#     min_samples = 2,
-#     leaf_size = 10,
-# )
-
 print("Plotting results...")
 
 
@@ -224,7 +219,7 @@ label_norm, unique_labels, cmap, norm = prepare_cluster_colormap(labels)
 label_grid = label_norm.reshape(ny, nx)
 
 
-###--------------- plotting the image and clusters----------------- ###
+# plot the image and clusters
 fig, axes = plt.subplots(1, 2, figsize=(8, 4))
 
 # left: field
@@ -251,12 +246,12 @@ cbar.ax.set_yticklabels(unique_labels)  # show original cluster IDs
 
 plt.tight_layout()
 plt.savefig(
-    "testing_during_code_not_upload_to_github/rei_demonstrate_example_clusters.png",
+    os.path.join(output_folder, "rei_demonstrate_example_clusters.png"),
     dpi=300,
 )
 plt.close()
 
-### ------------------- Plotting MDS ----------------------------- ###
+# Plotting MDS
 fig, ax = plt.subplots(figsize=(6, 3))
 X_1d = result["mds_1d"].to_numpy()
 y = np.zeros_like(X_1d)
@@ -277,17 +272,12 @@ cbar.set_label("Cluster Labels")
 plt.tight_layout()
 
 fig.savefig(
-    "testing_during_code_not_upload_to_github/rei_demonstrate_mds.png",
+    os.path.join(output_folder, "rei_demonstrate_mds.png"),
     dpi=300,
 )
 plt.close(fig)
-### ------------------------------------------------------------- ###
 
-### ------------------- Plotting Denogram ----------------------- ###
-
-###--------------- plotting the image and clusters----------------- ###
-# vm_grid: (ny, nx)
-# color_grid will be derived from dendrogram colors
+# Plotting dendrogram (color_grid derived from dendrogram colors)
 n = result.shape[0]
 assert n == nx * ny
 
@@ -327,9 +317,8 @@ color_grid = colors_rgba.reshape(ny, nx, 4)  # row-major reshape
 im2 = ax_cluster.imshow(color_grid, origin="lower", aspect="equal")
 ax_cluster.set_title("Clusters (dendrogram colors)")
 
-# fig.tight_layout()
 fig.savefig(
-    "testing_during_code_not_upload_to_github/rei_demonstrate_clusters_from_dendro.png",
+    os.path.join(output_folder, "rei_demonstrate_clusters_from_dendro.png"),
     dpi=300,
 )
 plt.close(fig)

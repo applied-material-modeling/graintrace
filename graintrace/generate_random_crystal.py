@@ -28,7 +28,6 @@ from typing import Any, Dict, List, Optional, Tuple
 import os
 import subprocess
 import pandas as pd
-import subprocess
 import shutil
 import numpy as np
 
@@ -42,6 +41,8 @@ class CrystalGenerator:
         "bamboo": {"required": ["n", "v"], "optional": []},
         "diameq": {"required": ["distribution", "params"], "optional": []},
         "size": {"required": ["distribution", "params"], "optional": []},
+        # 'raw' = literal NEPER -morpho string (e.g. bi-modal mixtures)
+        "raw": {"required": ["morpho_str"], "optional": ["n"]},
     }
 
     _DISTRIBUTION_SCHEMA = {
@@ -95,7 +96,6 @@ class CrystalGenerator:
     def _build_morpho(self, morpho_arg: dict) -> str:
         """Construct the Neper -morpho string from a validated morphology dictionary."""
 
-        # --- Full validation first ---
         self.validate_morpho(morpho_arg)
 
         mtype = morpho_arg["type"]
@@ -116,11 +116,19 @@ class CrystalGenerator:
             param_str = ",".join(map(str, params))
             return f"{mtype}:{dist_name}({param_str})"
 
-    def generate_tessellation(self, morpho_args: Dict[str, Any], iterations: int = 10) -> None:
+        elif mtype == "raw":
+            return morpho_arg["morpho_str"]
 
+    def generate_tessellation(
+        self,
+        morpho_args: Dict[str, Any],
+        iterations: int = 10,
+        extra_neper_args: Optional[List[str]] = None,
+    ) -> None:
+        """Run neper -T. `extra_neper_args` are appended verbatim (e.g. ['-reg','1'])."""
         morpho_str = self._build_morpho(morpho_args)
 
-        # --- Compute domain ---
+        # compute domain
         if self.dim == 2:
             xmin, xmax, ymin, ymax = self.bounding_box
             sx, sy = xmax - xmin, ymax - ymin
@@ -134,8 +142,12 @@ class CrystalGenerator:
 
         mtype = morpho_args["type"]
 
-        if mtype in ("gg", "size", "diameq", "lamellar"):
-            n_arg = ["-n", "from_morpho"]
+        if mtype in ("gg", "size", "diameq", "lamellar", "raw"):
+            # 'raw' with no size term needs an explicit -n via morpho_args["n"]
+            if mtype == "raw" and "n" in morpho_args:
+                n_arg = ["-n", str(int(morpho_args["n"]))]
+            else:
+                n_arg = ["-n", "from_morpho"]
 
         elif mtype in ("columnar", "bamboo"):
             n_arg = ["-n", str(int(morpho_args["n"]))]
@@ -165,10 +177,12 @@ class CrystalGenerator:
             f"iter={iterations}",
         ] + n_arg
 
+        if extra_neper_args:
+            neper_cmd.extend(extra_neper_args)
+
         print("\n=== Running Neper Tessellation ===\n")
         print("> " + " ".join(neper_cmd))
 
-        # Execute
         proc = subprocess.run(
             neper_cmd,
             cwd=self.output_dir,
@@ -195,21 +209,10 @@ class CrystalGenerator:
         remove_minimum_volume: bool = False,
         min_vol: float = 0.0,
     ):
-        """
-        Generate a series of overlapping z-direction tessellation cuts to simulate HEDM scans.
+        """Generate overlapping z-direction tessellation cuts to simulate HEDM scans.
 
-        Parameters
-        ----------
-        tess_file : str
-            Absolute path to the base .tess file.
-        z_scan_height : float
-            Height (thickness) of each simulated HEDM scan slice.
-        overlap_percentage : float
-            Overlap between adjacent scans (0-100).
-        output_hedm : str
-            Prefix for the output cropped tessellation files.
-        """
-        # --- Validate base tessellation file ---
+        nstep slices span the domain z-extent; overlap_percentage (0-100) sets the
+        overlap between adjacent scans; output_hedm is the output subfolder name."""
         if not os.path.exists(tess_file):
             raise FileNotFoundError(f"Tessellation file not found: {tess_file}")
 
@@ -218,12 +221,12 @@ class CrystalGenerator:
             shutil.rmtree(output_hedm_dir)
         os.makedirs(output_hedm_dir, exist_ok=True)
 
-        # --- Get the scanning windows info ---
+        # scanning window geometry
         xmin, xmax, ymin, ymax, zmin, zmax = self.bounding_box
         total_height = zmax - zmin
         overlap_fraction = overlap_percentage / 100.0
         z_scan_height = total_height / (nstep - (nstep - 1) * overlap_fraction)
-        # if start from zmin then each next scan shift by z_step
+        # starting from zmin, each next scan shifts by z_step
         z_step = z_scan_height * (1 - overlap_fraction)
 
         scans = []
@@ -249,7 +252,7 @@ class CrystalGenerator:
             f"z_scan_height = {z_scan_height:.3f}, overlap = {overlap_percentage:.1f}%, z_step = {z_step:.3f}\n"
         )
 
-        # --- Perform cropping for each slice ---
+        # crop each slice
         for i, (zlo, zhi) in enumerate(scans):
 
             out_csv_name = os.path.join(output_hedm_dir, f"scan_{i}")
@@ -286,10 +289,7 @@ class CrystalGenerator:
         print(f"Outputs saved in: {output_hedm_dir}\n")
 
     def check_dependencies(self) -> None:
-        """
-        Check and install Neper & Gmsh locally under ~/.local if not present.
-        Note: this include installing the GSL and OpenBLAS libraries as well (for Neper).
-        """
+        """Check and install Neper (and its GSL/OpenBLAS deps) locally under ~/.local if missing."""
 
         home = os.path.expanduser("~")
         prefix = os.path.join(home, ".local")
@@ -306,7 +306,7 @@ class CrystalGenerator:
 
         os.makedirs(prefix, exist_ok=True)
 
-        # --- Install GSL locally if missing ---
+        # install GSL locally if missing
         gsl_lib = os.path.join(prefix, "lib", "libgsl.so")
         if not os.path.exists(gsl_lib):
             print("Installing GSL locally...")
@@ -334,7 +334,7 @@ class CrystalGenerator:
             else:
                 raise RuntimeError("GSL extraction failed.")
 
-        # --- Install OpenBLAS locally if missing ---
+        # install OpenBLAS locally if missing
         openblas_lib = os.path.join(prefix, "lib", "libopenblas.so.0")
         if not os.path.exists(openblas_lib):
             print("Installing OpenBLAS locally...")
@@ -358,7 +358,7 @@ class CrystalGenerator:
             )
             run(["make", "install", f"PREFIX={prefix}"], cwd=openblas_src)
 
-        # --- Neper installation ---
+        # install Neper if missing
         neper_installed = is_installed("neper")
 
         if not neper_installed:
@@ -369,7 +369,7 @@ class CrystalGenerator:
             os.makedirs(progs_dir, exist_ok=True)
 
             try:
-                # --- TR2 stable release first ---
+                # try official stable release first
                 print(f"Attempting official stable release v{stable_version}...")
                 run(
                     [
@@ -384,7 +384,7 @@ class CrystalGenerator:
                     progs_dir, f"neper-{stable_version}", "src"
                 )
             except subprocess.CalledProcessError:
-                # --- Fallback to GitHub repositoR2 ---
+                # fall back to GitHub master
                 print("Stable release unavailable, cloning GitHub master instead...")
                 repo_url = "https://github.com/rquey/neper.git"
                 neper_src_dir = os.path.join(progs_dir, "neper", "src")
@@ -393,7 +393,7 @@ class CrystalGenerator:
                 else:
                     run(["git", "-C", os.path.join(progs_dir, "neper"), "pull"])
 
-            # --- Build & install ---
+            # build & install
             build_dir = os.path.join(neper_src_dir, "build")
             os.makedirs(build_dir, exist_ok=True)
             run(
@@ -442,26 +442,18 @@ class CrystalGenerator:
         remove_minimum_volume: bool = False,
         min_vol: float = 0.0,
     ):
-        """
-        Combine Neper .stcell (geometry) and .ori (orientation) into one CSV file to mimic HEDM APS output.
+        """Combine Neper .stcell (geometry) and .ori (orientation) into one CSV
+        mimicking HEDM APS output (columns X, Y, Z, GrainRadius, Eul0, Eul1, Eul2).
 
-        Options:
-            apply_noise: add random noise to centroid positions and GrainRadius.
-            apply_noise_method: 'gaussian' (scales by value magnitude)
-            noise_level: relative standard deviation (e.g., 0.01 = ±1%).
-            remove_minimum_volume: drop grains below a volume threshold.
+        apply_noise adds gaussian noise scaled by value magnitude (noise_level =
+        relative stdev); remove_minimum_volume drops grains below min_vol."""
 
-        Output columns:
-            X, Y, Z, GrainRadius, Eul0, Eul1, Eul2
-        """
-
-        # --- Verify files exist ---
         if not os.path.exists(stat_file):
             raise FileNotFoundError(f"Missing .stcell file: {stat_file}")
         if not os.path.exists(ori_file):
             raise FileNotFoundError(f"Missing .ori file: {ori_file}")
 
-        # --- Load .stcell ---
+        # load .stcell
         df_stat = pd.read_csv(
             stat_file,
             sep=r"\s+",
@@ -471,7 +463,7 @@ class CrystalGenerator:
             engine="python",
         )
 
-        # --- Load .ori ---
+        # load .ori
         df_ori = pd.read_csv(
             ori_file,
             sep=r"\s+",
@@ -481,16 +473,15 @@ class CrystalGenerator:
             engine="python",
         )
 
-        # --- Sanity check ---
+        # sanity check
         if len(df_stat) != len(df_ori):
             print(
                 f"Warning: Mismatch in number of grains ({len(df_stat)} vs {len(df_ori)})"
             )
 
-        # --- Combine relevant data ---
         df = pd.concat([df_stat[["vol", "x", "y", "z", "radeq"]], df_ori], axis=1)
 
-        # --- Option: remove small grains ---
+        # optionally remove small grains
         if remove_minimum_volume and min_vol > 0:
             before = len(df)
             df = df[df["vol"] >= min_vol].reset_index(drop=True)
@@ -500,7 +491,7 @@ class CrystalGenerator:
             columns={"x": "X", "y": "Y", "z": "Z", "radeq": "GrainRadius"}
         )[["X", "Y", "Z", "GrainRadius", "Eul0", "Eul1", "Eul2"]]
 
-        # --- Option: apply noise ---
+        # optionally apply noise
         if apply_noise:
             if apply_noise_method.lower() == "gaussian":
                 numeric_cols = ["X", "Y", "Z", "GrainRadius", "Eul0", "Eul1", "Eul2"]
@@ -516,7 +507,6 @@ class CrystalGenerator:
                     f"Noise method '{apply_noise_method}' has not yet been implemented."
                 )
 
-        # --- Write to CSV ---
         df_final.to_csv(output_csv, index=False)
 
         if verbose:
@@ -546,7 +536,7 @@ class CrystalGenerator:
 
         os.makedirs(output_dir, exist_ok=True)
 
-        # --- Extract ncell ---
+        # extract ncell
         def _get_ncell(tess_file):
             with open(tess_file, "r") as f:
                 for line in f:
@@ -562,7 +552,7 @@ class CrystalGenerator:
 
         ncell = _get_ncell(tess_name)
 
-        # --- Compute domain ---
+        # compute domain
         if dim == 2:
             xmin, xmax, ymin, ymax = bounding_box
             sx, sy = xmax - xmin, ymax - ymin
@@ -574,7 +564,7 @@ class CrystalGenerator:
             tx, ty, tz = xmin, ymin, zmin
             domain_arg = f"cube({sx},{sy},{sz}):translate({tx},{ty},{tz})"
 
-        # --- Define cut ---
+        # define cut
         cut_arg = f"cut(hspace({zhi},0,0,1),hspace({-zlo},0,0,-1))"
 
         neper_cmd = [

@@ -51,30 +51,8 @@ class ScanStitchingComparison:
         weights: dict = {"pos": 1.0, "ori": 0.0, "rad": 0.0},
         min_neighbors: int = 5):
     
-        """
-        Initialize comparison between true and stitched grain data.
-
-        Parameters
-        ----------
-        true_csv : str
-            Path to ground-truth CSV file.
-            (must contain columns: X, Y, Z, GrainRadius, Eul0, Eul1, Eul2)
-        stitch_csv : str
-            Path to stitched or reconstructed CSV file.
-            (must contain columns: X, Y, Z, GrainRadius, Eul0, Eul1, Eul2)
-        position_tolerance : float, default=1e-3
-            Max centroid distance for candidate matching.
-        orientation_tolerance : float, default=1e-3
-            Max Euler misorientation difference.
-        radius_tolerance : float, default=1e-3
-            Relative tolerance for grain radius.
-        orientation_units : str, default="radians"
-            Units of Euler angles ("radians" or "degrees").
-        weights : dict, optional
-            Weights for position/orientation/radius cost terms.
-        min_neighbors : int, default=3
-            Minimum KD-tree neighbors for adaptive search.
-        """
+        """Compare true vs stitched grain data (both CSVs need columns
+        X, Y, Z, GrainRadius, Eul0, Eul1, Eul2)."""
 
         if not os.path.exists(true_csv):
             raise FileNotFoundError(f"True CSV not found: {true_csv}")
@@ -112,7 +90,6 @@ class ScanStitchingComparison:
 
         os.makedirs(self.output_dir, exist_ok=True)
 
-        # placeholders
         self.df_true = None
         self.df_stitch = None
         self.kdtree_true = None
@@ -125,21 +102,17 @@ class ScanStitchingComparison:
         
         self.load_data()
 
-        # identify matching pairs
         self._build_kdtree()
         self._match_grains()
 
-        # plotting and printout statistics (these called are independent)
         self._compute_statistics()
         self._plot_histograms()
 
     def load_data(self) -> None:
         """Load and preprocess true and stitched grain data."""
-        # --- Read CSVs ---
         self.df_true = pd.read_csv(self.true_csv)
         self.df_stitch = pd.read_csv(self.stitch_csv)
 
-        # --- Enforce column order and numeric types ---
         base_cols = ["X", "Y", "Z", "GrainRadius", "Eul0", "Eul1", "Eul2"]
 
         # keep any extra cols that exist in the CSVs (debug columns, ScanID, etc.)
@@ -152,7 +125,6 @@ class ScanStitchingComparison:
         self.df_true[base_cols] = self.df_true[base_cols].astype(float)
         self.df_stitch[base_cols] = self.df_stitch[base_cols].astype(float)
 
-        # --- Basic console summary ---
         print(f"Loaded {len(self.df_true)} grains from true dataset.")
         print(f"Loaded {len(self.df_stitch)} grains from stitched dataset.\n")
     
@@ -161,20 +133,16 @@ class ScanStitchingComparison:
         if self.df_true is None or self.df_stitch is None:
             raise RuntimeError("Datasets not loaded. Run load_data() first.")
 
-        # True reference KD-tree
         coords_true = self.df_true[["X", "Y", "Z"]].to_numpy()
         self.kdtree_true = cKDTree(coords_true)
         print(f"KD-tree built with {len(coords_true)} true grains.")
 
-        # Stitched dataset KD-tree
         coords_stitch = self.df_stitch[["X", "Y", "Z"]].to_numpy()
         self.kdtree_stitch = cKDTree(coords_stitch)
         print(f"KD-tree built with {len(coords_stitch)} stitched grains.\n")
     
     def _match_grains(self) -> None:
-        """
-        Match stitched grains to true grains using KD-tree neighbor search and optimal assignment.
-        """
+        """Match stitched to true grains via KD-tree search and optimal assignment."""
 
         if self.kdtree_true is None or self.kdtree_stitch is None:
             raise RuntimeError("KD-trees not built. Run _build_kdtree() first.")
@@ -190,11 +158,9 @@ class ScanStitchingComparison:
         print(f"Matched {mask.sum()} true grains to stitched grains (unmatched: {len(self.inverse_matches)-mask.sum()}).\n")
 
     def _build_mapping(self, source_df, target_df, target_tree):
-        """
-        Build a 1-1 mapping from source -> target using Hungarian assignment,
-        while allowing unmatched sources and unmatched targets via dummy nodes.
-        Output: one row per source (always), with idx_target = -1 if unmatched.
-        """
+        """Build a 1-1 source->target mapping via Hungarian assignment, allowing
+        unmatched entries via dummy nodes. One row per source; idx_target = -1 if
+        unmatched."""
         coords_source = source_df[["X", "Y", "Z"]].to_numpy()
         n_source, n_target = len(source_df), len(target_df)
 
@@ -212,7 +178,7 @@ class ScanStitchingComparison:
                 ],
             )
 
-        # --- NEW: keep full coordinates for component-wise diffs ---
+        # keep full coordinates for component-wise diffs
         coords_target = target_df[["X", "Y", "Z"]].to_numpy()
 
         # KD-tree query for candidate edges
@@ -245,7 +211,6 @@ class ScanStitchingComparison:
         diff_ori = diff_ori_t.detach().cpu().numpy().astype(float)
         diff_rad = np.abs(rad_source[s_idx] - rad_target[t_idx]) / np.maximum(rad_target[t_idx], 1e-14)
 
-        # weights + scaling
         w_pos = float(self.weights.get("pos", 1.0))
         w_ori = float(self.weights.get("ori", 0.0))
         w_rad = float(self.weights.get("rad", 0.0))
@@ -255,7 +220,7 @@ class ScanStitchingComparison:
         otol = self.orientation_tolerance if self.orientation_tolerance != 0.0 else eps
         rtol = self.radius_tolerance if self.radius_tolerance != 0.0 else eps
 
-        # ---- feasibility mask ----
+        # feasibility mask
         ok = np.ones_like(diff_pos, dtype=bool)
         if self.position_tolerance != -1:
             ok &= (diff_pos <= self.position_tolerance)
@@ -274,7 +239,7 @@ class ScanStitchingComparison:
         dy_all = dy_all[ok]
         dz_all = dz_all[ok]
 
-        # If nothing feasible, everything unmatched
+        # nothing feasible => everything unmatched
         if s_idx.size == 0:
             return pd.DataFrame(
                 [
@@ -295,7 +260,7 @@ class ScanStitchingComparison:
             w_rad * (diff_rad / rtol)
         )
 
-        # Compute unmatch cost slightly above max feasible cost
+        # unmatch cost slightly above max feasible cost
         max_real = 0.0
         if w_pos > 0 and self.position_tolerance != -1:
             max_real += w_pos * 1.0
@@ -306,14 +271,13 @@ class ScanStitchingComparison:
         UNMATCH_COST = max_real + 1e-6
         BIG = 1e9
 
-        # Build best edge per (s,t) if duplicates show up
+        # best edge per (s,t) if duplicates show up
         pair = {}
         for s, t, dp, dr, do, cc, dx, dy, dz in zip(
             s_idx, t_idx, diff_pos, diff_rad, diff_ori, cost,
             dx_all, dy_all, dz_all
         ):
             key = (int(s), int(t))
-            # store dx, dy, dz as well
             if key not in pair or cc < pair[key][7]:
                 pair[key] = (
                     float(dp),  # 0
@@ -326,7 +290,7 @@ class ScanStitchingComparison:
                     float(cc),  # 7 (for comparison)
                 )
 
-        # Augmented square matrix:
+        # augmented square cost matrix
         N = n_source + n_target
         C = np.full((N, N), BIG, dtype=float)
 
@@ -334,16 +298,16 @@ class ScanStitchingComparison:
             cc = vals[6]
             C[s, t] = cc
 
-        # Real source -> dummy cols (unmatch each source)
+        # real source -> dummy cols (unmatch each source)
         C[0:n_source, n_target:n_target + n_source] = UNMATCH_COST
-        # Dummy rows (for target unmatched) -> real target cols
+        # dummy rows (target unmatched) -> real target cols
         C[n_source:n_source + n_target, 0:n_target] = UNMATCH_COST
-        # Dummy rows -> dummy cols
+        # dummy rows -> dummy cols
         C[n_source:n_source + n_target, n_target:n_target + n_source] = 0.0
 
         row_ind, col_ind = linear_sum_assignment(C)
 
-        # Build per-source result, default unmatched
+        # per-source result, default unmatched
         idx_target_out = np.full(n_source, -1, dtype=int)
         dp_out = np.full(n_source, np.inf, dtype=float)
         dr_out = np.full(n_source, np.inf, dtype=float)
@@ -353,13 +317,13 @@ class ScanStitchingComparison:
         dy_out = np.full(n_source, np.inf, dtype=float)
         dz_out = np.full(n_source, np.inf, dtype=float)
 
-        # Interpret assignments for REAL source rows only
+        # interpret assignments for real source rows only
         for r, c in zip(row_ind, col_ind):
             if r >= n_source:
                 continue  # dummy row
             s = int(r)
             if c < n_target:
-                # matched to real target only if cheaper than unmatch
+                # match to real target only if cheaper than unmatch
                 if C[r, c] < UNMATCH_COST and C[r, c] < BIG * 0.5:
                     t = int(c)
                     idx_target_out[s] = t
@@ -374,8 +338,7 @@ class ScanStitchingComparison:
                     dy_out[s] = dy
                     dz_out[s] = dz
                 else:
-                    # matched to dummy => unmatched source
-                    pass
+                    pass  # matched to dummy => unmatched source
 
         rows = [
             (
@@ -417,9 +380,7 @@ class ScanStitchingComparison:
         )
 
     def _compute_statistics(self):
-        """
-        Compute matching statistics on matches that satisfy the default tolerances.
-        """
+        """Compute matching statistics on matches within the default tolerances."""
         if self.matches is None or self.inverse_matches is None:
             raise RuntimeError("Matches not computed. Run _match_grains() first.")
 
@@ -486,8 +447,7 @@ class ScanStitchingComparison:
 
 
     def _plot_histograms(self):
-        """Plot histograms of differences."""
-
+        """Plot histograms of match differences."""
         os.makedirs(os.path.join(self.output_dir, "figures"), exist_ok=True)
 
         valid_mask = self._valid_match_mask(self.matches)
@@ -521,20 +481,10 @@ class ScanStitchingComparison:
             ori_tol: float | None = None,
             view3D: bool = False
     ):
-        """
-        Identify unmatched grains beyond given tolerances and optionally plot them.
+        """Identify unmatched grains beyond given tolerances and optionally plot them.
 
-        Parameters
-        ----------
-        bounding_box : list or None
-            Domain bounding box [xmin, xmax, ymin, ymax, zmin, zmax].
-            If None, inferred from true dataset.
-        plot : bool, default=True
-            Whether to generate a 3D scatter plot of unmatched grains.
-        pos_tol : float or None
-            Tolerances for position differences.
-            If None, defaults to initialized class tolerances.
-        """
+        bounding_box defaults to the true dataset extent; pos_tol/ori_tol default to
+        the initialized class tolerances."""
         if self.matches is None:
             raise RuntimeError("Matches not computed. Run _match_grains() first.")
         if self.inverse_matches is None:
@@ -542,8 +492,6 @@ class ScanStitchingComparison:
 
         pos_tol = pos_tol or self.position_tolerance
         ori_tol = ori_tol or self.orientation_tolerance
-
-        # --- Identify unmatched grains ---
 
         # valid forward links: stitched -> true
         valid_fwd = self._valid_match_mask(self.matches, pos_tol, ori_tol)
@@ -556,7 +504,6 @@ class ScanStitchingComparison:
         all_true = set(range(len(self.df_true)))
         all_stitch = set(range(len(self.df_stitch)))
 
-        # THIS is what you described
         unmatched_true_fwd = list(all_true - claimed_true_by_fwd)          # plot RED
         unmatched_stitch_inv = list(all_stitch - claimed_stitch_by_inv)    # plot BLUE
 
@@ -573,7 +520,6 @@ class ScanStitchingComparison:
         print(f"Unmatched true grains: {len(df_unmatched_true)}. \nDetails saved to '{self.output_dir}/unmatched_true.csv'\n")
         print(f"Unmatched stitched grains: {len(df_unmatched_stitch)}. \nDetails saved to '{self.output_dir}/unmatched_stitch.csv'")
 
-        # --- Determine bounding box ---
         if bounding_box is None:
             xyz = self.df_true[["X", "Y", "Z"]].to_numpy()
             mins = xyz.min(axis=0)
@@ -584,7 +530,6 @@ class ScanStitchingComparison:
             print(f"  Y: [{mins[1]:.3f}, {maxs[1]:.3f}]")
             print(f"  Z: [{mins[2]:.3f}, {maxs[2]:.3f}]")
 
-        # --- Plot unmatched grains ---
         if plot and (len(df_unmatched_true) > 0 or len(df_unmatched_stitch) > 0):
 
             fig = plt.figure(figsize=(6, 12))
@@ -599,7 +544,7 @@ class ScanStitchingComparison:
                 ]:
                     ax.plot([x0, x1], [y0, y1], color=color, linewidth=lw)
 
-            # --- XY projection ---
+            # XY projection
             if view3D:
                 ax1 = fig.add_subplot(3, 1, 1)
             else:
@@ -615,7 +560,7 @@ class ScanStitchingComparison:
             ax1.set_aspect('equal')
             ax1.legend(loc="upper right", fontsize=6)
 
-            # --- XZ projection ---
+            # XZ projection
             if view3D:
                 ax2 = fig.add_subplot(3, 1, 2)
             else:
@@ -631,7 +576,7 @@ class ScanStitchingComparison:
             ax2.set_aspect('equal')
             ax2.legend(loc="upper right", fontsize=6)
 
-            # --- 3D view ---
+            # 3D view
             if view3D:
                 ax3 = fig.add_subplot(3, 1, 3, projection="3d")
                 if len(df_unmatched_true) > 0:
@@ -639,7 +584,7 @@ class ScanStitchingComparison:
                 if len(df_unmatched_stitch) > 0:
                    ax3.scatter(df_unmatched_stitch["X"], df_unmatched_stitch["Y"], df_unmatched_stitch["Z"], c="blue", s=8, label="backward")
 
-                # Bounding box (3D)
+                # bounding box edges
                 for s, e in [
                     ((xmin, ymin, zmin), (xmax, ymin, zmin)),
                     ((xmin, ymax, zmin), (xmax, ymax, zmin)),

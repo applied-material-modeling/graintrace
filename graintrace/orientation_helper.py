@@ -34,6 +34,232 @@ inds = ["11", "22", "33", "23", "13", "12"]
 facts = [1.0, 1.0, 1.0, sqrt(2.0), sqrt(2.0), sqrt(2.0)]
 
 
+# Orientation primitives in pure torch (plus neml2.ops.symmetry). Euler->Bunge
+# (phi1, Phi, phi2) mapping:
+#   bunge : used directly
+#   kocks : (psi, theta, phi) -> (psi + pi/2, theta, pi/2 - phi)
+#   roe   : (psi, theta, phi) -> (psi + pi/2, theta, phi - pi/2)
+
+_HALF_PI = torch.pi / 2.0
+
+
+def _to_bunge(euler: torch.Tensor, convention: str) -> tuple:
+    """Map Euler angles (radians) in the given convention to Bunge angles."""
+    convention = convention.lower()
+    a, b, c = euler[..., 0], euler[..., 1], euler[..., 2]
+    if convention == "bunge":
+        return a, b, c
+    if convention == "kocks":
+        return a + _HALF_PI, b, _HALF_PI - c
+    if convention == "roe":
+        return a + _HALF_PI, b, c - _HALF_PI
+    raise ValueError(f"Unknown angle_convention: {convention!r}")
+
+
+def _from_bunge(phi1: torch.Tensor, Phi: torch.Tensor, phi2: torch.Tensor,
+                convention: str) -> torch.Tensor:
+    """Inverse of :func:`_to_bunge` — Bunge angles (radians) back to convention."""
+    convention = convention.lower()
+    if convention == "bunge":
+        a, b, c = phi1, Phi, phi2
+    elif convention == "kocks":
+        a, b, c = phi1 - _HALF_PI, Phi, _HALF_PI - phi2
+    elif convention == "roe":
+        a, b, c = phi1 - _HALF_PI, Phi, phi2 + _HALF_PI
+    else:
+        raise ValueError(f"Unknown angle_convention: {convention!r}")
+    return torch.stack((a, b, c), dim=-1)
+
+
+def euler_to_matrix(
+    euler: Union[np.ndarray, list, torch.Tensor],
+    convention: str = "bunge",
+    angle_type: str = "degrees",
+) -> torch.Tensor:
+    """Convert Euler angles to rotation matrices.
+
+    Bunge angles are applied as a Z-X-Z composition of ``MRP.from_axis_angle``
+    rotations; the matrix comes from ``euler_rodrigues``.
+
+    Args:
+        euler: (..., 3) Euler angles.
+        convention: 'bunge', 'kocks', or 'roe'.
+        angle_type: 'degrees' or 'radians'.
+
+    Returns:
+        (..., 3, 3) rotation matrices.
+    """
+    from neml2.types import MRP, Vec, Scalar, euler_rodrigues, compose
+
+    e = torch.as_tensor(euler, dtype=torch.float64)
+    if angle_type == "degrees":
+        e = torch.deg2rad(e)
+    elif angle_type != "radians":
+        raise ValueError(f"Unknown angle_type: {angle_type!r}")
+
+    phi1, Phi, phi2 = _to_bunge(e, convention)
+    zaxis = Vec(torch.tensor([0.0, 0.0, 1.0], dtype=e.dtype, device=e.device))
+    xaxis = Vec(torch.tensor([1.0, 0.0, 0.0], dtype=e.dtype, device=e.device))
+    r = compose(
+        compose(
+            MRP.from_axis_angle(zaxis, Scalar(phi1.contiguous())),
+            MRP.from_axis_angle(xaxis, Scalar(Phi.contiguous())),
+        ),
+        MRP.from_axis_angle(zaxis, Scalar(phi2.contiguous())),
+    )
+    # euler_rodrigues gives the active rotation; the Bunge orientation matrix g is
+    # its transpose (matches the v2 convention).
+    return euler_rodrigues(r).data.transpose(-2, -1)
+
+
+def matrix_to_euler(
+    M: torch.Tensor,
+    convention: str = "bunge",
+    angle_type: str = "degrees",
+) -> torch.Tensor:
+    """Convert rotation matrices to Euler angles (inverse of :func:`euler_to_matrix`).
+
+    Args:
+        M: (..., 3, 3) rotation matrices.
+        convention: 'bunge', 'kocks', or 'roe'.
+        angle_type: 'degrees' or 'radians'.
+
+    Returns:
+        (..., 3) Euler angles.
+    """
+    M = torch.as_tensor(M, dtype=torch.float64)
+    Phi = torch.arccos(torch.clamp(M[..., 2, 2], -1.0, 1.0))
+    sP = torch.sin(Phi)
+
+    phi1 = torch.atan2(M[..., 2, 0], -M[..., 2, 1])
+    phi2 = torch.atan2(M[..., 0, 2], M[..., 1, 2])
+
+    # Gimbal lock (Phi ~ 0 or pi): only phi1 + phi2 is defined; put it all in phi1.
+    gimbal = sP.abs() < 1e-8
+    if torch.any(gimbal):
+        phi1_g = torch.atan2(M[..., 0, 1], M[..., 0, 0])
+        phi1 = torch.where(gimbal, phi1_g, phi1)
+        phi2 = torch.where(gimbal, torch.zeros_like(phi2), phi2)
+
+    euler = _from_bunge(phi1, Phi, phi2, convention)
+    if angle_type == "degrees":
+        return torch.rad2deg(euler)
+    return euler
+
+
+def matrix_to_mrp(M: Union[np.ndarray, torch.Tensor]) -> torch.Tensor:
+    """Convert rotation matrices (..., 3, 3) to neml2 v3 MRP (..., 3)."""
+    from neml2 import types as _t
+
+    M = torch.as_tensor(M, dtype=torch.float64).contiguous()
+    return _t.MRP.from_matrix(_t.R2(M, 0)).data
+
+
+def euler_to_mrp(
+    euler: Union[np.ndarray, list, torch.Tensor],
+    convention: str = "bunge",
+    angle_type: str = "degrees",
+) -> torch.Tensor:
+    """Convert Euler angles to neml2 v3 modified Rodrigues parameters (..., 3)."""
+    return matrix_to_mrp(euler_to_matrix(euler, convention, angle_type))
+
+
+def quat_to_matrix(q: torch.Tensor) -> torch.Tensor:
+    """Convert a scalar-first unit quaternion (..., 4) ``(w, x, y, z)`` to a
+    rotation matrix (..., 3, 3), via neml2 ``quaternion_rotation_matrix``.
+    """
+    from neml2 import types as _t
+
+    q = torch.as_tensor(q, dtype=torch.float64).contiguous()
+    return _t.quaternion_rotation_matrix(_t.Quaternion(q, 0)).data
+
+
+def mrp_to_matrix(p: Union[np.ndarray, list, torch.Tensor]) -> torch.Tensor:
+    """Convert neml2 v3 MRP orientations (..., 3) to rotation matrices (..., 3, 3)."""
+    from neml2 import types as _t
+
+    p = torch.as_tensor(p, dtype=torch.float64).contiguous()
+    return _t.euler_rodrigues(_t.MRP(p, 0)).data
+
+
+def mrp_to_euler(
+    p: Union[np.ndarray, list, torch.Tensor],
+    convention: str = "bunge",
+    angle_type: str = "degrees",
+) -> torch.Tensor:
+    """Convert neml2 v3 MRP orientations (..., 3) to Euler angles (..., 3)."""
+    return matrix_to_euler(mrp_to_matrix(p), convention, angle_type)
+
+
+def symmetry_operators(symmetry: str) -> torch.Tensor:
+    """Crystal symmetry operators as rotation matrices (nops, 3, 3)."""
+    from neml2.ops import symmetry as _symmetry
+
+    ops = _symmetry(symmetry).data
+    return ops.reshape(-1, 3, 3).to(torch.float64)
+
+
+def misorientation_matrix(
+    R1: torch.Tensor,
+    R2: torch.Tensor,
+    symmetry: str = "1",
+    angle_type: str = "degrees",
+) -> torch.Tensor:
+    """Misorientation angle between two sets of rotation matrices under symmetry.
+
+    Args:
+        R1, R2: (N, 3, 3) rotation matrices.
+        symmetry: crystal symmetry in orbifold notation.
+        angle_type: 'degrees' or 'radians' for the returned angle.
+
+    Returns:
+        (N,) misorientation angles.
+    """
+    symmetry_ops = symmetry_operators(symmetry).to(device=R1.device, dtype=R1.dtype)
+
+    dR = torch.matmul(R1, R2.transpose(-2, -1))
+
+    options = torch.matmul(
+        torch.matmul(symmetry_ops.unsqueeze(0), dR.unsqueeze(1)).unsqueeze(2),
+        symmetry_ops.transpose(-2, -1).unsqueeze(0).unsqueeze(0),
+    )
+
+    rad_mis = (
+        torch.arccos(
+            torch.clamp(
+                (options.diagonal(dim1=-2, dim2=-1).sum(-1) - 1.0) / 2.0, -1.0, 1.0
+            )
+        )
+        .reshape(R1.shape[0], -1)
+        .min(dim=1)
+    ).values
+
+    if angle_type == "degrees":
+        return torch.rad2deg(rad_mis)
+    return rad_mis
+
+
+def move_to_fundamental_zone(R: torch.Tensor, symmetry: str = "1") -> torch.Tensor:
+    """Reduce rotation matrices to the fundamental zone under crystal symmetry.
+
+    Picks, per orientation, the symmetry-equivalent with the smallest rotation
+    angle (largest trace of ``O @ R``).
+
+    Args:
+        R: (..., 3, 3) rotation matrices.
+        symmetry: crystal symmetry in orbifold notation.
+
+    Returns:
+        (..., 3, 3) reduced rotation matrices.
+    """
+    ops = symmetry_operators(symmetry).to(device=R.device, dtype=R.dtype)  # (nops, 3, 3)
+    cand = torch.matmul(ops, R.unsqueeze(-3))  # (..., nops, 3, 3)
+    trace = cand.diagonal(dim1=-2, dim2=-1).sum(-1)  # (..., nops)
+    idx = torch.argmax(trace, dim=-1)  # (...,)
+    idx_exp = idx[..., None, None, None].expand(idx.shape + (1, 3, 3))
+    return torch.gather(cand, -3, idx_exp).squeeze(-3)
+
+
 def misorientation(
     e1: Union[np.ndarray, list],
     e2: Union[np.ndarray, list],
@@ -55,55 +281,18 @@ def misorientation(
     Returns:
         Nx1 array of misorientation angles
     """
-    import neml2
-    from neml2 import tensors
-    from neml2 import crystallography
-
-    e1 = torch.tensor(e1, dtype=torch.float64)
-    e2 = torch.tensor(e2, dtype=torch.float64)
+    e1 = torch.as_tensor(e1, dtype=torch.float64)
+    e2 = torch.as_tensor(e2, dtype=torch.float64)
 
     if e1.ndim == 1:
         e1 = e1.unsqueeze(0)
     if e2.ndim == 1:
         e2 = e2.unsqueeze(0)
 
-    e1 = tensors.Vec(e1)
-    e2 = tensors.Vec(e2)
+    R1 = euler_to_matrix(e1, angle_convention, angle_type)
+    R2 = euler_to_matrix(e2, angle_convention, angle_type)
 
-    R1 = (
-        tensors.Rot.fill_euler_angles(tensors.Vec(e1), angle_convention, angle_type)
-        .euler_rodrigues()
-        .torch()
-    )
-    R2 = (
-        tensors.Rot.fill_euler_angles(tensors.Vec(e2), angle_convention, angle_type)
-        .euler_rodrigues()
-        .torch()
-    )
-
-    symmetry_ops = crystallography.symmetry(symmetry).torch()
-
-    dR = torch.matmul(R1, R2.transpose(-2, -1))
-
-    options = torch.matmul(
-        torch.matmul(symmetry_ops.unsqueeze(0), dR.unsqueeze(1)).unsqueeze(2),
-        symmetry_ops.transpose(-2, -1).unsqueeze(0).unsqueeze(0),
-    )
-
-    rad_mis = (
-        torch.arccos(
-            torch.clamp(
-                (options.diagonal(dim1=-2, dim2=-1).sum(-1) - 1.0) / 2.0, -1.0, 1.0
-            )
-        )
-        .reshape(R1.shape[0], -1)
-        .min(dim=1)
-    ).values
-
-    if angle_type == "degrees":
-        return torch.rad2deg(rad_mis)
-
-    return rad_mis
+    return misorientation_matrix(R1, R2, symmetry, angle_type=angle_type)
 
 
 if __name__ == "__main__":
@@ -154,20 +343,20 @@ if __name__ == "__main__":
     print("\nAll misorientation tests PASSED.")
 
 
-def load_orientations(
+def load_orientation_matrices(
     df: "pd.DataFrame",
     field: Optional[str] = "O",
 ) -> torch.Tensor:
-    """Load orientations from dataframe and convert to torch tensor giving the modified Rodrigues parameters.
-
-    The assumption here is we have a rotation matrix givin the *active* convention rotation from the crystal to the sample frame.
+    """Load per-row rotation matrices (..., 3, 3) from a dataframe.
 
     Args:
         df (pd.DataFrame): Dataframe containing orientation data.
-        field (str, optional): Column name for orientation matrix. Defaults to 'O'.
+        field (str, optional): Column prefix for the 3x3 orientation matrix
+            (columns ``{field}{i}{j}``). If ``None``, the first 9 columns are
+            used positionally. Defaults to 'O'.
 
     Returns:
-        torch.Tensor: Tensor containing orientation data.
+        torch.Tensor: (n, 3, 3) rotation matrices.
     """
     if field is None:
         n = len(df)
@@ -183,94 +372,37 @@ def load_orientations(
                 )
             matrix.append(torch.stack(row, dim=-1))
         matrix = torch.stack(matrix, dim=-2)
+    return matrix
 
-    quat = matrix_to_quat(matrix)
 
-    return quat[..., 1:] / quat[..., 0:1]
+def load_orientations(
+    df: "pd.DataFrame",
+    field: Optional[str] = "O",
+) -> torch.Tensor:
+    """Load orientations as neml2 v3 modified Rodrigues parameters (n, 3).
+
+    Args:
+        df (pd.DataFrame): Dataframe containing orientation data.
+        field (str, optional): Column name for orientation matrix. Defaults to 'O'.
+
+    Returns:
+        torch.Tensor: (n, 3) neml2 MRP orientations.
+    """
+    return matrix_to_mrp(load_orientation_matrices(df, field))
+
+
+# Backwards-compatible alias.
+load_orientations_mrp = load_orientations
 
 
 def matrix_to_quat(M: torch.Tensor) -> torch.Tensor:
-    """Convert rotation matrix to quaternion
-
-    Args:
-        M (torch.Tensor): Rotation matrix of shape (..., 3, 3)
+    """Convert rotation matrices (..., 3, 3) to scalar-first unit quaternions
+    (..., 4) ``(w, x, y, z)``, via neml2 (``MRP.from_matrix`` -> ``to_quaternion``).
     """
-    tr = M[..., 0, 0] + M[..., 1, 1] + M[..., 2, 2]
-    conds = [
-        tr > 0,
-        (M[..., 0, 0] > M[..., 1, 1]) & (M[..., 0, 0] > M[..., 2, 2]),
-        M[..., 1, 1] > M[..., 2, 2],
-    ]
+    from neml2 import types as _t
 
-    funcs = [quat_option_1, quat_option_2, quat_option_3, quat_option_4]
-
-    q = torch.where(
-        conds[0][..., None],
-        funcs[0](M),
-        torch.where(
-            conds[1][..., None],
-            funcs[1](M),
-            torch.where(conds[2][..., None], funcs[2](M), funcs[3](M)),
-        ),
-    )
-    return q / torch.linalg.norm(q, dim=-1, keepdim=True)
-
-
-def quat_option_1(M: torch.Tensor) -> torch.Tensor:
-    """First case of matrix to quaternion
-
-    Args:
-        M (torch.Tensor): Rotation matrix of shape (..., 3, 3)
-    """
-    tr = M[..., 0, 0] + M[..., 1, 1] + M[..., 2, 2]
-    S = torch.sqrt(tr + 1.0) * 2
-    s = 0.25 * S
-    x = (M[..., 2, 1] - M[..., 1, 2]) / S
-    y = (M[..., 0, 2] - M[..., 2, 0]) / S
-    z = (M[..., 1, 0] - M[..., 0, 1]) / S
-    return torch.stack((s, x, y, z), dim=-1)
-
-
-def quat_option_2(M: torch.Tensor) -> torch.Tensor:
-    """Second case of matrix to quaternion
-
-    Args:
-        M (torch.Tensor): Rotation matrix of shape (..., 3, 3)
-    """
-    S = torch.sqrt(1.0 + M[..., 0, 0] - M[..., 1, 1] - M[..., 2, 2]) * 2
-    s = (M[..., 2, 1] - M[..., 1, 2]) / S
-    x = 0.25 * S
-    y = (M[..., 0, 1] + M[..., 1, 0]) / S
-    z = (M[..., 0, 2] + M[..., 2, 0]) / S
-    return torch.stack((s, x, y, z), dim=-1)
-
-
-def quat_option_3(M: torch.Tensor) -> torch.Tensor:
-    """Third case of matrix to quaternion
-
-    Args:
-        M (torch.Tensor): Rotation matrix of shape (..., 3, 3)
-    """
-    S = torch.sqrt(1.0 + M[..., 1, 1] - M[..., 0, 0] - M[..., 2, 2]) * 2
-    s = (M[..., 0, 2] - M[..., 2, 0]) / S
-    x = (M[..., 0, 1] + M[..., 1, 0]) / S
-    y = 0.25 * S
-    z = (M[..., 1, 2] + M[..., 2, 1]) / S
-    return torch.stack((s, x, y, z), dim=-1)
-
-
-def quat_option_4(M: torch.Tensor) -> torch.Tensor:
-    """Fourth case of matrix to quaternion
-
-    Args:
-        M (torch.Tensor): Rotation matrix of shape (..., 3, 3)
-    """
-    S = torch.sqrt(1.0 + M[..., 2, 2] - M[..., 0, 0] - M[..., 1, 1]) * 2
-    s = (M[..., 1, 0] - M[..., 0, 1]) / S
-    x = (M[..., 0, 2] + M[..., 2, 0]) / S
-    y = (M[..., 1, 2] + M[..., 2, 1]) / S
-    z = 0.25 * S
-    return torch.stack((s, x, y, z), dim=-1)
+    M = torch.as_tensor(M, dtype=torch.float64).contiguous()
+    return _t.to_quaternion(_t.MRP.from_matrix(_t.R2(M, 0))).data
 
 
 def load_strains(

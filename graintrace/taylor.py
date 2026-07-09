@@ -22,304 +22,217 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+"""Uniaxial Taylor crystal-plasticity forward + calibration model (NEML2 v3).
+
+A mixed-control NEML2 ``NonlinearSystem`` (``cpfe_base/neml2_cpfe_calibration.i``)
+is wrapped by :class:`neml2.pyzag.NEML2PyzagFactory` and driven through
+:func:`pyzag.nonlinear.solve_adjoint` for analytic parameter gradients.
+"""
+
 from __future__ import annotations
 
-import time
-
-import neml2
-from neml2.reserved import *
-
-import torch
-import torch.nn as nn
-import numpy as np
-import pandas as pd
 import glob
 import os
+
+import numpy as np
+import pandas as pd
 import scipy.interpolate as inter
-from neml2.postprocessing import polefigure
+import torch
+import torch.nn as nn
+
+import neml2
+from neml2.pyzag import NEML2PyzagFactory
+from pyzag import chunktime, nonlinear
 
 from .base_material_approximation import BaseMaterialApproximationModel
 from . import orientation_helper
 
 
-# -------------------------------------------------------------------------
-# PHYSICS
-# -------------------------------------------------------------------------
+# Flat mixed-control state layout of cpfe_base/neml2_cpfe_calibration.i:
+#   BLOCK group (per grain, 10): elastic_strain(6) + orientation MRP(3) + slip_hardening(1)
+#   DENSE group (12):            deformation_rate(6) + target_cauchy_stress(6)
+# Flat trajectory size per step = n_grains * _PER_GRAIN_BASE + _DENSE_BASE.
+_PER_GRAIN_BASE = 10
+_DENSE_BASE = 12
+_N_ELASTIC_STRAIN = 6
+
+
 class UniaxialTaylorModel(nn.Module):
-    """Runs a NEML2 Taylor model in uniaxial strain control
+    """Differentiable uniaxial Taylor forward via a NEML2 mixed-control eq_sys.
 
-    Args:
-        model (neml.Model): A NEML2 material model
-
-    Keyword args:
-        spin (lambda, default zero): A function of time returning a tensor of size (3,) giving the rotational spin
+    Wraps a :class:`neml2.pyzag.NEML2PyzagFactory` and integrates the strain
+    history with ``pyzag.nonlinear.solve_adjoint``. Uniaxial loading is expressed
+    with NEML2's ``MixedControlSetup``: ``control`` selects the axial component as
+    strain-controlled (``prescribed = rate``); the remaining components are
+    stress-free, and a global constraint forces ``target_cauchy_stress`` to equal
+    the grain-mean per-crystal stress.
     """
 
     def __init__(
         self,
-        model,
-        spin=lambda t: torch.zeros(
-            3,
-        ),
+        factory: NEML2PyzagFactory,
+        axial_index: int = 2,
+        nchunk: int = 5,
+        rtol: float = 1e-6,
+        atol: float = 1e-8,
+        linesearch_iter: int = 5,
     ):
         super().__init__()
-        self.model = model
-        self.spin = spin
+        self.factory = factory
+        self.axial_index = axial_index
+        self.nchunk = nchunk
+        self.rtol = rtol
+        self.atol = atol
+        self.linesearch_iter = linesearch_iter
 
-        self._setup_assemblers()
-
-    def _setup_assemblers(self):
-        """Setup the assemblers for the state and forces"""
-
-        self.input_axis = self.model.input_axis()
-        self.output_axis = self.model.output_axis()
-
-        self.input_asm = neml2.VectorAssembler(self.input_axis)
-        self.output_asm = neml2.VectorAssembler(self.output_axis)
-        self.deriv_asm = neml2.MatrixAssembler(
-            self.output_axis, self.input_axis.subaxis(STATE)
+    def _make_solver(self):
+        return nonlinear.RecursiveNonlinearEquationSolver(
+            self.factory,
+            step_generator=nonlinear.StepGenerator(self.nchunk),
+            predictor=nonlinear.PreviousStepsPredictor(),
+            direct_solve_operator=chunktime.BidiagonalThomasFactorization,
+            nonlinear_solver=chunktime.ChunkNewtonRaphsonLineSearch(
+                rtol=self.rtol, atol=self.atol, linesearch_iter=self.linesearch_iter
+            ),
         )
-
-        self.state_asm = neml2.VectorAssembler(self.input_axis.subaxis(STATE))
-        self.old_state_asm = neml2.VectorAssembler(self.input_axis.subaxis(OLD_STATE))
-        self.forces_asm = neml2.VectorAssembler(self.input_axis.subaxis(FORCES))
-
-    @property
-    def nstate(self):
-        return self.model.input_axis().subaxis(STATE).size()
-
-    @property
-    def nforce(self):
-        return self.model.input_axis().subaxis(FORCES).size()
-
-    def initial_state(self, orientations, elastic_strain=None):
-        """Assemble the initial state vector
-
-        Args:
-            orientations (torch.tensor): (n,3) tensor with initial orientations
-        """
-        if elastic_strain is None:
-            elastic_strain = torch.zeros(
-                (orientations.shape[0], 6), device=orientations.device
-            )
-        state_dict = {
-            "old_state/elastic_strain": elastic_strain,
-            "old_state/orientation": orientations,
-        }
-        for var, size in zip(
-            self.input_axis.subaxis(STATE).variable_names(),
-            self.input_axis.subaxis(STATE).variable_sizes(),
-        ):
-            if var not in ["elastic_strain", "orientation"]:
-                state_dict["old_state/" + str(var)] = torch.zeros(
-                    (orientations.shape[0], size), device=orientations.device
-                )
-
-        return self.old_state_asm.assemble_by_variable(state_dict).torch()
 
     def forward(
         self,
-        de,
-        dt,
-        d,
-        old_state,
-        old_time,
-        old_stress,
-        weights=None,
-        stress_inc_guess=None,
-        e_inc_guess=None,
+        orientations: torch.Tensor,
+        strain: torch.Tensor,
+        rate: float,
+        initial_strains: torch.Tensor | None = None,
+        return_state: bool = False,
     ):
-        """
-        Args:
-            de (float): The strain increment
-            dt (float): The time increment
-            d (torch.tensor): Direction of the stress
-            old_state (torch.tensor): Model state
-            old_time (float): Previous time
-            old_stress (torch.tensor): Collection of previous stresses
+        """Integrate the uniaxial history and return the macro stress trajectory.
 
-        Keyword args:
-            weights (torch.tensor, default None): Weights for averaging the stress
-            stress_inc_guess (float, default None): Initial guess for the stress increment
-            e_inc_guess (torch.tensor, default None): Initial guess for the strain increment
+        Args:
+            orientations: (n_grains, 3) NEML2 MRP orientations.
+            strain: (ntime,) axial strain grid (mm/mm), typically starting at 0.
+            rate: assumed strain rate (1/s); ``t = strain / rate``.
+            initial_strains: optional (n_grains, 6) initial elastic strain.
+            return_state: also return per-grain elastic strain history.
 
         Returns:
-            avg_stress (torch.tensor): the average macroscale stress
-            stress (torch.tensor): the collection of microscale stresses
-            state (torch.tensor): the updated model state
-            stress_inc (torch.tensor): the computed stress increment (if you want to use it as a guess for the next step)
-            e_inc (torch.tensor): the computed strain increment (if you want to use it as a guess for the next step)
+            macro cauchy stress ``(ntime, 6)`` (SR2 Voigt: xx, yy, zz, yz, xz, xy);
+            if ``return_state``, also ``(ntime, n_grains, 6)`` elastic strain.
         """
-        if stress_inc_guess is None:
-            stress_inc_guess = 10.0
-        if e_inc_guess is None:
-            e_inc_guess = d / torch.norm(d) * de
+        orientations = torch.as_tensor(orientations, dtype=torch.float64)
+        device = orientations.device
+        dtype = orientations.dtype
+        strain = torch.as_tensor(strain, dtype=dtype, device=device)
 
-        if weights is None:
-            weights = torch.ones(old_stress.shape[0], device=old_stress.device)
+        n_grains = orientations.shape[0]
+        ntime = strain.shape[0]
+        nbatch = 1
 
-        # Just in case...
-        weights = weights / torch.sum(weights)
+        if initial_strains is None:
+            es0 = torch.zeros(nbatch, n_grains, 6, device=device, dtype=dtype)
+        else:
+            es0 = torch.as_tensor(
+                initial_strains, device=device, dtype=dtype
+            ).reshape(nbatch, n_grains, 6)
 
-        x0 = torch.cat([torch.tensor([stress_inc_guess]), e_inc_guess], dim=-1)
+        ic_dict = {
+            "elastic_strain": es0,
+            "orientation": orientations.unsqueeze(0),
+            "slip_hardening": torch.zeros(nbatch, n_grains, device=device, dtype=dtype),
+            "deformation_rate": torch.zeros(nbatch, 6, device=device, dtype=dtype),
+            "target_cauchy_stress": torch.zeros(nbatch, 6, device=device, dtype=dtype),
+        }
+        y0 = self.factory.assemble_state(ic_dict, dynamic_dim=1)
 
-        def eval(x):
-            e_inc = x[..., 1:]
+        control_vec = torch.zeros(6, device=device, dtype=dtype)
+        control_vec[self.axial_index] = 1.0
+        control = control_vec.reshape(1, 1, 6).expand(ntime, nbatch, 6).contiguous()
+        prescribed = torch.zeros(ntime, nbatch, 6, device=device, dtype=dtype)
+        prescribed[..., self.axial_index] = rate
+        times = (strain / rate).reshape(ntime, 1).expand(ntime, nbatch).contiguous()
+        forces_dict = {
+            "control": control,
+            "prescribed": prescribed,
+            "t": times,
+            "vorticity": torch.zeros(ntime, nbatch, 3, device=device, dtype=dtype),
+        }
+        forces = self.factory.assemble_forces(forces_dict, dynamic_dim=2)
 
-            deformation_rate = e_inc / dt
-            time = old_time + dt
-            spin = self.spin(time)
+        solver = self._make_solver()
+        result = nonlinear.solve_adjoint(solver, y0, ntime, forces)
+        # result: (ntime, nbatch, nstate_flat)
 
-            forces = {
-                "forces/deformation_rate": deformation_rate,
-                "forces/vorticity": spin,
-                "forces/t": torch.tensor(time).unsqueeze(0),
-            }
-            old_state_dict = self.old_state_asm.split_by_variable(
-                neml2.Tensor(old_state, 1)
-            )
-            state = {str(k)[4:]: v for k, v in old_state_dict.items()} | {
-                "state/internal/cauchy_stress": old_stress
-            }
-
-            return self.model.value_and_dvalue(forces | state | old_state_dict)
-
-        def RJ(x):
-            stress_inc = x[..., 0:1]
-            e_inc = x[..., 1:]
-            prev_avg_stress = torch.sum(old_stress * weights.unsqueeze(-1), dim=0)
-
-            output, J = eval(x)
-
-            stress = output["state/internal/cauchy_stress"]
-            avg_stress = torch.sum(stress.torch() * weights.unsqueeze(-1), dim=0)
-
-            R1 = (avg_stress - prev_avg_stress) - (stress_inc * d)
-            R2 = torch.dot(e_inc, d) - de
-
-            R = torch.cat([R1, R2.unsqueeze(0)], dim=0)
-
-            J11 = -d.unsqueeze(-1)
-            J12 = (
-                torch.sum(
-                    J["state/internal/cauchy_stress"]["forces/deformation_rate"].torch()
-                    * weights.unsqueeze(-1).unsqueeze(-1),
-                    dim=0,
-                )
-                / dt
-            )
-            J21 = torch.zeros((1, 1), device=R.device)
-            J22 = d.unsqueeze(0)
-
-            J = torch.cat(
-                [torch.cat([J11, J12], dim=1), torch.cat([J21, J22], dim=1)], dim=0
+        expected = n_grains * _PER_GRAIN_BASE + _DENSE_BASE
+        if result.shape[-1] != expected:
+            raise ValueError(
+                f"Unexpected flat state size {result.shape[-1]}; expected {expected} "
+                f"for n_grains={n_grains}."
             )
 
-            return R, J
+        # target_cauchy_stress = last 6 (the macro/aggregate stress).
+        macro_stress = result[..., -_DENSE_BASE + 6 :].squeeze(1)  # (ntime, 6)
 
-        x = newton(RJ, x0)
-        res, _ = eval(x)
+        if not return_state:
+            return macro_stress
 
-        stress = res["state/internal/cauchy_stress"].torch()
-
-        return (
-            torch.sum(stress * weights.unsqueeze(-1), dim=0),
-            stress,
-            self.state_asm.assemble_by_variable(
-                {
-                    k: v
-                    for k, v in res.items()
-                    if str(k) != "state/internal/cauchy_stress"
-                }
-            ).torch(),
-            x[..., 0],
-            x[..., 1:],
+        # per-grain elastic strain = first 6 of each 10-wide grain block.
+        block = result[..., : n_grains * _PER_GRAIN_BASE].reshape(
+            ntime, nbatch, n_grains, _PER_GRAIN_BASE
         )
-    
-def finite_difference(f, x, eps=1e-8):
-    """Finite difference the Jacobian of a function
+        elastic_strain = block[..., :_N_ELASTIC_STRAIN].squeeze(1)  # (ntime, n_grains, 6)
+        return macro_stress, elastic_strain
 
-    Args:
-        f (function): A function that takes a tensor x and returns a tensor y
-        x (torch.tensor): The point to evaluate the Jacobian at
 
-    Keyword args:
-        eps (float, default 1e-8): The finite difference step size
-
-    Returns:
-        J (torch.tensor): The Jacobian of f at x
-    """
-    y = f(x)
-    J = torch.zeros((y.numel(), x.numel()), device=x.device)
-
-    for i in range(x.numel()):
-        dx = torch.zeros_like(x)
-        dx.view(-1)[i] = eps
-        y_pert = f(x + dx)
-        J[:, i] = ((y_pert - y) / eps).view(-1)
-
-    return J
-
-def newton(RJ, x0, max_iter=50, rtol=1e-5, atol=1e-6):
-    """Solve a nonlinear system using Newton's method
-
-    Args:
-        RJ (function): A function that takes a tensor x and returns the residual R and Jacobian J
-        x0 (torch.tensor): Initial guess for the solution
-
-    Keyword args:
-        max_iter (int, default 50): Maximum number of iterations
-        rtol (float, default 1e-6): Relative tolerance for convergence
-        atol (float, default 1e-8): Absolute tolerance for convergence
-
-    Returns:
-        x (torch.tensor): The solution
-    """
-    x = x0.clone()
-    R, J = RJ(x)
-
-    nR = torch.norm(R)
-    nR0 = nR.clone()
-
-    for i in range(max_iter):
-        if (nR < atol) or (nR / nR0 < rtol):
-            return x
-
-        dx = torch.linalg.solve(J, -R)
-        x = x + dx
-        R, J = RJ(x)
-        nR = torch.norm(R)
-
-    raise RuntimeError("Newton's method did not converge")
-
-# -------------------------------------------------------------------------
-# WRAPPER TO BaseMaterialApproximationModel
-# -------------------------------------------------------------------------
 class TaylorModel(BaseMaterialApproximationModel):
+    """Taylor calibration model backed by the NEML2 v3 + pyzag adjoint engine.
+
+    - Loads and preprocesses experimental data (per-stress-level CSVs).
+    - Manages the six calibration parameters as NEML2/torch parameters.
+    - Runs differentiable uniaxial stress-strain simulations for optimization.
     """
-    Wrapper for UniaxialTaylorModel.
 
-    - Load and preprocess experimental data (assume .csv)
-    - Manage model parameters
-    - Run stress-strain simulations for optimization
-    """
+    # NEML2 parameters present on the model but held fixed during calibration.
+    DEFAULT_EXCLUDE_PARAMETERS = ["slip_rule_gamma0", "slip_rule_n"]
 
-    def __init__(self,
-                 neml2_path: str,
-                 neml2_model_name: str = "model_with_stress",
-                 axial_index: int = 2,
-                 assumed_rate: float = 1.0e-4,
-                 npoints: int = 500):
-        super().__init__(neml2_path, neml2_model_name)
-
+    def __init__(
+        self,
+        neml2_path: str,
+        neml2_model_name: str = "model_with_stress",
+        axial_index: int = 2,
+        assumed_rate: float = 1.0e-4,
+        npoints: int = 500,
+        nchunk: int = 5,
+        equation_system: str = "eq_sys",
+        exclude_parameters: list[str] | None = None,
+        compile: bool = False,
+        device: str | torch.device = "cpu",
+    ):
+        # Deliberately does NOT call BaseMaterialApproximationModel.__init__;
+        # the v3 path loads a NonlinearSystem and wraps it in a pyzag factory.
+        self.neml2_path = neml2_path
+        self.neml2_model_name = neml2_model_name
+        self.equation_system = equation_system
         self.axial_index = axial_index
         self.assumed_rate = assumed_rate
         self.npoints = npoints
+        self.device = torch.device(device)
 
-        # Construct Taylor model
-        self.tmodel = UniaxialTaylorModel(self.model)
+        if exclude_parameters is None:
+            exclude_parameters = list(self.DEFAULT_EXCLUDE_PARAMETERS)
 
-        # Variables to optimize (could later be configurable)
+        # Move the whole nonlinear system to device first: factory.to() only
+        # relocates the factory's own parameters, leaving the model's internal
+        # crystal-geometry buffers (Schmid tensors, etc.) on CPU -> device
+        # mismatch on cuda. nsys.to() moves all model buffers.
+        nsys = neml2.load_nonlinear_system(neml2_path, equation_system)
+        nsys.to(self.device)
+        self.factory = NEML2PyzagFactory(
+            nsys, exclude_parameters=exclude_parameters, compile=compile
+        ).to(self.device)
+
+        self.tmodel = UniaxialTaylorModel(
+            self.factory, axial_index=axial_index, nchunk=nchunk
+        )
+
+        # Calibration parameters in fixed order (JSON save/load and p0 depend on it).
         self.opt_vars = [
             "elastic_tensor_E",
             "elastic_tensor_G",
@@ -328,6 +241,20 @@ class TaylorModel(BaseMaterialApproximationModel):
             "voce_hardening_initial_slope",
             "voce_hardening_saturated_hardening",
         ]
+
+    def get_params(self) -> torch.Tensor:
+        """Current values of the six calibration parameters (detached)."""
+        return torch.stack(
+            [getattr(self.factory, v).detach().reshape(()) for v in self.opt_vars]
+        )
+
+    def set_params(self, values) -> None:
+        """Assign the six calibration parameters from a 1-D iterable."""
+        values = torch.as_tensor(values, dtype=torch.float64, device=self.device)
+        with torch.no_grad():
+            for v, pv in zip(self.opt_vars, values):
+                getattr(self.factory, v).copy_(pv)
+        self.factory._update_parameter_values()
 
     def load_experiment_data(
         self,
@@ -339,15 +266,21 @@ class TaylorModel(BaseMaterialApproximationModel):
         npoints: int | None = None,
         max_strain: float | None = None,
         max_stress: float | None = None,
+        n_grains: int | None = None,
+        seed: int = 0,
     ):
         if npoints is None:
             npoints = self.npoints
 
         allowed_units = (None, "microstrain")
         if full_field_strain_units not in allowed_units:
-            raise ValueError(f"Invalid full_field_strain_units: {full_field_strain_units!r}")
+            raise ValueError(
+                f"Invalid full_field_strain_units: {full_field_strain_units!r}"
+            )
         if strain_stress_file_units not in allowed_units:
-            raise ValueError(f"Invalid strain_stress_file_units: {strain_stress_file_units!r}")
+            raise ValueError(
+                f"Invalid strain_stress_file_units: {strain_stress_file_units!r}"
+            )
 
         def try_parse_float(name):
             try:
@@ -364,16 +297,31 @@ class TaylorModel(BaseMaterialApproximationModel):
                 valid_files.append(f)
 
         # sort by numeric stress value
-        files = sorted(valid_files, key=lambda s: float(os.path.basename(s).split(".")[0]))
+        files = sorted(
+            valid_files, key=lambda s: float(os.path.basename(s).split(".")[0])
+        )
         stress_levels = [float(os.path.basename(f).split(".")[0]) for f in files]
 
         data = [pd.read_csv(f) for f in files]
+
+        # Optionally subsample grains per file (deterministic via seed).
+        if n_grains is not None:
+            rng = np.random.default_rng(seed)
+            subsampled = []
+            for df in data:
+                if n_grains < len(df):
+                    idx = rng.choice(len(df), size=n_grains, replace=False)
+                    subsampled.append(df.iloc[np.sort(idx)].reset_index(drop=True))
+                else:
+                    subsampled.append(df)
+            data = subsampled
+
         strain_stress = np.loadtxt(strain_stress_file, delimiter=",")
 
         if (strain_stress_file_units or "").lower() == "microstrain":
             strain_stress[:, 0] *= 1e-6  # convert to mm/mm
 
-        # === Limit macro curve only ===
+        # Limit macro curve only
         if max_strain is not None and max_strain <= 0:
             raise ValueError("max_strain must be > 0")
         if max_stress is not None and max_stress <= 0:
@@ -383,11 +331,13 @@ class TaylorModel(BaseMaterialApproximationModel):
             cutoff_strain = min(max_strain, float(strain_stress[-1, 0]))
         elif max_stress is not None:
             cutoff_stress = min(max_stress, float(strain_stress[-1, 1]))
-            cutoff_strain = float(np.interp(cutoff_stress, strain_stress[:, 1], strain_stress[:, 0]))
+            cutoff_strain = float(
+                np.interp(cutoff_stress, strain_stress[:, 1], strain_stress[:, 0])
+            )
         else:
             cutoff_strain = float(strain_stress[-1, 0])
 
-        # Truncate and resample the stress–strain curve
+        # Truncate and resample the stress-strain curve
         ifn = inter.interp1d(strain_stress[:, 0], strain_stress[:, 1], kind="linear")
         strain = np.linspace(0, cutoff_strain, npoints)
         stress = ifn(strain)
@@ -398,14 +348,19 @@ class TaylorModel(BaseMaterialApproximationModel):
         if (full_field_strain_units or "").lower() == "microstrain":
             factor = 1e-6
 
-        # Full-field data: do NOT filter
-        exp_strain = [orientation_helper.load_strains(d, factor=factor, field=straintype) for d in data]
-        exp_texture = [orientation_helper.load_orientations(d) for d in data]
+        # Full-field data: not filtered; orientations loaded as neml2 v3 MRPs.
+        exp_strain = [
+            orientation_helper.load_strains(d, factor=factor, field=straintype)
+            for d in data
+        ]
+        exp_texture = [orientation_helper.load_orientations_mrp(d) for d in data]
         exp_weights = [orientation_helper.load_weights(d) for d in data]
 
-        # Compute averages
         avg_exp_strain = [torch.mean(ds, dim=0) for ds in exp_strain]
-        avg_axial_strain = [s[self.axial_index] - avg_exp_strain[0][self.axial_index] for s in avg_exp_strain]
+        avg_axial_strain = [
+            s[self.axial_index] - avg_exp_strain[0][self.axial_index]
+            for s in avg_exp_strain
+        ]
         use_weights = exp_weights[0]
 
         return dict(
@@ -421,61 +376,54 @@ class TaylorModel(BaseMaterialApproximationModel):
             cutoff_strain=cutoff_strain,
         )
 
-    def simulate(self,
-                 params,
-                 d: torch.Tensor,
-                 assumed_rate: float,
-                 experiment_data=None,
-                 return_state=False,
-                 initial_strains=None):
+    def simulate(
+        self,
+        params,
+        d: torch.Tensor | None = None,
+        assumed_rate: float | None = None,
+        experiment_data=None,
+        return_state: bool = False,
+        initial_strains=None,
+    ):
+        """Run a differentiable uniaxial stress-strain simulation.
 
-        # Unpack experimental data
-        exp_texture = experiment_data["exp_texture"][0]
-        use_weights = experiment_data["use_weights"]
-        strain_stress = experiment_data["strain_stress"]
+        Args:
+            params: optional 1-D tensor of the six calibration values. If given,
+                they are assigned to the factory (no grad) before the solve —
+                use this for plotting a specific parameter set. Pass ``None`` to
+                run with the factory's current (possibly optimizer-owned)
+                parameters so gradients flow (used during calibration).
+            d: ignored (kept for API compatibility; the axial direction is set by
+                ``self.axial_index``).
+            assumed_rate: strain rate; defaults to ``self.assumed_rate``.
+            experiment_data: dict from :meth:`load_experiment_data`.
+            return_state: also return the per-grain elastic strain history.
+            initial_strains: optional (n_grains, 6) initial elastic strain.
 
-        # Update model parameters
-        with torch.no_grad():
-            for v, pv in zip(self.opt_vars, params):
-                self.tmodel.model.set_parameter(v, neml2.Tensor(pv, 0))
+        Returns:
+            ``stress_hist`` (npoints, 6), or ``(stress_hist, state_hist)`` where
+            ``state_hist`` is (npoints, n_grains, 6) elastic strain.
+        """
+        if assumed_rate is None:
+            assumed_rate = self.assumed_rate
 
-            # Initialize state
-            old_state = self.tmodel.initial_state(exp_texture, elastic_strain=initial_strains)
-            old_stress = torch.zeros(old_state.shape[0], 6)
-            old_time = 0.0
+        orientations = torch.as_tensor(
+            experiment_data["exp_texture"][0], dtype=torch.float64
+        ).to(self.device)
+        strain = experiment_data["strain_stress"][:, 0]
 
-            stress_hist = [torch.zeros((6,))]
-            state_hist = [old_state.clone()]
-            ds_guess = None
-            de_guess = None
+        if initial_strains is not None:
+            initial_strains = torch.as_tensor(
+                initial_strains, dtype=torch.float64
+            ).to(self.device)
 
-            # Strain-controlled loading
-            for e0, e1 in zip(strain_stress[:-1, 0], strain_stress[1:, 0]):
-                
-                # start timer
-                start_time = time.perf_counter()
+        if params is not None:
+            self.set_params(params)
 
-                de = e1 - e0
-                dt = de / assumed_rate
-
-                avg_stress, old_stress, old_state, ds_guess, de_guess = self.tmodel(
-                    de, dt, d, old_state, old_time, old_stress,
-                    weights=use_weights,
-                    stress_inc_guess=ds_guess,
-                    e_inc_guess=de_guess,
-                )
-
-                old_time += dt
-                stress_hist.append(avg_stress)
-                state_hist.append(old_state.clone())
-
-                # end timer
-                end_time = time.perf_counter()
-                # print time taken for this step
-                # print(end_time - start_time)
-
-        stress_hist = torch.stack(stress_hist, dim=0)
-
-        if return_state:
-            return stress_hist, torch.stack(state_hist, dim=0)
-        return stress_hist
+        return self.tmodel(
+            orientations,
+            strain,
+            assumed_rate,
+            initial_strains=initial_strains,
+            return_state=return_state,
+        )

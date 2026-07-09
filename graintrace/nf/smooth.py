@@ -26,7 +26,13 @@ from __future__ import annotations
 
 import torch
 
-from neml2 import tensors, crystallography
+from ..orientation_helper import (
+    euler_to_matrix,
+    matrix_to_euler,
+    matrix_to_quat,
+    quat_to_matrix,
+    move_to_fundamental_zone,
+)
 
 from .image import get_neighbor_indices, connectivity_options
 
@@ -34,25 +40,21 @@ from .image import get_neighbor_indices, connectivity_options
 def smooth(
     data, connectivity=6, symmetry="1", angle_convention="bunge", angle_type="radians"
 ):
-    """Smooth orientations
+    """Smooth voxel orientations via a neighbor quaternion mean.
 
     Args:
-        data (nx,ny,nz,7) tensor: fixed grid data with columns [phase, Eul1, Eul2, Eul3, X, Y, Z]
-
-    Keyword Args:
-        connectivity (int): 6 or 26 (default: 6) determines neighbor connectivity
-        symmetry (str): crystal symmetry in orbifold notation (default: '1')
-        angle_convention (str): 'kocks', 'bunge', or 'roe' (default: 'bunge')
-        angle_type (str): 'degrees' or 'radians' (default: 'radians')
+        data (nx,ny,nz,7) tensor: fixed grid [phase, Eul1, Eul2, Eul3, X, Y, Z]
+        connectivity (int): 6 or 26
+        symmetry (str): crystal symmetry in orbifold notation
+        angle_convention (str): 'kocks', 'bunge', or 'roe'
+        angle_type (str): 'degrees' or 'radians'
     """
     print("Smoothing...")
-    R = tensors.Rot.fill_euler_angles(
-        tensors.Vec(data[..., 1:4]), angle_convention, angle_type
-    )
+    R = euler_to_matrix(data[..., 1:4], angle_convention, angle_type)
 
-    R = crystallography.move_to_fundamental_zone(R, symmetry)
+    R = move_to_fundamental_zone(R, symmetry)
 
-    Q1 = tensors.Quaternion(R).torch()
+    Q1 = matrix_to_quat(R)
 
     not_void = data[..., 0] > 0
 
@@ -70,9 +72,9 @@ def smooth(
 
     new_Q = eigvecs[..., -1]
 
-    new_R = tensors.Rot.fill_matrix(tensors.Quaternion(new_Q).rotation_matrix())
+    new_R = quat_to_matrix(new_Q)
 
-    new_eulers = new_R.to_euler_angles(angle_convention, angle_type).torch()
+    new_eulers = matrix_to_euler(new_R, angle_convention, angle_type)
 
     data[..., 1:4] = new_eulers
 

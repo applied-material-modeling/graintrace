@@ -58,7 +58,7 @@ class RegionBaseStitching:
             "ScanID",
         ],
     ):
-        self.scan_files = scan_files  # raw per-scan CSVs
+        self.scan_files = scan_files
         self.output_csv = output_csv
         self.position_tolerance = position_tolerance
         self.orientation_tolerance = orientation_tolerance
@@ -71,20 +71,13 @@ class RegionBaseStitching:
         self.angle_type = orientation_units
         self.symmetry = symmetry
 
-        self.scans: List[GrainSet] = []  # loaded & sorted
+        self.scans: List[GrainSet] = []
         self.stitched: Optional[GrainSet] = None
 
     def run(self, zlo: float, zhi: float, overlap_fraction: float) -> GrainSet:
         """
-        Entry point.
-
-        Steps:
-          1. Validate global z-window (zlo < zhi).
-          2. Load scans and sort them.
-          3. Compute uniform overlap region (zol, zoh).
-          4. Iteratively stitch:
-                S0 → S01 → S012 → ...
-          5. Write final stitched output.
+        Entry point: load and sort scans, then iteratively stitch S0 → S01 → S012 → ...
+        and write the final output.
         """
         if zhi <= zlo:
             raise ValueError(f"Invalid z-window: zhi ({zhi}) must be > zlo ({zlo}).")
@@ -97,16 +90,7 @@ class RegionBaseStitching:
         all_zmin = min(gs.meta.zmin for gs in self.scans)
         all_zmax = max(gs.meta.zmax for gs in self.scans)
 
-        # if zlo > all_zmin:
-        #     raise ValueError(
-        #         f"Given zlo={zlo} is ABOVE the actual lowest scan boundary {all_zmin}."
-        #     )
-        # if zhi < all_zmax:
-        #     raise ValueError(
-        #         f"Given zhi={zhi} is BELOW the actual highest scan boundary {all_zmax}."
-        #     )
-
-        # if there is no overlap
+        # no overlap
         if overlap_fraction == 0.0:
             current = self.scans[0]
             for k in range(len(self.scans) - 1):
@@ -119,17 +103,15 @@ class RegionBaseStitching:
 
             return self.stitched
 
-        # if there is overlap
+        # with overlap
         nscan = len(self.scans)
         if nscan == 0:
             raise RuntimeError("No scans available.")
         if nscan == 1:
-            # trivial case
             self.stitched = self.scans[0]
             self._write_output(self.stitched, self.output_column)
             return self.stitched
 
-        # Pass in zol and zoh of the overlap region
         H = zhi - zlo
         denom = nscan - (nscan - 1) * overlap_fraction
         if denom <= 0:
@@ -146,11 +128,8 @@ class RegionBaseStitching:
             A = current
             B = self.scans[k + 1]
 
-            # overlap region between theoretical scan k and k+1
-            # ... (I think the math is correct here) ...
-            # scan_k:     [zlo + k*z_step, zlo + k*z_step + z_scan_height]
-            # scan_k+1:   [zlo + (k+1)*z_step, zlo + (k+1)*z_step + z_scan_height]
-            # overlap:    [zlo + (k+1)*z_step, zlo + k*z_step + z_scan_height]
+            # overlap region between theoretical scan k and k+1:
+            # [zlo + (k+1)*z_step, zlo + k*z_step + z_scan_height]
             zol = zlo + (k + 1) * z_step
             zoh = zlo + k * z_step + z_scan_height
 
@@ -164,7 +143,6 @@ class RegionBaseStitching:
         """Load all scan CSVs into GrainSet objects and sort by zmin (bottom -> top)."""
         scans: List[GrainSet] = []
 
-        # Columns required by the stitching logic and final output
         required_cols = ["X", "Y", "Z", "GrainRadius", "Eul0", "Eul1", "Eul2"]
 
         for idx, path in enumerate(self.scan_files):
@@ -192,8 +170,7 @@ class RegionBaseStitching:
 
             scans.append(GrainSet(df=df, meta=meta))
 
-        # sort from bottom (smallest zmin) to top
-        scans.sort(key=lambda gs: gs.meta.zmin)
+        scans.sort(key=lambda gs: gs.meta.zmin)  # bottom (smallest zmin) to top
 
         self.scans = scans
 
@@ -213,7 +190,6 @@ class RegionBaseStitching:
 
         debug_log_csv = os.path.join(
             debug_folder,
-            # f"{stem}_pair{pair_id}_{A.meta.name}_to_{B.meta.name}_decision_log.csv"
             f"{stem}_pair{pair_id}_decision_log.csv",
         )
 
@@ -245,14 +221,9 @@ class RegionBaseStitching:
         self, A: GrainSet, B: GrainSet, pair_id: int
     ) -> GrainSet:
         """
-        Non-overlap stitching (orientation-first, per-A selection):
-
-        For each A grain in the top slab:
-        1) Find k nearest B candidates (KDTree built on B, query with A).
-        2) Among those k, pick the one with smallest misorientation within tolerance.
-        3) Absurd-distance rejection (using slab scale t).
-        4) If multiple A pick same B,
-            keep the pair with smallest misorientation.
+        Non-overlap stitching: for each A grain in the top slab, find k nearest B
+        candidates, keep the smallest-misorientation match within tolerance and slab
+        distance, resolved via Hungarian assignment.
         """
         from scipy.spatial import cKDTree
         import numpy as np
@@ -262,7 +233,7 @@ class RegionBaseStitching:
         rA_all = dfA["GrainRadius"].to_numpy(float)
         rB_all = dfB["GrainRadius"].to_numpy(float)
 
-        # slab thickness scale (your heuristic)
+        # slab thickness scale
         t = 2.0 * float(np.median(np.concatenate([rA_all, rB_all])))
 
         zA_max = float(dfA["Z"].max())
@@ -310,14 +281,13 @@ class RegionBaseStitching:
         b_idx = idxB.ravel()
         dpos = dist.ravel().astype(float)
 
-        # Orientations
         oriA = A_slab[["Eul0", "Eul1", "Eul2"]].to_numpy(float)
         oriB = B_slab[["Eul0", "Eul1", "Eul2"]].to_numpy(float)
 
         eA = oriA[a_idx]
         eB = oriB[b_idx]
 
-        # Misorientation for each candidate edge
+        # misorientation for each candidate edge
         dori_t = misorientation(
             eA,
             eB,
@@ -333,20 +303,18 @@ class RegionBaseStitching:
         dpos = dpos[ok]
         dori = dori[ok]
 
-        # ---- Hungarian assignment with unmatched allowed (slab-local indices) ----
+        # Hungarian assignment with unmatched allowed (slab-local indices)
         nA = len(A_slab)
         nB = len(B_slab)
 
-        # You already filtered by orientation tolerance.
-        # Add distance gate too (otherwise you can merge far-away grains if k is large)
+        # distance gate on top of orientation filter (avoids merging far grains for large k)
         ok2 = dpos <= t
         a_idx2 = a_idx[ok2]
         b_idx2 = b_idx[ok2]
         dpos2 = dpos[ok2]
         dori2 = dori[ok2]
 
-        if a_idx2.size == 0:
-            # nothing feasible
+        if a_idx2.size == 0:  # nothing feasible
             out = pd.concat([dfA, dfB], ignore_index=True)
             meta = ScanMetadata(
                 name=f"{A.meta.name}_{B.meta.name}",
@@ -356,8 +324,7 @@ class RegionBaseStitching:
             )
             return GrainSet(df=out, meta=meta)
 
-        # Cost: orientation dominates, but include a small position term to break ties sanely
-        # (If you truly want pure orientation, set w_pos=0.0)
+        # Cost: orientation dominates, small position term breaks ties (w_pos=0 => pure orientation)
         w_ori = 1.0
         w_pos = 0.1
 
@@ -367,12 +334,12 @@ class RegionBaseStitching:
 
         edge_cost = w_ori * (dori2 / otol) + w_pos * (dpos2 / ptol)
 
-        # Unmatch cost slightly above maximum feasible cost
+        # unmatch cost just above max feasible cost
         max_real = w_ori * 1.0 + w_pos * 1.0
         UNMATCH_COST = max_real + 1e-6
         BIG = 1e9
 
-        # Store best edge per (a,b)
+        # best edge per (a, b)
         pair = {}
         for a, b, dp, do, cc in zip(a_idx2, b_idx2, dpos2, dori2, edge_cost):
             key = (int(a), int(b))
@@ -383,18 +350,12 @@ class RegionBaseStitching:
         N = nA + nB
         C = np.full((N, N), BIG, dtype=float)
 
-        # Real A -> Real B
         for (a, b), (dp, do, cc, _, _) in pair.items():
             C[a, b] = cc
 
-        # Real A -> dummy cols (unmatch A)
-        C[0:nA, nB : nB + nA] = UNMATCH_COST
-
-        # Dummy rows (B unmatched) -> real B
-        C[nA : nA + nB, 0:nB] = UNMATCH_COST
-
-        # Dummy rows -> dummy cols
-        C[nA : nA + nB, nB : nB + nA] = 0.0
+        C[0:nA, nB : nB + nA] = UNMATCH_COST      # Real A -> dummy cols (unmatch A)
+        C[nA : nA + nB, 0:nB] = UNMATCH_COST      # Dummy rows -> real B (unmatch B)
+        C[nA : nA + nB, nB : nB + nA] = 0.0       # Dummy -> dummy
 
         row_ind, col_ind = linear_sum_assignment(C)
 
@@ -413,8 +374,8 @@ class RegionBaseStitching:
         merged_rows = []
 
         for a_loc, b_loc in keep_pairs_local:
-            idxA = int(A_slab_idx[a_loc])  # global row index in dfA
-            idxB = int(B_slab_idx[b_loc])  # global row index in dfB
+            idxA = int(A_slab_idx[a_loc])  # global index in dfA
+            idxB = int(B_slab_idx[b_loc])  # global index in dfB
 
             matched_A_global.add(idxA)
             matched_B_global.add(idxB)
@@ -443,11 +404,7 @@ class RegionBaseStitching:
         return GrainSet(df=out, meta=meta)
 
     def _write_output(self, stitched: GrainSet, required: List[str]) -> None:
-        """
-        Write final stitched dataframe to self.output_csv.
-        Required output columns:
-            X, Y, Z, GrainRadius, Eul0, Eul1, Eul2, ScanID
-        """
+        """Write the final stitched dataframe (with required columns) to self.output_csv."""
 
         df = stitched.df.copy()
 

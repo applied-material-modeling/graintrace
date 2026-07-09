@@ -44,29 +44,13 @@ import re
 
 
 def layer_number(path: str, token: str = "layer") -> int:
-    """
-    Extract layer index from a filename.
-
-    Accepts patterns like:
-      - ...layer7...
-      - ...layer_007...
-      - ...layer-12...
-      - ...layer 003...
-      - ...LAYER_4...
-
-    Args:
-        path: file path
-        token: substring that precedes the layer number (default "layer")
-
-    Returns:
-        int layer index
+    """Extract the layer index that follows ``token`` in a filename.
 
     Raises:
         ValueError if no layer number can be found.
     """
     name = os.path.splitext(os.path.basename(path))[0]
 
-    # Look for: token + optional separators + digits
     m = re.search(rf"(?i){re.escape(token)}[\s_\-]*([0-9]+)", name)
     if not m:
         raise ValueError(f"Could not parse layer number from filename: {path}")
@@ -75,8 +59,7 @@ def layer_number(path: str, token: str = "layer") -> int:
 
 
 def nf_to_pointcloud(folder, dz, layer_token="layer"):
-    """
-    Convert nearfield data to point cloud format.
+    """Convert nearfield data (.mic/.csv layers) to a stacked point cloud.
 
     Args:
         folder (str): folder with nearfield data
@@ -113,17 +96,10 @@ def nf_to_pointcloud(folder, dz, layer_token="layer"):
 
 
 def process_layer_pointcloud(df_layer, plane_points, nx, ny):
-    """
-    Process a single layer of point cloud data to fit into a fixed grid.
-
-    Args:
-        df_layer (pd.DataFrame): DataFrame for a single layer with columns [phase, Eul1, Eul2, Eul3, X, Y, Z]
-        plane_points (np.ndarray): nx*ny x 2 array of (X, Y) points for the fixed grid
-        nx (int): number of grid points in x-direction
-        ny (int): number of grid points in y-direction
+    """Interpolate one point-cloud layer onto a fixed nx x ny grid.
 
     Returns:
-        layer_grid (np.ndarray): nx x ny x 7 array with columns [phase, Eul1, Eul2, Eul3, X, Y, Z]
+        np.ndarray: nx x ny x 7 array [phase, Eul1, Eul2, Eul3, X, Y, Z]
     """
     z = df_layer["Z"].iloc[0]
     points = df_layer[["X", "Y"]].to_numpy()
@@ -146,23 +122,21 @@ def process_layer_pointcloud(df_layer, plane_points, nx, ny):
     data[found, 0] = 1
     data[found, 1:4] = df_layer.iloc[idx][["Eul1", "Eul2", "Eul3"]].to_numpy()
 
-    data[:, 4:6] = plane_points  # X, Y coordinates
-    data[:, 6] = z  # Z coordinate
+    data[:, 4:6] = plane_points
+    data[:, 6] = z
 
     return data.reshape((nx, ny, 7))
 
 
 def pointcloud_to_fixed_grid(pointcloud, nx, ny):
-    """
-    Convert point cloud to fixed grid format.
+    """Convert a point cloud to an nx x ny x nz x 7 fixed grid.
 
     Args:
-        pointcloud (pd.DataFrame): point cloud data with columns [phase, Eul1, Eul2, Eul3, X, Y, Z, layer]
-        nx (int): number of grid points in x-direction
-        ny (int): number of grid points in y-direction
+        pointcloud (pd.DataFrame): columns [phase, Eul1, Eul2, Eul3, X, Y, Z, layer]
+        nx, ny (int): in-plane grid resolution
 
     Returns:
-        fixed_grid (np.ndarray): nx x ny x nz x 7 array with columns [phase, Eul1, Eul2, Eul3, X, Y, Z]
+        np.ndarray: nx x ny x nz x 7 grid [phase, Eul1, Eul2, Eul3, X, Y, Z]
     """
     layers = pointcloud["layer"].unique()
     x = np.linspace(
@@ -199,15 +173,12 @@ def pointcloud_to_fixed_grid(pointcloud, nx, ny):
 def fixed_grid_to_vtk(
     fixed_grid, filename, varlabels=["phase", "Eul1", "Eul2", "Eul3", "X", "Y", "Z"]
 ):
-    """
-    Save fixed grid to VTK file.
+    """Save an nx x ny x nz x 7 fixed grid to a structured-grid VTK file.
 
     Args:
-        fixed_grid (np.ndarray): nx x ny x nz x 7 array with columns [phase, Eul1, Eul2, Eul3, X, Y, Z]
+        fixed_grid (np.ndarray): grid [phase, Eul1, Eul2, Eul3, X, Y, Z]
         filename (str): output VTK filename
-
-    Keyword Args:
-        varlabels (list): list of variable labels for the 7 columns
+        varlabels (list): labels for the 7 columns
     """
     varray = vtkStructuredGrid()
     nx, ny, nz, nvars = fixed_grid.shape

@@ -51,13 +51,11 @@ class ClusterAnalysisIndicator:
 
         df = pd.read_csv(self.csv_path)
 
-        # check essential columns
         required = [self.id_col, *self.coord_cols]
         missing = [c for c in required if c not in df.columns]
         if missing:
             raise ValueError(f"Missing required columns: {missing}")
 
-        # if there are no other columns other than required, raise error
         if len(df.columns) == len(required):
             raise ValueError("No feature columns found in the data.")
 
@@ -134,7 +132,6 @@ class ClusterAnalysisIndicator:
         coords_s = coords[order]
 
         starts = np.flatnonzero(np.r_[True, inv_s[1:] != inv_s[:-1]])
-        # starts length == k
         coord_min = np.empty((k, coords.shape[1]), dtype=np.float64)
         coord_max = np.empty((k, coords.shape[1]), dtype=np.float64)
         for j in range(coords.shape[1]):
@@ -142,7 +139,6 @@ class ClusterAnalysisIndicator:
             coord_min[:, j] = np.minimum.reduceat(col, starts)
             coord_max[:, j] = np.maximum.reduceat(col, starts)
 
-        # Assemble summaries
         data: Dict[str, Any] = {label_col: uniq, "n": n}
 
         for j, c in enumerate(coord_names):
@@ -170,14 +166,7 @@ class ClusterAnalysisIndicator:
         minimal_return: bool = False,
         **kwargs: Any,
     ) -> Dict[str, Any]:
-        """
-        Returns dict:
-          {
-            "points": labeled_points_df,
-            "clusters": cluster_summaries_df,
-            "extras": {...}  # method-specific, e.g. linkage Z
-          }
-        """
+        """Cluster points and return {"points", "clusters", "extras"}."""
         self.load_data()
         self.check_feature_matrix(spec)
 
@@ -197,7 +186,6 @@ class ClusterAnalysisIndicator:
 
         return {"points": points, "clusters": clusters, "extras": extras}
 
-    ## different clustering methods
     def run_sklearn_dbscan(
         self,
         spec: SimilarityMetric,

@@ -33,14 +33,7 @@ from matplotlib import pyplot as plt
 
 
 class FieldFileNaming:
-    """
-    Naming convention for per-time-step field CSVs, no path for prefix.
-
-    Example:
-        prefix="xxxxx"
-        index_width=4   -> xxxxx_0000.csv
-        index_width=None -> xxxxx_0.csv
-    """
+    """Naming convention for per-time-step field CSVs (e.g. prefix_0000.csv)."""
 
     def __init__(self, prefix: str, index_width: Optional[int] = None, sep: str = "_", suffix: str = ".csv") -> None:
         self.prefix = prefix
@@ -166,14 +159,10 @@ class SimulationResults:
         suffix: str = "",
         return_comp_names: bool = False,
     ) -> Union[np.ndarray, Tuple[np.ndarray, List[str]]]:
-        """
-        df: pandas DataFrame
-        suffix: "" for element df; for block df use f"_{grain_id}" or f"_{gid}"
-        Returns:
-          order=0 -> (N, 1)
-          order=1 -> (N, 3)
-          order=2 -> (N, 9)  (full 11..33 preferred, else symmetric xx..zz expanded)
-          comp_names : component names for plotting labeling afterwards
+        """Extract a tensor from a DataFrame.
+
+        order 0/1/2 -> (N, 1)/(N, 3)/(N, 9). suffix is "" for element df or
+        f"_{grain_id}" for block df.
         """
         if order not in (0, 1, 2):
             raise ValueError("order must be 0, 1, or 2")
@@ -205,7 +194,6 @@ class SimulationResults:
             ]
             return (data, comp_names) if return_comp_names else data
 
-        # if order == 2
         full = ["11", "12", "13", "21", "22", "23", "31", "32", "33"]
         full_cols = [f"{tensor_prefix}_{ij}{suffix}" for ij in full]
         if all(c in df.columns for c in full_cols):
@@ -282,7 +270,6 @@ class SimulationResults:
                 return_comp_names=return_comp_names,
             )
 
-        # if sample == "id"
         if block_id is None:
             raise ValueError("block_id must be provided when sample='id'")
         if block_id < 0 or block_id >= self.n_steps:

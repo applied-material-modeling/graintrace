@@ -1,0 +1,16 @@
+[submodule "external/moose"]
+	path = external/moose
+	url = https://github.com/hugary1995/moose.git
+	branch = neml2-v3-migration
+[submodule "external/neml2"]
+	path = external/neml2
+	url = https://github.com/hdt5kt/neml2.git
+	branch = pyzag_v3_port
+[submodule "external/puma"]
+	path = external/puma
+	url = https://github.com/applied-material-modeling/puma.git
+	branch = development
+[submodule "external/pyzag"]
+	path = external/pyzag
+	url = https://github.com/applied-material-modeling/pyzag.git
+	branch = huy_pyzag_abstraction_neml2_v3

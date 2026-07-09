@@ -114,7 +114,6 @@ class VoronoiScreen(Screen):
 
         with Center():
             yield VerticalScroll(
-                # === BASIC INPUTS SECTION ===
                 Static("BASIC INPUTS", id="basic-title"),
 
                 Label("Input File:", classes="basic-label"),
@@ -141,7 +140,6 @@ class VoronoiScreen(Screen):
                 Label("Generate Mesh (True/False):", classes="basic-label"),
                 Input(value="False", id="generate_mesh"),
 
-                # === ADVANCED INPUTS SECTION ===
                 Static("ADVANCED INPUTS", id="advanced-title"),
 
                 Label("Dimension:", classes="advanced-label"),
@@ -187,7 +185,6 @@ class VoronoiScreen(Screen):
                 Input(value="subplex", id="morphoalgo"),
             )
 
-        # Fixed action buttons
         with Center():
             with Horizontal(id="action-buttons"):
                 yield Button("Run Voronoi", id="run")
@@ -204,10 +201,10 @@ class VoronoiScreen(Screen):
 
     def launch_voronoi_process(self) -> None:
         """Start Voronoi mesh builder in background via nohup."""
-        from tui.log_viewer import LogViewerScreen
+        from graintrace.tui.log_viewer import LogViewerScreen
 
         try:
-            # Prevent duplicate runs
+            # prevent duplicate runs
             if self.current_proc and self.current_proc.poll() is None:
                 self.app.notify("A Voronoi run is already active.")
                 return
@@ -246,7 +243,7 @@ class VoronoiScreen(Screen):
 
             params_json = json.dumps(params)
 
-            # Launch the external process (detached)
+            # launch the external process (detached)
             from pathlib import Path
             run_script = Path(__file__).parent / "run_file" / "run_voronoi_job.py"
 

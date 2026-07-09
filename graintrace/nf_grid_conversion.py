@@ -67,19 +67,9 @@ class NFGridConversion:
         nx: int = 300,
         ny: int = 900,
     ) -> Path:
-        """
-        Inputs:
-          - input_folder containing *.mic or *.csv
-          - dz, nx, ny
+        """Convert NF .mic/.csv layers to a gridded CSV for VoxelMeshBuilder.
 
-        Outputs (in save_dir):
-          - pointcloud.csv
-          - fixed_grid.npy
-          - fixed_grid.vtk (optional)
-          - fixed_grid.csv
-
-        Returns:
-          - Path to fixed_grid.csv
+        Returns the path to fixed_grid.csv.
         """
         dz = float(dz)
         nx = int(nx)

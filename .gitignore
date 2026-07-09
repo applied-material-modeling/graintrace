@@ -26,3 +26,32 @@ run_experiment_*
 experiment_*/
 test_
 scan_location/
+_roi_*
+
+# --- build / packaging ---
+*.egg-info/
+*.pyo
+
+# --- virtualenvs / editors / OS ---
+.venv/
+venv/
+env/
+.idea/
+.DS_Store
+
+# --- stray artifacts ---
+syntax.json
+
+# --- example / demo output dirs ---
+farfield_out/
+material_calibration_out/
+cpfe_out/
+rei_2d_out/
+test_demo_grid_segmentation/
+
+# --- NEVER commit proprietary CUBIT/Coreform license material ---
+*.lic
+*.license
+clarolicense*
+coreform*/
+cubit*/

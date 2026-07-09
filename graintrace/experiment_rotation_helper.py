@@ -55,14 +55,7 @@ def update_experiments(
     strain_unit: str = "microstrain",
     env: Optional[dict] = None,
 ) -> None:
-    """
-    For each input CSV:
-      - Called build Voronoi for .ori file, a bit overkill
-      - Read .ori file to get Oij
-      - Combine Oij with all builder.data columns
-      - Save file under output_root with identical basename
-      - Delete temporary directory
-    """
+    """Rotate each input CSV via a Voronoi build, appending Oij columns, saving under output_root."""
 
     os.makedirs(output_root, exist_ok=True)
 
@@ -98,8 +91,7 @@ def update_experiments(
         builder.read_input()
         builder.build_voronoi(option="voronoi", generate_mesh=False)
 
-        # .ori to O11, O12, ...
-        ori_path = os.path.join(outputdir, "voronoi.ori")
+        ori_path = os.path.join(outputdir, "reconstruction.ori")
         ori = np.loadtxt(ori_path)
         if ori.ndim == 1:
             ori = ori.reshape(1, 9)
@@ -109,8 +101,11 @@ def update_experiments(
             columns=["O11", "O12", "O13", "O21", "O22", "O23", "O31", "O32", "O33"],
         )
 
-        # get all the data from builder
         df = builder.data.copy().reset_index(drop=True)
+
+        # Raw FF files may already carry an (unrotated) orientation matrix; drop
+        # it so the freshly rotated O columns replace it instead of duplicating.
+        df = df.drop(columns=ori_df.columns, errors="ignore")
 
         if (
             builder.strain_unit == "microstrain"
@@ -127,7 +122,6 @@ def update_experiments(
             axis=1,
         )
 
-        # preserve same filename, just change root directory
         output_path = os.path.join(output_root, base_name)
         combined.to_csv(output_path, index=False)
         print(f"Saved: {output_path}")

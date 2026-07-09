@@ -29,7 +29,7 @@ from textual.widgets import Header, Footer, Static, Button
 from textual.containers import Vertical, Center
 
 # import the separate screen
-from tui.voronoi import VoronoiScreen
+from graintrace.tui.voronoi import VoronoiScreen
 
 
 class GrainTRACE(App):

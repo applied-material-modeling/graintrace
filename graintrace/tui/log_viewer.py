@@ -68,7 +68,7 @@ class LogViewerScreen(Screen):
         self.log_path = Path(log_path)
         self.proc = proc
         self.status_line = ""
-        self._heartbeat_counter = 0  # seconds since last heartbeat
+        self._heartbeat_counter = 0
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -88,22 +88,16 @@ class LogViewerScreen(Screen):
     def on_mount(self) -> None:
         """Set up periodic refresh and heartbeat timers."""
         self.load_log()
-        # Refresh view twice per second
         self.set_interval(0.5, self.auto_refresh)
-        # Heartbeat every second
         self.set_interval(1.0, self.heartbeat_tick)
 
-    # ----------------------------
-    # Periodic behaviors
-    # ----------------------------
     def auto_refresh(self) -> None:
-        """Periodic refresh that runs while screen is active."""
         self.load_log(live=True)
 
     def heartbeat_tick(self) -> None:
-        """Append 'still running' message every certain seconds if process is alive."""
+        """Append a 'still running' message every 120s while the process is alive."""
         if not self.proc or self.proc.poll() is not None:
-            return  # no active process
+            return
 
         self._heartbeat_counter += 1
         if self._heartbeat_counter >= 120:
@@ -113,11 +107,8 @@ class LogViewerScreen(Screen):
                     f.write("Program is still running...\n")
                     f.flush()
             except Exception:
-                pass  # ignore transient file issues
+                pass
 
-    # ----------------------------
-    # Core logic
-    # ----------------------------
     def load_log(self, live: bool = False) -> None:
         """Load or refresh log content without losing status footer."""
         try:
@@ -142,7 +133,7 @@ class LogViewerScreen(Screen):
                 self.status_line = "[Terminating process ...]"
                 self.load_log()
 
-                # Wait up to 10 seconds for graceful shutdown
+                # wait up to 10 seconds for graceful shutdown
                 for _ in range(10):
                     time.sleep(1.0)
                     if self.proc.poll() is not None:

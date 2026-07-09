@@ -263,7 +263,6 @@ for cid in sorted(df["CellID"].unique()):
         label=f"CellID {cid}",
     )
 
-# plt.scatter(seeds[:, 0], seeds[:, 1], marker="x", s=80, label="Seeds")
 plt.title("Generated Point Cloud")
 plt.xlabel("X")
 plt.ylabel("Y")
@@ -275,14 +274,15 @@ plt.close()
 ### Called Sculpt for meshing
 
 ncore = 4
+# EDIT: point these at your Coreform CUBIT/SCULPT install (paths only, never a license).
 sculpt_config = {
-    "launcher": "/home/tranh/Progs/cubit_gov/bin/mpi/bin/mpiexec",
-    "psculpt": "/home/tranh/Progs/cubit_gov/bin/psculpt",
-    "epu": "/home/tranh/Progs/cubit_gov/bin/epu",
+    "launcher": "/path/to/cubit/bin/mpi/bin/mpiexec",
+    "psculpt": "/path/to/cubit/bin/psculpt",
+    "epu": "/path/to/cubit/bin/epu",
     "nprocs": int(ncore),
     "environment": {
-        "OPAL_LIBDIR": "/home/tranh/Progs/cubit_gov/bin/mpi/lib",
-        "OPAL_PREFIX": "/home/tranh/Progs/cubit_gov/bin/mpi",
+        "OPAL_LIBDIR": "/path/to/cubit/bin/mpi/lib",
+        "OPAL_PREFIX": "/path/to/cubit/bin/mpi",
     },
 }
 sculpt_options = (

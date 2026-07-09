@@ -46,17 +46,17 @@ output_folder = "postprocess_test1"
 test_time_sim = 1.0
 test_sim = True
 
-# Input Experiment
-grain_folder = "experiment_workflow_aps_28Feb"  # "mwe_data/synthetic_load_exp"
+# Input Experiment (self-contained: synthetic per-load-step FF CSVs expsyn_<t>time.csv)
+grain_folder = "mwe_data/synthetic_load_exp"
 
 exp_field_naming = ExpFieldFileNaming(
-    prefix="stitched_output",
-    index_width=1,
-    sep="",
-    suffix=".csv",
+    prefix="expsyn",     # files: expsyn_<t>time.csv -> id captured between sep and suffix
+    index_width=3,
+    sep="_",
+    suffix="time.csv",
 )
 
-test_tim_exp = 0
+test_tim_exp = 100       # available times are even values 100..160
 test_exp = True
 
 # Main ---------------------------------------------------
@@ -91,34 +91,6 @@ if test_exp:
         bins=10,
     )
     print(f"Tensor distribution plotted at time_index={time_index}")
-
-    # postprocess.plot_pole_figure(
-    # exp_res,
-    # tensor_prefix="Eul",
-    # time=test_tim_exp,
-    # direction=[1, 1, 1],
-    # crystal_symmetry="432",
-    # device="cpu",
-    # output_folder=output_folder,
-    # construct_odf=False,
-    # orientation_type="bunge",
-    # orientation_units="radians",
-    # )
-    # print(f"Pole figure 111 plotted")
-
-    # postprocess.plot_pole_figure(
-    # exp_res,
-    # tensor_prefix="Eul",
-    # time=test_tim_exp,
-    # direction=[0, 0, 1],
-    # crystal_symmetry="432",
-    # device="cpu",
-    # output_folder=output_folder,
-    # construct_odf=False,
-    # orientation_type="bunge",
-    # orientation_units="radians",
-    # )
-    # print(f"Pole figure plotted")
 
 if test_sim:
     # 1) scalar distribution
@@ -200,16 +172,3 @@ if test_sim:
         output_folder=output_folder,
     )
     print(f"Centroid of all blocks over time plotted")
-
-    # 6) Texture
-    # # postprocess.plot_pole_figure(
-    # #     res,
-    # #     tensor_prefix="ori_rodrigues",
-    # #     time = test_time_sim,
-    # #     direction = [0, 0, 1],
-    # #     crystal_symmetry = "432",
-    # #     device = "cpu",
-    # #     output_folder=output_folder,
-    # #     construct_odf=False,
-    # # )
-    # # print(f"Pole figure plotted")

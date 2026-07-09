@@ -49,6 +49,14 @@ PathLike = Union[str, Path]
 
 
 class VoxelMeshBuilder:
+    """Segment a voxel/grid orientation field into grains and build a hex mesh.
+
+    Takes a gridded Euler-angle CSV (EBSD, or a gridded NF/FF reconstruction),
+    segments it into grains via graph (Leiden) or flood-fill, and generates a
+    conformal hexahedral Exodus mesh via CUBIT/SCULPT with per-element MRP
+    orientations. See ``examples/demonstrate_grid_segmentation_mesh.py`` and the
+    ``/voxel-segmentation-mesh`` skill.
+    """
 
     DEFAULT_SEGMENTATION = {
         "method": "flood",
@@ -168,7 +176,6 @@ class VoxelMeshBuilder:
 
         p = cfg["params"]
 
-        # shared keys
         p["misorientation_tol"] = float(
             p.get(
                 "misorientation_tol",
@@ -508,7 +515,7 @@ class VoxelMeshBuilder:
             weight_cfg=graph_params["weight_cfg"],
             networkit_kwargs=graph_params["networkit_kwargs"],
             reduce_edges_topweights_k=graph_params["reduce_edges_topweights_k"],
-            mp_start_method="spawn",  # this is needed to avoid hanging when using multiprocessing in graph_spatial_cluster on some platforms
+            mp_start_method="spawn",  # avoids multiprocessing hangs on some platforms
         )
 
         labels = np.asarray(gsc_out["extras"]["labels"], dtype=np.int64)
@@ -541,18 +548,9 @@ class VoxelMeshBuilder:
         segmentation: Optional[Dict[str, Any]] = None,
         apply_smoothing: bool = False,
     ) -> Path:
-        """
-        Inputs:
-          - file_path containing a grid-based CSV
-          - segmentation dict (optional)
+        """Segment the grid CSV and write grid .npy/.vtk outputs to save_dir.
 
-        Outputs (in save_dir):
-          - fixed_grid.npy (+ fixed_grid.vtk if enabled)
-          - segmented_fixed_grid.npy (+ segmented_fixed_grid.vtk if enabled)
-          - merged_segmented_fixed_grid.npy (+ merged_segmented_fixed_grid.vtk if enabled)
-
-        Returns:
-          - Path to merged_segmented_fixed_grid.npy
+        Returns the path to merged_segmented_fixed_grid.npy.
         """
 
         fixed_grid_npy = self.save_dir / "fixed_grid.npy"

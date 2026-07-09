@@ -24,36 +24,66 @@
 
 from __future__ import annotations
 
-from .base_material_approximation import BaseMaterialApproximationModel
-from .cluster_indicator import ClusterAnalysisIndicator
-from .construct_nf_mesh import NearFieldMeshBuilder
-from .construct_voronoi_mesh import VoronoiMeshBuilder
-from .construct_voxel_mesh import VoxelMeshBuilder
-from .experiment_postprocessing import ExperimentResults, FieldFileNaming
-from .generate_random_crystal import CrystalGenerator
-from .grain_graph_matching import GraphGrainMatcher
-from .graph_spatial_cluster import GraphSpatialCluster
-from .ipf_postprocess import IPFProcessor
-from .material_calibration import MaterialCalibration
-from .nf_grid_conversion import NFGridConversion
-from .plot_postprocessing import (
-    plot_block_properties_distribution,
-    plot_macroscopic_stress_strain,
-    plot_block_properties_over_time,
-    plot_pole_figure,
-)
-from .rare_cluster_indicator import IdentifyRareClusters
-from .rare_criteria_selection_library import (
-    select_smallest_cluster,
-    select_highest_von_mises_from_components,
-    select_highest_scalar,
-    select_highest_norm_3x3_tensor,
-)
-from .run_cpfe_simulation import CPFESimulation
-from .scan_stitching_comparison import ScanStitchingComparison
-from .similarity_metric_library import SimilarityMetricLibrary
-from .simulation_postprocessing import SimulationResults
-from .synthetic_hedm_generator import SyntheticHEDMGenerator
-from .taylor import UniaxialTaylorModel, TaylorModel
-from .tess_to_gnn import NeperTessToGraphNN
-from .user_data_class import SimilarityMetric, WeightConfig, RareCriteria
+from importlib import import_module
+from importlib.metadata import PackageNotFoundError, version as _pkg_version
+
+try:
+    __version__ = _pkg_version("graintrace")
+except PackageNotFoundError:  # running from a source tree without install metadata
+    __version__ = "0.1.0"
+
+# Public name -> submodule that defines it. Imports are performed lazily (PEP 562)
+# so that `import graintrace` does NOT eagerly pull heavy/optional third-party
+# stacks (neml2, pyzag, torch, torch_geometric). Each symbol is imported only when
+# first accessed, which keeps the top-level import cheap and lets consumers that
+# don't need the compiled stack still `import graintrace`.
+_LAZY_EXPORTS = {
+    "BaseMaterialApproximationModel": "base_material_approximation",
+    "ClusterAnalysisIndicator": "cluster_indicator",
+    "NearFieldMeshBuilder": "construct_nf_mesh",
+    "VoronoiMeshBuilder": "construct_voronoi_mesh",
+    "VoxelMeshBuilder": "construct_voxel_mesh",
+    "ExperimentResults": "experiment_postprocessing",
+    "FieldFileNaming": "experiment_postprocessing",
+    "CrystalGenerator": "generate_random_crystal",
+    "GraphGrainMatcher": "grain_graph_matching",
+    "GraphSpatialCluster": "graph_spatial_cluster",
+    "IPFProcessor": "ipf_postprocess",
+    "MaterialCalibration": "material_calibration",
+    "NFGridConversion": "nf_grid_conversion",
+    "plot_block_properties_distribution": "plot_postprocessing",
+    "plot_macroscopic_stress_strain": "plot_postprocessing",
+    "plot_block_properties_over_time": "plot_postprocessing",
+    "plot_pole_figure": "plot_postprocessing",
+    "IdentifyRareClusters": "rare_cluster_indicator",
+    "select_smallest_cluster": "rare_criteria_selection_library",
+    "select_highest_von_mises_from_components": "rare_criteria_selection_library",
+    "select_highest_scalar": "rare_criteria_selection_library",
+    "select_highest_norm_3x3_tensor": "rare_criteria_selection_library",
+    "CPFESimulation": "run_cpfe_simulation",
+    "ScanStitchingComparison": "scan_stitching_comparison",
+    "SimilarityMetricLibrary": "similarity_metric_library",
+    "SimulationResults": "simulation_postprocessing",
+    "SyntheticHEDMGenerator": "synthetic_hedm_generator",
+    "UniaxialTaylorModel": "taylor",
+    "TaylorModel": "taylor",
+    "NeperTessToGraphNN": "tess_to_gnn",
+    "SimilarityMetric": "user_data_class",
+    "WeightConfig": "user_data_class",
+    "RareCriteria": "user_data_class",
+}
+
+__all__ = sorted(_LAZY_EXPORTS) + ["__version__"]
+
+
+def __getattr__(name: str):
+    module = _LAZY_EXPORTS.get(name)
+    if module is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    obj = getattr(import_module(f".{module}", __name__), name)
+    globals()[name] = obj  # cache so subsequent lookups skip __getattr__
+    return obj
+
+
+def __dir__():
+    return sorted(list(globals()) + list(_LAZY_EXPORTS))

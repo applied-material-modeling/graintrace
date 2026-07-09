@@ -1,43 +1,48 @@
+# Mixed-control Taylor crystal-plasticity model for material calibration (NEML2 v3).
+# Elastic stiffness from named (E, nu, G) coefficients so each is a tunable NEML2 parameter.
+# Six calibration parameters: elastic_tensor_E/nu/G, slip_strength_constant_strength,
+# voce_hardening_initial_slope, voce_hardening_saturated_hardening.
+
 [Tensors]
-  [a]
-    type = Scalar
-    values = '1.0'
-  []
   [sdirs]
-    type = MillerIndex #FillMillerIndex
-    values = '1 1 0'
+    type = Python
+    expr = 'MillerIndex(torch.tensor([1, 1, 0], dtype=torch.int64))'
   []
   [splanes]
-    type = MillerIndex #FillMillerIndex
-    values = '1 1 1'
+    type = Python
+    expr = 'MillerIndex(torch.tensor([1, 1, 1], dtype=torch.int64))'
   []
 []
 
 [Data]
   [crystal_geometry]
     type = CubicCrystal
-    lattice_parameter = "a"
-    slip_directions = "sdirs"
-    slip_planes = "splanes"
+    lattice_parameter = 1
+    slip_directions = 'sdirs'
+    slip_planes = 'splanes'
   []
 []
 
-[Solvers]
-    [newton]
-        type = NewtonWithLineSearch
-        max_linesearch_iterations = 5
-        # type = Newton
-        # abs_tol = 1e-8
-        # max_its = 20
-        # verbose = false
-    []
-[]
-
 [Models]
+  # Mixed control (global)
+  [mixed_control]
+    type = MixedControlSetup
+    x_above = 'deformation_rate'
+    x_below = 'target_cauchy_stress'
+    y = 'mixed_state'
+  []
+  [y_constraint]
+    type = SR2LinearCombination
+    from = 'mixed_state prescribed'
+    to = 'y_residual'
+    weights = '1 -1'
+  []
+
+  # Per-crystal update
   [euler_rodrigues]
     type = RotationMatrix
-    from = 'state/orientation'
-    to = 'state/orientation_matrix'
+    from = 'orientation'
+    to = 'orientation_matrix'
   []
   [elastic_tensor]
     type = CubicElasticityTensor
@@ -47,14 +52,16 @@
   [elasticity]
     type = GeneralElasticity
     elastic_stiffness_tensor = 'elastic_tensor'
-    strain = 'state/elastic_strain'
-    stress = 'state/internal/cauchy_stress'
+    strain = 'elastic_strain'
+    stress = 'cauchy_stress'
   []
   [resolved_shear]
     type = ResolvedShear
+    stress = 'cauchy_stress'
   []
   [elastic_stretch]
     type = ElasticStrainRate
+    deformation_rate = 'deformation_rate'
   []
   [plastic_spin]
     type = PlasticVorticity
@@ -84,33 +91,104 @@
   []
   [integrate_slip_hardening]
     type = ScalarBackwardEulerTimeIntegration
-    variable = 'state/internal/slip_hardening'
+    variable = 'slip_hardening'
   []
   [integrate_elastic_strain]
     type = SR2BackwardEulerTimeIntegration
-    variable = 'state/elastic_strain'
+    variable = 'elastic_strain'
   []
   [integrate_orientation]
     type = WR2ImplicitExponentialTimeIntegration
-    variable = 'state/orientation'
+    variable = 'orientation'
   []
-
-  [implicit_rate]
+  [per_crystal_update]
     type = ComposedModel
-    models = "euler_rodrigues elasticity orientation_rate resolved_shear
-              elastic_stretch plastic_deformation_rate plastic_spin
+    models = 'elasticity euler_rodrigues
+              orientation_rate resolved_shear
+              elastic_stretch
+              plastic_deformation_rate plastic_spin
               sum_slip_rates slip_rule slip_strength voce_hardening
-              integrate_slip_hardening integrate_elastic_strain integrate_orientation"
+              integrate_slip_hardening
+              integrate_elastic_strain
+              integrate_orientation'
+    additional_outputs = 'cauchy_stress'
   []
 
-  [model]
-    type = ImplicitUpdate
-    implicit_model = 'implicit_rate'
-    solver = 'newton'
+  # Global constraint
+  [mean_stress]
+    type = SR2IntermediateMean
+    from = 'cauchy_stress'
+    to = 'mean_cauchy_stress'
+    reduces = 'grain'
   []
-  [model_with_stress]
+  [match_mean_cauchy_stress]
+    type = SR2LinearCombination
+    from = 'target_cauchy_stress mean_cauchy_stress'
+    to = 'target_cauchy_stress_residual'
+    weights = '1 -1'
+  []
+  [global_constraint]
     type = ComposedModel
-    models = 'model elasticity'
-    additional_outputs = 'state/elastic_strain state/orientation'
+    models = 'mean_stress match_mean_cauchy_stress'
+  []
+
+  # Full implicit model
+  [implicit_model]
+    type = ComposedModel
+    models = 'mixed_control y_constraint per_crystal_update global_constraint'
+  []
+[]
+
+[EquationSystems]
+  [eq_sys]
+    type = NonlinearSystem
+    model = 'implicit_model'
+    unknowns = 'elastic_strain orientation slip_hardening; deformation_rate target_cauchy_stress'
+    residuals = 'elastic_strain_residual orientation_residual slip_hardening_residual; y_residual target_cauchy_stress_residual'
+    structure = 'block dense'
+  []
+[]
+
+[Solvers]
+  [newton]
+    type = NewtonWithLineSearch
+    max_linesearch_iterations = 5
+    linear_solver = 'schur'
+  []
+  [lu]
+    type = DenseLU
+  []
+  [schur]
+    type = SchurComplement
+    residual_primary_group = '0'
+    unknown_primary_group = '0'
+    primary_solver = 'lu'
+    schur_solver = 'lu'
+  []
+[]
+
+[Models]
+  [predictor]
+    type = ConstantExtrapolationPredictor
+    unknowns_SR2 = 'elastic_strain deformation_rate target_cauchy_stress'
+    unknowns_MRP = 'orientation'
+    unknowns_Scalar = 'slip_hardening'
+  []
+  [model_bare]
+    type = ImplicitUpdate
+    equation_system = 'eq_sys'
+    solver = 'newton'
+    predictor = 'predictor'
+  []
+  [compute_mixed_state]
+    type = MixedControlSetup
+    x_above = 'deformation_rate'
+    x_below = 'target_cauchy_stress'
+    y = 'mixed_state'
+  []
+  [model]
+    type = ComposedModel
+    models = 'model_bare compute_mixed_state'
+    additional_outputs = 'mixed_state'
   []
 []

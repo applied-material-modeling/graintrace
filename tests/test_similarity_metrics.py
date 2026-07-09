@@ -113,6 +113,32 @@ class TestSimilarityMetricLibrary:
         with pytest.raises(ValueError, match="exactly 3"):
             self.lib.misorientation(feature_cols=["a", "b"])
 
+    def test_misorientation_device_cpu_runs(self):
+        pytest.importorskip("neml2")
+        rng = np.random.default_rng(0)
+        X = rng.normal(0.0, 0.15, size=(200, 3))
+        edges = np.stack(
+            [rng.integers(0, 200, 500), rng.integers(0, 200, 500)], axis=1
+        )
+        d = self.lib.misorientation(device="cpu").dist_edges(X, edges)
+        assert d.shape == (500,)
+        assert np.all(d >= 0.0)
+
+    def test_misorientation_cpu_cuda_match(self):
+        # GPU path must be bit-close to the CPU result.
+        pytest.importorskip("neml2")
+        torch = pytest.importorskip("torch")
+        if not torch.cuda.is_available():
+            pytest.skip("CUDA not available")
+        rng = np.random.default_rng(0)
+        X = rng.normal(0.0, 0.15, size=(500, 3))
+        edges = np.stack(
+            [rng.integers(0, 500, 2000), rng.integers(0, 500, 2000)], axis=1
+        )
+        d_cpu = self.lib.misorientation(device="cpu").dist_edges(X, edges)
+        d_gpu = self.lib.misorientation(device="cuda").dist_edges(X, edges)
+        assert np.allclose(d_cpu, d_gpu, atol=1e-6)
+
     def test_nye_tensor_norm_returns_metric(self):
         m = self.lib.nye_tensor_norm()
         assert isinstance(m, SimilarityMetric)

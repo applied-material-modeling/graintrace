@@ -30,14 +30,7 @@ import pandas as pd
 
 class NaiveStitching():
     def __init__(self, scan_files: list[str], output_csv: str):
-        """
-        Parameters
-        ----------
-        scan_files : list of str
-            List of CSV files from individual scans.
-        output_csv : str
-            Path for the stitched combined CSV.
-        """
+        """scan_files: per-scan CSVs. output_csv: path for combined output."""
         self.scan_files = scan_files
         self.output_csv = output_csv
 
