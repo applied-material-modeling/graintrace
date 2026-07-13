@@ -61,11 +61,15 @@ dependencies = [
 [project.optional-dependencies]
 # Grain-graph / GNN utilities (grain_graph_matching, tess_to_gnn).
 gnn = ["torch-geometric>=2.3"]
-# Terminal UI (graintrace.tui / graintrace_app).
-tui = ["textual>=0.40"]
+# MCP server (graintrace.mcp) -- drive graintrace from any MCP client
+# (Claude Desktop/Code, or Open WebUI via the mcpo proxy).
+mcp = ["mcp[cli]>=1.2"]
 # Extra deps used by the example scripts under examples/.
 examples = ["meshio>=5.0"]
 dev = ["pytest", "black", "isort", "build", "twine"]
+
+[project.scripts]
+graintrace-mcp = "graintrace.mcp.server:main"
 
 [project.urls]
 Homepage = "https://github.com/applied-material-modeling/graintrace"
@@ -77,4 +81,4 @@ where = ["."]
 include = ["graintrace*"]
 
 [tool.setuptools.package-data]
-graintrace = ["cpfe_base/*.i", "tui/run_file/*.py"]
+graintrace = ["cpfe_base/*.i", "mcp/recipes/*.md"]

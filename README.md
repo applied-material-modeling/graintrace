@@ -36,7 +36,7 @@ requires the external tools.
 pip install graintrace            # once published to PyPI
 # optional extras:
 pip install "graintrace[gnn]"     # grain-graph / GNN utilities (torch-geometric)
-pip install "graintrace[tui]"     # terminal UI (textual)
+pip install "graintrace[mcp]"     # MCP server (drive graintrace from Claude Desktop / Open WebUI)
 pip install "graintrace[examples]"  # deps used by examples/ (meshio)
 ```
 

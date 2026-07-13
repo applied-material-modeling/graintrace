@@ -260,6 +260,70 @@ def move_to_fundamental_zone(R: torch.Tensor, symmetry: str = "1") -> torch.Tens
     return torch.gather(cand, -3, idx_exp).squeeze(-3)
 
 
+def average_orientation(
+    euler: Union[np.ndarray, list, torch.Tensor],
+    weights: Optional[Union[np.ndarray, list, torch.Tensor]] = None,
+    convention: str = "bunge",
+    angle_type: str = "degrees",
+    symmetry: str = "1",
+) -> torch.Tensor:
+    """Symmetry-aware weighted mean of a set of Euler orientations.
+
+    Every orientation is brought into the symmetry-equivalent closest to the
+    highest-weight orientation, matrix-averaged (weighted), and re-projected onto
+    SO(3) via SVD (the polar/chordal mean); the result is converted back to Euler
+    angles in the given convention/units.
+
+    Args:
+        euler: (N, 3) Euler angles, or (3,) for a single orientation.
+        weights: (N,) non-negative weights (default: uniform).
+        convention: 'bunge', 'kocks', or 'roe'.
+        angle_type: 'degrees' or 'radians'.
+        symmetry: crystal symmetry in orbifold notation.
+
+    Returns:
+        (3,) averaged Euler angles in the given convention/units.
+    """
+    e = torch.as_tensor(euler, dtype=torch.float64)
+    if e.ndim == 1:
+        e = e.unsqueeze(0)
+    n = e.shape[0]
+
+    if weights is None:
+        w = torch.ones(n, dtype=torch.float64)
+    else:
+        w = torch.as_tensor(weights, dtype=torch.float64).reshape(-1)
+    if w.shape[0] != n:
+        raise ValueError(
+            f"weights length ({w.shape[0]}) must match number of orientations ({n})."
+        )
+
+    R = euler_to_matrix(e, convention, angle_type)  # (N, 3, 3)
+    if n == 1:
+        return matrix_to_euler(R[0], convention, angle_type)
+
+    ops = symmetry_operators(symmetry).to(dtype=R.dtype)  # (nops, 3, 3)
+
+    # Reference = highest-weight orientation; align every orientation to it by
+    # picking the symmetry op O maximizing <ref, O @ R_i>.
+    ref = R[int(torch.argmax(w))]                         # (3, 3)
+    cand = torch.matmul(ops.unsqueeze(0), R.unsqueeze(1))  # (N, nops, 3, 3)
+    score = torch.einsum("ij,nkij->nk", ref, cand)        # (N, nops)
+    best = torch.argmax(score, dim=1)                     # (N,)
+    R_aligned = cand[torch.arange(n), best]              # (N, 3, 3)
+
+    # Weighted matrix mean, re-projected onto SO(3).
+    M = torch.einsum("n,nij->ij", w, R_aligned) / w.sum()
+    U, _, Vh = torch.linalg.svd(M)
+    Ravg = U @ Vh
+    if torch.det(Ravg) < 0:                               # guard against reflection
+        U = U.clone()
+        U[:, -1] = -U[:, -1]
+        Ravg = U @ Vh
+
+    return matrix_to_euler(Ravg, convention, angle_type)
+
+
 def misorientation(
     e1: Union[np.ndarray, list],
     e2: Union[np.ndarray, list],

@@ -69,7 +69,7 @@ min_vol = 0.0
 # Acceptable tolerance for comparison and stitching
 position_tolerance = 20  # length units
 orientation_tolerance = 1  # degrees
-radius_tolerance = 0  # percentage units -- set to -1 to disable radius consideration
+radius_tolerance = -1  # percentage units -- set to -1 to disable radius gating
 
 compare_position_tolerance = (
     20  # adjusted such that max_pos_error remains the same as this value increases

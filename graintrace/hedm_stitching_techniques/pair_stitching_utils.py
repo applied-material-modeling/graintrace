@@ -30,7 +30,7 @@ from typing import Tuple, Dict, List
 from .dataclass_utils import ScanMetadata, GrainSet
 from scipy.spatial import cKDTree
 from scipy.optimize import linear_sum_assignment
-from graintrace.orientation_helper import misorientation
+from graintrace.orientation_helper import misorientation, average_orientation
 
 class RegionClassifier:
     @staticmethod
@@ -240,8 +240,10 @@ class PairwiseStitcher:
         angle_type: str = "degrees",
         symmetry: str = "432",
     ):
-        self.A = A
-        self.B = B
+        # Copy the frames so region/debug columns are never written onto the
+        # caller's GrainSets (A is the growing accumulator in RegionBaseStitching).
+        self.A = GrainSet(df=A.df.copy(), meta=A.meta)
+        self.B = GrainSet(df=B.df.copy(), meta=B.meta)
         self.zol = zol
         self.zoh = zoh
 
@@ -293,13 +295,21 @@ class PairwiseStitcher:
                 f"Invalid overlap window in PairwiseStitcher: zoh ({self.zoh}) <= zol ({self.zol})."
             )
 
-        z_A = self.A.df["Z"].to_numpy(dtype=float)
-        r_A = self.A.df["GrainRadius"].to_numpy(dtype=float)
-        zl_A = z_A - r_A - delta_p*r_A
-        zh_A = z_A + r_A + delta_p*r_A
+        def _z_extent(df):
+            """Grain z-extent [zl, zh]: true tessellation extent if Zmin/Zmax columns
+            are present (see scan_tessellation.compute_cell_geometry), else the
+            equivalent-sphere approximation z +/- GrainRadius (inflated by delta_p)."""
+            if "Zmin" in df.columns and "Zmax" in df.columns:
+                return df["Zmin"].to_numpy(dtype=float), df["Zmax"].to_numpy(dtype=float)
+            z = df["Z"].to_numpy(dtype=float)
+            r = df["GrainRadius"].to_numpy(dtype=float)
+            return z - r - delta_p * r, z + r + delta_p * r
 
-        regions_A = np.empty(len(z_A), dtype=int)
-        for i in range(len(z_A)):
+        zl_A, zh_A = _z_extent(self.A.df)
+        zl_B, zh_B = _z_extent(self.B.df)
+
+        regions_A = np.empty(len(zl_A), dtype=int)
+        for i in range(len(zl_A)):
             regions_A[i] = RegionClassifier.classify(
                 zl=float(zl_A[i]),
                 zh=float(zh_A[i]),
@@ -307,13 +317,8 @@ class PairwiseStitcher:
                 zoh=self.zoh,
             )
 
-        z_B = self.B.df["Z"].to_numpy(dtype=float)
-        r_B = self.B.df["GrainRadius"].to_numpy(dtype=float)
-        zl_B = z_B - r_B - delta_p*r_B
-        zh_B = z_B + r_B + delta_p*r_B
-
-        regions_B = np.empty(len(z_B), dtype=int)
-        for i in range(len(z_B)):
+        regions_B = np.empty(len(zl_B), dtype=int)
+        for i in range(len(zl_B)):
             regions_B[i] = RegionClassifier.classify(
                 zl=float(zl_B[i]),
                 zh=float(zh_B[i]),
@@ -382,16 +387,16 @@ class PairwiseStitcher:
         w_ori = float(self.weights.get("ori", 1.0))
         w_rad = float(self.weights.get("rad", 0.0))
 
-        ok = np.ones_like(diff_pos, dtype=bool)
+        # Gating is independent of cost weighting: a tolerance of -1 disables the
+        # gate for that dimension; a weight of 0 only removes it from the cost.
+        gate_pos = (self.position_tolerance != -1.0)
+        gate_ori = (self.orientation_tolerance != -1.0)
+        gate_rad = (self.radius_tolerance != -1.0)
 
-        use_pos = (w_pos > 0.0) and (self.position_tolerance != -1.0)
-        use_ori = (w_ori > 0.0) and (self.orientation_tolerance != -1.0)
-        use_rad = (w_rad > 0.0) and (self.radius_tolerance != -1.0)
-
         ok = np.ones_like(diff_pos, dtype=bool)
-        if use_pos: ok &= (diff_pos <= self.position_tolerance)
-        if use_ori: ok &= (diff_ori <= self.orientation_tolerance)
-        if use_rad: ok &= (diff_rad <= self.radius_tolerance)
+        if gate_pos: ok &= (diff_pos <= self.position_tolerance)
+        if gate_ori: ok &= (diff_ori <= self.orientation_tolerance)
+        if gate_rad: ok &= (diff_rad <= self.radius_tolerance)
 
         s_idx = s_idx[ok]
         t_idx = t_idx[ok]
@@ -421,10 +426,8 @@ class PairwiseStitcher:
 
         # Hungarian assignment with unmatched allowed.
         # Unmatch cost sits just above any valid match but far below an infeasible (BIG) one.
-        max_real = 0.0
-        if use_pos: max_real += w_pos * 1.0
-        if use_ori: max_real += w_ori * 1.0
-        if use_rad: max_real += w_rad * 1.0
+        # Each gated term is normalized to <= 1, so the max real cost is the sum of weights.
+        max_real = w_pos + w_ori + w_rad
 
         UNMATCH_COST = max_real + 1e-6
         BIG = 1e9  # must be >> UNMATCH_COST
@@ -565,7 +568,12 @@ class PairwiseStitcher:
                 new_row["Cell"] = cell
                 new_row["Unmatched_location"] = 0
 
-                new_row = merge_properties(new_row, rowA, rowB)
+                new_row = merge_properties(
+                    new_row, rowA, rowB,
+                    angle_convention=self.angle_convention,
+                    angle_type=self.angle_type,
+                    symmetry=self.symmetry,
+                )
                 merged_rows.append(new_row)
 
             elif action == "KA":
@@ -723,10 +731,22 @@ class PairwiseStitcher:
 
         return GrainSet(df=df_new, meta=meta_new)
 
-def merge_properties(new_row, rowA, rowB):
+def merge_properties(
+    new_row,
+    rowA,
+    rowB,
+    angle_convention: str = "bunge",
+    angle_type: str = "degrees",
+    symmetry: str = "432",
+):
     '''
     Volume-weighted merge of two grains.
     Requires columns: ["X", "Y", "Z", "GrainRadius", "Eul0", "Eul1", "Eul2"]
+
+    Orientation is a symmetry-aware, volume-weighted average of the two grains:
+    B is brought into the symmetry-equivalent closest to A, the two rotation
+    matrices are volume-weighted and re-projected onto SO(3) (via SVD), then
+    converted back to Euler angles in the given convention/units.
     '''
 
     rA = float(rowA["GrainRadius"])
@@ -743,8 +763,19 @@ def merge_properties(new_row, rowA, rowB):
     vAvg = 0.5 * (vA + vB)
     new_row["GrainRadius"] = (3.0 * vAvg / (4.0 * np.pi)) ** (1.0 / 3.0)
 
-    # orientation: keep A's for now
-    for col in ["Eul0", "Eul1", "Eul2"]:
-        new_row[col] = rowA[col]
+    # orientation: symmetry-aware, volume-weighted average of A and B
+    e_avg = average_orientation(
+        [
+            [float(rowA["Eul0"]), float(rowA["Eul1"]), float(rowA["Eul2"])],
+            [float(rowB["Eul0"]), float(rowB["Eul1"]), float(rowB["Eul2"])],
+        ],
+        weights=[vA, vB],
+        convention=angle_convention,
+        angle_type=angle_type,
+        symmetry=symmetry,
+    )
+    new_row["Eul0"] = float(e_avg[0])
+    new_row["Eul1"] = float(e_avg[1])
+    new_row["Eul2"] = float(e_avg[2])
 
     return new_row

@@ -196,7 +196,6 @@ dependencies:
       - six==1.17.0
       - sympy==1.14.0
       - tabulate==0.10.0
-      - textual==8.2.8
       - threadpoolctl==3.6.0
       - torch==2.12.1+cu126
       - torch-geometric==2.8.0

@@ -28,7 +28,7 @@ python -m build                   # writes dist/graintrace-<ver>-py3-none-any.wh
 ```bash
 twine check dist/*
 # confirm the wheel ships the runtime data + all subpackages:
-python -m zipfile -l dist/graintrace-*.whl | grep -E 'cpfe_base/.*\.i|tui/'
+python -m zipfile -l dist/graintrace-*.whl | grep -E 'cpfe_base/.*\.i|mcp/recipes/.*\.md'
 ```
 
 ## 3. TestPyPI dry-run (recommended)

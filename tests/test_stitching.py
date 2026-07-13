@@ -32,6 +32,33 @@ import pandas as pd
 import pytest
 
 
+def _neper_available() -> bool:
+    """True if a Neper tessellation actually runs in this environment."""
+    try:
+        from graintrace.hedm_stitching_techniques.scan_tessellation import (
+            compute_cell_geometry,
+        )
+
+        df = pd.DataFrame(
+            {
+                "X": [10, 30, 70, 50],
+                "Y": [10, 30, 20, 80],
+                "Z": [10, 30, 50, 20],
+                "GrainRadius": [8, 12, 10, 9],
+            }
+        )
+        g = compute_cell_geometry(df, [0, 100, 0, 100, 0, 100], weighted=False)
+        return len(g) == len(df)
+    except Exception:
+        return False
+
+
+NEPER_AVAILABLE = _neper_available()
+_needs_neper = pytest.mark.skipif(
+    not NEPER_AVAILABLE, reason="Neper not available in this environment"
+)
+
+
 def _make_grain_csv(path, n=15, seed=0, x_offset=0.0):
     rng = np.random.default_rng(seed)
     df = pd.DataFrame(
@@ -112,3 +139,83 @@ class TestNaiveStitching:
         stitch = NaiveStitching(scan_files=[], output_csv=out_csv)
         with pytest.raises((ValueError, Exception)):
             stitch.run()
+
+
+def _make_overlap_scan(path, zlo, zhi, seed, n=30):
+    rng = np.random.default_rng(seed)
+    pd.DataFrame(
+        {
+            "X": rng.uniform(0, 200, n),
+            "Y": rng.uniform(0, 200, n),
+            "Z": rng.uniform(zlo, zhi, n),
+            "GrainRadius": rng.uniform(10, 25, n),
+            "Eul0": rng.uniform(0, 360, n),
+            "Eul1": rng.uniform(0, 180, n),
+            "Eul2": rng.uniform(0, 360, n),
+        }
+    ).to_csv(path, index=False)
+    return str(path)
+
+
+@_needs_neper
+class TestScanTessellation:
+    def test_compute_cell_geometry(self):
+        from graintrace.hedm_stitching_techniques.scan_tessellation import (
+            compute_cell_geometry,
+        )
+
+        df = pd.DataFrame(
+            {
+                "X": [10, 30, 70, 50, 20],
+                "Y": [10, 30, 20, 80, 60],
+                "Z": [10, 30, 50, 20, 80],
+                "GrainRadius": [8, 12, 10, 9, 11],
+            }
+        )
+        bbox = [0, 100, 0, 100, 0, 100]
+        for weighted in (False, True):
+            g = compute_cell_geometry(df, bbox, weighted=weighted)
+            assert list(g.columns) == ["Zmin", "Zmax", "Xc", "Yc", "Zc", "Vol"]
+            assert len(g) == len(df)
+            assert list(g.index) == list(df.index)  # cell i <-> row i
+            assert (g["Zmax"] >= g["Zmin"]).all()
+            assert (g["Vol"] > 0).all()
+
+
+@_needs_neper
+class TestRegionBaseStitchingTessellation:
+    def _run(self, tmp_path, **extra):
+        from graintrace.hedm_stitching_techniques.region_base_stitching import (
+            RegionBaseStitching,
+        )
+
+        scans = [
+            _make_overlap_scan(tmp_path / "s0.csv", 0, 110, 1),
+            _make_overlap_scan(tmp_path / "s1.csv", 90, 200, 2),
+        ]
+        out = str(tmp_path / "stitched.csv")
+        st = RegionBaseStitching(
+            scan_files=scans,
+            output_csv=out,
+            position_tolerance=40,
+            orientation_tolerance=10,
+            radius_tolerance=-1,
+            weights={"pos": 0.1, "ori": 1.0, "rad": 0},
+            min_neighbors=5,
+            **extra,
+        )
+        res = st.run(zlo=0, zhi=200, overlap_fraction=0.1)
+        return res, pd.read_csv(out)
+
+    def test_refine_extents_runs_and_output_clean(self, tmp_path):
+        res, df = self._run(tmp_path, refine_extents=True, tess_weighted=True)
+        assert len(res.df) > 0
+        # tessellation extent columns must never leak into the output CSV
+        assert "Zmin" not in df.columns and "Zmax" not in df.columns
+        assert {"X", "Y", "Z", "GrainRadius"}.issubset(df.columns)
+
+    def test_update_centroid_changes_positions(self, tmp_path):
+        _, df_ff = self._run(tmp_path, refine_extents=True, update_centroid=False)
+        _, df_cc = self._run(tmp_path, refine_extents=True, update_centroid=True)
+        # cell centroids differ from the raw FF centroids for at least some grains
+        assert not np.isclose(df_ff["X"].mean(), df_cc["X"].mean())

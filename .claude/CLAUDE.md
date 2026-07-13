@@ -94,7 +94,7 @@ stitcher = RegionBaseStitching(
     output_csv="out/stitched_output.csv",
     position_tolerance=50,          # micrometers
     orientation_tolerance=5.0,      # degrees (convert to radians if ori_units="radians")
-    radius_tolerance=0.0,
+    radius_tolerance=-1,            # -1 disables the radius gate; weights["rad"]=0 drops it from the cost
     weights={"pos": 0.1, "ori": 1.0, "rad": 0},
     min_neighbors=5,
     orientation_convention="bunge",
@@ -105,6 +105,39 @@ stitcher = RegionBaseStitching(
 stitched = stitcher.run(zlo=bounding_box[4], zhi=bounding_box[5],
                         overlap_fraction=overlap_percentage/100.0)
 ```
+
+**Region classification** (which duplicate to trust/merge) uses each grain's z-extent.
+By default this is the equivalent-sphere approximation `z ± GrainRadius`. For elongated /
+anisotropic grains that mis-estimates the extent; enable the **opt-in NEPER tessellation**
+refinement (`refine_extents=True`) to use the true per-cell `[zmin, zmax]` instead. It
+re-tessellates the accumulator + next scan at each fold step (needs NEPER; slower). Extra kwargs
+(all in `RegionBaseStitching.__init__`, overlap path only):
+```python
+stitcher = RegionBaseStitching(
+    ...,
+    refine_extents=True,      # default False -> spherical z ± GrainRadius (unchanged)
+    tess_weighted=True,       # Laguerre weight = effective grain volume (4/3)πr³; False = plain Voronoi
+    update_centroid=False,    # True -> replace X,Y,Z with the cell volume-centroid (degrades equiaxed matching; experimental)
+    tess_dir=None,            # scratch dir for NEPER I/O (temp dir per call if None)
+    neper_env=None,           # defaults to graintrace's ~/.local NEPER env (scan_tessellation.default_neper_env)
+    xy_bounding_box=None,     # [xlo,xhi,ylo,yhi]; inferred from data (+2% pad) if None
+)
+```
+Helper: `graintrace/hedm_stitching_techniques/scan_tessellation.py::compute_cell_geometry`
+(runs `neper -T ... -morphooptistop iter=0` at the measured centroids — no CVT relaxation — and
+parses per-cell `Zmin/Zmax` + volume centroid). Note: on ~equiaxed grains the space-filling
+Voronoi extent slightly *overestimates* vs a sphere, so the benefit is specific to elongated
+grains; validate with `ScanStitchingComparison` before trusting it on new data.
+
+**Reality check (measured):** the extent is fundamentally under-determined by FF observables.
+FF measures the grain volume-centroid + equivalent size, not shape or a tessellation *seed*;
+reconstructing extents from centroids is ~⅓-radius noisy (verified: exact only from the true
+seeds; centroid/centroidsize NEPER optimization does not recover it). And even for strongly
+elongated grains (`aspratio(1,1,3)`), per-scan tessellation clips the cell at the scan FOV so it
+can't recover the full z-extent either — `examples/demonstrate_hedm_anisotropic.py` is a
+benchmark that shows tessellation does **not** reliably beat the sphere. For true grain
+morphology use NF-HEDM, not an FF tessellation. Generate anisotropic test microstructures with
+`CrystalGenerator` via the `raw` morpho type: `morpho_str="diameq:lognormal(130,5),aspratio(1,1,3)"`.
 
 ### Step 2: Build Voronoi reconstruction (NEPER/GMSH)
 ```python
@@ -771,6 +804,21 @@ if __name__ == "__main__":
 `polefigure`, `odf`, IPF helpers). If the import fails the bindings are outdated — reinstall
 neml2 v3 from `moose_neml2_v3/neml2` (`pip install . -v`) into `graintrace_env`.
 
+### GPU: if available, always use it
+The GPU-accelerated steps are **CPFE** and **material calibration** (and pole
+figures). Policy: whenever a CUDA GPU is present, use it — CPU is much slower for
+these neml2-dominated workloads. Detect with `torch.cuda.is_available()` /
+`torch.cuda.device_count()`, then:
+- CPFE: `sim.set_parameters("simulation_parameters", device="cuda:0")` (or a
+  space-separated list `"cuda:0 cuda:1"` for multi-GPU = MPI ranks; `ncore` ==
+  number of GPUs).
+- Calibration: `TaylorModel(device="cuda")` (see the note below).
+- Pole figures: `plot_pole_figure(..., device="cuda")`.
+Only fall back to `"cpu"` when no GPU exists. The MCP server enforces this: its
+tools default the device to the GPU when one is available (`run_cpfe` auto-fills
+`cuda:0`, `calibrate_material` defaults to `cuda`), and `dependency_status`
+reports the visible GPUs.
+
 ### cuda material calibration = model must be on device
 `TaylorModel(device="cuda")` works because `taylor.py` moves the whole nonlinear system with
 `nsys.to(device)` before wrapping it in the pyzag factory. `factory.to(device)` alone leaves the
@@ -878,6 +926,7 @@ distills the recipe. Run examples from `graintrace_env` (`conda activate graintr
 | `ff-reconstruction` | FF Voronoi reconstruction (`VoronoiMeshBuilder`) | demonstrate_farfield.py | mwe_data/ff_calibration |
 | `nf-reconstruction` | NF mesh (`NearFieldMeshBuilder`) | demonstrate_cpfe_nfff.py | synthetic (NEPER/CUBIT) |
 | `voxel-segmentation-mesh` | EBSD/NF voxel graph-seg + sculpt (`VoxelMeshBuilder`) | demonstrate_grid_segmentation_mesh.py | synthetic gen |
+| `microstructure-recommendations` | NEPER morpho (incl. `aspratio`) + SCULPT `sculpt_options` param guidance from a 12-case study | demonstrate_hedm_anisotropic.py | — |
 | `experiment-rotation` | rotate raw FF CSVs into sim frame | demonstrate_farfield.py | mwe_data/ff_calibration |
 | `material-calibration` | pyzag-adjoint Taylor calibration | demonstrate_material_calibration.py | mwe_data/ff_calibration |
 | `cpfe-simulation` | FF CPFE via AOTI (`CPFESimulation`) | demonstrate_cpfe.py | mwe_data/cpfe_ff |
