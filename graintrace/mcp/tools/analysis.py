@@ -7,6 +7,8 @@
 
 from __future__ import annotations
 
+import json
+import os
 from typing import Any, Dict, List, Optional
 
 from graintrace.mcp import deps
@@ -53,6 +55,57 @@ def compare_stitching(
     )
 
 
+# ---- REI comparison ----------------------------------------------------------
+
+@mcp.tool()
+def compare_rei(
+    rei_csv_1: str,
+    rei_csv_2: str,
+    spacing_1: Optional[float] = None,
+    spacing_2: Optional[float] = None,
+    output_dir: Optional[str] = None,
+    params: Optional[Dict[str, Any]] = None,
+    confirm: bool = False,
+) -> dict:
+    """Compare two rare-event (REI) point clouds -- overlap metrics (IoU/Dice/
+    containment), a 1-to-1 cluster correspondence, and a classified point cloud
+    (only-1 / only-2 / both) exported to VTK. Wraps `REIComparison`. Pure Python.
+
+    Each CSV is a voxelized REI region on a regular grid (columns x,y,z plus an
+    optional integer rare_cluster_id). Grids may have different spacings but are
+    assumed to share an origin. spacing_1/spacing_2 default to None (auto-detect
+    from the CSV; pass the true grid spacing when the cloud is sparse). Such CSVs
+    come from `identify_rare_events` when run with a rare-points CSV output.
+    """
+    from graintrace.rei_comparison import REIComparison
+
+    if output_dir is None:
+        output_dir = str(workdir() / "rei_comparison")
+    p = {
+        "coord_cols": ("x", "y", "z"),
+        "cluster_col": "rare_cluster_id",
+        "supersample": 1,
+        **(params or {}),
+    }
+    resolved = {
+        "rei_csv_1": rei_csv_1, "rei_csv_2": rei_csv_2,
+        "spacing_1": spacing_1, "spacing_2": spacing_2,
+        "output_dir": output_dir, **p,
+    }
+
+    def _run():
+        cmp = REIComparison(
+            rei_csv_1=rei_csv_1, rei_csv_2=rei_csv_2, output_dir=output_dir,
+            spacing_1=spacing_1, spacing_2=spacing_2, **p,
+        )
+        return {"output_dir": output_dir, "comparison": cmp.run_comparison()}
+
+    return gate(
+        tool="compare_rei", confirm=confirm, resolved_params=resolved,
+        needs=[], will_write=[output_dir], run=_run, background=False,
+    )
+
+
 # ---- CPFE post-processing ----------------------------------------------------
 
 @mcp.tool()
@@ -65,9 +118,10 @@ def postprocess(
     field_naming: Optional[Dict[str, Any]] = None,
     params: Optional[Dict[str, Any]] = None,
     confirm: bool = False,
-) -> dict:
+):
     """Load CPFE results and produce standard plots (wraps `SimulationResults` +
-    plot_postprocessing).
+    plot_postprocessing). On confirm=true the generated PNGs are returned INLINE
+    (shown in chat / visible to the model), not just as file paths.
 
     Parameters
     ----------
@@ -129,10 +183,28 @@ def postprocess(
             made.append("pole_figure")
         return {"output_folder": output_folder, "plots_made": made}
 
-    return gate(
-        tool="postprocess", confirm=confirm, resolved_params=resolved,
-        needs=needs, will_write=[output_folder], run=_run, background=False,
-    )
+    # Preview (confirm=false) goes through the standard gate.
+    if not confirm:
+        return gate(
+            tool="postprocess", confirm=False, resolved_params=resolved,
+            needs=needs, will_write=[output_folder], run=_run, background=False,
+        )
+    # confirm=true: check deps, run, and return the PNGs INLINE.
+    import glob
+    msg = deps.require(*needs) if needs else None
+    if msg:
+        return {"status": "blocked", "tool": "postprocess", "message": msg}
+    before = set(glob.glob(os.path.join(output_folder, "*.png"))) \
+        if os.path.isdir(output_folder) else set()
+    result = _run()
+    after = set(glob.glob(os.path.join(output_folder, "*.png")))
+    pngs = sorted(after - before) or sorted(after)
+    info = {"status": "done", **result, "png_files": pngs}
+    try:
+        from mcp.server.fastmcp import Image
+        return [Image(path=p) for p in pngs] + [json.dumps(info)]
+    except Exception:
+        return info
 
 
 # ---- rare-event identification ----------------------------------------------

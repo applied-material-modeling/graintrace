@@ -10,10 +10,20 @@ defaults:
 
 # Meshing (SCULPT) — recommended parameters
 
+**SCULPT hex is the recommended mesh path for all of FF/NF/EBSD.** GMSH tets
+(`ff_reconstruct(build_params.generate_mesh=true)`) are an **FF-only last resort**
+— hex elements behave better for crystal plasticity, and the rest of graintrace
+is built around SCULPT. The recommended FF route is:
+`ff_reconstruct(generate_mesh=false)` → `voxel_mesh` (SCULPT).
+
+The `sculpt_config` (CUBIT paths) comes from your **tools.json**
+(`deploy/tools.example.json`); `voxel_mesh` / `nf_reconstruct` load it
+automatically, so you usually don't pass `sculpt_config` by hand. Check
+`dependency_status` → `cubit` first.
+
 Based on 12 studied cases. In the MCP these `sculpt_options` feed `voxel_mesh`,
-`nf_reconstruct` (when a `sculpt_config` is supplied), or
-`ff_reconstruct(generate_mesh=true)`. The low-level API is
-`VoxelMeshBuilder.mesh()` / `NearFieldMeshBuilder.mesh()`.
+`nf_reconstruct` (when a `sculpt_config` is supplied/configured). The low-level
+API is `VoxelMeshBuilder.mesh()` / `NearFieldMeshBuilder.mesh()`.
 
 ## Usage
 

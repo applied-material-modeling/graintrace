@@ -31,6 +31,11 @@ only if `generate_mesh=true`).
 - `output_dir` — where to write `reconstruction*.{csv,dat}` (and `.msh`).
 - `bounding_box` — `[xlo,xhi,ylo,yhi,zlo,zhi]` in micrometers.
 
+**Must-ask (not in the CSV):** `bounding_box` (sample dimensions) and the
+orientation `unit` (deg/rad — NOT auto-detected). Call `inspect_experiment` for a
+suggested box + unit guess, or pass a `sample_json`. Without them `ff_reconstruct`
+returns `needs_input`. See the `experiment_metadata` recipe.
+
 ## Choosing the key options
 
 | Parameter | Recommended | Why |
@@ -40,7 +45,7 @@ only if `generate_mesh=true`).
 | `morphoalgo` | `subplex` | Robust default. `lloyd` is faster but lower quality; `praxis` is an alternative optimizer. |
 | `unit` | `deg` or `rad` | **Must match the actual Euler units in the CSV.** Detect: any value > 2π ⇒ degrees. |
 | `strain_unit` | `microstrain` | `eKen*` columns are typically microstrain; use `strain` if already dimensionless. |
-| `generate_mesh` | `false` | Leave off unless you need the GMSH `.msh` now — it is slow. For NF+FF you only need the `ee` file, so keep it `false`. |
+| `generate_mesh` | `false` | Keep `false`. GMSH `.msh` tets are a **last resort** — the recommended CPFE mesh is SCULPT hex: `generate_mesh=false` here, then `voxel_mesh` on `reconstruction_reformatted.csv` (see the `meshing` recipe). Only use `generate_mesh=true` if CUBIT/SCULPT is unavailable. |
 | `weighted` | `false` | Set `true` for a Laguerre (radius-weighted) tessellation when grain sizes vary a lot. |
 
 ## Sample tilt correction

@@ -125,6 +125,7 @@ class IdentifyRareClusters:
         first_rare_block_id: int = 2,
         also_write_final_label: bool = True,
         rare_reduced_stats_csv_path: Optional[str] = None,
+        rare_points_csv_path: Optional[str] = None,
         use_sample_std: bool = False,
     ) -> Dict[str, Any]:
 
@@ -213,6 +214,18 @@ class IdentifyRareClusters:
 
         coords = input_df[list(self.coord_cols)].to_numpy(dtype=np.float64)
 
+        if rare_points_csv_path is not None:
+            rare_mask = block_id >= first_rare_block_id
+            rare_df = pd.DataFrame(
+                coords[rare_mask], columns=list(self.coord_cols)
+            )
+            rare_df["rare_cluster_id"] = block_id[rare_mask].astype(np.int64)
+            rare_df.to_csv(rare_points_csv_path, index=False)
+            print(
+                f"\nSaved rare point cloud CSV ({int(rare_mask.sum())} points): "
+                f"{rare_points_csv_path}"
+            )
+
         mode = export_control.lower()
         if mode == "auto":
             mode = "grid" if self._detect_full_grid(coords, tol=1e-6) else "points"
@@ -247,6 +260,7 @@ class IdentifyRareClusters:
             "rare_super_labels": rare_super_labels_sorted,
             "label_to_block": label_to_block,
             "rare_reduced_stats_csv_path": rare_reduced_stats_csv_path,
+            "rare_points_csv_path": rare_points_csv_path,
         }
 
     def _build_super_label_map(

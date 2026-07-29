@@ -14,7 +14,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import List, Optional
 
-from graintrace.mcp import deps, jobs, recipes
+from graintrace.mcp import deps, jobs, recipes, sample_meta
 from graintrace.mcp.app import mcp, workdir
 
 
@@ -57,6 +57,22 @@ def get_recommended_parameters(name: str) -> dict:
             "available": recipes.list_recipes(),
         }
     return rec
+
+
+@mcp.tool()
+def inspect_experiment(path: str) -> dict:
+    """Inspect a raw HEDM CSV before running anything, and list the experiment
+    metadata that a CSV CANNOT provide (sample dimensions, loading conditions,
+    scan geometry, units) so you can ask the user for it.
+
+    ALWAYS call this first when handed a raw grain CSV. It returns the columns
+    present, a suggested bounding box from the coordinate ranges, an Euler
+    unit *guess* (note: graintrace does NOT auto-detect units -- confirm it),
+    whether residual-strain columns exist, and a must-confirm checklist. Then
+    either collect a sample.json or confirm these values with the user before
+    calling ff_reconstruct / stitch_scans / run_cpfe with confirm=true.
+    """
+    return sample_meta.checklist(csv_path=path)
 
 
 @mcp.resource("recipe://{name}")

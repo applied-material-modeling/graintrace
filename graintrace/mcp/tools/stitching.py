@@ -30,10 +30,11 @@ _DEFAULTS: Dict[str, Any] = {
 @mcp.tool()
 def stitch_scans(
     scan_files: List[str],
-    zlo: float,
-    zhi: float,
-    overlap_fraction: float,
+    zlo: Optional[float] = None,
+    zhi: Optional[float] = None,
+    overlap_fraction: Optional[float] = None,
     output_csv: Optional[str] = None,
+    sample_json: Optional[str] = None,
     params: Optional[Dict[str, Any]] = None,
     confirm: bool = False,
 ) -> dict:
@@ -61,8 +62,31 @@ def stitch_scans(
     from graintrace.hedm_stitching_techniques.region_base_stitching import (
         RegionBaseStitching,
     )
+    from graintrace.mcp import sample_meta
+
+    smeta = sample_meta.resolve_sample(sample_json)
+    if zlo is None:
+        zlo = smeta.get("zlo")
+    if zhi is None:
+        zhi = smeta.get("zhi")
+    if overlap_fraction is None:
+        overlap_fraction = smeta.get("overlap_fraction")
 
     p = {**_DEFAULTS, **(params or {})}
+    if "orientation_units" in smeta:
+        p["orientation_units"] = smeta["orientation_units"]
+    if "symmetry" in smeta:
+        p["symmetry"] = smeta["symmetry"]
+    if "orientation_convention" in smeta:
+        p["orientation_convention"] = smeta["orientation_convention"]
+
+    # Scan geometry is NOT in the CSVs -- require it (directly or via sample_json).
+    missing = []
+    if zlo is None or zhi is None:
+        missing.append("z-range (zlo, zhi) of the stitched volume, in um")
+    if overlap_fraction is None:
+        missing.append("overlap_fraction between adjacent scans (e.g. 0.25 for 25%)")
+
     if output_csv is None:
         output_csv = str(workdir() / "stitching" / "stitched_output.csv")
 
@@ -96,12 +120,45 @@ def stitch_scans(
             xy_bounding_box=p.get("xy_bounding_box"),
         )
         result = stitcher.run(zlo=zlo, zhi=zhi, overlap_fraction=overlap_fraction)
+
+        # RegionBaseStitching does NOT carry the residual elastic-strain tensor
+        # through, so downstream ff_reconstruct (which reads eKen*/eFab*) would
+        # fail. Re-attach per-grain strain from the original scans by nearest
+        # centroid, exactly like the demo driver does.
+        import pandas as pd
+        reattached = None
+        try:
+            df = pd.read_csv(output_csv)
+            scan0 = pd.read_csv(scan_files[0], nrows=1)
+            for pref in ("eKen", "eFab"):
+                scols = [f"{pref}{i}{j}" for i in (1, 2, 3) for j in (1, 2, 3)]
+                if set(scols).issubset(scan0.columns) and not set(scols).issubset(df.columns):
+                    from scipy.spatial import cKDTree
+                    coord = next((c for c in (["X", "Y", "Z"], ["x", "y", "z"])
+                                  if set(c) <= set(df.columns)), None)
+                    if coord is None:
+                        break
+                    allscan = pd.concat([pd.read_csv(s) for s in scan_files],
+                                        ignore_index=True)
+                    tree = cKDTree(allscan[coord].to_numpy())
+                    _, idx = tree.query(df[coord].to_numpy())
+                    df[scols] = allscan[scols].to_numpy()[idx]
+                    df.to_csv(output_csv, index=False)
+                    reattached = pref
+                    break
+        except Exception as exc:
+            reattached = f"failed: {exc}"
+
         n = None
         try:
             n = len(getattr(result, "grains", result))
         except Exception:
-            pass
-        return {"output_csv": output_csv, "n_stitched_grains": n}
+            try:
+                n = len(pd.read_csv(output_csv))
+            except Exception:
+                pass
+        return {"output_csv": output_csv, "n_stitched_grains": n,
+                "residual_strain_reattached": reattached}
 
     return gate(
         tool="stitch_scans",
@@ -112,4 +169,5 @@ def stitch_scans(
         run=_run,
         background=False,
         notes="Pure-Python unless refine_extents=true (then NEPER is used).",
+        missing_required=missing,
     )

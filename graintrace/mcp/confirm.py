@@ -39,6 +39,8 @@ def gate(
     run: Callable[[], Any],
     background: bool = False,
     notes: Optional[str] = None,
+    missing_required: Optional[Sequence[str]] = None,
+    suggestions: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Preview (confirm=False) or execute (confirm=True) a graintrace step.
 
@@ -53,6 +55,23 @@ def gate(
     background:      if True, execute via the job registry and return a job id.
     notes:           optional extra guidance shown in the preview.
     """
+    # Non-inferrable inputs (sample dimensions, loading, units) missing -> ask the
+    # user; never run on silent defaults, even if confirm=True.
+    if missing_required:
+        return {
+            "status": "needs_input",
+            "tool": tool,
+            "will_run": False,
+            "missing_required": list(missing_required),
+            "suggestions": suggestions or {},
+            "message": (
+                "This step needs experiment metadata that a raw CSV does not "
+                "contain. Ask the user to confirm the values below (use the "
+                "suggestions as a starting point, or pass a sample.json), then "
+                "call again with them filled in."
+            ),
+        }
+
     dep_report = _dep_report(needs)
     if not confirm:
         return {
@@ -90,8 +109,11 @@ def gate(
             "job_id": job.id,
             "log_path": job.log_path,
             "message": (
-                f"Started '{tool}' as background job {job.id}. "
-                "Poll job_status(job_id) for progress."
+                f"Started '{tool}' as background job {job.id}. This runs "
+                "asynchronously and CAN FAIL silently -- you MUST poll "
+                "job_status(job_id) until its status is 'done' or 'error'. If it "
+                "is 'error', report the error + recent_log to the user; do not "
+                "assume success."
             ),
         }
 

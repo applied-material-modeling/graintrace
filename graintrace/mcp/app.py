@@ -45,7 +45,21 @@ mcp = FastMCP(
         "space-separated list like 'cuda:0 cuda:1' for multi-GPU) and the "
         "calibration device to 'cuda'. Only fall back to 'cpu' when no GPU is "
         "present. Tools that pick the device themselves already default to GPU "
-        "when one is available."
+        "when one is available.\n"
+        "6. Non-inferrable inputs: a raw grain CSV does NOT contain sample "
+        "dimensions, loading conditions, scan geometry, or units, and graintrace "
+        "does NOT auto-detect them. When handed a raw CSV, call "
+        "`inspect_experiment` first, then either load a sample.json or ASK the "
+        "user to confirm those values (offer the inferred suggestions). Never "
+        "invent a bounding box or loading. Tools return status 'needs_input' "
+        "listing what's missing -- relay it and collect the answers before "
+        "confirm=true.\n"
+        "7. Meshing: CUBIT/SCULPT hex is the RECOMMENDED mesh path (voxel_mesh / "
+        "nf_reconstruct with a sculpt_config). GMSH tets (ff_reconstruct with "
+        "build_params.generate_mesh=true) are an FF-only LAST RESORT. External "
+        "tool paths (puma-opt, CUBIT/SCULPT) come from a tools.json -- always "
+        "check `dependency_status` for `cubit` and `puma-opt`; if missing, tell "
+        "the user to set them in a tools.json (see deploy/tools.example.json)."
     ),
 )
 

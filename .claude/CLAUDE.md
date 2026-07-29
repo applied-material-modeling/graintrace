@@ -580,6 +580,34 @@ out = irc.run_get_rare_cluster(
 )
 ```
 
+### Compare two REIs — REIComparison
+Compare two rare-event point clouds (two metrics/thresholds/methods, or prediction vs.
+reference). First have each REI emit a point-cloud CSV: pass `rare_points_csv_path=...` to
+`run_get_rare_cluster` above (writes `x,y,z,rare_cluster_id` for the rare points). Then:
+
+```python
+from graintrace.rei_comparison import REIComparison
+
+comp = REIComparison(
+    rei_csv_1="out/rei_A.csv", rei_csv_2="out/rei_B.csv",
+    output_dir="out/rei_comparison",
+    spacing_1=1.0, spacing_2=2.0,      # scalar or [dx,dy,dz]; None -> auto-detect (sparse-unsafe)
+    coord_cols=("x", "y", "z"),
+    cluster_col="rare_cluster_id",     # None -> global overlap only, no cluster matching
+    supersample=1,                     # >1 -> sub-voxel boundary accuracy
+)
+result = comp.run_comparison()
+```
+
+Pure Python (numpy + scipy). Voxel model: each rare point is its cube; both regions are
+resampled onto the finer lattice `s_ref = min(spacing_1, spacing_2)` and overlap is an
+integer-index hash intersection (no KD-tree / alpha-shape / marching-cubes). Grids may have
+**different spacing** but must **share an origin** (no rotation/translation is applied).
+Outputs in `output_dir`: `overlap_metrics.json` (IoU/Dice/`containment_1`/`containment_2` +
+counts/volumes), `overlap_cloud.vtk` (scalar `membership` 1=only-1/2=only-2/3=both, plus
+`cluster_id_1`/`cluster_id_2`), and `cluster_match.csv` (1-to-1 Hungarian cluster pairing by
+overlap volume, label-agnostic; unmatched flagged `-1`; split/merge counts).
+
 ---
 
 ## 8. Material Calibration
@@ -933,6 +961,7 @@ distills the recipe. Run examples from `graintrace_env` (`conda activate graintr
 | `cpfe-nf-ff` | NF geometry + FF initial strain CPFE | demonstrate_cpfe_nfff.py | synthetic (NEPER/CUBIT/MOOSE) |
 | `post-processing` | distributions / stress-strain / IPF | demonstrate_postprocess.py | mwe_data/out.csv + grid_out |
 | `rare-event-identification` | graph cluster → hierarchical → rare VTK | demonstrate_rei_pipeline.py (+2D/3D) | mwe_data/synthetic_vms.csv (regen) |
+| `rei-comparison` | compare two REI point clouds → overlap metrics + classified VTK | demonstrate_rei_comparison.py | synthetic (generated on demand) |
 | `grain-tracking` | grain graph matching across load steps | demonstrate_graintracking.py | mwe_data/synthetic_load_exp |
 
 **Shippable `mwe_data/` datasets:** `ff_calibration/` (calibration + FF recon), `cpfe_ff/`

@@ -28,6 +28,8 @@ from graintrace.mcp.tools import calibration  # noqa: F401,E402
 from graintrace.mcp.tools import synthetic   # noqa: F401,E402
 from graintrace.mcp.tools import analysis    # noqa: F401,E402
 from graintrace.mcp.tools import tracking    # noqa: F401,E402
+from graintrace.mcp.tools import viz         # noqa: F401,E402
+from graintrace.mcp.tools import codebase    # noqa: F401,E402
 
 
 def main() -> None:
@@ -37,6 +39,11 @@ def main() -> None:
     parser.add_argument("--host", default="127.0.0.1", help="HTTP bind host.")
     parser.add_argument("--port", type=int, default=8000, help="HTTP bind port.")
     args = parser.parse_args()
+
+    # Make the neml2 AOTI runtime + neml2-compile/puma-opt subprocesses find the
+    # env's newer libstdc++ (CXXABI). CPFE subprocesses inherit os.environ.
+    from graintrace.mcp import deps
+    deps.ensure_runtime_ld_library_path()
 
     if args.http:
         mcp.settings.host = args.host

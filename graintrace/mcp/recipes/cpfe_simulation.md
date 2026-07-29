@@ -28,6 +28,11 @@ background job.
   `orientations.dat` with `orientation_helper.euler_to_mrp` first).
 - `moose_run_file` — path to your built `puma-opt`.
 
+**Must-ask (loading + sample dimensions are NOT in the mesh):** provide
+`bounding_box` + `total_strain` (+ `loaded_axis`), or a `sample_json`, and
+`run_cpfe` auto-builds the `boundary` bc and `grid_properties`. Without them it
+returns `needs_input` (otherwise CPFE would silently use a unit-cube domain).
+
 ## Key parameter groups (via `set_parameters`)
 
 **material**: `slip_constant_strength`, `voce_hardening_initial_slope`,

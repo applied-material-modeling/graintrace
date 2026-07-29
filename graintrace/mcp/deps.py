@@ -23,9 +23,33 @@ from __future__ import annotations
 import importlib.util
 import os
 import shutil
+import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Dict, List, Optional
+
+
+def conda_lib_dir() -> str:
+    """The active env's lib dir (holds the newer libstdc++ that neml2 AOTI needs)."""
+    return os.path.join(sys.prefix, "lib")
+
+
+def ensure_runtime_ld_library_path() -> str:
+    """Prepend the env's lib dir to LD_LIBRARY_PATH in this process's environment.
+
+    The neml2 AOTI runtime + neml2-compile need a libstdc++ newer than the system
+    one; the conda env ships it. CPFE launches `neml2-compile`/`puma-opt` as
+    subprocesses that inherit ``os.environ``, so setting this before a run is
+    enough for them (no re-exec needed). Returns the lib dir. Idempotent.
+    """
+    libdir = conda_lib_dir()
+    if not os.path.isdir(libdir):
+        return libdir
+    cur = os.environ.get("LD_LIBRARY_PATH", "")
+    if libdir not in cur.split(os.pathsep):
+        os.environ["LD_LIBRARY_PATH"] = libdir + (os.pathsep + cur if cur else "")
+    return libdir
 
 
 @dataclass(frozen=True)
@@ -68,6 +92,10 @@ def _check_neper() -> DepStatus:
 
 
 def _check_puma() -> DepStatus:
+    from graintrace.mcp import tool_paths
+    cfg = tool_paths.puma_opt()
+    if cfg:
+        return DepStatus("puma-opt", True, f"found (tools.json): {cfg}", "")
     p = _which_or_external(
         "puma-opt", "puma/puma-opt", "moose/puma/puma-opt", "puma/build/puma-opt"
     )
@@ -75,13 +103,19 @@ def _check_puma() -> DepStatus:
         return DepStatus("puma-opt", True, f"found: {p}", "")
     return DepStatus(
         "puma-opt", False,
-        "MOOSE/PUMA `puma-opt` not found on PATH or in external/puma",
-        "Build MOOSE + PUMA from external/puma (see README). Then pass its "
-        "path as `moose_run_file`, or put it on PATH.",
+        "MOOSE/PUMA `puma-opt` not found (tools.json, PATH, or external/puma)",
+        "Build MOOSE + PUMA, then set `puma_opt` in a tools.json (see "
+        "deploy/tools.example.json) or pass its path as `moose_run_file`.",
     )
 
 
 def _check_cubit() -> DepStatus:
+    from graintrace.mcp import tool_paths
+    cfg = tool_paths.sculpt_config()
+    if cfg:
+        return DepStatus(
+            "cubit", True,
+            f"found (tools.json): psculpt={cfg['psculpt']}; epu={cfg['epu']}", "")
     psculpt = _which_or_external("psculpt")
     epu = _which_or_external("epu")
     if psculpt and epu:
@@ -89,8 +123,9 @@ def _check_cubit() -> DepStatus:
     missing = [n for n, v in (("psculpt", psculpt), ("epu", epu)) if not v]
     return DepStatus(
         "cubit", False, f"missing CUBIT/SCULPT binaries: {', '.join(missing)}",
-        "Install CUBIT/Coreform and point `sculpt_config` at its bin/ "
-        "(psculpt, epu, mpiexec). CUBIT is licensed; never commit its license.",
+        "Install CUBIT/Coreform and set `sculpt_config` in a tools.json (see "
+        "deploy/tools.example.json). SCULPT hex meshing is the recommended path "
+        "(GMSH tets are an FF-only last resort). CUBIT is licensed; never commit it.",
     )
 
 
@@ -163,18 +198,31 @@ def _check_neml2_aoti() -> DepStatus:
     if not base.ok:
         return DepStatus("neml2-aoti", False, base.detail, base.build_hint)
     hint = (
-        "The neml2 AOTI runtime failed to load (often an ABI mismatch: the "
-        "system libstdc++/CXXABI is older than what _aoti.so was built against). "
-        "Rebuild NEML2 v3 against this env's toolchain, or update libstdc++."
+        "The neml2 AOTI runtime failed to load (an ABI mismatch: the system "
+        f"libstdc++/CXXABI is older than what _aoti.so needs). Ensure "
+        f"LD_LIBRARY_PATH includes {conda_lib_dir()} (the env's newer libstdc++); "
+        "the MCP server + demo driver set this automatically."
     )
+    # Probe in a subprocess WITH the env lib dir on LD_LIBRARY_PATH -- that's how
+    # CPFE actually runs neml2-compile/puma-opt, so this reflects real runnability
+    # even if the current process was started without the path.
+    libdir = conda_lib_dir()
+    env = os.environ.copy()
+    env["LD_LIBRARY_PATH"] = libdir + os.pathsep + env.get("LD_LIBRARY_PATH", "")
     try:  # pragma: no cover - depends on local build
-        import warnings
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            import neml2.aoti._aoti  # noqa: F401
+        r = subprocess.run(
+            [sys.executable, "-c", "import neml2.aoti._aoti"],
+            env=env, capture_output=True, timeout=90,
+        )
     except Exception as exc:
-        return DepStatus("neml2-aoti", False, f"AOTI runtime unavailable: {exc}", hint)
-    return DepStatus("neml2-aoti", True, "AOTI runtime importable", "")
+        return DepStatus("neml2-aoti", False, f"AOTI probe failed: {exc}", hint)
+    if r.returncode == 0:
+        return DepStatus(
+            "neml2-aoti", True,
+            f"AOTI runtime OK (requires LD_LIBRARY_PATH to include {libdir})", "",
+        )
+    tail = (r.stderr.decode(errors="replace").strip().splitlines() or [""])[-1]
+    return DepStatus("neml2-aoti", False, f"AOTI import failed: {tail}", hint)
 
 
 # name -> probe

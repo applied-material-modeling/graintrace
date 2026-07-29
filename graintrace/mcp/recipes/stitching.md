@@ -26,6 +26,10 @@ Python.
 - `output_csv` — merged output path.
 - `zlo`, `zhi`, `overlap_fraction` — passed to `.run(...)`.
 
+**Must-ask (scan geometry not in the CSVs):** `zlo`, `zhi`, `overlap_fraction`,
+and `orientation_units`. Pass them directly or via a `sample_json`; otherwise
+`stitch_scans` returns `needs_input`. See the `experiment_metadata` recipe.
+
 ## Choosing the key options
 
 | Parameter | Recommended | Why |

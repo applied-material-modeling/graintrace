@@ -53,40 +53,84 @@ _FF_BUILD_DEFAULTS: Dict[str, Any] = {
 @mcp.tool()
 def ff_reconstruct(
     input_csv: str,
-    bounding_box: List[float],
+    bounding_box: Optional[List[float]] = None,
     output_dir: Optional[str] = None,
+    sample_json: Optional[str] = None,
+    generate_mesh: bool = False,
     init_params: Optional[Dict[str, Any]] = None,
     build_params: Optional[Dict[str, Any]] = None,
     confirm: bool = False,
 ) -> dict:
     """Reconstruct a 3D Voronoi microstructure from an FF-HEDM grain CSV
     (wraps `VoronoiMeshBuilder.build_voronoi`). Read
-    `get_recommended_parameters('ff_reconstruction')` first.
+    `get_recommended_parameters('ff_reconstruction')` first, and call
+    `inspect_experiment(input_csv)` if you don't already have the metadata.
 
     Parameters
     ----------
     input_csv : FF grain CSV (X,Y,Z, Eul0/1/2, and eKen*/eFab* for the ee file).
-    bounding_box : [xlo,xhi,ylo,yhi,zlo,zhi] micrometers.
+    bounding_box : [xlo,xhi,ylo,yhi,zlo,zhi] micrometers. REQUIRED (from the user
+        or a sample.json) -- a CSV does not contain the sample dimensions.
+    sample_json : path to an experiment sample.json (supplies bounding_box + units).
     output_dir : output folder (defaults under the MCP workdir).
+    generate_mesh : **default False**. When False, this only produces the Voronoi
+        tessellation + reconstruction_reformatted.csv + ee file (no mesh). GMSH tet
+        meshing (True) is an FF-only LAST RESORT -- the recommended CPFE mesh is
+        SCULPT hex: keep this False, then call `voxel_mesh` on
+        reconstruction_reformatted.csv. Only set True if CUBIT/SCULPT is missing.
     init_params : overrides for VoronoiMeshBuilder(...) -- e.g. unit ('deg'|'rad',
         must match the CSV), auto_rotate, rotate_angles, weighted,
         elastic_strain_identifier, strain_unit, bbox_fix_mode.
-    build_params : overrides for build_voronoi(...) -- option
-        ('centroid'|'voronoi'|'centroidsize'), CVT_iter, morphoalgo,
-        generate_mesh (slow; needs GMSH), relative_el_size, tesr_size.
+    build_params : overrides for build_voronoi(...) -- option, CVT_iter,
+        morphoalgo, relative_el_size, tesr_size.
 
-    Needs NEPER (and GMSH only when build_params.generate_mesh=true). Runs as a
-    background job. Outputs: reconstruction_reformatted.csv,
-    reconstruction_cpfe_ee.csv, orientations.dat (always degrees), and
-    reconstruction.msh if generate_mesh=true.
+    If bounding_box / orientation unit are not provided (directly or via
+    sample_json), returns status 'needs_input' with suggestions -- ask the user.
+    Needs NEPER (and GMSH only when generate_mesh=true). Runs as a background job.
     """
     from graintrace.construct_voronoi_mesh import VoronoiMeshBuilder
+    from graintrace.mcp import sample_meta
 
     if output_dir is None:
         output_dir = str(workdir() / "FF")
+    smeta = sample_meta.resolve_sample(sample_json)
+    if bounding_box is None:
+        bounding_box = smeta.get("bounding_box")
     init = {**_FF_INIT_DEFAULTS, **(init_params or {})}
-    build = {**_FF_BUILD_DEFAULTS, **(build_params or {})}
+    unit_provided = (init_params or {}).get("unit") is not None or "unit" in smeta
+    if "unit" in smeta:
+        init["unit"] = smeta["unit"]
 
+    # Non-inferrable inputs: bounding box (sample dims) + orientation unit.
+    missing, suggestions = [], {}
+    if bounding_box is None:
+        missing.append("bounding_box (sample dimensions [xlo,xhi,ylo,yhi,zlo,zhi] um)")
+    if not unit_provided:
+        missing.append("orientation unit ('deg' or 'rad') -- confirm; not auto-detected")
+    # Pre-flight: fail SYNCHRONOUSLY (not inside the background job) if the elastic
+    # strain columns aren't present -- e.g. a stitched CSV that dropped eKen.
+    esid = init.get("elastic_strain_identifier")
+    if esid:
+        try:
+            import pandas as pd
+            cols = set(pd.read_csv(input_csv, nrows=1).columns)
+            if not set(esid).issubset(cols):
+                missing.append(
+                    f"elastic-strain columns {esid[0]}..{esid[-1]} are not in "
+                    f"input_csv ({input_csv}). If this is a stitched CSV, re-run "
+                    "stitch_scans (it now re-attaches residual eKen from the scans), "
+                    "or set init_params.elastic_strain_identifier=null for zero "
+                    "initial strain.")
+        except Exception:
+            pass
+    if missing:
+        try:
+            suggestions = sample_meta.inspect_csv(input_csv)
+        except Exception as exc:
+            suggestions = {"inspection_error": str(exc)}
+
+    build = {**_FF_BUILD_DEFAULTS, **(build_params or {})}
+    build["generate_mesh"] = bool(generate_mesh)  # explicit switch wins; default False
     resolved = {
         "input_csv": input_csv,
         "output_dir": output_dir,
@@ -115,6 +159,7 @@ def ff_reconstruct(
         tool="ff_reconstruct", confirm=confirm, resolved_params=resolved,
         needs=needs, will_write=[output_dir], run=_run, background=True,
         notes="CVT relaxation can take a while; runs in the background.",
+        missing_required=missing, suggestions=suggestions,
     )
 
 
@@ -153,7 +198,10 @@ def nf_reconstruct(
     orientations.csv.
     """
     from graintrace.construct_nf_mesh import NearFieldMeshBuilder
+    from graintrace.mcp import tool_paths
 
+    if sculpt_config is None:
+        sculpt_config = tool_paths.sculpt_config()  # from tools.json if configured
     if save_dir is None:
         save_dir = str(workdir() / "NF")
     init = {
@@ -222,7 +270,10 @@ def voxel_mesh(
     Meshing needs CUBIT/SCULPT. Runs in the background.
     """
     from graintrace.construct_voxel_mesh import VoxelMeshBuilder
+    from graintrace.mcp import tool_paths
 
+    if sculpt_config is None:
+        sculpt_config = tool_paths.sculpt_config()  # from tools.json if configured
     if save_dir is None:
         save_dir = str(workdir() / "voxel")
     if euler_cols is None:
