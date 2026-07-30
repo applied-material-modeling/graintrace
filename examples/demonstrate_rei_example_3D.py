@@ -38,12 +38,11 @@ from graintrace.user_data_class import SimilarityMetric, WeightConfig
 
 from graintrace.graph_spatial_cluster import GraphSpatialCluster
 
-# set code timer
 import time
 
 ## INPUTS ---------------------------------------------------
 
-filename = "test_data/test_pipeline/synthetic_vms.csv"
+filename = "mwe_data/synthetic_vms.csv"
 
 if_plot = True
 second_step = True
@@ -58,34 +57,29 @@ gsc_graph_mode = "grid"  # "grid" | "knn" | "auto"
 gsc_k = 120  # used only if graph_mode="knn"
 gsc_grid_radius = 1  # manhattan radius for grid connectivity if graph_mode="grid"
 gsc_grid_tol = 1e-6
-reduce_edges_topweights_k = (
-    None  # if not None, keep only top k edges per node by weight before clustering
-)
+reduce_edges_topweights_k = None  # if set, keep only top-k edges per node by weight
 reduce_edges_chunk_size = 10_000_000
 
 # edge weights
 gsc_eps = 1e-8
 gsc_n_jobs = 12
-gsc_weight_chunk_size = 50_000_000  # how many edges to process in
-# a chunk when computing weights
+gsc_weight_chunk_size = 50_000_000  # edges per chunk when computing weights
 weight_cfg = WeightConfig(
     mode="rbf",
     power=2.0,
-    sigma=None,  # if None, will be set to
-    # quantile distance of the graph edges
+    sigma=None,  # if None, set to quantile distance of the graph edges
     sigma_auto={
         "sample_size": 500_000,
         "random_state": 42,
         "quantile": 0.5,
-    },  # if sigma is None, sample this many
-    # edges to estimate quantile distance
+    },  # edges sampled to estimate quantile distance
 )
 
 # segmentation
 gsc_segmenter: str = "leiden"  # leiden" | "plm" | "plp"
 gsc_seed: int = 42
 graph_cluster_arguments = {"gamma": 1.0}
-## for all parameters: https://networkit.github.io/dev-docs/python_api/community.html
+## all params: https://networkit.github.io/dev-docs/python_api/community.html
 
 
 generate_synthetic = True
@@ -294,9 +288,7 @@ gsc_res = gsc.run(
     weight_cfg=weight_cfg,
     reduce_edges_topweights_k=reduce_edges_topweights_k,
     nodes_chunk=reduce_edges_chunk_size,
-    ## networkit_kwargs can be used to pass additional
-    # arguments to the chosen networkit community detection
-    # algorithm (e.g. resolution parameter for Leiden)
+    # extra args for the networkit community algorithm (e.g. Leiden resolution)
     networkit_kwargs=graph_cluster_arguments,
 )
 
@@ -333,29 +325,20 @@ if second_step:
     elapsed_time = end_time - start_time
     print(f"\nTotal elapsed time: {elapsed_time:.2f} seconds")
 
-### PLOTTING TO CHECK
-# plot to check:
+# plotting to check
 if if_plot:
     labels_gsc = gsc_res["extras"]["labels"]  # point-level cluster id from NetworKit
     points_df = pd.read_csv(filename)
 
     # dendrogram info (from CAI scipy_hierarchical extras)
     dinfo = out["extras"]["dendrogram"]
-    leaf_order = dinfo[
-        "leaves"
-    ]  # indices of samples in dendrogram order (0..n_reduced-1)
-    leaf_colors = dinfo[
-        "leaves_color_list"
-    ]  # same length as leaves; strings like 'C0', '#rrggbb', etc.
+    leaf_order = dinfo["leaves"]  # sample indices in dendrogram order
+    leaf_colors = dinfo["leaves_color_list"]  # one color per leaf
 
-    reduced_points = out[
-        "points"
-    ]  # reduced CSV rows + final cluster_label (for scipy_hierarchical too)
-    # IMPORTANT: leaf indices refer to row positions used in linkage input.
-    # In your CAI scipy_hierarchical implementation, linkage is built from X in df row order.
-    # So leaf indices map to reduced_points row positions.
+    reduced_points = out["points"]  # reduced CSV rows + final cluster_label
+    # leaf indices map to reduced_points row positions (linkage built in row order)
 
-    # ---------------- von Mises stress image ----------------
+    # von Mises stress image
     sxx = points_df["sxx"].to_numpy()
     syy = points_df["syy"].to_numpy()
     szz = points_df["szz"].to_numpy()
@@ -371,7 +354,7 @@ if if_plot:
     ny = len(np.unique(points_df["y"]))
     vm_img = vm.reshape(ny, nx)
 
-    # ---------------- panel 2: GSC labels ----------------
+    # panel 2: GSC labels
     unique_gsc = np.unique(labels_gsc)
     K_gsc = unique_gsc.size
     map_gsc = {lab: i for i, lab in enumerate(unique_gsc)}
@@ -380,14 +363,13 @@ if if_plot:
     cmap_gsc = ListedColormap(plt.cm.hsv(np.linspace(0, 1, K_gsc, endpoint=False)))
     norm_gsc = BoundaryNorm(np.arange(K_gsc + 1) - 0.5, K_gsc)
 
-    # ---------------- panel 3: FINAL merged labels, colored by dendrogram leaf colors ----------------
-    # Step A: build mapping from reduced row index -> dendrogram leaf color (RGBA)
+    # panel 3: final merged labels, colored by dendrogram leaf colors
+    # map reduced row index -> dendrogram leaf color (RGBA)
     rowidx_to_rgba = {}
     for row_idx, c in zip(leaf_order, leaf_colors):
         rowidx_to_rgba[int(row_idx)] = to_rgba(c)
 
-    # Step B: map reduced "cluster_id" -> its dendrogram color via the reduced row index
-    # reduced_points index is the row order used for linkage if unchanged; enforce position index explicitly:
+    # map reduced "cluster_id" -> its dendrogram color via the reduced row index
     reduced_points = reduced_points.reset_index(drop=True)
 
     cluster_id_to_rgba = {}
@@ -397,14 +379,13 @@ if if_plot:
             row_idx, (0.0, 0.0, 0.0, 1.0)
         )  # fallback black
 
-    # Step C: build an RGBA image for the original points by looking up each point's gsc cluster id
+    # RGBA image for original points via each point's gsc cluster id
     final_rgba = np.empty((labels_gsc.size, 4), dtype=np.float32)
     for i, cid in enumerate(labels_gsc):
         final_rgba[i] = cluster_id_to_rgba[int(cid)]
 
     final_img = final_rgba.reshape(ny, nx, 4)
 
-    # ---------------- plot ----------------
     fig, axes = plt.subplots(1, 3, figsize=(18, 5))
 
     im1 = axes[0].imshow(vm_img, origin="lower", cmap="viridis")

@@ -35,7 +35,7 @@ from graintrace.rare_cluster_indicator import IdentifyRareClusters
 from graintrace.cluster_indicator import ClusterAnalysisIndicator
 
 # INPUT
-filename = "test_rei_pipeline/synthetic_vms.csv"
+filename = "mwe_data/synthetic_vms.csv"
 
 # graph spatial cluster parameters
 gsc_csv_path = filename
@@ -74,7 +74,7 @@ nx = 20
 ny = 20
 nz = 20
 
-# second-stage merge params (same semantics as your script)
+# second-stage merge params
 threshold = 0.05
 radius_elements_range = (3, 8)
 

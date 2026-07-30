@@ -22,30 +22,31 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+"""Pairwise HEDM scan stitching: region classification, matching, merging."""
+
 from __future__ import annotations
+
+from typing import Dict, Tuple
 
 import numpy as np
 import pandas as pd
-from typing import Tuple, Dict, List
-from .dataclass_utils import ScanMetadata, GrainSet
 from scipy.spatial import cKDTree
 from scipy.optimize import linear_sum_assignment
-from graintrace.orientation_helper import misorientation
 
-# Region classifier (zl, zh vs zol, zoh -> region 1 to 6)
+from graintrace.orientation_helper import misorientation, average_orientation
+
+from .dataclass_utils import ScanMetadata, GrainSet
+
+
 class RegionClassifier:
+    """Classify a grain's z-region relative to the scan overlap window."""
+
     @staticmethod
     def classify(zl: float, zh: float, zol: float, zoh: float) -> int:
         """
-        Assign region for a grain based on zl = z_centroid - radius,
-        zh = z_centroid + radius, relative to [zol, zoh].
+        Assign a grain's region from its z-extent [zl, zh] relative to overlap [zol, zoh].
 
-            1 CORE       : entirely inside overlap
-            2 HIGH       : entirely above overlap
-            3 LOW        : entirely below overlap
-            4 BND-HIGH   : intersects upper boundary only
-            5 BND-LOW    : intersects lower boundary only
-            6 CROSS-BOTH : spans both boundaries
+            1 CORE, 2 HIGH, 3 LOW, 4 BND-HIGH, 5 BND-LOW, 6 CROSS-BOTH
         """
 
         if zh <= zol:
@@ -57,16 +58,15 @@ class RegionClassifier:
         if zl < zol and zh > zoh:
             return 6  # CROSS-BOTH
 
-        if zl < zol and zh > zol:
+        if zl < zol < zh:
             return 5  # BND-LOW
 
-        if zl < zoh and zh > zoh:
+        if zl < zoh < zh:
             return 4  # BND-HIGH
 
         return 1  # CORE
 
 
-# Matched rule table (6x6)
 class MatchRuleTable:
     """
     Returns action code for matched pair given region(A) and region(B).
@@ -76,21 +76,20 @@ class MatchRuleTable:
         'KB'       : keep B, drop A
         'RJ'       : reject match (send both to unmatched logic)
     """
+
     def __init__(self):
         self.table = self._build_table()
 
-    def _build_table(self,optiona=True) -> Dict[Tuple[int, int], str]:
+    def _build_table(self, optiona=True) -> Dict[Tuple[int, int], str]:
 
         t: Dict[Tuple[int, int], str] = {}
 
-        # Convenience
         RJ = "RJ"
         MC = "MC"
         KA = "KA"
         KB = "KB"
 
-        # Regions:
-        # 1 CORE, 2 HIGH, 3 LOW, 4 BND-H, 5 BND-L, 6 CROSS
+        # Regions: 1 CORE, 2 HIGH, 3 LOW, 4 BND-H, 5 BND-L, 6 CROSS
         if optiona:
             # Row A=1 (CORE)
             t[(1, 1)] = MC
@@ -139,69 +138,63 @@ class MatchRuleTable:
             t[(6, 4)] = KB
             t[(6, 5)] = MC
             t[(6, 6)] = MC
-        else: 
-            # chatgpt suggestion
-            # Row A=1 (CORE)  -> merge with any overlap-intersecting B
-            t[(1,1)] = MC
-            t[(1,2)] = RJ
-            t[(1,3)] = RJ
-            t[(1,4)] = MC
-            t[(1,5)] = MC
-            t[(1,6)] = MC
+        else:
+            # Alternate rule set: merge CORE/BND/CROSS A with any overlap-intersecting B
+            t[(1, 1)] = MC
+            t[(1, 2)] = RJ
+            t[(1, 3)] = RJ
+            t[(1, 4)] = MC
+            t[(1, 5)] = MC
+            t[(1, 6)] = MC
 
-            # Row A=2 (HIGH)  -> never merge; reject these matches
-            t[(2,1)] = RJ
-            t[(2,2)] = RJ
-            t[(2,3)] = RJ
-            t[(2,4)] = RJ
-            t[(2,5)] = RJ
-            t[(2,6)] = RJ
+            t[(2, 1)] = RJ
+            t[(2, 2)] = RJ
+            t[(2, 3)] = RJ
+            t[(2, 4)] = RJ
+            t[(2, 5)] = RJ
+            t[(2, 6)] = RJ
 
-            # Row A=3 (LOW)   -> never merge; reject these matches
-            t[(3,1)] = RJ
-            t[(3,2)] = RJ
-            t[(3,3)] = RJ
-            t[(3,4)] = RJ
-            t[(3,5)] = RJ
-            t[(3,6)] = RJ
+            t[(3, 1)] = RJ
+            t[(3, 2)] = RJ
+            t[(3, 3)] = RJ
+            t[(3, 4)] = RJ
+            t[(3, 5)] = RJ
+            t[(3, 6)] = RJ
 
-            # Row A=4 (BND-H) -> merge with any overlap-intersecting B
-            t[(4,1)] = MC
-            t[(4,2)] = RJ
-            t[(4,3)] = RJ
-            t[(4,4)] = MC
-            t[(4,5)] = MC
-            t[(4,6)] = MC
+            t[(4, 1)] = MC
+            t[(4, 2)] = RJ
+            t[(4, 3)] = RJ
+            t[(4, 4)] = MC
+            t[(4, 5)] = MC
+            t[(4, 6)] = MC
 
-            # Row A=5 (BND-L) -> merge with any overlap-intersecting B
-            t[(5,1)] = MC
-            t[(5,2)] = RJ
-            t[(5,3)] = RJ
-            t[(5,4)] = MC
-            t[(5,5)] = MC
-            t[(5,6)] = MC
+            t[(5, 1)] = MC
+            t[(5, 2)] = RJ
+            t[(5, 3)] = RJ
+            t[(5, 4)] = MC
+            t[(5, 5)] = MC
+            t[(5, 6)] = MC
 
-            # Row A=6 (CROSS) -> merge with any overlap-intersecting B
-            t[(6,1)] = MC
-            t[(6,2)] = RJ
-            t[(6,3)] = RJ
-            t[(6,4)] = MC
-            t[(6,5)] = MC
-            t[(6,6)] = MC
-
+            t[(6, 1)] = MC
+            t[(6, 2)] = RJ
+            t[(6, 3)] = RJ
+            t[(6, 4)] = MC
+            t[(6, 5)] = MC
+            t[(6, 6)] = MC
 
         return t
 
     def action(self, rA: int, rB: int) -> str:
+        """Return the merge action code for matched regions (rA, rB)."""
         return self.table[(rA, rB)]
 
 
-# Unmatched rule table (separate for A and B)
 class UnmatchedRules:
     """
     Region to decision for unmatched grains.
     Returns: 'KEEP' or 'REMOVE' or 'ERROR'.
     """
+
     def __init__(self):
         self.rules_A = self._rules_A()
         self.rules_B = self._rules_B()
@@ -209,23 +202,23 @@ class UnmatchedRules:
     def _rules_A(self) -> Dict[int, str]:
         """Region → 'KEEP' or 'REMOVE' for unmatched A grains."""
         return {
-            1: "REMOVE", # CORE
-            2: "ERROR", # HIGH
-            3: "KEEP",   # LOW
-            4: "REMOVE", # BND-HIGH
-            5: "KEEP",   # BND-LOW
-            6: "REMOVE",   # CROSS-BOTH
+            1: "REMOVE",  # CORE
+            2: "ERROR",  # HIGH
+            3: "KEEP",  # LOW
+            4: "REMOVE",  # BND-HIGH
+            5: "KEEP",  # BND-LOW
+            6: "REMOVE",  # CROSS-BOTH
         }
 
     def _rules_B(self) -> Dict[int, str]:
         """Region → 'KEEP' or 'REMOVE' for unmatched B grains."""
         return {
-            1: "KEEP", # CORE
-            2: "KEEP",   # HIGH
-            3: "ERROR", # LOW
-            4: "KEEP",   # BND-HIGH
-            5: "REMOVE", # BND-LOW
-            6: "KEEP",   # CROSS-BOTH
+            1: "KEEP",  # CORE
+            2: "KEEP",  # HIGH
+            3: "ERROR",  # LOW
+            4: "KEEP",  # BND-HIGH
+            5: "REMOVE",  # BND-LOW
+            6: "KEEP",  # CROSS-BOTH
         }
 
     def decide(self, which: str, region: int) -> str:
@@ -235,15 +228,14 @@ class UnmatchedRules:
         """
         if which == "A":
             return self.rules_A[region]
-        elif which == "B":
+        if which == "B":
             return self.rules_B[region]
-        else:
-            raise ValueError(f"Unknown scan label '{which}', expected 'A' or 'B'.")
+        raise ValueError(f"Unknown scan label '{which}', expected 'A' or 'B'.")
 
-# -------------------------------------------------------------------------
-# MAIN CLASS
-# -------------------------------------------------------------------------
+
 class PairwiseStitcher:
+    """Stitch a single pair of overlapping scans (A, B) into one grain set."""
+
     def __init__(
         self,
         A: GrainSet,
@@ -260,8 +252,10 @@ class PairwiseStitcher:
         angle_type: str = "degrees",
         symmetry: str = "432",
     ):
-        self.A = A
-        self.B = B
+        # Copy the frames so region/debug columns are never written onto the
+        # caller's GrainSets (A is the growing accumulator in RegionBaseStitching).
+        self.A = GrainSet(df=A.df.copy(), meta=A.meta)
+        self.B = GrainSet(df=B.df.copy(), meta=B.meta)
         self.zol = zol
         self.zoh = zoh
 
@@ -278,38 +272,29 @@ class PairwiseStitcher:
         self.unmatched_A = None
         self.unmatched_B = None
 
+        # Rejected-match indices, populated in _apply_matched_rules().
+        self.rj_A = None
+        self.rj_B = None
+
         self.matched_rules = MatchRuleTable()
         self.unmatched_rules = UnmatchedRules()
 
         self.debug_log_csv = debug_log_csv
-        self._decision_log = []   # list of dict rows
+        self._decision_log = []
 
         self.angle_convention = angle_convention
         self.angle_type = angle_type
         self.symmetry = symmetry
 
     def run(self) -> GrainSet:
-        """
-        Executes the full A→B stitching step.
-        Returns a new GrainSet.
-        """
-        # 1. classify regions
+        """Execute the full A→B stitching step and return a new GrainSet."""
         self._classify_regions()
-
-        # 2. match B → A
         self._match()
-
-        # 3. apply matched rules
         merged, keepA_matched, keepB_matched = self._apply_matched_rules()
-
-        # 4. apply unmatched rules
         keepA_unmatched, keepB_unmatched = self._apply_unmatched_rules()
 
-        # 5. build final grain set AB
         result = self._build_output(
-            merged,
-            keepA_matched, keepB_matched,
-            keepA_unmatched, keepB_unmatched
+            merged, keepA_matched, keepB_matched, keepA_unmatched, keepB_unmatched
         )
 
         if self.debug_log_csv is not None:
@@ -317,46 +302,41 @@ class PairwiseStitcher:
 
         return result
 
-    # ----------------------------------------------------------
-    # Internal steps
-    # ----------------------------------------------------------
-
-    def _classify_regions(self, delta_p = 0.001) -> None:
-        """
-        Assigned regions to self.region_A, self.region_B for each grain in A and B
-        
-        Results are stored in:
-            self.region_A  # np.ndarray[int] of length len(A.df)
-            self.region_B  # np.ndarray[int] of length len(B.df)
-        """
+    def _classify_regions(self, delta_p=0.001) -> None:
+        """Assign a region to each grain, stored in self.region_A / self.region_B."""
         if self.zoh <= self.zol:
             raise ValueError(
                 f"Invalid overlap window in PairwiseStitcher: zoh ({self.zoh}) <= zol ({self.zol})."
             )
 
-        z_A = self.A.df["Z"].to_numpy(dtype=float)
-        r_A = self.A.df["GrainRadius"].to_numpy(dtype=float)
-        zl_A = z_A - r_A - delta_p*r_A
-        zh_A = z_A + r_A + delta_p*r_A
+        def _z_extent(df):
+            """Grain z-extent [zl, zh]: true tessellation extent if Zmin/Zmax columns
+            are present (see scan_tessellation.compute_cell_geometry), else the
+            equivalent-sphere approximation z +/- GrainRadius (inflated by delta_p)."""
+            if "Zmin" in df.columns and "Zmax" in df.columns:
+                return df["Zmin"].to_numpy(dtype=float), df["Zmax"].to_numpy(
+                    dtype=float
+                )
+            z = df["Z"].to_numpy(dtype=float)
+            r = df["GrainRadius"].to_numpy(dtype=float)
+            return z - r - delta_p * r, z + r + delta_p * r
 
-        regions_A = np.empty(len(z_A), dtype=int)
-        for i in range(len(z_A)):
+        zl_A, zh_A = _z_extent(self.A.df)
+        zl_B, zh_B = _z_extent(self.B.df)
+
+        regions_A = np.empty(len(zl_A), dtype=int)
+        for i, zl_val in enumerate(zl_A):
             regions_A[i] = RegionClassifier.classify(
-                zl=float(zl_A[i]),
+                zl=float(zl_val),
                 zh=float(zh_A[i]),
                 zol=self.zol,
                 zoh=self.zoh,
             )
 
-        z_B = self.B.df["Z"].to_numpy(dtype=float)
-        r_B = self.B.df["GrainRadius"].to_numpy(dtype=float)
-        zl_B = z_B - r_B - delta_p*r_B
-        zh_B = z_B + r_B + delta_p*r_B
-
-        regions_B = np.empty(len(z_B), dtype=int)
-        for i in range(len(z_B)):
+        regions_B = np.empty(len(zl_B), dtype=int)
+        for i, zl_val in enumerate(zl_B):
             regions_B[i] = RegionClassifier.classify(
-                zl=float(zl_B[i]),
+                zl=float(zl_val),
                 zh=float(zh_B[i]),
                 zol=self.zol,
                 zoh=self.zoh,
@@ -367,7 +347,7 @@ class PairwiseStitcher:
 
         self.A.df["Region"] = self.region_A
         self.B.df["Region"] = self.region_B
-    
+
         for df in (self.A.df, self.B.df):
             df["Matched_when_merged"] = 0
             df["Cell"] = ""
@@ -380,9 +360,15 @@ class PairwiseStitcher:
         nB = len(dfB)
 
         if nA == 0 or nB == 0:
-            self.matches = pd.DataFrame(columns=[
-                "idx_A", "idx_B", "diff_pos_norm2", "diff_rad_percentage", "diff_ori_norm2"
-            ])
+            self.matches = pd.DataFrame(
+                columns=[
+                    "idx_A",
+                    "idx_B",
+                    "diff_pos_norm2",
+                    "diff_rad_percentage",
+                    "diff_ori_norm2",
+                ]
+            )
             self.unmatched_A = np.arange(nA, dtype=int)
             self.unmatched_B = np.arange(nB, dtype=int)
             return
@@ -398,7 +384,7 @@ class PairwiseStitcher:
             dist = dist[:, None]
             idx = idx[:, None]
 
-        # Flatten candidate edges: (B_s, A_t)
+        # Flatten candidate edges (B_s, A_t)
         s_idx, _ = np.indices(dist.shape)
         s_idx = s_idx.ravel()
         t_idx = idx.ravel()
@@ -410,7 +396,8 @@ class PairwiseStitcher:
         rad_B = dfB["GrainRadius"].to_numpy(float)
 
         diff_ori_t = misorientation(
-            ori_B[s_idx], ori_A[t_idx],
+            ori_B[s_idx],
+            ori_A[t_idx],
             angle_convention=self.angle_convention,
             angle_type=self.angle_type,
             symmetry=self.symmetry,
@@ -423,16 +410,19 @@ class PairwiseStitcher:
         w_ori = float(self.weights.get("ori", 1.0))
         w_rad = float(self.weights.get("rad", 0.0))
 
-        ok = np.ones_like(diff_pos, dtype=bool)
+        # Gating is independent of cost weighting: a tolerance of -1 disables the
+        # gate for that dimension; a weight of 0 only removes it from the cost.
+        gate_pos = self.position_tolerance != -1.0
+        gate_ori = self.orientation_tolerance != -1.0
+        gate_rad = self.radius_tolerance != -1.0
 
-        use_pos = (w_pos > 0.0) and (self.position_tolerance != -1.0)
-        use_ori = (w_ori > 0.0) and (self.orientation_tolerance != -1.0)
-        use_rad = (w_rad > 0.0) and (self.radius_tolerance != -1.0)
-
         ok = np.ones_like(diff_pos, dtype=bool)
-        if use_pos: ok &= (diff_pos <= self.position_tolerance)
-        if use_ori: ok &= (diff_ori <= self.orientation_tolerance)
-        if use_rad: ok &= (diff_rad <= self.radius_tolerance)
+        if gate_pos:
+            ok &= diff_pos <= self.position_tolerance
+        if gate_ori:
+            ok &= diff_ori <= self.orientation_tolerance
+        if gate_rad:
+            ok &= diff_rad <= self.radius_tolerance
 
         s_idx = s_idx[ok]
         t_idx = t_idx[ok]
@@ -441,73 +431,65 @@ class PairwiseStitcher:
         diff_rad = diff_rad[ok]
 
         if s_idx.size == 0:
-            self.matches = pd.DataFrame(columns=[
-                "idx_A", "idx_B", "diff_pos_norm2", "diff_rad_percentage", "diff_ori_norm2"
-            ])
+            self.matches = pd.DataFrame(
+                columns=[
+                    "idx_A",
+                    "idx_B",
+                    "diff_pos_norm2",
+                    "diff_rad_percentage",
+                    "diff_ori_norm2",
+                ]
+            )
             self.unmatched_A = np.arange(nA, dtype=int)
             self.unmatched_B = np.arange(nB, dtype=int)
             return
-
-
 
         ptol = self.position_tolerance if self.position_tolerance > 0 else 1.0
         otol = self.orientation_tolerance if self.orientation_tolerance > 0 else 1.0
         rtol = self.radius_tolerance if self.radius_tolerance > 0 else 1.0
 
         cost = (
-            w_pos * (diff_pos / ptol) +
-            w_ori * (diff_ori / otol) +
-            w_rad * (diff_rad / rtol)
+            w_pos * (diff_pos / ptol)
+            + w_ori * (diff_ori / otol)
+            + w_rad * (diff_rad / rtol)
         )
 
-        # ---------------- Hungarian assignment with unmatched allowed ----------------
-
-        # Cost of leaving something unmatched should be slightly worse than any valid match,
-        # but far better than an invalid (BIG) match.
-        max_real = 0.0
-        if use_pos: max_real += w_pos * 1.0
-        if use_ori: max_real += w_ori * 1.0
-        if use_rad: max_real += w_rad * 1.0
+        # Hungarian assignment with unmatched allowed.
+        # Unmatch cost sits just above any valid match but far below an infeasible (BIG) one.
+        # Each gated term is normalized to <= 1, so the max real cost is the sum of weights.
+        max_real = w_pos + w_ori + w_rad
 
         UNMATCH_COST = max_real + 1e-6
         BIG = 1e9  # must be >> UNMATCH_COST
 
-        # Build lookup for diffs for any feasible (b,a) pair
-        # (b == s_idx, a == t_idx)
+        # Best-cost lookup per feasible (b, a) pair
         pair_dp = {}
         pair_dr = {}
         pair_do = {}
-        pair_c  = {}
+        pair_c = {}
 
-        for b, a, dp, dr, do, cc in zip(s_idx, t_idx, diff_pos, diff_rad, diff_ori, cost):
+        for b, a, dp, dr, do, cc in zip(
+            s_idx, t_idx, diff_pos, diff_rad, diff_ori, cost
+        ):
             key = (int(b), int(a))
-            # keep best cost if duplicates appear
             if key not in pair_c or cc < pair_c[key]:
-                pair_c[key]  = float(cc)
+                pair_c[key] = float(cc)
                 pair_dp[key] = float(dp)
                 pair_dr[key] = float(dr)
                 pair_do[key] = float(do)
 
         # Square augmented cost matrix:
-        # rows:  B real (nB) + A-dummy rows (nA)
-        # cols:  A real (nA) + B-dummy cols (nB)
+        # rows = B real (nB) + A-dummy rows (nA); cols = A real (nA) + B-dummy cols (nB)
         N = nA + nB
         C = np.full((N, N), BIG, dtype=float)
 
-        # Real B -> Real A costs (only feasible pairs get finite costs)
-        # default is BIG (infeasible)
+        # Real B -> Real A (feasible pairs; rest stay BIG)
         for (b, a), cc in pair_c.items():
             C[b, a] = cc
 
-        # Real B -> dummy cols (unmatch B)
-        # allow any B to take any dummy col, each dummy used once
-        C[0:nB, nA:nA+nB] = UNMATCH_COST
-
-        # Dummy rows (for A unmatched) -> Real A cols
-        C[nB:nB+nA, 0:nA] = UNMATCH_COST
-
-        # Dummy rows -> Dummy cols (no-op)
-        C[nB:nB+nA, nA:nA+nB] = 0.0
+        C[0:nB, nA : nA + nB] = UNMATCH_COST  # Real B -> dummy cols (unmatch B)
+        C[nB : nB + nA, 0:nA] = UNMATCH_COST  # Dummy rows -> Real A cols (unmatch A)
+        C[nB : nB + nA, nA : nA + nB] = 0.0  # Dummy -> dummy (no-op)
 
         row_ind, col_ind = linear_sum_assignment(C)
 
@@ -516,21 +498,17 @@ class PairwiseStitcher:
         matched_B = set()
 
         for r, c in zip(row_ind, col_ind):
-            # Only interpret assignments for REAL B rows
             if r >= nB:
-                continue
+                continue  # only real B rows
 
             b = int(r)
-            # matched to REAL A?
-            if c < nA:
+            if c < nA:  # matched to real A
                 a = int(c)
                 cc = C[r, c]
                 if cc >= UNMATCH_COST or cc >= BIG * 0.5:
-                    # treat as unmatched (shouldn't happen if matrix constructed right)
-                    continue
+                    continue  # treat as unmatched
 
                 key = (b, a)
-                # key should exist in lookup; guard anyway
                 dp = pair_dp.get(key, np.nan)
                 dr = pair_dr.get(key, np.nan)
                 do = pair_do.get(key, np.nan)
@@ -538,13 +516,16 @@ class PairwiseStitcher:
                 rows.append((a, b, float(dp), float(dr), float(do)))
                 matched_A.add(a)
                 matched_B.add(b)
-            else:
-                # matched to dummy => B unmatched
-                pass
 
         self.matches = pd.DataFrame(
             rows,
-            columns=["idx_A", "idx_B", "diff_pos_norm2", "diff_rad_percentage", "diff_ori_norm2"],
+            columns=[
+                "idx_A",
+                "idx_B",
+                "diff_pos_norm2",
+                "diff_rad_percentage",
+                "diff_ori_norm2",
+            ],
         )
 
         all_A = set(range(nA))
@@ -554,28 +535,17 @@ class PairwiseStitcher:
 
     def _apply_matched_rules(self):
         """
-        For each matched pair (idx_A, idx_B):
+        Apply MatchRuleTable actions (MC merge / KA / KB / RJ reject) to each matched pair.
 
-          - Look up regions: rA, rB
-          - Get action from MatchRuleTable:
-              'MC'       : merge
-              'KA'       : keep A, drop B
-              'KB'       : keep B, drop A
-              'RJ'       : reject match (both go to unmatched logic)
-
-        Returns:
-            merged_df       : new rows created by merging A/B
-            keepA_matched   : rows kept from A (matched pairs)
-            keepB_matched   : rows kept from B (matched pairs)
-
-        Side effects:
-            self.rj_A, self.rj_B : np.ndarray of indices from A/B involved in RJ.
+        Returns (merged_df, keepA_matched, keepB_matched); sets self.rj_A / self.rj_B
+        with indices deferred to the unmatched stage.
         """
 
         if self.matches is None:
-            raise RuntimeError("self.matches is not set. Run _match() before _apply_matched_rules().")
+            raise RuntimeError(
+                "self.matches is not set. Run _match() before _apply_matched_rules()."
+            )
 
-        # Containers
         merged_rows = []
         keepA_idx = []
         keepB_idx = []
@@ -585,9 +555,7 @@ class PairwiseStitcher:
         dfA = self.A.df
         dfB = self.B.df
 
-
         for row in self.matches.itertuples(index=False):
-            # Expect columns: idx_A, idx_B
             idx_A = int(row.idx_A)
             idx_B = int(row.idx_B)
 
@@ -610,14 +578,19 @@ class PairwiseStitcher:
             elif action == "RJ":
                 outA, outB = "DEFER_UNMATCHED", "DEFER_UNMATCHED"
 
-            self._decision_log.append({
-                "stage": "matched",
-                "idx_A": idx_A, "idx_B": idx_B,
-                "rA": rA, "rB": rB, "cell": cell,
-                "action": action,
-                "outcome_A": outA,
-                "outcome_B": outB,
-            })
+            self._decision_log.append(
+                {
+                    "stage": "matched",
+                    "idx_A": idx_A,
+                    "idx_B": idx_B,
+                    "rA": rA,
+                    "rB": rB,
+                    "cell": cell,
+                    "action": action,
+                    "outcome_A": outA,
+                    "outcome_B": outB,
+                }
+            )
 
             dfA.at[dfA.index[idx_A], "Cell"] = cell
             dfB.at[dfB.index[idx_B], "Cell"] = cell
@@ -639,25 +612,26 @@ class PairwiseStitcher:
                 new_row["Cell"] = cell
                 new_row["Unmatched_location"] = 0
 
-                new_row = merge_properties(new_row, rowA, rowB)
-                # ------------------------------------------------------
-
+                new_row = merge_properties(
+                    new_row,
+                    rowA,
+                    rowB,
+                    angle_convention=self.angle_convention,
+                    angle_type=self.angle_type,
+                    symmetry=self.symmetry,
+                )
                 merged_rows.append(new_row)
 
             elif action == "KA":
-                # keep A, drop B
                 keepA_idx.append(idx_A)
 
             elif action == "KB":
-                # keep B, drop A
                 keepB_idx.append(idx_B)
 
             elif action == "RJ":
-                # rejected match: both will be treated as unmatched
                 rj_A_idx.add(idx_A)
                 rj_B_idx.add(idx_B)
 
-        # Build DataFrames from collected items
         if merged_rows:
             merged_df = pd.DataFrame(merged_rows)
         else:
@@ -673,39 +647,31 @@ class PairwiseStitcher:
         else:
             keepB_matched = pd.DataFrame(columns=dfB.columns)
 
-        # Store rejected indices for unmatched stage
-        self.rj_A = np.array(sorted(rj_A_idx), dtype=int) if rj_A_idx else np.array([], dtype=int)
-        self.rj_B = np.array(sorted(rj_B_idx), dtype=int) if rj_B_idx else np.array([], dtype=int)
+        self.rj_A = (
+            np.array(sorted(rj_A_idx), dtype=int)
+            if rj_A_idx
+            else np.array([], dtype=int)
+        )
+        self.rj_B = (
+            np.array(sorted(rj_B_idx), dtype=int)
+            if rj_B_idx
+            else np.array([], dtype=int)
+        )
 
         return merged_df, keepA_matched, keepB_matched
 
     def _apply_unmatched_rules(self):
         """
-        Apply unmatched rules to:
-
-          - grains that were never matched (unmatched_A, unmatched_B)
-          - grains from rejected matches (rj_A, rj_B)
-
-        For each such grain:
-          - use its region (self.region_A / self.region_B)
-          - call unmatched_rules.decide('A' or 'B', region)
-          - keep or drop accordingly
-
-        Returns:
-            keepA_unmatched : DataFrame of A-grains kept
-            keepB_unmatched : DataFrame of B-grains kept
+        Apply UnmatchedRules to never-matched grains and rejected-match grains,
+        returning (keepA_unmatched, keepB_unmatched) DataFrames of kept grains.
         """
-    
+
         dfA = self.A.df
         dfB = self.B.df
 
-        # --- collect candidate indices for unmatched processing ---
-
-        # From _match()
+        # Collect candidate indices: never-matched (_match) + rejected (_apply_matched_rules)
         base_unmatched_A = getattr(self, "unmatched_A", None)
         base_unmatched_B = getattr(self, "unmatched_B", None)
-
-        # From _apply_matched_rules()
         rj_A = getattr(self, "rj_A", None)
         rj_B = getattr(self, "rj_B", None)
 
@@ -722,50 +688,58 @@ class PairwiseStitcher:
         if rj_B is not None:
             idx_B_set.update(int(i) for i in rj_B)
 
-        # --- apply rules for A ---
+        # apply rules for A
         keepA_indices = []
         for idx in sorted(idx_A_set):
             region = int(self.region_A[idx])
             dfA.at[dfA.index[idx], "Unmatched_location"] = int(self.region_A[idx])
             decision = self.unmatched_rules.decide("A", region)
 
-            self._decision_log.append({
-                "stage": "unmatched",
-                "which": "A",
-                "idx": int(idx),
-                "region": region,
-                "decision": decision,
-            })
-            
+            self._decision_log.append(
+                {
+                    "stage": "unmatched",
+                    "which": "A",
+                    "idx": int(idx),
+                    "region": region,
+                    "decision": decision,
+                }
+            )
+
             if decision == "KEEP":
                 keepA_indices.append(idx)
             if decision == "ERROR":
-                print(f"Unmatched decision=ERROR for A idx={idx} (region={region}). Dropping this grain.")
+                print(
+                    f"Unmatched decision=ERROR for A idx={idx} (region={region}). Dropping this grain."
+                )
 
         if keepA_indices:
             keepA_unmatched = dfA.iloc[keepA_indices].copy()
         else:
             keepA_unmatched = pd.DataFrame(columns=dfA.columns)
 
-        # --- apply rules for B ---
+        # apply rules for B
         keepB_indices = []
         for idx in sorted(idx_B_set):
             region = int(self.region_B[idx])
             decision = self.unmatched_rules.decide("B", region)
             dfB.at[dfB.index[idx], "Unmatched_location"] = int(self.region_B[idx])
 
-            self._decision_log.append({
-                "stage": "unmatched",
-                "which": "B",
-                "idx": int(idx),
-                "region": region,
-                "decision": decision,
-            })
+            self._decision_log.append(
+                {
+                    "stage": "unmatched",
+                    "which": "B",
+                    "idx": int(idx),
+                    "region": region,
+                    "decision": decision,
+                }
+            )
 
             if decision == "KEEP":
                 keepB_indices.append(idx)
             if decision == "ERROR":
-                print(f"Unmatched decision=ERROR for B idx={idx} (region={region}). Dropping this grain.")
+                print(
+                    f"Unmatched decision=ERROR for B idx={idx} (region={region}). Dropping this grain."
+                )
 
         if keepB_indices:
             keepB_unmatched = dfB.iloc[keepB_indices].copy()
@@ -782,17 +756,7 @@ class PairwiseStitcher:
         keepA_unmatched: pd.DataFrame,
         keepB_unmatched: pd.DataFrame,
     ) -> GrainSet:
-        """
-        Construct the new stitched GrainSet from:
-          - merged             (MC)
-          - keepA_matched      (KA)
-          - keepB_matched      (KB)
-          - keepA_unmatched    (unmatched A that we keep)
-          - keepB_unmatched    (unmatched B that we keep)
-
-        Returns:
-            GrainSet with concatenated df and updated metadata.
-        """
+        """Concatenate merged/kept frames into a new stitched GrainSet with updated metadata."""
 
         frames = [
             merged,
@@ -802,7 +766,7 @@ class PairwiseStitcher:
             keepB_unmatched,
         ]
 
-        # filter out empty frames to avoid issues with differing dtypes
+        # drop empty frames to avoid dtype issues on concat
         non_empty = [f for f in frames if f is not None and len(f) > 0]
 
         if non_empty:
@@ -810,7 +774,6 @@ class PairwiseStitcher:
         else:
             df_new = pd.DataFrame(columns=self.A.df.columns)
 
-        # Compute new z-range
         if len(df_new) > 0 and "Z" in df_new.columns:
             zmin_new = float(df_new["Z"].min())
             zmax_new = float(df_new["Z"].max())
@@ -820,7 +783,7 @@ class PairwiseStitcher:
 
         meta_new = ScanMetadata(
             name=f"{self.A.meta.name}_{self.B.meta.name}",
-            scan_id=-1,          # stitched / composite
+            scan_id=-1,  # stitched composite
             zmin=zmin_new,
             zmax=zmax_new,
         )
@@ -830,12 +793,25 @@ class PairwiseStitcher:
 
         return GrainSet(df=df_new, meta=meta_new)
 
-def merge_properties(new_row, rowA, rowB):
-    '''
-    Require columns: ["X", "Y", "Z", "GrainRadius", "Eul0", "Eul1", "Eul2"]
-    '''
-    
-    # --- volumes ---
+
+def merge_properties(
+    new_row,
+    rowA,
+    rowB,
+    angle_convention: str = "bunge",
+    angle_type: str = "degrees",
+    symmetry: str = "432",
+):
+    """
+    Volume-weighted merge of two grains.
+    Requires columns: ["X", "Y", "Z", "GrainRadius", "Eul0", "Eul1", "Eul2"]
+
+    Orientation is a symmetry-aware, volume-weighted average of the two grains:
+    B is brought into the symmetry-equivalent closest to A, the two rotation
+    matrices are volume-weighted and re-projected onto SO(3) (via SVD), then
+    converted back to Euler angles in the given convention/units.
+    """
+
     rA = float(rowA["GrainRadius"])
     rB = float(rowB["GrainRadius"])
 
@@ -846,10 +822,23 @@ def merge_properties(new_row, rowA, rowB):
     for col in ["X", "Y", "Z"]:
         new_row[col] = (vA * rowA[col] + vB * rowB[col]) / vT
 
-    new_row["GrainRadius"] = (3.0 * vT / (4.0 * np.pi)) ** (1.0 / 3.0)
+    # merged size = average of the two grain volumes (not their sum)
+    vAvg = 0.5 * (vA + vB)
+    new_row["GrainRadius"] = (3.0 * vAvg / (4.0 * np.pi)) ** (1.0 / 3.0)
 
-    # orientation, keep one for now
-    for col in ["Eul0", "Eul1", "Eul2"]:
-        new_row[col] = rowA[col]
+    # orientation: symmetry-aware, volume-weighted average of A and B
+    e_avg = average_orientation(
+        [
+            [float(rowA["Eul0"]), float(rowA["Eul1"]), float(rowA["Eul2"])],
+            [float(rowB["Eul0"]), float(rowB["Eul1"]), float(rowB["Eul2"])],
+        ],
+        weights=[vA, vB],
+        convention=angle_convention,
+        angle_type=angle_type,
+        symmetry=symmetry,
+    )
+    new_row["Eul0"] = float(e_avg[0])
+    new_row["Eul1"] = float(e_avg[1])
+    new_row["Eul2"] = float(e_avg[2])
 
     return new_row

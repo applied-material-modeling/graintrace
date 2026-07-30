@@ -29,17 +29,17 @@ from graintrace.construct_voxel_mesh import VoxelMeshBuilder
 
 
 ## INPUTS ---------------------------------------------------
-def main():  ## i dont like this but somehow this is what needed for multiprocessing to work
+def main():  # wrapped in main() for multiprocessing
 
-    filename = "mwe_data/synthetic_vms.csv"
-    generate_synthetic = False
+    # Self-contained: generate a synthetic layered Euler-angle grid under save_folder.
+    generate_synthetic = True
     ncore = 24
 
     save_folder = "test_demo_grid_segmentation"
     filename = "test_graph_segmentation_2d.csv"
-    nx = 10000
-    ny = 1000
-    radius_elements_range = (300, 700)
+    nx = 400
+    ny = 400
+    radius_elements_range = (20, 60)
 
     segmentation_prop = {
         "method": "graph",
@@ -77,14 +77,15 @@ def main():  ## i dont like this but somehow this is what needed for multiproces
         },
     }
 
+    # EDIT: point these at your Coreform CUBIT/SCULPT install (paths only, never a license).
     sculpt_config = {
-        "launcher": "/home/tranh/Progs/cubit_gov/bin/mpi/bin/mpiexec",
-        "psculpt": "/home/tranh/Progs/cubit_gov/bin/psculpt",
-        "epu": "/home/tranh/Progs/cubit_gov/bin/epu",
+        "launcher": "/path/to/cubit/bin/mpi/bin/mpiexec",
+        "psculpt": "/path/to/cubit/bin/psculpt",
+        "epu": "/path/to/cubit/bin/epu",
         "nprocs": int(ncore),
         "environment": {
-            "OPAL_LIBDIR": "/home/tranh/Progs/cubit_gov/bin/mpi/lib",
-            "OPAL_PREFIX": "/home/tranh/Progs/cubit_gov/bin/mpi",
+            "OPAL_LIBDIR": "/path/to/cubit/bin/mpi/lib",
+            "OPAL_PREFIX": "/path/to/cubit/bin/mpi",
         },
     }
 
@@ -110,8 +111,7 @@ def main():  ## i dont like this but somehow this is what needed for multiproces
         x_coords = np.linspace(0.0, 1.0, nx)
         y_coords = np.linspace(0.0, 1.0, ny)
 
-        # baseline layer orientations in degrees
-        # each row-band gets one base orientation
+        # baseline orientation (deg) per row-band
         layer_bases = []
         for _ in range(n_layers):
             layer_bases.append(
@@ -225,9 +225,7 @@ def main():  ## i dont like this but somehow this is what needed for multiproces
 
     end = time.time()
     elapsed = end - start
-    print(f"segmentaion took {elapsed:.2f} seconds")
-
-    fda
+    print(f"segmentation took {elapsed:.2f} seconds")
 
     print(f"\nReconstruction complete: {merged_path}\n")
 

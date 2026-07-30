@@ -22,6 +22,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+"""Inverse pole figure (IPF) coloring of meshes (Exodus/VTK) and legend charts."""
+
 from __future__ import annotations
 
 import os
@@ -33,70 +35,66 @@ import pandas as pd
 import scipy.io as sio
 import matplotlib.pyplot as plt
 import torch
+import pyvista as pv
 from matplotlib.patches import Polygon
 
-import neml2
-import neml2.tensors
-import neml2.postprocessing
-from neml2 import tensors
-from neml2.postprocessing import (
+from neml2.texture import (
     symmetry_operators_as_R2,
     IPFReduction,
     StereographicProjection,
     LambertProjection,
 )
 
-import pyvista as pv
+from .orientation_helper import euler_to_matrix, mrp_to_matrix
 
 
 class IPFProcessor:
+    """Compute and apply IPF (inverse pole figure) coloring to meshes and legends."""
+
     available_projections = {
         "stereographic": StereographicProjection(),
         "lambert": LambertProjection(),
     }
 
     class IPFColorScheme:
-        def __init__(
-            self,
-            v0=tensors.Vec(torch.tensor([0.0, 0.0, 1.0])),
-            v1=tensors.Vec(torch.tensor([1.0, 0.0, 1.0])),
-            v2=tensors.Vec(torch.tensor([1.0, 1.0, 1.0])),
-        ):
-            if not isinstance(v0, tensors.Vec):
-                v0 = tensors.Vec(v0)
-            if not isinstance(v1, tensors.Vec):
-                v1 = tensors.Vec(v1)
-            if not isinstance(v2, tensors.Vec):
-                v2 = tensors.Vec(v2)
+        """Map fundamental-sector crystal directions to RGB IPF colors."""
 
-            v0 = v0 / v0.norm()
-            v1 = v1 / v1.norm()
-            v2 = v2 / v2.norm()
+        @staticmethod
+        def _as_vec(v, default):
+            if v is None:
+                v = torch.tensor(default, dtype=torch.float64)
+            elif hasattr(v, "data"):
+                v = v.data
+            else:
+                v = torch.as_tensor(v, dtype=torch.float64)
+            v = v.to(torch.float64)
+            return v / torch.linalg.norm(v)
 
-            self.v = [v0, v1, v2]
+        def __init__(self, v0=None, v1=None, v2=None):
+            self.v = [
+                self._as_vec(v0, [0.0, 0.0, 1.0]),
+                self._as_vec(v1, [1.0, 0.0, 1.0]),
+                self._as_vec(v2, [1.0, 1.0, 1.0]),
+            ]
 
         def __call__(self, directions):
-            if not isinstance(directions, tensors.Vec):
-                directions = tensors.Vec(directions)
-
-            pts = directions.torch()
+            pts = directions.data if hasattr(directions, "data") else directions
+            pts = torch.as_tensor(pts, dtype=torch.float64)
             colors = torch.zeros(
                 pts.shape[:-1] + (3,), dtype=pts.dtype, device=pts.device
             )
 
             for j in range(3):
-                vj = self.v[j].torch().to(device=pts.device, dtype=pts.dtype)
+                vj = self.v[j].to(device=pts.device, dtype=pts.dtype)
                 colors[..., j] = torch.sum(pts * vj, dim=-1)
 
             for i in range(3):
-                vi = self.v[i].torch().to(device=pts.device, dtype=pts.dtype)
+                vi = self.v[i].to(device=pts.device, dtype=pts.dtype)
                 mf = min(
-                    [
-                        torch.sum(
-                            vi * vj.torch().to(device=pts.device, dtype=pts.dtype)
-                        ).item()
-                        for vj in self.v
-                    ]
+                    torch.sum(
+                        vi * self.v[k].to(device=pts.device, dtype=pts.dtype)
+                    ).item()
+                    for k in range(3)
                 )
                 colors[..., i] = (colors[..., i] - mf) / (1.0 - mf)
 
@@ -151,15 +149,16 @@ class IPFProcessor:
         ngrid=100,
         nline=100,
     ):
+        """Render the IPF color legend triangle, save it, and return the axes."""
         colorizer = self.IPFColorScheme(
             self.reduction.v[0], self.reduction.v[1], self.reduction.v[2]
         )
 
         projection = self._get_projection()
 
-        v0 = self.reduction.v[0].torch()
-        v1 = self.reduction.v[1].torch()
-        v2 = self.reduction.v[2].torch()
+        v0 = self.reduction.v[0].data
+        v1 = self.reduction.v[1].data
+        v2 = self.reduction.v[2].data
 
         tri2d = projection(torch.stack([v0, v1, v2], dim=0))
         xmin, xmax = tri2d[:, 0].min(), tri2d[:, 0].max()
@@ -196,8 +195,8 @@ class IPFProcessor:
 
         net_pts = []
         for i, j in ((0, 1), (1, 2), (2, 0)):
-            vi = self.reduction.v[i].torch()
-            vj = self.reduction.v[j].torch()
+            vi = self.reduction.v[i].data
+            vj = self.reduction.v[j].data
             fs = torch.linspace(0, 1, nline)
             pts3 = vi * (1.0 - fs).unsqueeze(-1) + vj * fs.unsqueeze(-1)
             pts3 /= torch.linalg.norm(pts3, dim=-1).unsqueeze(-1)
@@ -215,34 +214,35 @@ class IPFProcessor:
         return ax
 
     def get_reduced_ipf_directions(self, orientations, direction):
-        if not isinstance(direction, tensors.Vec):
-            direction = tensors.Vec(direction)
-        direction = direction / direction.norm()
+        """Reduce (N, 3, 3) crystal->sample rotation matrices to their IPF
+        fundamental-sector directions for the given sample ``direction``."""
+        O = torch.as_tensor(orientations, dtype=torch.float64)  # (N, 3, 3)
+        d = torch.as_tensor(direction, dtype=torch.float64).reshape(3).to(O.device)
+        d = d / torch.linalg.norm(d)
 
-        if not isinstance(orientations, tensors.Rot):
-            orientations = tensors.Rot(orientations)
+        Rsamp = (
+            symmetry_operators_as_R2(self.sample_symmetry, device=O.device)
+            .data.reshape(-1, 3, 3)
+            .to(O)
+        )  # (Ss, 3, 3)
+        Rcry = (
+            symmetry_operators_as_R2(self.crystal_symmetry, device=O.device)
+            .data.reshape(-1, 3, 3)
+            .to(O)
+        )  # (Sc, 3, 3)
 
-        sample_symmetry_operators = symmetry_operators_as_R2(
-            self.sample_symmetry, device=orientations.device
-        )
-        sample_directions = sample_symmetry_operators * direction
+        sample_directions = torch.einsum("sij,j->si", Rsamp, d)  # (Ss, 3)
+        crystal_directions = torch.einsum(
+            "nki,sk->nsi", O, sample_directions
+        )  # (N, Ss, 3)
+        equivalent_directions = torch.einsum(
+            "cij,nsj->nsci", Rcry, crystal_directions
+        )  # (N, Ss, Sc, 3)
 
-        crystal_directions = sample_directions.rotate(
-            orientations.inv().dynamic.unsqueeze(-1)
-        )
-
-        symmetry_operators = symmetry_operators_as_R2(
-            self.crystal_symmetry, device=orientations.device
-        )
-
-        equivalent_directions = (
-            symmetry_operators * crystal_directions.dynamic.unsqueeze(-1)
-        ).torch()
-
-        cand = equivalent_directions.reshape(equivalent_directions.shape[0], -1, 3)
+        cand = equivalent_directions.reshape(O.shape[0], -1, 3)
 
         normals = [
-            n.torch().to(device=cand.device, dtype=cand.dtype) for n in self.reduction.n
+            n.data.to(device=cand.device, dtype=cand.dtype) for n in self.reduction.n
         ]
 
         tol = 1e-9
@@ -263,9 +263,10 @@ class IPFProcessor:
         idx = torch.argmax(keep.to(torch.int64), dim=1)
         picked = cand[torch.arange(cand.shape[0], device=cand.device), idx]
 
-        return tensors.Vec(picked)
+        return picked
 
     def get_ipf_color(self, orientations, direction):
+        """Return per-orientation IPF RGB colors for the given sample direction."""
         dirs = self.get_reduced_ipf_directions(orientations, direction)
         colorizer = self.IPFColorScheme(
             self.reduction.v[0], self.reduction.v[1], self.reduction.v[2]
@@ -281,21 +282,22 @@ class IPFProcessor:
         angle_convention="kocks",
         angle_type="radians",
     ):
+        """Write per-block IPF RGB element variables into an Exodus mesh copy."""
         output_path = self._resolve_path(output_file)
         shutil.copyfile(mesh_file, output_path)
 
         ori = pd.read_csv(orientations_csv, header=None).to_numpy()
-        ori = torch.tensor(ori)
+        ori = torch.tensor(ori, dtype=torch.double)
 
-        if angle_convention != "mrp":
-            ori = tensors.Rot.fill_euler_angles(
-                tensors.Vec(ori), angle_convention, angle_type
-            )
+        if angle_convention == "mrp":
+            R = mrp_to_matrix(ori)
+        else:
+            R = euler_to_matrix(ori, angle_convention, angle_type)
 
         direction = torch.tensor(direction, dtype=torch.double)
 
         rgb = np.asarray(
-            self.get_ipf_color(ori, direction=direction),
+            self.get_ipf_color(R, direction=direction),
             dtype=np.float64,
         )
 
@@ -359,6 +361,7 @@ class IPFProcessor:
         angle_type="radians",
         orientation_fields=("Eul1", "Eul2", "Eul3"),
     ):
+        """Write per-cell IPF RGB colors into a VTK mesh copy."""
         output_path = self._resolve_path(output_file)
 
         mesh = pv.read(vtk_file)
@@ -376,21 +379,21 @@ class IPFProcessor:
         eul2 = np.asarray(mesh.cell_data[orientation_fields[1]])
         eul3 = np.asarray(mesh.cell_data[orientation_fields[2]])
 
-        if not (len(eul1) == len(eul2) == len(eul3)):
+        if not len(eul1) == len(eul2) == len(eul3):
             raise ValueError("Orientation cell data fields must have the same length")
 
         ori = np.column_stack((eul1, eul2, eul3))
-        ori = torch.tensor(ori)
+        ori = torch.tensor(ori, dtype=torch.double)
 
-        if angle_convention != "mrp":
-            ori = tensors.Rot.fill_euler_angles(
-                tensors.Vec(ori), angle_convention, angle_type
-            )
+        if angle_convention == "mrp":
+            R = mrp_to_matrix(ori)
+        else:
+            R = euler_to_matrix(ori, angle_convention, angle_type)
 
         direction = torch.tensor(direction, dtype=torch.double)
 
         rgb = np.asarray(
-            self.get_ipf_color(ori, direction=direction),
+            self.get_ipf_color(R, direction=direction),
             dtype=np.float64,
         )
 
@@ -407,40 +410,3 @@ class IPFProcessor:
         mesh.save(output_path)
 
         return output_path
-
-
-"""
-if __name__ == "__main__":
-    processor = IPFProcessor(
-        reduction=IPFReduction(),
-        projection="stereographic",
-        crystal_symmetry="432",
-        sample_symmetry="432",
-        save_dir="experiment_afrl/nf_reconstruction/mesh",
-    )
-
-    processor.ipf_color_chart(
-        savefig_name="ipf_legend.png",
-    )
-
-    print("Generate ipf legends")
-
-    out = processor.add_block_rgb_to_exodus(
-        mesh_file="experiment_afrl/nf_reconstruction/mesh/mesh.e",
-        orientations_csv="experiment_afrl/nf_reconstruction/mesh/orientations.csv",
-        output_file="mesh_rgb.e",
-        direction=[0.0, 0.0, 1.0],
-        angle_convention="mrp",
-    )
-    print(f"Wrote {out}")
-
-    vtk_out = processor.add_block_rgb_to_vtk(
-        vtk_file="experiment_afrl/nf_reconstruction/mesh/merged_segmented_fixed_grid.vtk",
-        output_file="merged_segmented_fixed_grid_rgb.vtk",
-        direction=[0.0, 0.0, 1.0],
-        angle_convention="bunge",
-        angle_type="radians",
-        orientation_fields=("Eul1", "Eul2", "Eul3"),
-    )
-    print(f"Wrote {vtk_out}")
-"""

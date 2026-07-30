@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=64", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,42 +7,78 @@ name = "graintrace"
 version = "0.1.0"
 description = "Crystal plasticity FE pipeline for APS HEDM experiments"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Applied Material Modeling, Argonne National Laboratory" },
+]
+keywords = [
+    "crystal-plasticity",
+    "finite-element",
+    "HEDM",
+    "microstructure",
+    "MOOSE",
+    "NEML2",
+    "materials-science",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Operating System :: POSIX :: Linux",
+]
+
+# Pure-Python runtime deps only. The compiled/licensed stack (neml2, pyzag,
+# MOOSE/PUMA, CUBIT, NEPER, libtorch) is NOT declared here: neml2/pyzag come from
+# PUMA's repo-pinned build into `graintrace_env` (ABI-matched to `puma-opt`), not
+# a PyPI wheel. `__init__` lazy-imports it, so bare `pip install graintrace` runs
+# the pure-Python features (REI, stitching); neml2-using features (calibration,
+# CPFE) need the PUMA-built stack. See README.
 dependencies = [
     "numpy>=1.26",
     "pandas>=2.0",
     "scipy>=1.10",
     "matplotlib>=3.7",
     "torch>=2.0",
-    "torch-geometric>=2.3",
     "networkx>=3.0",
     "networkit",
     "tqdm",
     "pyvista>=0.40",
-    "meshio>=5.0",
     "vtk>=9.0",
-    "textual>=0.40",
     "scikit-learn>=1.3",
+    "numba>=0.59",
     "gmsh>=4.12",
-    "psutil",
-    "pyevtk",
-    "trimesh",
-    "emcee",
-    "gstools",
     "multiprocess",
-    "pyro-ppl",
-    "pyzag",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "black", "isort"]
+# Grain-graph / GNN utilities (grain_graph_matching, tess_to_gnn).
+gnn = ["torch-geometric>=2.3"]
+# MCP server (graintrace.mcp) -- drive graintrace from any MCP client
+# (Claude Desktop / Claude Code, or any other MCP client).
+mcp = ["mcp[cli]>=1.2"]
+# Extra deps used by the example scripts under examples/.
+examples = ["meshio>=5.0"]
+dev = ["pytest", "black==24.3.0", "isort", "pylint", "build", "twine"]
 
-# neml2 is NOT on PyPI — install from source:
-#   cd moose/framework/contrib/neml2 && pip install . -v
+[project.scripts]
+graintrace-mcp = "graintrace.mcp.server:main"
+
+[project.urls]
+Homepage = "https://github.com/applied-material-modeling/graintrace"
+Repository = "https://github.com/applied-material-modeling/graintrace"
+Issues = "https://github.com/applied-material-modeling/graintrace/issues"
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["graintrace*"]
 
 [tool.setuptools.package-data]
-graintrace = ["cpfe_base/*.i"]
+graintrace = ["cpfe_base/*.i", "mcp/recipes/*.md", "mcp/tools.example.json"]

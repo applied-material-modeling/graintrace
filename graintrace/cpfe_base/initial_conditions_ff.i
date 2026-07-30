@@ -1,4 +1,4 @@
-########################### READ ORIENTATION AND RESIDUAL STRAIN FROM FILE ###########################
+# Read orientation and residual strain from file
 [UserObjects]
     [orientation]
         type = PropertyReadFile

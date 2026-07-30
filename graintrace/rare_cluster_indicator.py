@@ -22,22 +22,22 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+"""Identify and export spatially coherent rare clusters from CPFE field data."""
+
 from __future__ import annotations
+
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
+
 from .user_data_class import RareCriteria
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from .graph_spatial_cluster import GraphSpatialCluster
 from .cluster_indicator import ClusterAnalysisIndicator
 
 
 class IdentifyRareClusters:
-    """
-    Stage 1: GraphSpatialCluster -> per-point labels + reduced cluster CSV
-    Stage 2: ClusterAnalysisIndicator -> merged labels on reduced CSV
-    Stage 3: select rare merged clusters + export VTK (grid vs points)
-    """
+    """Graph cluster -> merge via indicator -> select rare clusters and export VTK."""
 
     def __init__(
         self,
@@ -60,18 +60,16 @@ class IdentifyRareClusters:
         indicator_run_kwargs: Dict[str, Any],
         reduced_csv_path: str,
     ) -> Dict[str, Any]:
-
+        """Run graph spatial clustering then the merge indicator; return a result bundle."""
         print("Running clustering analysis...")
 
         input_df = self._load_input_df()
 
-        ## Run the graph based
         gsc_out = gsc.run(
             output_csv_path=reduced_csv_path,
             return_labels=True,
             **gsc_run_kwargs,
         )
-        ##-------------------------
 
         if "extras" not in gsc_out or "labels" not in gsc_out["extras"]:
             raise ValueError(
@@ -91,10 +89,8 @@ class IdentifyRareClusters:
 
         print("Reduced CSV saved:", gsc_out["csv_path"])
 
-        ## Run the cluster
         print("\nRunning cluster indicator\n")
         ind_out = indicator.run(minimal_return=False, **indicator_run_kwargs)
-        ##-------------------------
 
         if "points" not in ind_out or ind_out["points"] is None:
             raise ValueError(
@@ -133,9 +129,10 @@ class IdentifyRareClusters:
         first_rare_block_id: int = 2,
         also_write_final_label: bool = True,
         rare_reduced_stats_csv_path: Optional[str] = None,
-        use_sample_std: bool = False,
+        rare_points_csv_path: Optional[str] = None,
+        use_sample_std: bool = False,  # pylint: disable=unused-argument  # public API kwarg
     ) -> Dict[str, Any]:
-
+        """Select rare clusters from the bundle and export them to VTK (and optional CSVs)."""
         input_df: pd.DataFrame = bundle["input_df"]
         gsc_labels: np.ndarray = bundle["gsc_labels"]
         indicator_points_df: pd.DataFrame = bundle["indicator_points_df"]
@@ -183,7 +180,7 @@ class IdentifyRareClusters:
             )
 
             sum_cols = [c for c in cdf.columns if c.endswith("_sum")]
-            bases = [c[:-4] for c in sum_cols if (c[:-4] + "_sumsq") in cdf.columns]
+            bases = [c[:-4] for c in sum_cols if c[:-4] + "_sumsq" in cdf.columns]
 
             new_cols = {}
             n = pd.to_numeric(cdf["n"], errors="coerce").astype(float)
@@ -221,6 +218,16 @@ class IdentifyRareClusters:
 
         coords = input_df[list(self.coord_cols)].to_numpy(dtype=np.float64)
 
+        if rare_points_csv_path is not None:
+            rare_mask = block_id >= first_rare_block_id
+            rare_df = pd.DataFrame(coords[rare_mask], columns=list(self.coord_cols))
+            rare_df["rare_cluster_id"] = block_id[rare_mask].astype(np.int64)
+            rare_df.to_csv(rare_points_csv_path, index=False)
+            print(
+                f"\nSaved rare point cloud CSV ({int(rare_mask.sum())} points): "
+                f"{rare_points_csv_path}"
+            )
+
         mode = export_control.lower()
         if mode == "auto":
             mode = "grid" if self._detect_full_grid(coords, tol=1e-6) else "points"
@@ -255,9 +262,9 @@ class IdentifyRareClusters:
             "rare_super_labels": rare_super_labels_sorted,
             "label_to_block": label_to_block,
             "rare_reduced_stats_csv_path": rare_reduced_stats_csv_path,
+            "rare_points_csv_path": rare_points_csv_path,
         }
 
-    # mapping
     def _build_super_label_map(
         self, indicator_points_df: pd.DataFrame
     ) -> Dict[int, int]:
@@ -265,7 +272,6 @@ class IdentifyRareClusters:
         cluster_label = indicator_points_df["cluster_label"].to_numpy()
         return {int(cid): int(clab) for cid, clab in zip(cluster_id, cluster_label)}
 
-    # selection of rare clusters
     def _select_rare_super_labels(
         self, indicator_clusters_df: pd.DataFrame, criteria: RareCriteria
     ) -> List[int]:
@@ -301,12 +307,12 @@ class IdentifyRareClusters:
 
         return [int(x) for x in rare_df["cluster_label"].to_list()]
 
-    # utility
     def make_stage_objects(
         self,
         *,
         graph_cluster_out: str,
     ) -> Tuple[GraphSpatialCluster, ClusterAnalysisIndicator]:
+        """Construct the GraphSpatialCluster and ClusterAnalysisIndicator stage objects."""
         gsc = GraphSpatialCluster(
             csv_path=self.input_csv_path,
             id_col=self.id_col,
@@ -315,8 +321,8 @@ class IdentifyRareClusters:
 
         indicator = ClusterAnalysisIndicator(
             csv_path=graph_cluster_out,
-            id_col="cluster_id",  # fixed by reduced CSV schema
-            coord_cols=self.coord_cols,  # fixed: same coordinate names passed through
+            id_col="cluster_id",
+            coord_cols=self.coord_cols,
         )
 
         return gsc, indicator
@@ -370,7 +376,6 @@ class IdentifyRareClusters:
             for x, y, z in coords:
                 f.write(f"{x:.9g} {y:.9g} {z:.9g}\n")
 
-            # one vertex cell per point
             f.write(f"VERTICES {n} {2*n}\n")
             for i in range(n):
                 f.write(f"1 {i}\n")
@@ -436,7 +441,6 @@ class IdentifyRareClusters:
                 f"VTK writer supports 1D scalar arrays only; got {name} with shape {arr.shape}"
             )
 
-        # Choose VTK type
         if np.issubdtype(arr.dtype, np.integer):
             vtk_type = "int"
         else:

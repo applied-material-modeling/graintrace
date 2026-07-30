@@ -29,15 +29,22 @@ import numpy as np
 import pytest
 import torch
 
+# orientation_helper's conversions delegate to neml2 (types/ops). The working
+# neml2 is the repo-pinned build supplied by PUMA into graintrace_env; on a plain
+# checkout without it, skip this module rather than erroring.
+pytest.importorskip("neml2")
+
 
 class TestOrientationHelper:
-    """Tests requiring neml2 — marked as unit but neml2 must be installed."""
+    """Tests requiring neml2 (marked as unit, but neml2 must be installed)."""
 
     def test_misorientation_identical_zero(self):
         from graintrace.orientation_helper import misorientation
 
         e = [0.0, 0.0, 0.0]
-        val = misorientation(e, e, angle_convention="bunge", angle_type="degrees", symmetry="1")
+        val = misorientation(
+            e, e, angle_convention="bunge", angle_type="degrees", symmetry="1"
+        )
         assert float(val) == pytest.approx(0.0, abs=1e-4)
 
     def test_misorientation_small_angle(self):
@@ -45,7 +52,9 @@ class TestOrientationHelper:
 
         e1 = [0.0, 0.0, 0.0]
         e2 = [5.0, 0.0, 0.0]
-        val = misorientation(e1, e2, angle_convention="bunge", angle_type="degrees", symmetry="1")
+        val = misorientation(
+            e1, e2, angle_convention="bunge", angle_type="degrees", symmetry="1"
+        )
         assert float(val) == pytest.approx(5.0, abs=0.5)
 
     def test_misorientation_cubic_symmetry(self):
@@ -54,7 +63,9 @@ class TestOrientationHelper:
         # 90-degree rotation about z is equivalent in cubic symmetry
         e1 = [0.0, 0.0, 0.0]
         e2 = [90.0, 0.0, 0.0]
-        val = misorientation(e1, e2, angle_convention="bunge", angle_type="degrees", symmetry="432")
+        val = misorientation(
+            e1, e2, angle_convention="bunge", angle_type="degrees", symmetry="432"
+        )
         assert float(val) == pytest.approx(0.0, abs=1e-3)
 
     def test_matrix_to_quat_identity(self):
@@ -63,17 +74,16 @@ class TestOrientationHelper:
         I = torch.eye(3).unsqueeze(0)
         q = matrix_to_quat(I)
         assert q.shape == (1, 4)
-        # w component should be 1 (or -1) for identity
+        # w component is 1 (or -1) for identity
         assert abs(float(q[0, 0])) == pytest.approx(1.0, abs=1e-5)
 
     def test_matrix_to_quat_norm_one(self):
         from graintrace.orientation_helper import matrix_to_quat
 
         rng = np.random.default_rng(7)
-        # Generate random rotation via QR decomposition
+        # random rotations via QR, forced to det=1
         A = torch.tensor(rng.normal(size=(4, 3, 3)), dtype=torch.float64)
         Q, _ = torch.linalg.qr(A)
-        # fix det=1
         for i in range(4):
             if torch.linalg.det(Q[i]) < 0:
                 Q[i, :, 0] *= -1
@@ -101,10 +111,74 @@ class TestOrientationHelper:
         from graintrace.orientation_helper import load_weights
 
         import pandas as pd
+
         df = pd.DataFrame({"GrainRadius": [10.0, 20.0, 30.0, 40.0]})
         w = load_weights(df)
         assert float(w.sum()) == pytest.approx(1.0, abs=1e-6)
         assert (w > 0).all()
+
+
+class TestOrientationInterchange:
+    """graintrace's canonical orientation interchange is neml2 v3 MRP; every
+    converter must round-trip through the rotation matrix consistently."""
+
+    _E = torch.tensor(
+        [[10.0, 20.0, 30.0], [45.0, 45.0, 0.0], [0.0, 0.0, 0.0], [123.0, 44.0, 271.0]],
+        dtype=torch.float64,
+    )
+
+    def test_euler_mrp_matrix_roundtrip(self):
+        from graintrace import orientation_helper as oh
+
+        M = oh.euler_to_matrix(self._E, "bunge", "degrees")
+        mrp = oh.euler_to_mrp(self._E, "bunge", "degrees")
+        # euler->mrp->matrix recovers the original matrix
+        assert torch.allclose(oh.mrp_to_matrix(mrp), M, atol=1e-8)
+        # matrix->mrp->matrix is identity
+        assert torch.allclose(oh.mrp_to_matrix(oh.matrix_to_mrp(M)), M, atol=1e-8)
+        # mrp->euler->matrix recovers the original matrix
+        er = oh.mrp_to_euler(mrp, "bunge", "degrees")
+        assert torch.allclose(oh.euler_to_matrix(er, "bunge", "degrees"), M, atol=1e-8)
+
+    def test_euler_to_mrp_is_true_neml2_mrp(self):
+        from graintrace import orientation_helper as oh
+        from neml2 import types as t
+
+        M = oh.euler_to_matrix(self._E, "bunge", "degrees").contiguous()
+        ref = t.MRP.from_matrix(t.R2(M, 0)).data
+        assert torch.allclose(
+            oh.euler_to_mrp(self._E, "bunge", "degrees"), ref, atol=1e-10
+        )
+
+    def test_load_orientations_returns_neml2_mrp(self):
+        from graintrace import orientation_helper as oh
+        import pandas as pd
+
+        M = oh.euler_to_matrix(self._E, "bunge", "degrees")
+        cols = [f"O{i}{j}" for i in range(1, 4) for j in range(1, 4)]
+        df = pd.DataFrame(M.reshape(-1, 9).numpy(), columns=cols)
+        assert torch.allclose(oh.load_orientations(df), oh.matrix_to_mrp(M), atol=1e-10)
+        # load_orientations_mrp is kept as an alias
+        assert oh.load_orientations_mrp is oh.load_orientations
+
+    def test_average_rotations_returns_mrp_3vec(self):
+        """Guards the Phase-1 regression: average_rotations must return a 3-vector
+        neml2 MRP (not a 3x3 matrix), so nf.mesh.write_spn's (N,3) buffer works."""
+        from graintrace.nf.metrics import average_rotations
+        from graintrace import orientation_helper as oh
+
+        e = self._E[:3]  # a small cluster to average
+        mrp, euler = average_rotations(
+            e, angle_convention="bunge", angle_type="degrees"
+        )
+        assert mrp.shape == (3,)
+        assert euler.shape == (3,)
+        # the returned MRP and euler describe the same rotation
+        assert torch.allclose(
+            oh.mrp_to_matrix(mrp),
+            oh.euler_to_matrix(euler, "bunge", "degrees"),
+            atol=1e-6,
+        )
 
 
 class TestNFImage:
@@ -142,5 +216,7 @@ class TestNFMetrics:
         from graintrace.nf.metrics import misorientation as nf_mis
 
         e = torch.zeros(5, 3, dtype=torch.float64)
-        result = nf_mis(e, e, angle_convention="bunge", angle_type="radians", symmetry="1")
+        result = nf_mis(
+            e, e, angle_convention="bunge", angle_type="radians", symmetry="1"
+        )
         assert torch.allclose(result, torch.zeros_like(result), atol=1e-5)

@@ -59,36 +59,17 @@
 []
 
 [NEML2]
-    input = 'neml2_cpfe.i'
-    cli_args = "slip_constant_strength=${slip_constant_strength} vh_slope_init=${voce_hardening_initial_slope}
-                vh_hardening_sat=${voce_hardening_saturation} pow_slip_n=${power_slip_n}
-                pow_slip_g0=${power_slip_g0} E=${elastic_E} nu=${elastic_nu} G=${elastic_G}
-                device_neml2=${device_neml2} device_neml2_batch=${device_neml2_batch}
-                nbatchdevice1=${nbatchdevice1} nbatchdevice2=${nbatchdevice2}
-                hybrid_devices='cuda:0 cuda:1'"
-    scheduler = '${scheduler_name}'
-    async_dispatch = false
+    # Loads the AOTI-compiled package stub (${neml2_stub}); material params baked at compile time.
+    input = '${neml2_stub}'
     [all]
         model = 'model'
         verbose = true
+        device = '${device_neml2}'
+        # per-device batch chunk (0 = whole local batch; finite caps GPU memory)
+        device_batch = '${device_neml2_batch}'
 
-        moose_input_types = 'MATERIAL                          POSTPROCESSOR         POSTPROCESSOR
-                             MATERIAL                          MATERIAL              MATERIAL'
-        moose_inputs = '     spatial_velocity_increment        time                  time          
-                             elastic_strain                    orientation           slip_hardening'
-        neml2_inputs = '     forces/spatial_velocity_increment forces/t              old_forces/t
-                             old_state/elastic_strain          old_state/orientation old_state/internal/slip_hardening'
-
-        moose_output_types = 'MATERIAL                            MATERIAL                      MATERIAL                  
-                              MATERIAL                            MATERIAL'
-        moose_outputs = '     neml2_cauchy_stress                 elastic_strain                orientation               
-                              slip_hardening                      elastic_deformation_gradient'
-        neml2_outputs = '     state/internal/full_cauchy_stress   state/elastic_strain          state/orientation         
-                              state/internal/slip_hardening       state/Fe'
-
-        moose_derivative_types = 'MATERIAL'
-        moose_derivatives = '     neml2_cauchy_jacobian'
-        neml2_derivatives = '     state/internal/full_cauchy_stress forces/spatial_velocity_increment'
+        # neml2_stress derivative wrt the kinematic input -> consistent Jacobian.
+        derivatives = 'neml2_stress spatial_deformation_gradient_increment'
 
         initialize_outputs = '      orientation'
         initialize_output_values = 'initial_orientation'
@@ -120,8 +101,8 @@
 [Materials]
     [stress_copy]
         type = ComputeLagrangianCauchyCustomStress
-        custom_cauchy_stress = 'neml2_cauchy_stress'
-        custom_cauchy_jacobian = 'neml2_cauchy_jacobian'
+        custom_cauchy_stress = 'neml2_stress'
+        custom_cauchy_jacobian = 'dneml2_stress/dspatial_deformation_gradient_increment'
         large_kinematics = true
     []
     [nye_tensor]
@@ -184,7 +165,7 @@
     []
 []
 
-########################### OUTPUT ###########################
+# OUTPUT
 [Outputs]
     file_base = '${base_folder}/sim_output'
     sync_times = '${sync_times}'

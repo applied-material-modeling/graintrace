@@ -22,6 +22,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+"""Selector functions that pick rare cluster labels from per-cluster statistics."""
+
 from __future__ import annotations
 
 from typing import List, Optional
@@ -35,6 +37,7 @@ def select_smallest_cluster(
     nsmallest: int = 10,
     min_size: int = 1,
 ) -> np.ndarray:
+    """Return labels of the smallest clusters (by count ``n``) above ``min_size``."""
     d = df[df["n"] >= min_size]
     d = d.nsmallest(nsmallest, "n")
     return d["cluster_label"].to_numpy()
@@ -46,7 +49,7 @@ def select_highest_von_mises_from_components(
     required_cols: Optional[List[str]] = None,
     min_size: int = 1,
 ) -> np.ndarray:
-
+    """Return labels of the ``k`` clusters with the highest von Mises stress from mean components."""
     if required_cols is None:
         required_cols = [
             "sxx_mean_mean",
@@ -83,6 +86,7 @@ def select_highest_scalar(
     k: int = 1,
     min_size: int = 1,
 ) -> np.ndarray:
+    """Return labels of the ``k`` clusters with the highest value in the given scalar column."""
     col = required_cols
     if col not in df.columns:
         raise ValueError(f"Missing required column for scalar selection: {col}")
@@ -100,6 +104,7 @@ def select_highest_norm_3x3_tensor(
     required_cols: Optional[List[str]] = None,
     min_size: int = 1,
 ) -> np.ndarray:
+    """Return labels of the ``k`` clusters with the highest Frobenius norm of a 3x3 tensor."""
     if required_cols is None:
         required_cols = [
             "t11_mean_mean",

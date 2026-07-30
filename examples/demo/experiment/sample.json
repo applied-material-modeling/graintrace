@@ -1,0 +1,65 @@
+{
+  "sample": {
+    "name": "demo_synthetic_200grain",
+    "description": "Synthetic FF-HEDM demo microstructure (graintrace).",
+    "bounding_box_um": [
+      -300,
+      300,
+      -300,
+      300,
+      -320,
+      320
+    ],
+    "n_grains_true": 199,
+    "units": {
+      "length": "micrometer",
+      "orientation": "degrees",
+      "orientation_convention": "bunge",
+      "strain": "microstrain",
+      "symmetry": "432"
+    }
+  },
+  "scan_geometry": {
+    "n_scans": 4,
+    "overlap_fraction": 0.25,
+    "zlo": -320,
+    "zhi": 320
+  },
+  "loading": {
+    "mode": "uniaxial_tension",
+    "loaded_axis": "z",
+    "total_strain": 0.2,
+    "temperature_K": 298,
+    "bc": {
+      "x": {
+        "negative": "stress_free",
+        "positive": "stress_free"
+      },
+      "y": {
+        "negative": "stress_free",
+        "positive": "stress_free"
+      },
+      "z": {
+        "negative": 0,
+        "positive": "total_strain * (zhi - zlo)"
+      }
+    }
+  },
+  "elastic_strain_columns": {
+    "prefix": "eKen",
+    "unit": "microstrain"
+  },
+  "provenance": {
+    "generator": "demo/generate_experiment.py",
+    "seed": 42,
+    "morpho": {
+      "type": "diameq",
+      "distribution": "lognormal",
+      "params": [
+        130.0,
+        5.0
+      ]
+    }
+  },
+  "notes": "scan_*.csv are FF-HEDM z-scans (X,Y,Z,GrainRadius,Eul0-2,eKen11..33). Residual eKen is in microstrain. This file supplies everything a raw CSV cannot: sample dimensions, loading conditions, scan geometry, and units."
+}

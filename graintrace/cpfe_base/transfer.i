@@ -45,15 +45,6 @@
         displaced_source_mesh = false
         displaced_target_mesh = false
     []
-    # [Fe_transfer]
-    #     type = MultiAppGeneralFieldShapeEvaluationTransfer
-    #     source_variable = 'Fe_11 Fe_12 Fe_13 Fe_21 Fe_22 Fe_23 Fe_31 Fe_32 Fe_33'
-    #     variable = 'Fe_11 Fe_12 Fe_13 Fe_21 Fe_22 Fe_23 Fe_31 Fe_32 Fe_33'
-    #     to_multi_app = 'regular_grid'
-    #     error_on_miss = false
-    #     displaced_source_mesh = false
-    #     displaced_target_mesh = false
-    # []
     [nye_tensor_transfer]
         type = MultiAppGeneralFieldShapeEvaluationTransfer
         source_variable = 'nye_tensor_11 nye_tensor_12 nye_tensor_13 nye_tensor_21 nye_tensor_22 nye_tensor_23 nye_tensor_31 nye_tensor_32 nye_tensor_33'

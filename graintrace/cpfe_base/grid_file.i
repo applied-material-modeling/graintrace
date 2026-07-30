@@ -63,7 +63,7 @@
 []   
 
 
-########################### OUTPUT ########################### 
+# OUTPUT
 [AuxVariables]
     [ori_rodrigues_x]
         order = FIRST

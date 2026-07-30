@@ -22,10 +22,13 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+"""User-facing dataclasses for similarity metrics, weighting, and rare criteria."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional, Callable, Dict, Any, Union
+from typing import Any, Callable, Dict, List, Optional, Union
+
 import numpy as np
 import pandas as pd
 
@@ -35,36 +38,35 @@ BatchDistanceFunction = Callable[[np.ndarray, np.ndarray], np.ndarray]
 
 @dataclass
 class SimilarityMetric:
+    """A named feature-space distance metric and its required columns."""
+
     name: str
-    feature_cols: List[str]  # requried feature names
+    feature_cols: List[str]  # required feature names
     func: DistanceFunction  # metric(u, v) -> float
-    dist_edges: Optional[BatchDistanceFunction] = None
-    # X,edges -> (E,) batch version of func, used for vectorized computations.
+    dist_edges: Optional[BatchDistanceFunction] = None  # vectorized: X,edges -> (E,)
 
 
 @dataclass(frozen=True)
 class WeightConfig:
+    """Configuration for converting edge distances into graph weights."""
+
     mode: str = "inverse"  # "inverse" | "rbf" | "exp" | "identity" | "log_inv"
     eps: float = 1e-8  # used by inverse/log_inv
     sigma: Optional[float] = None  # used by rbf/exp
     sigma_auto: Optional[Dict[str, Any]] = (
-        None  # if sigma is None and mode is rbf/exp, use this config to estimate sigma from graph edge distances
+        None  # estimate sigma from edge distances when sigma is None (rbf/exp)
     )
     power: float = 2.0  # rbf exponent: exp(-(d/sigma)^power)
 
 
 @dataclass
 class RareCriteria:
-    """
-    Define how to select rare *merged* clusters.
-    Either provide `selector` or use the built-in defaults.
-    """
+    """Select rare merged clusters via `selector`, or the built-in size-quantile defaults."""
 
     selector: Optional[
         Callable[[pd.DataFrame], Union[np.ndarray, List[int], List[str]]]
     ] = None
 
-    # Built-in default: pick bottom quantile by 'n' (cluster size) from indicator_clusters_df
-    size_quantile: float = 0.05  # bottom 5%
+    size_quantile: float = 0.05  # default: bottom quantile by cluster size 'n'
     min_size: int = 1  # enforce absolute minimum
     max_rare: Optional[int] = None  # cap number of rare clusters (smallest first)

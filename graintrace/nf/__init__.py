@@ -22,5 +22,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from __future__ import annotations
+"""NF (near-field) HEDM voxel grid processing subpackage."""
 
+from __future__ import annotations

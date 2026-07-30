@@ -22,16 +22,21 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+"""Generate synthetic FF/NF HEDM datasets from a NEPER crystal (SyntheticHEDMGenerator)."""
+
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple
-import pandas as pd
-import numpy as np
 import os
+
+import numpy as np
+import pandas as pd
+
 from .generate_random_crystal import CrystalGenerator
 
 
 class SyntheticHEDMGenerator:
+    """Build synthetic far-field and near-field HEDM data for stitching/CPFE tests."""
+
     def __init__(
         self,
         output_dir,
@@ -62,13 +67,13 @@ class SyntheticHEDMGenerator:
         self._validate_init()
 
     def run(self, ff_iterations: int = 10) -> None:
+        """Generate FF then NF datasets and report the NF point count."""
         self.generate_ff(iterations=ff_iterations)
         self.generate_nf()
 
-        # Diagnostics
         print(f"NF bounding box is updated to: {self.nf_bounding_box.tolist()}")
 
-        # Count total NF points (same XY reused across layers)
+        # count total NF points (same XY reused across layers)
         vertices_xy = self._build_nf_hex_vertex_lattice()
         z_layers = self._compute_nf_z_layers()
 
@@ -76,13 +81,8 @@ class SyntheticHEDMGenerator:
         print(f"NF number of layers: {len(z_layers)}")
         print(f"NF total points: {len(vertices_xy) * len(z_layers)}")
 
-    ## FAR FIELD METHODS ------------------------------------------------
     def generate_ff(self, iterations: int = 10) -> None:
-        """
-        Generates:
-          - output_dir/FF/neper/voronoi.csv
-          - output_dir/FF/ff.csv
-        """
+        """Generate FF/neper/voronoi.csv and FF/ff.csv."""
         os.makedirs(self.ff_neper_dir, exist_ok=True)
 
         np.random.seed(self.random_seed)
@@ -100,10 +100,7 @@ class SyntheticHEDMGenerator:
         return out_ff
 
     def _generate_ff_base(self, iterations: int = 10) -> pd.DataFrame:
-        """
-        Uses CrystalGenerator to create voronoi tessellation + voronoi.csv.
-        Writes everything under output_dir/FF/neper/.
-        """
+        """Create voronoi tessellation + voronoi.csv under FF/neper/ via CrystalGenerator."""
 
         cg = CrystalGenerator(
             output_dir=self.ff_neper_dir,
@@ -112,10 +109,10 @@ class SyntheticHEDMGenerator:
             dim=3,
         )
 
-        # Validate morphology via CrystalGenerator (single source of truth)
         try:
             cg.validate_morpho(self.ff_grain_characteristics)
-        except Exception:
+        except Exception:  # pylint: disable=broad-exception-caught
+            # Any morpho validation failure should surface the available options.
             cg.show_morpho_options(exit_after=True)
 
         cg.generate_tessellation(
@@ -128,10 +125,8 @@ class SyntheticHEDMGenerator:
         return base_csv
 
     def _append_elastic_strain(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Adds symmetric elastic strain tensor columns in microstrain:
-          eKen11..eKen33, with Gaussian(mean=0, stdev=self.ff_strain_stdev).
-        """
+        """Add symmetric elastic strain columns eKen11..eKen33 (microstrain),
+        Gaussian(0, self.ff_strain_stdev)."""
         required = ["X", "Y", "Z", "GrainRadius", "Eul0", "Eul1", "Eul2"]
         missing = [c for c in required if c not in df.columns]
         if missing:
@@ -161,17 +156,8 @@ class SyntheticHEDMGenerator:
 
         return df
 
-    ## NEAR FIELD METHODS ------------------------------------------------
     def generate_nf(self) -> None:
-        """
-        Generates near-field layered CSVs:
-          output_dir/NF/layer_000.csv
-          output_dir/NF/layer_001.csv
-          ...
-
-        Each layer CSV columns:
-          X, Y, Eul1, Eul2, Eul3
-        """
+        """Generate near-field layered CSVs NF/layer_XXX.csv (columns X, Y, Eul1, Eul2, Eul3)."""
         os.makedirs(self.nf_dir, exist_ok=True)
 
         tess_path = os.path.join(self.ff_neper_dir, "voronoi.tess")
@@ -213,10 +199,10 @@ class SyntheticHEDMGenerator:
 
     def _read_voronoi_tess_seeds_and_orientations(self, tess_path: str):
 
-        with open(tess_path, "r") as f:
+        with open(tess_path, "r", encoding="utf-8") as f:
             lines = f.readlines()
 
-        # Find **cell count
+        # find **cell count
         ncell = None
         for i, line in enumerate(lines):
             if line.lstrip().startswith("**cell"):
@@ -229,7 +215,7 @@ class SyntheticHEDMGenerator:
         if ncell is None:
             raise ValueError("Failed to find '**cell' block / ncell in tess file.")
 
-        # Find *seed block
+        # find *seed block
         seed_idx = None
         for i, line in enumerate(lines):
             if line.lstrip().startswith("*seed"):
@@ -248,10 +234,9 @@ class SyntheticHEDMGenerator:
             if s.startswith("*") or s.startswith("**"):
                 break
             parts = s.split()
-            # Expected: id x y z w
+            # expected: id x y z w
             if len(parts) < 5:
                 continue
-            sid = int(parts[0])
             x, y, z = float(parts[1]), float(parts[2]), float(parts[3])
             seeds[row, :] = (x, y, z)
             row += 1
@@ -260,7 +245,7 @@ class SyntheticHEDMGenerator:
         if row != ncell:
             raise ValueError(f"Parsed {row} seeds, expected {ncell}.")
 
-        # Find *ori block
+        # find *ori block
         ori_idx = None
         for i, line in enumerate(lines):
             if line.lstrip().startswith("*ori"):
@@ -269,11 +254,10 @@ class SyntheticHEDMGenerator:
         if ori_idx is None:
             raise ValueError("Failed to find '*ori' block in tess file.")
 
-        # Skip descriptor line (e.g., "euler-bunge:passive")
+        # skip descriptor line (e.g., "euler-bunge:passive")
         j = ori_idx + 1
         while j < len(lines) and not lines[j].strip():
             j += 1
-        # descriptor
         j += 1
 
         eulers = np.zeros((ncell, 3), dtype=float)
@@ -301,12 +285,12 @@ class SyntheticHEDMGenerator:
         a = self.a_nf
         rt3 = np.sqrt(3.0)
 
-        # Flat-top hex center spacing
+        # flat-top hex center spacing
         dx = 1.5 * a  # center-to-center in x
         dy = rt3 * a  # center-to-center in y
         y_off = 0.5 * rt3 * a  # odd-column y offset
 
-        # Vertex offsets around a flat-top hex center
+        # vertex offsets around a flat-top hex center
         voff = np.array(
             [
                 [a, 0.0],
@@ -319,7 +303,7 @@ class SyntheticHEDMGenerator:
             dtype=float,
         )
 
-        # Make a generous grid of centers that covers bbox (include margin of 1 hex)
+        # grid of centers covering bbox with a 1-hex margin
         i_min = int(np.floor((xmin - a) / dx)) - 2
         i_max = int(np.ceil((xmax + a) / dx)) + 2
         j_min = int(np.floor((ymin - a) / dy)) - 2
@@ -332,9 +316,8 @@ class SyntheticHEDMGenerator:
             for j in range(j_min, j_max + 1):
                 cy = j * dy + col_shift
 
-                # generate vertices for this center
+                # vertices for this center, clipped to bbox
                 v = voff + np.array([cx, cy])
-                # clip vertices to bbox
                 mask = (
                     (v[:, 0] >= xmin - 1e-9)
                     & (v[:, 0] <= xmax + 1e-9)
@@ -352,12 +335,12 @@ class SyntheticHEDMGenerator:
 
         verts = np.vstack(verts)
 
-        # Deduplicate robustly
+        # deduplicate
         key = np.round(verts, decimals=10)
         _, idx = np.unique(key, axis=0, return_index=True)
         verts = verts[np.sort(idx)]
 
-        # Snap bbox to vertex extrema (so boundary is made of vertices)
+        # snap bbox to vertex extrema so boundary is made of vertices
         self.nf_bounding_box[0] = float(np.min(verts[:, 0]))
         self.nf_bounding_box[1] = float(np.max(verts[:, 0]))
         self.nf_bounding_box[2] = float(np.min(verts[:, 1]))
@@ -368,10 +351,7 @@ class SyntheticHEDMGenerator:
         return verts
 
     def _compute_nf_z_layers(self):
-        """
-        Compute z layers using dz_nf and snap zmax_nf so that:
-          zmax_nf = zmin_nf + (n_layers - 1) * dz_nf
-        """
+        """Compute z layers from dz_nf, snapping zmax to zmin + (n_layers-1)*dz_nf."""
         zmin = float(self.nf_bounding_box[4])
         zmax = float(self.nf_bounding_box[5])
         dz = self.dz_nf
@@ -382,10 +362,8 @@ class SyntheticHEDMGenerator:
         if span < 0:
             raise ValueError("nf_bounding_box has zmax < zmin.")
 
-        # At least one layer
-        n_layers = int(np.floor(span / dz)) + 1
-        if n_layers < 1:
-            n_layers = 1
+        # at least one layer
+        n_layers = max(int(np.floor(span / dz)) + 1, 1)
 
         zmax_snapped = zmin + (n_layers - 1) * dz
         self.nf_bounding_box[5] = zmax_snapped
@@ -399,9 +377,7 @@ class SyntheticHEDMGenerator:
     def _assign_eulers_for_layer(
         self, z_layer, seeds_xyz, seed_eulers, chunk_size=5000
     ):
-        """
-        Assign Euler angles to each vertex using nearest Voronoi seed in 3D (Euclidean).
-        """
+        """Assign Euler angles to each vertex from the nearest 3D Voronoi seed."""
         vertices_xy = self.vertices_xy
 
         nverts = vertices_xy.shape[0]
@@ -468,7 +444,8 @@ class SyntheticHEDMGenerator:
     def _nf_visualize(
         self, plot_grid=True, plot_layer_property=False, layer_idx=0, eulers=None
     ):
-        import matplotlib.pyplot as plt
+        # matplotlib is an optional/heavy dep, imported only when visualizing.
+        import matplotlib.pyplot as plt  # pylint: disable=import-outside-toplevel
 
         vis_dir = os.path.join(self.nf_dir, "visualize")
         os.makedirs(vis_dir, exist_ok=True)
@@ -480,7 +457,7 @@ class SyntheticHEDMGenerator:
 
             xmin, xmax, ymin, ymax, zmin, zmax = map(float, self.nf_bounding_box)
 
-            # Expand XY over all Z layers
+            # expand XY over all Z layers
             X = []
             Y = []
             Z = []
@@ -495,7 +472,7 @@ class SyntheticHEDMGenerator:
 
             fig, axs = plt.subplots(2, 1, figsize=(6, 10))
 
-            # --- Top view (X,Y) ---
+            # top view (X,Y)
             axs[0].plot(
                 [xmin, xmax, xmax, xmin, xmin],
                 [ymin, ymin, ymax, ymax, ymin],
@@ -507,7 +484,7 @@ class SyntheticHEDMGenerator:
             axs[0].set_xlabel("X")
             axs[0].set_ylabel("Y")
 
-            # --- Side view (X,Z) ---
+            # side view (X,Z)
             axs[1].plot(
                 [xmin, xmax, xmax, xmin, xmin],
                 [zmin, zmin, zmax, zmax, zmin],
@@ -530,7 +507,7 @@ class SyntheticHEDMGenerator:
             titles = ["Eul1", "Eul2", "Eul3"]
 
             for i in range(3):
-                sc = axs[i].scatter(
+                axs[i].scatter(
                     vertices_xy[:, 0],
                     vertices_xy[:, 1],
                     c=eulers[:, i],

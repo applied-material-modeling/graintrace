@@ -26,3 +26,51 @@ run_experiment_*
 experiment_*/
 test_
 scan_location/
+_roi_*
+hedm_anisotropic/
+
+# --- build / packaging ---
+*.egg-info/
+*.pyo
+
+# --- virtualenvs / editors / OS ---
+.venv/
+venv/
+env/
+.idea/
+.DS_Store
+
+# --- stray artifacts ---
+syntax.json
+
+# --- example / demo output dirs ---
+farfield_out/
+material_calibration_out/
+cpfe_out/
+rei_2d_out/
+test_demo_grid_segmentation/
+
+# --- NEVER commit proprietary CUBIT/Coreform license material ---
+*.lic
+*.license
+clarolicense*
+coreform*/
+cubit*/
+# local deploy secret (mcpo key)
+deploy/env
+# open-webui local secret key (never commit)
+.webui_secret_key
+# MCP server run outputs (jobs logs, plots) -- generated at runtime
+graintrace_mcp_out/
+
+# demo pipeline outputs + internal ground truth
+examples/demo/out/
+examples/demo/_truth/
+examples/demo/*.log
+
+# machine-local external tool paths
+deploy/tools.json
+
+# Generated on demand by examples/demonstrate_rei_comparison.py
+mwe_data/rei_comparison/
+rei_comparison_out/

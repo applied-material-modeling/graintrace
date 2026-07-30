@@ -22,16 +22,21 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+"""Cluster indicators wrapping sklearn/scipy clustering over similarity metrics."""
+
 from __future__ import annotations
 
-from dataclasses import dataclass
+from typing import List, Optional, Tuple, Dict, Any
+
 import pandas as pd
 import numpy as np
-from typing import List, Optional, Tuple, Callable, Dict, Any
+
 from .user_data_class import SimilarityMetric
 
 
 class ClusterAnalysisIndicator:
+    """Run clustering algorithms on field data and summarize per-cluster statistics."""
+
     def __init__(
         self,
         csv_path: str,
@@ -51,20 +56,18 @@ class ClusterAnalysisIndicator:
 
         df = pd.read_csv(self.csv_path)
 
-        # check essential columns
         required = [self.id_col, *self.coord_cols]
         missing = [c for c in required if c not in df.columns]
         if missing:
             raise ValueError(f"Missing required columns: {missing}")
 
-        # if there are no other columns other than required, raise error
         if len(df.columns) == len(required):
             raise ValueError("No feature columns found in the data.")
 
         self.data = df
 
     def check_feature_matrix(self, spec: SimilarityMetric) -> None:
-
+        """Validate that the required feature columns for ``spec`` are numeric and finite."""
         if self.data is None:
             self.load_data()
 
@@ -134,7 +137,6 @@ class ClusterAnalysisIndicator:
         coords_s = coords[order]
 
         starts = np.flatnonzero(np.r_[True, inv_s[1:] != inv_s[:-1]])
-        # starts length == k
         coord_min = np.empty((k, coords.shape[1]), dtype=np.float64)
         coord_max = np.empty((k, coords.shape[1]), dtype=np.float64)
         for j in range(coords.shape[1]):
@@ -142,7 +144,6 @@ class ClusterAnalysisIndicator:
             coord_min[:, j] = np.minimum.reduceat(col, starts)
             coord_max[:, j] = np.maximum.reduceat(col, starts)
 
-        # Assemble summaries
         data: Dict[str, Any] = {label_col: uniq, "n": n}
 
         for j, c in enumerate(coord_names):
@@ -170,14 +171,7 @@ class ClusterAnalysisIndicator:
         minimal_return: bool = False,
         **kwargs: Any,
     ) -> Dict[str, Any]:
-        """
-        Returns dict:
-          {
-            "points": labeled_points_df,
-            "clusters": cluster_summaries_df,
-            "extras": {...}  # method-specific, e.g. linkage Z
-          }
-        """
+        """Cluster points and return {"points", "clusters", "extras"}."""
         self.load_data()
         self.check_feature_matrix(spec)
 
@@ -197,7 +191,6 @@ class ClusterAnalysisIndicator:
 
         return {"points": points, "clusters": clusters, "extras": extras}
 
-    ## different clustering methods
     def run_sklearn_dbscan(
         self,
         spec: SimilarityMetric,
@@ -211,7 +204,7 @@ class ClusterAnalysisIndicator:
         noise_label: int = -1,
         minimal_return: bool = False,
     ) -> Tuple[Optional[pd.DataFrame], pd.DataFrame, Dict[str, Any]]:
-
+        """Cluster with sklearn DBSCAN and return points, cluster summaries, and extras."""
         if self.data is None:
             self.load_data()
         df = self.data
@@ -222,6 +215,7 @@ class ClusterAnalysisIndicator:
         all_feat_cols = self._get_all_feature_cols(df)
         X_all = df[all_feat_cols].to_numpy(dtype=float)
 
+        # pylint: disable=import-outside-toplevel  # sklearn is a heavy optional dep
         from sklearn.cluster import DBSCAN
 
         clustering = DBSCAN(
@@ -273,7 +267,7 @@ class ClusterAnalysisIndicator:
         compute_distances: bool = False,
         minimal_return: bool = False,
     ) -> Tuple[Optional[pd.DataFrame], pd.DataFrame, Dict[str, Any]]:
-
+        """Cluster with sklearn AgglomerativeClustering using the metric's distance func."""
         if self.data is None:
             self.load_data()
         df = self.data
@@ -290,6 +284,7 @@ class ClusterAnalysisIndicator:
         all_feat_cols = self._get_all_feature_cols(df)
         X_all = df[all_feat_cols].to_numpy(dtype=float)
 
+        # pylint: disable=import-outside-toplevel  # sklearn is a heavy optional dep
         from sklearn.cluster import AgglomerativeClustering
 
         clustering = AgglomerativeClustering(
@@ -345,7 +340,7 @@ class ClusterAnalysisIndicator:
         noise_label: int = -1,
         minimal_return: bool = False,
     ) -> Tuple[Optional[pd.DataFrame], pd.DataFrame, Dict[str, Any]]:
-
+        """Cluster with sklearn OPTICS and return points, cluster summaries, and extras."""
         if self.data is None:
             self.load_data()
         df = self.data
@@ -356,6 +351,7 @@ class ClusterAnalysisIndicator:
         all_feat_cols = self._get_all_feature_cols(df)
         X_all = df[all_feat_cols].to_numpy(dtype=float)
 
+        # pylint: disable=import-outside-toplevel  # sklearn is a heavy optional dep
         from sklearn.cluster import OPTICS
 
         clustering = OPTICS(
@@ -410,7 +406,8 @@ class ClusterAnalysisIndicator:
         ax=None,
         no_labels: bool = True,
     ) -> Dict[str, Any]:
-
+        """Plot a hierarchical-clustering dendrogram with a cut threshold; return leaf info."""
+        # pylint: disable=import-outside-toplevel  # matplotlib/scipy are heavy optional deps
         import matplotlib.pyplot as plt
         from scipy.cluster.hierarchy import dendrogram
 
@@ -449,7 +446,7 @@ class ClusterAnalysisIndicator:
         dendrogram_path: Optional[str] = None,
         minimal_return: bool = False,
     ) -> Tuple[Optional[pd.DataFrame], pd.DataFrame, Dict[str, Any]]:
-
+        """Cluster with scipy hierarchical linkage and return points, summaries, and extras."""
         if self.data is None:
             self.load_data()
         df = self.data
@@ -460,6 +457,7 @@ class ClusterAnalysisIndicator:
         all_feat_cols = self._get_all_feature_cols(df)
         X_all = df[all_feat_cols].to_numpy(dtype=float)
 
+        # pylint: disable=import-outside-toplevel  # scipy/sklearn are heavy optional deps
         from scipy.cluster.hierarchy import linkage, cophenet, fclusterdata
         from scipy.spatial.distance import pdist, squareform
         from sklearn.manifold import MDS

@@ -22,9 +22,9 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from __future__ import annotations
+"""Voxel connectivity helpers for NF grid images."""
 
-from typing import List, Tuple
+from __future__ import annotations
 
 import torch
 
@@ -45,16 +45,15 @@ connectivity_options = {
 
 
 def get_neighbor_indices(offsets, shape):
-    """Calculate the indices of all neighbors according to the given offsets
+    """Compute neighbor indices for every voxel given a set of offsets.
 
     Args:
-        offsets: list of (dx, dy, dz) tuples
+        offsets: (n_offsets, 3) tensor of (dx, dy, dz)
         shape: (nx, ny, nz) tuple
 
     Returns:
-        dx, dy, dz: tensors of shape (n_offsets,) with neighbor offsets
-        Xk, Yk, Zk: tensors of shape (n_offsets, nx, ny, nz) with neighbor indices
-        valid: tensor of shape (n_offsets, nx, ny, nz) indicating valid neighbors
+        Xk, Yk, Zk: (n_offsets, nx, ny, nz) clamped neighbor indices
+        valid: (n_offsets, nx, ny, nz) mask of in-bounds neighbors
     """
     dx = offsets[:, 0]
     dy = offsets[:, 1]

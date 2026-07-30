@@ -22,22 +22,28 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+"""Load and query experimental (FF/NF/EBSD) field data (ExperimentResults)."""
+
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple, Union
-import re
+
 import numpy as np
 import pandas as pd
 
 
 class FieldFileNaming:
-    """
-    Naming convention for per-step CSVs.
-    The "identifier" is whatever appears between sep and suffix.
-    """
+    """Naming convention for per-step CSVs (identifier is between sep and suffix)."""
 
-    def __init__(self, prefix: str, index_width: Optional[int] = None, sep: str = "_", suffix: str = ".csv") -> None:
+    def __init__(
+        self,
+        prefix: str,
+        index_width: Optional[int] = None,
+        sep: str = "_",
+        suffix: str = ".csv",
+    ) -> None:
         self.prefix = prefix
         self.index_width = index_width
         self.sep = sep
@@ -49,7 +55,12 @@ class ExperimentResults:
     Far-field HEDM experiment results (one CSV per load/time step).
     """
 
-    def __init__(self, exp_dir: Union[str, Path], exp_naming: FieldFileNaming, step_to_time: Optional[Union[Dict, Callable]] = None) -> None:
+    def __init__(
+        self,
+        exp_dir: Union[str, Path],
+        exp_naming: FieldFileNaming,
+        step_to_time: Optional[Union[Dict, Callable]] = None,
+    ) -> None:
 
         self.exp_dir = Path(exp_dir).expanduser().resolve()
         self.exp_naming = exp_naming
@@ -70,6 +81,7 @@ class ExperimentResults:
         self._block_df = pd.DataFrame({"time": self.time})
 
     def check_input(self) -> None:
+        """Discover experiment CSVs, order the step ids, and derive times."""
         if not self.exp_dir.exists() or not self.exp_dir.is_dir():
             raise FileNotFoundError(f"Experiment directory not found: {self.exp_dir}")
 
@@ -98,7 +110,7 @@ class ExperimentResults:
         def _sort_key(s):
             try:
                 return (0, float(s))
-            except Exception:
+            except (ValueError, TypeError):
                 return (1, s)
 
         self.step_ids = sorted(step_map.keys(), key=_sort_key)
@@ -110,7 +122,7 @@ class ExperimentResults:
             for i, sid in enumerate(self.step_ids):
                 try:
                     times.append(float(sid))
-                except Exception:
+                except (ValueError, TypeError):
                     times.append(float(i))
         elif callable(self.step_to_time):
             for sid in self.step_ids:
@@ -124,6 +136,7 @@ class ExperimentResults:
         self.time = pd.Series(times, name="time")
 
     def load_data(self, grain_id: str) -> pd.DataFrame:
+        """Read and return the field CSV for the given step/grain id."""
         if grain_id not in self.grain_files:
             raise KeyError(f"Unknown grain_id='{grain_id}'. Available: {self.step_ids}")
         df = pd.read_csv(self.grain_files[grain_id])
@@ -230,7 +243,6 @@ class ExperimentResults:
                 df, tensor_prefix, order, suffix="", return_comp_names=return_comp_names
             )
 
-        # sample == "time"
         if grain_id is None:
             raise ValueError("grain_id must be provided when sample='time'")
         if not isinstance(grain_id, int):
@@ -242,7 +254,7 @@ class ExperimentResults:
         for sid in self.step_ids:
             row_idx = self._grain_row_map[sid].get(grain_id, None)
             if row_idx is None:
-                # missing grain in this step (placeholder behavior)
+                # missing grain in this step
                 if order == 0:
                     d = np.array([[np.nan]])
                     cn = [tensor_prefix]
@@ -285,12 +297,11 @@ class ExperimentResults:
         return data
 
     def get_tensor_element(self, *args: object, **kwargs: object) -> None:
+        """Not implemented: near-field experiment tensor access."""
         raise NotImplementedError("Near-field experiment support not yet implemented.")
 
     def _run_grain_tracking(self) -> None:
-        """
-        just assign grain IDs based on row indices in the first step
-        """
+        """Assign grain IDs based on row indices in the first step."""
         first_step = self.step_ids[0]
         df0 = self.load_data(first_step)
         n0 = df0.shape[0]

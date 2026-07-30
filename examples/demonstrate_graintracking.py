@@ -33,7 +33,7 @@ ff_bounding_box_1 = [
     173.205,
     0,
     650,
-]  # [-500, 500, -500, 500, 0, 1500]
+]
 ff_bounding_box_2 = [-200, 200, -173.205, 173.205, 0, 680]
 
 grain_file1 = "mwe_data/synthetic_load_exp/expsyn_146time.csv"
@@ -85,7 +85,6 @@ builder_ff2 = VoronoiMeshBuilder(
 
 graphb = builder_ff2.build_graph(CVT_iter=10)
 
-# pass in the grain tracking
 grain_track = GraphGrainMatcher(
     graph_a=grapha,
     graph_b=graphb,

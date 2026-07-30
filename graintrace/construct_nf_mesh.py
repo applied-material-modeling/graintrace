@@ -22,6 +22,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+"""NF HEDM reconstruction: segment .mic layers and build a hex mesh."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -36,6 +38,14 @@ PathLike = Union[str, Path]
 
 
 class NearFieldMeshBuilder:
+    """Reconstruct a high-resolution 3D mesh from near-field (NF) HEDM ``.mic`` layers.
+
+    Reads a folder of per-layer orientation maps, segments them into grains on a voxel
+    grid, and generates a conformal hexahedral Exodus mesh via CUBIT/SCULPT, plus
+    per-element MRP orientations for CPFE. See ``examples/demonstrate_cpfe_nfff.py`` and
+    the ``/nf-reconstruction`` skill. (NF reconstruction uses multiprocessing, so call it
+    under an ``if __name__ == "__main__":`` guard.)
+    """
 
     DEFAULT_SEGMENTATION: Dict[str, Any] = {
         "misorientation_tol": 5.0 / 180.0 * np.pi,  # radians
@@ -116,8 +126,7 @@ class NearFieldMeshBuilder:
                 + ", ".join(sorted(missing))
                 + "\nRequired keys and defaults:\n"
                 + "\n".join(
-                    f"  {k}: {self.DEFAULT_SEGMENTATION[k]!r}"
-                    for k in self.DEFAULT_SEGMENTATION
+                    f"  {k}: {v!r}" for k, v in self.DEFAULT_SEGMENTATION.items()
                 )
             )
         if extra:
@@ -192,20 +201,9 @@ class NearFieldMeshBuilder:
         ny: int = 900,
         segmentation: Optional[Dict[str, Any]] = None,
     ) -> Path:
-        """
-        Inputs:
-          - input_folder containing *.mic or *.csv
-          - dz, nx, ny
-          - segmentation dict (optional; merged with defaults)
+        """Reconstruct a segmented NF voxel grid from .mic/.csv layers.
 
-        Outputs (in save_dir):
-          - pointcloud.csv
-          - fixed_grid.npy (+ fixed_grid.vtk if enabled)
-          - segmented_fixed_grid.npy (+ segmented_fixed_grid.vtk if enabled)
-          - merged_segmented_fixed_grid.npy (+ merged_segmented_fixed_grid.vtk if enabled)
-
-        Returns:
-          - Path to merged_segmented_fixed_grid.npy
+        Returns the path to merged_segmented_fixed_grid.npy.
         """
         seg = self._normalize_segmentation(segmentation)
 
@@ -213,7 +211,6 @@ class NearFieldMeshBuilder:
         nx = int(nx)
         ny = int(ny)
 
-        # canonical filenames for this stage
         pointcloud_csv = self.save_dir / "pointcloud.csv"
         fixed_grid_npy = self.save_dir / "fixed_grid.npy"
         fixed_grid_vtk = self.save_dir / "fixed_grid.vtk"
@@ -221,7 +218,7 @@ class NearFieldMeshBuilder:
         segmented_grid_vtk = self.save_dir / "segmented_fixed_grid.vtk"
         merged_grid_vtk = self.save_dir / "merged_segmented_fixed_grid.vtk"
 
-        # 1) NearField -> pointcloud
+        # NearField -> pointcloud
         pc = convert.nf_to_pointcloud(
             str(self.input_folder), dz, layer_token=self.exp_file_token
         )
@@ -229,7 +226,7 @@ class NearFieldMeshBuilder:
         if self.write_intermediate:
             pc.to_csv(pointcloud_csv, index=False)
 
-        # 2) pointcloud -> fixed grid
+        # pointcloud -> fixed grid
         fixed_grid = convert.pointcloud_to_fixed_grid(pc, nx=nx, ny=ny)
 
         if self.write_intermediate:
@@ -237,7 +234,7 @@ class NearFieldMeshBuilder:
         if self.write_vtk:
             convert.fixed_grid_to_vtk(fixed_grid, str(fixed_grid_vtk))
 
-        # 3) segmentation
+        # segmentation
         grid_t = torch.from_numpy(fixed_grid)
 
         grid_t[..., 0] = segment.flood(
@@ -279,17 +276,10 @@ class NearFieldMeshBuilder:
         mesh_path: Optional[PathLike] = None,
         mapped_orientations_path: Optional[PathLike] = None,
     ) -> Path:
-        """
-        if merged_grid is provided, uses it; else uses save_dir/merged_segmented_fixed_grid.npy.
+        """Generate an Exodus mesh via SCULPT from the merged voxel grid.
 
-        Outputs (defaults in save_dir):
-          - {prefix}.spn
-          - {prefix}.orientations
-          - mesh.e
-          - orientations.txt
-
-        Returns:
-          - Path to Exodus mesh
+        Uses merged_grid if given, else save_dir/merged_segmented_fixed_grid.npy.
+        Returns the path to the Exodus mesh.
         """
         cfg = self._validate_sculpt_config(sculpt_config)
         options = (
@@ -324,7 +314,6 @@ class NearFieldMeshBuilder:
 
         print("\n")
 
-        # write SPN + per-grain orientations
         mesh.write_spn(
             data,
             str(spn_out),
@@ -333,7 +322,6 @@ class NearFieldMeshBuilder:
             angle_type=self.angle_type,
         )
 
-        # sculpt mesh + rescale + map orientations
         mesh.mesh_sculpt(
             cfg,
             options,

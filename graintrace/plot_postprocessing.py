@@ -22,19 +22,15 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+"""Plotting helpers for CPFE field distributions, stress-strain, and pole figures."""
+
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, List, Optional, Union
-import re
-import pandas as pd
+from typing import Any
+
 import numpy as np
 from matplotlib import pyplot as plt
-
-import torch
-import neml2
-
-# --- barycentric coordinates in 2D triangle ---
 
 
 def plot_block_properties_distribution(
@@ -52,6 +48,7 @@ def plot_block_properties_distribution(
     if order not in (0, 1, 2):
         raise ValueError("order must be 0, 1, or 2")
 
+    # pylint: disable-next=protected-access  # internal results cache
     block = results._block_df
     if block is None:
         raise RuntimeError("Block dataframe not loaded.")
@@ -77,6 +74,8 @@ def plot_block_properties_distribution(
         nrows, ncols = 3, 2
     elif nplots == 9:
         nrows, ncols = 3, 3
+    else:
+        raise ValueError(f"Unsupported number of subplots: {nplots}")
 
     fig, axes = plt.subplots(
         nrows,
@@ -91,13 +90,11 @@ def plot_block_properties_distribution(
         axes[0].hist(data, bins=bins, density=True)
         axes[0].set_title(f"{tensor_prefix}")
         axes[0].set_xlabel(tensor_prefix)
-        # axes[0].set_ylabel("count")
     else:
         for i in range(nplots):
             axes[i].hist(data[:, i], bins=bins, density=True)
             axes[i].set_title(f"{comp_names[i]}")
             axes[i].set_xlabel(comp_names[i])
-            # axes[i].set_ylabel("count")
 
     fig.tight_layout()
 
@@ -120,7 +117,7 @@ def plot_macroscopic_stress_strain(
     volume_prefix,
     output_folder="postprocess_out",
 ):
-
+    """Plot volume-weighted macroscopic stress-strain curves per component."""
     grain_ids = results.grain_ids
 
     T = results.get_tensor_block(
@@ -175,10 +172,6 @@ def plot_macroscopic_stress_strain(
     fig.savefig(outpath)
     plt.close(fig)
 
-    # print to get Ezz at time steps xxx
-    # for t in range(T-1):
-    #   print(f"Time step {t+1}: Ezz = {macro_strain[t,8]:.6e}")
-
     return outpath
 
 
@@ -199,7 +192,6 @@ def plot_block_properties_over_time(
     if grain_ids is None:
         grain_ids = results.grain_ids
 
-    # use first grain to determine component structure
     data0, comp_names = results.get_tensor_block(
         tensor_prefix,
         order,
@@ -208,7 +200,6 @@ def plot_block_properties_over_time(
         return_comp_names=True,
     )
 
-    # drop first time step (initial zero state)
     t = results.time.iloc[1:].to_numpy()
     ncomp = data0.shape[1]
 
@@ -220,6 +211,8 @@ def plot_block_properties_over_time(
         nrows, ncols = 3, 2
     elif ncomp == 9:
         nrows, ncols = 3, 3
+    else:
+        raise ValueError(f"Unsupported number of components: {ncomp}")
 
     fig, axes = plt.subplots(
         nrows,
@@ -276,12 +269,16 @@ def plot_pole_figure(
     orientation_type="mrp",
     orientation_units="radians",
     odf_ncontour=12,
-):
-    import neml2
+):  # pylint: disable=dangerous-default-value  # read-only list defaults
+    """Plot discrete inverse/direct pole figures (and optional ODF) at a time."""
+    # pylint: disable=import-outside-toplevel  # torch/neml2 are heavy optional deps
     import torch
-    import neml2.tensors
-    import neml2.postprocessing
+    from neml2 import types as _t
+    from neml2 import texture as _texture
 
+    from .orientation_helper import euler_to_matrix, mrp_to_matrix
+
+    # pylint: disable-next=protected-access  # internal results cache
     block = results._block_df
     if block is None:
         raise RuntimeError("Block dataframe not loaded.")
@@ -291,7 +288,7 @@ def plot_pole_figure(
 
     pdirection = torch.tensor(direction, dtype=torch.double, device=device)
 
-    data, comp_names = results.get_tensor_block(
+    data, _comp_names = results.get_tensor_block(
         tensor_prefix,
         order=1,
         sample="id",
@@ -299,15 +296,15 @@ def plot_pole_figure(
         return_comp_names=True,
     )
 
+    # graintrace 'mrp' is the Gibbs/Rodrigues vector, distinct from neml2's MRP.
     if orientation_type != "mrp":
-        data = torch.tensor(data, dtype=torch.double, device=device)
-        orientations = neml2.tensors.Rot.fill_euler_angles(
-            neml2.tensors.Vec(data), orientation_type, orientation_units
-        )
+        R = euler_to_matrix(data, orientation_type, orientation_units)
     else:
-        orientations = neml2.tensors.Rot(torch.tensor(data, dtype=torch.double))
+        R = mrp_to_matrix(torch.as_tensor(data, dtype=torch.double))
+    R = R.to(device=device, dtype=torch.double).contiguous()
+    orientations = _t.MRP.from_matrix(_t.R2(R, 0))
 
-    neml2.postprocessing.pretty_plot_inverse_pole_figure(
+    _texture.pretty_plot_inverse_pole_figure(
         orientations,
         pdirection,
         crystal_symmetry=crystal_symmetry,
@@ -326,7 +323,7 @@ def plot_pole_figure(
     plt.savefig(fname, dpi=300)
     plt.close()
 
-    neml2.postprocessing.pretty_plot_pole_figure_points(
+    _texture.pretty_plot_pole_figure_points(
         orientations,
         pdirection,
         crystal_symmetry=crystal_symmetry,
@@ -341,15 +338,15 @@ def plot_pole_figure(
     plt.close()
 
     if construct_odf:
-        odf = neml2.postprocessing.odf.KDEODF(
+        odf = _texture.odf.KDEODF(
             orientations,
-            neml2.postprocessing.odf.DeLaValleePoussinKernel(
+            _texture.odf.DeLaValleePoussinKernel(
                 torch.tensor(DeLaValleePoussinKernel_val)
             ),
         )
         odf.optimize_kernel(verbose=True)
         print(odf.kernel.h)
-        neml2.postprocessing.pretty_plot_pole_figure_odf(
+        _texture.pretty_plot_pole_figure_odf(
             odf,
             pdirection,
             crystal_symmetry=crystal_symmetry,

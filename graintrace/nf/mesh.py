@@ -22,6 +22,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+"""SCULPT hex meshing and orientation mapping for NF voxel grids."""
+
 from __future__ import annotations
 
 import tempfile
@@ -45,17 +47,14 @@ def write_spn(
     angle_convention="bunge",
     angle_type="radians",
 ):
-    """Write an spn and orientation file from fixed grid data
+    """Write an spn and per-grain orientation file from fixed grid data.
 
     Args:
-        data (np.ndarray): nx x ny x nz x 7 array with columns [phase, Eul1, Eul2, Eul3, X, Y, Z]
+        data (np.ndarray): nx x ny x nz x 7 array [phase, Eul1, Eul2, Eul3, X, Y, Z]
         filename_spn (str): output spn filename
         filename_orientations (str): output orientations filename
-
-    Keyword Args:
-        angle_convention (str): 'kocks', 'bunge', or 'roe' (default: 'bunge')
-        angle_type (str): 'degrees' or 'radians' (default: 'radians')
-        symmetry (str): crystal symmetry in orbifold notation (default: '1')
+        angle_convention (str): 'kocks', 'bunge', or 'roe'
+        angle_type (str): 'degrees' or 'radians'
     """
     flat_data = data.reshape(-1, 7)
     phases = torch.sort(torch.unique(flat_data[:, 0])).values
@@ -78,7 +77,6 @@ def write_spn(
         orientations[i] = avg_R
         orientations_sameconv[i] = avg
 
-    # Apparently it wants -1 for voids
     np.savetxt(filename_orientations, orientations.numpy(), delimiter=",")
     np.savetxt(
         filename_orientations + "_sameconv",
@@ -99,20 +97,18 @@ def mesh_sculpt(
     angle_convention="bunge",
     angle_type="radians",
 ):
-    """Call sculpt to generate a mesh from an spn file
+    """Call sculpt (+epu) to generate an Exodus mesh from an spn file.
 
     Args:
-        sculpt_config (dict): configuration for sculpt call
-        sculpt_options (list): list of additional command line options for sculpt
+        sculpt_config (dict): configuration for the sculpt call
+        sculpt_options (list): extra command line options for sculpt
         input_spn (str): path to input spn file
-        data (np.ndarray): nx x ny x nz x 7 array with columns [phase, Eul1, Eul2, Eul3, X, Y, Z]
-        output_filename (str): path to output exodus mesh file
+        data (np.ndarray): nx x ny x nz x 7 array [phase, Eul1, Eul2, Eul3, X, Y, Z]
+        output_mesh_filename (str): path to output exodus mesh file
         output_angle_filename (str): path to output orientations file
-
-    Keyword Args:
         split_output_prefix (str): prefix for temporary output files
-        angle_convention (str): 'kocks', 'bunge', or 'roe' (default: 'bunge')
-        angle_type (str): 'degrees' or 'radians' (default: 'radians')
+        angle_convention (str): 'kocks', 'bunge', or 'roe'
+        angle_type (str): 'degrees' or 'radians'
     """
     cwd = os.getcwd()
     nx, ny, nz = data.shape[:3]
@@ -155,7 +151,6 @@ def mesh_sculpt(
         env.update(sculpt_config.get("environment", {}))
         subprocess.run(sclupt_call, check=True, cwd=tmpdir, env=env)
 
-        # Call epu
         epu_call = [
             sculpt_config["epu"],
             "-p",
@@ -182,11 +177,11 @@ def mesh_sculpt(
 
 
 def rescale_exodus_mesh(exo_file, data):
-    """Rescale the physical coordinates of an Exodus mesh to match those in a fixed grid
+    """Rescale Exodus mesh coordinates to match those in a fixed grid.
 
     Args:
         exo_file (str): path to Exodus mesh file
-        data (np.ndarray): nx x ny x nz x 7 array with columns [phase, Eul1, Eul2, Eul3, X, Y, Z]
+        data (np.ndarray): nx x ny x nz x 7 array [phase, Eul1, Eul2, Eul3, X, Y, Z]
     """
     with sio.netcdf_file(exo_file, "a") as f:
         for i, coord in enumerate(["coordx", "coordy", "coordz"]):
@@ -207,16 +202,14 @@ def map_orientations(
     angle_convention="bunge",
     angle_type="radians",
 ):
-    """Map orientations from fixed grid data to an Exodus mesh
+    """Map orientations from fixed grid data onto an Exodus mesh's blocks.
 
     Args:
         exo_file (str): path to Exodus mesh file
-        data (np.ndarray): nx x ny x nz x 7 array with columns [phase, Eul1, Eul2, Eul3, X, Y, Z]
+        data (np.ndarray): nx x ny x nz x 7 array [phase, Eul1, Eul2, Eul3, X, Y, Z]
         output_angle_filename (str): path to output orientations file
-
-    Keyword Args:
-        angle_convention (str): 'kocks', 'bunge', or 'roe' (default: 'bunge')
-        angle_type (str): 'degrees' or 'radians' (default: 'radians')
+        angle_convention (str): 'kocks', 'bunge', or 'roe'
+        angle_type (str): 'degrees' or 'radians'
     """
     flat_data = data.reshape(-1, 7)
     kd = sp.cKDTree(flat_data[:, 4:7])

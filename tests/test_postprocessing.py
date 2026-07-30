@@ -82,7 +82,9 @@ class TestSimulationResults:
 
     def test_get_tensor_block_scalar(self, sim_results):
         gid = sim_results.grain_ids[0]
-        data = sim_results.get_tensor_block("volume", order=0, sample="time", grain_id=gid)
+        data = sim_results.get_tensor_block(
+            "volume", order=0, sample="time", grain_id=gid
+        )
         assert data.shape == (sim_results.n_steps, 1)
 
     def test_get_tensor_block_tensor(self, sim_results):
@@ -91,9 +93,7 @@ class TestSimulationResults:
         assert data.shape == (sim_results.n_steps, 9)
 
     def test_get_tensor_block_by_id(self, sim_results):
-        data = sim_results.get_tensor_block(
-            "ee", order=2, sample="id", block_id=0
-        )
+        data = sim_results.get_tensor_block("ee", order=2, sample="id", block_id=0)
         assert data.ndim == 2
         assert data.shape[1] == 9
 
@@ -121,7 +121,9 @@ def exp_results():
         pytest.skip("experiment_workflow_aps_28Feb/ not found")
     from graintrace.experiment_postprocessing import ExperimentResults, FieldFileNaming
 
-    naming = FieldFileNaming(prefix="stitched_output", index_width=1, sep="", suffix=".csv")
+    naming = FieldFileNaming(
+        prefix="stitched_output", index_width=1, sep="", suffix=".csv"
+    )
     return ExperimentResults(exp_dir=EXP, exp_naming=naming)
 
 
@@ -133,16 +135,12 @@ class TestExperimentResults:
         assert len(exp_results.grain_ids) > 0
 
     def test_get_tensor_block_by_id(self, exp_results):
-        data = exp_results.get_tensor_block(
-            "eKen", order=2, sample="id", block_id=0
-        )
+        data = exp_results.get_tensor_block("eKen", order=2, sample="id", block_id=0)
         assert data.ndim == 2
         assert data.shape[1] == 9
 
     def test_get_tensor_block_eul_vector(self, exp_results):
-        data = exp_results.get_tensor_block(
-            "Eul", order=1, sample="id", block_id=0
-        )
+        data = exp_results.get_tensor_block("Eul", order=1, sample="id", block_id=0)
         assert data.shape[1] == 3
 
     def test_get_tensor_element_raises(self, exp_results):

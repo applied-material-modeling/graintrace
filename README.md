@@ -1,223 +1,173 @@
-# DEPENDENCIES INSTALLATION GUIDES
+# graintrace
 
-These are to performed after downloading the python package.
-`git clone git@github.com:applied-material-modeling/graintrace.git`
+Crystal plasticity finite element (CPFE) pipeline for APS HEDM experiments.
 
-## Required programs
+graintrace is a Python toolkit that links experimental grain scale characterization (far field and near field high energy diffraction microscopy, HEDM, plus EBSD) to CPFE simulation. It ingests raw scan data, reconstructs a 3D microstructure mesh, calibrates a crystal plasticity material model, runs the CPFE simulation, and analyzes the results to pinpoint the grains and regions worth measuring in more detail.
 
-- python >= 3.8.10
-- conda with pip
-- NEPER
-- gmsh
-- CUBIT/SCULPT
-- MOOSE with PUMA app
-- NEML2
+**Architecture.** graintrace is the Python orchestration layer over a compiled scientific stack:
 
-## Installation instructions
+- **MOOSE / PUMA**: finite element framework and solver.
+- **NEML2 v3**: GPU accelerated crystal plasticity constitutive models, AOTI compiled.
+- **pyzag**: analytic adjoint gradients for material calibration.
+- **NEPER**: Voronoi/CVT tessellation; **Coreform CUBIT/SCULPT** (or gmsh): meshing.
 
-1. __Required python packages__
+The pipeline runs reconstruct, calibrate, simulate (CPFE), then analyze and identify rare events.
 
-- check `environment.ymal` for full list of required Python packages with conda environment. This environment will be named `graintrace_env`. To create the same environment with conda, run:
+**Features**
+
+- **Experiment data handling**: ingest and register real FF/NF HEDM and EBSD scans, and reconstruct a 3D microstructure. FF grain centroids become a Voronoi/CVT tessellation (NEPER); NF and EBSD voxel fields are segmented into grains (flood fill or graph/Leiden clustering) and meshed to conformal hex with CUBIT/SCULPT; multiple FF scan layers are stitched into one grain set by region matching. *See `examples/demonstrate_farfield.py`, `examples/demonstrate_cpfe_nfff.py`, `examples/demonstrate_grid_segmentation_mesh.py`.*
+- **Virtual microstructure generation**: synthesize microstructures faithful to input grain size and orientation distributions via NEPER morphology control, accounting for HEDM scanning strategies. *See `examples/demonstrate_hedm_study.py`.*
+- **GPU CPFE and fast calibration**: run CPFE with NEML2 AOTI compiled crystal plasticity models on GPU; calibrate the material to a macroscopic stress vs strain curve with a pyzag analytic adjoint Taylor model, in under 30 minutes for 100+ grains. *See `examples/demonstrate_cpfe.py`, `examples/demonstrate_material_calibration.py`.*
+- **Grain tracking**: match grains across load steps by building a grain graph from each reconstruction and matching via message passing. *See `examples/demonstrate_graintracking.py`.*
+- **Rare event identification (REI)**: locate spatially coherent rare regions in CPFE fields via graph spatial clustering (Leiden) with hierarchical merging, flagging grains and locations for targeted measurement; scales to tens of millions of query points in under an hour. *See `examples/demonstrate_rei_pipeline.py`.*
+
+Analysis (field distributions, macroscopic stress vs strain, pole figures, IPF coloring) rounds out the pipeline. *See `examples/demonstrate_postprocess.py`.*
+
+## What you get from `pip` vs. what you must build
+
+`graintrace` is the **Python** layer. The heavy compiled / licensed stack it *drives* is **not**
+on PyPI and cannot be `pip install`ed:
+
+| Provided by `pip install graintrace` | Must be provided separately |
+|---|---|
+| the `graintrace` package + its Python deps (numpy, pandas, scipy, torch, pyvista, gmsh Python API, …) | **NEML2 v3 + pyzag**: provided by the **PUMA** build (see below), *not* pinned by graintrace |
+| | **MOOSE + PUMA** (`puma-opt`), **libtorch**: built from source via PUMA (git submodule below) |
+| | **NEPER** + standalone **gmsh** binary: installed separately |
+| | **Coreform CUBIT/SCULPT**: proprietary, licensed; obtain your own license (never commit it) |
+
+`graintrace/__init__.py` lazy-imports the compiled stack, so `pip install graintrace` gives you
+an importable package that runs the **Python-only** parts (post-processing, REI, stitching,
+similarity metrics) with no NEML2 present. Features that use NEML2 (material calibration, pole
+figures, CPFE) require the **PUMA-built NEML2** in the shared `graintrace_env`; graintrace does
+**not** install neml2/pyzag itself, because the working, ABI-matched build is the repo-pinned
+NEML2 source that PUMA builds (so `puma-opt`'s C++ library and the Python package stay in lockstep;
+a public PyPI neml2 wheel is a different build and is deliberately not relied upon).
+
+## Requirements
+
+- python **>= 3.10**, conda with pip
+- NEPER, gmsh
+- CUBIT/SCULPT (Coreform license required)
+- MOOSE with the PUMA app, linked with NEML2 (v3) + libtorch
+- NEML2 (v3) and pyzag
+
+## Install
+
+There are two tiers, depending on whether you need the NEML2/CPFE features.
+
+**1. Python-only** (post-processing, REI, stitching, rei_comparison, similarity metrics). No
+conda, NEML2, or native build needed:
 
 ```bash
-conda env create -f environment.yml
+pip install graintrace            # once published to PyPI
+# from a source checkout instead:  pip install -e .
+# optional extras:
+pip install "graintrace[gnn]"       # grain-graph / GNN utilities (torch-geometric)
+pip install "graintrace[mcp]"       # MCP server (drive graintrace from Claude Desktop/Code or any MCP client)
+pip install "graintrace[examples]"  # deps used by examples/ (meshio)
+pip install "graintrace[dev]"       # test/lint/build tooling (pytest, black, isort, build, twine)
+```
+
+`import graintrace` works with no NEML2 present (the compiled stack is lazy-imported).
+
+**2. NEML2 / CPFE features** (material calibration, pole figures, reconstruction, CPFE). These
+need the native stack, which is provided entirely by **PUMA**. Build PUMA first; it creates the
+shared conda env `graintrace_env`, builds MOOSE + libtorch + the repo-pinned NEML2 v3, and installs
+the ABI-matched NEML2/pyzag Python packages into that env. Then install graintrace on top:
+
+```bash
+git clone https://github.com/applied-material-modeling/graintrace.git
+cd graintrace
+git submodule update --init --recursive external/puma   # pulls puma -> moose + neml2
+
+# Build the native stack via PUMA (see external/puma/README.md for prerequisites):
+cd external/puma
+conda env create -f environment.yml        # creates "graintrace_env" (toolchain + NEML2 v3 stack)
 conda activate graintrace_env
+scripts/get_dependencies.sh --build        # inits moose/neml2, builds NEML2 into MOOSE
+make -j                                     # builds puma-opt
+cd ../..
+
+# Install graintrace into the same env (does NOT reinstall neml2/pyzag):
+pip install -e .        # or:  pip install -e ".[dev]"  to run the tests
 ```
 
-2. __NEPER with GMSH__
+graintrace depends on PUMA (one-way): the only thing it needs at runtime is the `puma-opt` binary
+at `external/puma/puma-opt`; pass it as `moose_run_file` to `CPFESimulation` (see
+`examples/demonstrate_cpfe.py`). graintrace intentionally does **not** pin or install neml2/pyzag;
+they come from PUMA's build so `puma-opt`'s C++ library and the Python package stay in lockstep.
 
-- Installation instruction from gmsh can be found at `https://gmsh.info/`. Downloading from source code is usually prefered.
+## External compiled stack (single PUMA submodule)
 
-- After installing gmsh, install NEPER via `https://neper.info/doc/introduction.html`. Often, a local `GSL` is required to install, as well as `OpenBLAS`. Gmsh installation is recommend before NEPER to avoid linking issues.
+The native stack is pinned via **one** submodule; PUMA carries MOOSE and NEML2 as its own
+submodules, so graintrace pins PUMA once and gets the whole stack:
 
-- Alternatively, the code `graintrace/construct_voronoi_mesh.py` provide an automatic installations in its `check_dependencies` function. This only works on LINUX system and have been verified with `Ubuntu 20.04`. This code also should set the correct environment, pull the compatible `gmsh` and `NEPER` versions, as well as download and compile the relevant programs inside the system's home path directory via `home = os.path.expanduser("~")`. To set up automatic installation under this approach, create a new python file and run:
-
-```python
-from graintrace import VoronoiMeshBuilder
-builder = VoronoiMeshBuilder(
-    input_csv="mwe_data/synthetic_data.csv",
-    output_dir="synethic_out",
-    bounding_box=[0,1,0,1,0,1],
-)
-```
-
-3. __CUBIT/SCULPT__
-
-- Coreform CUBIT (either National Labs, commerical or education licenses) are required. It will contain both CUBIT and SCULPT `https://coreform.com/`. The downloadables files, as well as the instructions, are ties with the account that have the license activated. After obtaining the CUBIT coreform license, log in with credentials and download the software.
-
-4. __MOOSE with NEML2__
-
-The required libraries can be obtained form the github packages below, however, it is recommended to follow the instructions below or the official websites to make sure the dependencies are satisfied:
-
-- PUMA: A MOOSE app that runs CPFE `git@github.com:applied-material-modeling/puma.git` with branch: `development`
-- MOOSE: `https://github.com/idaholab/moose.git` with branch: `master`
-- NEML2: `git@github.com:applied-material-modeling/neml2.git` with bracnh: `main`
-
-Here are the resources to successfully compile MOOSE with NEML2
-
-- Built MOOSE from source: `https://mooseframework.inl.gov/getting_started/installation/hpc_install_moose.html`
-
-- Built NEML2 from source: `https://applied-material-modeling.github.io/neml2/install.html` and `https://applied-material-modeling.github.io/neml2/tutorials-getting-started.html`
-
-- Linking MOOSE and NEML2: `https://mooseframework.inl.gov/getting_started/installation/install_neml2.html` and `https://mooseframework.inl.gov/getting_started/installation/install_libtorch.html`
-
-__Instructions__: at least worked for `Ubuntu 20.04` with the appropriate `mpi` and compiler packages. Check the above websites for prerequisites and dependencies.
-
-- Here we assume the current path is in an empty folder. This folder will contain all of the MOOSE related programs. Also there is a current conda environment activated with the necessary dependencies.
+| Submodule | Repo | Branch | Carries |
+|---|---|---|---|
+| `external/puma` | github.com/applied-material-modeling/puma | development | `moose/` + `neml2/` (its own submodules) |
 
 ```bash
-mkdir projects
-cd projects
+git submodule update --init --recursive external/puma
 ```
 
-- Build MOOSE: make sure the gcc / compilers are located in the correct path, usually it is `/usr/bin/mpicc`.
+> Pinned to a specific PUMA commit (recursive init also pins PUMA's moose/neml2), so updates are
+> deliberate. To re-point, update `.gitmodules` and the `external/puma` gitlink, then re-init.
 
-```bash
-export CC=mpicc CXX=mpicxx FC=mpif90 F90=mpif90 F77=mpif77
-git clone https://github.com/idaholab/moose.git
-export MOOSE_DIR=${PWD}/moose
-cd moose
-git checkout master
-export MOOSE_JOBS=12 METHODS=opt
-cd scripts
-./update_and_rebuild_petsc.sh
-./update_and_rebuild_libmesh.sh
-./update_and_rebuild_wasp.sh
-cd ../../
-```
+## CUBIT/SCULPT (proprietary; bring your own license)
 
-- Obtain GPU-enable based libtorch (this is for CUDA 12.6 - find compatibility matrix at: `https://github.com/pytorch/pytorch/blob/main/RELEASE.md#release-compatibility-matrix`). If other versions are required, change the argument for the wget command from `https://pytorch.org/get-started/locally/`. Make sure to select `Stable` `Linux` `LibTorch`. Copy and paste the link in `Run this Command:`. Make sure to do this outside of moose and inside the `projects` folder.
+Coreform CUBIT (National-Lab, commercial, or education license) provides CUBIT + SCULPT:
+<https://coreform.com/>. Obtain and install it under your own account.
 
-```bash
-wget https://download.pytorch.org/libtorch/cu126/libtorch-shared-with-deps-2.10.0%2Bcu126.zip
-unzip libtorch-shared-with-deps-2.10.0+cu126.zip
-export LIBTORCH_DIR=${PWD}/libtorch
-```
+> **Never commit CUBIT license material** (`*.lic`, license servers, keys) to this or any repo.
+> `sculpt_config` in the examples takes only **executable paths**, no license tokens. Set them
+> to your install, e.g.:
+> ```python
+> sculpt_config = {
+>     "launcher": "/path/to/cubit/bin/mpi/bin/mpiexec",
+>     "psculpt":  "/path/to/cubit/bin/psculpt",
+>     "epu":      "/path/to/cubit/bin/epu",
+>     "nprocs":   int(ncore),
+>     "environment": {"OPAL_LIBDIR": "/path/to/cubit/bin/mpi/lib",
+>                     "OPAL_PREFIX": "/path/to/cubit/bin/mpi"},
+> }
+> ```
 
-- Obtain the compatible NEML2 and compile NEML2 for MOOSE and python package.
+## Examples & workflow segments
 
-```bash
-cd moose
-./configure --with-libtorch --with-neml2
-./scripts/update_and_rebuild_neml2.sh
-```
+Runnable examples live in `examples/demonstrate_*.py` (flat top-level `## INPUT` style). Many
+use the small self-contained datasets shipped under `mwe_data/`. Each workflow segment also has
+a `/skill` guide (`.claude/skills/…`); `.claude/CLAUDE.md` §12 maps segment → example → skill.
 
-Once neml2 is compiled, some message like this will appear, run the `cd <messagaes>`.
+Minimum end-to-end check (needs the full external stack): `examples/demonstrate_cpfe_nfff.py`.
+Before running, edit the `sculpt_config`, `moose_run_file`, `ncore`, and `device` at the top of
+the script to match your machine.
 
-```bash
-****************************************************************************************************
-NEML2 has been successfully installed.
-To configure MOOSE with NEML2, run the following commands:
-  cd <messages>
-****************************************************************************************************
-```
-
-Look at the last line, if it said `config.status: framework/include/base/MooseConfig.h is unchanged`. Then the NEML2-LIBTORCH configurations point to the correct path.
-
-- Compile PUMA with linked MOOSE-NEML2.
-
-```bash
-cd ../
-git clone git@github.com:applied-material-modeling/puma.git
-cd puma
-git checkout origin/development
-make -j 12
-```
-
-- Make sure the conda environment from `environment.ymal` is active. Then do:
-
-```bash
-conda activate graintrace_env
-./run_tests
-```
-
-If all tests passed, then it is successfully compiled.
-
-- Finally, activate the python package of NEML2. The compatible NEML2 folder is inside MOOSE at `moose/framework/contrib/`
-
-```bash
-cd ../
-cd moose/framework/contrib/neml2
-pip install . -v
-```
-
-## Minimum working example
-
-Run code `examples/demonstrate_cpfe_nfff.py` to check if the required programs are installed correctly.
-
-- Ensure that the environment variables for the programs are specified correctly. For `Coreform CUBIT`, Locate this line of codes and change the correct environment variables.
-
-```python
-sculpt_config = {
-    "launcher": "/home/tranh/Progs/cubit_gov/bin/mpi/bin/mpiexec",
-    "psculpt": "/home/tranh/Progs/cubit_gov/bin/psculpt",
-    "epu": "/home/tranh/Progs/cubit_gov/bin/epu",
-    "nprocs": int(ncore),
-    "environment": {
-        "OPAL_LIBDIR": "/home/tranh/Progs/cubit_gov/bin/mpi/lib",
-        "OPAL_PREFIX": "/home/tranh/Progs/cubit_gov/bin/mpi",
-    },
-}
-```
-
-- Ensure that the `moose_run_file` points to the correct executable for PUMA (if follows to previous instruction, this file should be located at `projects/puma/puma-opt`). Locate this line and change to the correct path.
-
-```python
-moose_run_file="/home/tranh/projects/aps_build/puma/puma-opt"
-```
-
-- Locate these lines and reduce the `ncore` and `device_batch` as needed. In addition, set `devide=cpu` if `cuda` fails.
-
-```python
-ncore = 24
-device = "cuda:0"
-device_batch = 1000
-```
-
-This code will:
-
-- Generate synthetic data represents NF and FF HEDM
-- Use NEPER/GMSH to reconstruct crystal structure from FF
-- Use CUBIT/SCULPT/NEML2 to reconstruct crystal structure from NF
-- Use MOOSE/NEML2 to run CPFE simulations
-
-In the end, navigate to `minimum_example_nfff_cpfe/simulation/cpfe_run.log` to make sure the simulation is completed.
-
-## Check other python packages
-
-Run these scripts from the repo root to check if all required python packages are installed. If the scripts can run to completion without errors, then the python packages can be considered properly installed and functional.
-
-- `examples/demonstrate_graintracking.py`
+Python-only checks (no MOOSE/CUBIT/NEPER needed):
 
 - `examples/demonstrate_postprocess.py`
-
-- `examples/demonstrate_rei_pipeline.py`
-
-- `examples/demonstrate_rei_example_2D.py`
-
-- `examples/demonstrate_rei_example_3D.py`
-
-- `examples/demonstrate_hedm_study.py`
+- `examples/demonstrate_rei_pipeline.py`, `examples/demonstrate_rei_example_2D.py`, `..._3D.py`
+- `examples/demonstrate_graintracking.py` (needs NEPER)
 
 ## Running the test suite
 
-After installing the package (`pip install -e .`), run the pytest test suite from the repo root to verify that the core Python components are working correctly:
-
 ```bash
-conda activate graintrace_env
+pip install -e ".[dev]"
 pytest tests/
 ```
 
-All 72 tests should pass. The suite covers: data classes, similarity metrics, clustering, orientation math, simulation/experiment postprocessing, and stitching utilities. It also checks that `neml2` is importable and that the CUBIT/SCULPT binaries are present and executable.
-
-To run only the fast pure-Python tests (no heavy external tools):
-
-```bash
-pytest tests/ -m "not slow"
-```
-
-To run a specific test file:
+**101 tests.** On a plain checkout without the PUMA-built NEML2, the NEML2/pyzag-dependent tests
+(orientation math, dependency checks) **skip** via `pytest.importorskip` rather than error, so the
+pure-Python subset (data classes, similarity metrics, clustering, post-processing, stitching, REI
+comparison) runs green. Run inside the PUMA-built `graintrace_env` to exercise the full suite
+(then **99 pass, 2 skip**; the 2 skips are the CUBIT-binary checks, which skip unless you set
+`PSCULPT` / `CUBIT_MPIEXEC` or `CUBIT_BIN_DIR`).
 
 ```bash
-pytest tests/test_dependencies.py -v
+pytest tests/ -m "not slow"          # fast pure-Python subset
+pytest tests/test_dependencies.py -v # environment checks
 ```
+
+## License
+
+MIT. See [LICENSE](LICENSE). Copyright 2026, UChicago Argonne, LLC / Argonne National
+Laboratory.
