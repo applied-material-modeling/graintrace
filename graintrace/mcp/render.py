@@ -3,7 +3,7 @@
 # Software Name: graintrace
 # By: Argonne National Laboratory
 # OPEN SOURCE LICENSE (MIT)
-"""Off-screen 3D rendering to PNG via PyVista (VTK/EGL) -- no ParaView, no display.
+"""Off-screen 3D rendering to PNG via PyVista (VTK/EGL): no ParaView, no display.
 
 Used for the spatial views the demo/MCP need: grains/reconstruction, CPFE field on
 the probe grid, and REI rare-cluster regions. Curves/distributions stay in matplotlib
@@ -114,7 +114,7 @@ def render_vtk(
     elif scalar is not None:
         p.add_mesh(mesh, scalars=scalar, cmap=cmap, show_scalar_bar=True)
     else:
-        # solid — try RGB arrays (IPF) if present, else a neutral color
+        # solid: try RGB arrays (IPF) if present, else a neutral color
         rgb_name = next(
             (
                 n

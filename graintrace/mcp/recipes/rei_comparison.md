@@ -11,7 +11,7 @@ defaults:
   split_merge_fraction: 0.2
 ---
 
-# REI Comparison — recommended parameters
+# REI Comparison: recommended parameters
 
 `compare_rei` wraps `REIComparison`: it measures the spatial overlap between two
 rare-event point clouds (e.g. two field metrics, two thresholds, two methods, or
@@ -25,7 +25,7 @@ is then an O(1) integer-index hash lookup. Non-contiguous regions are handled fo
 free. No KD-tree / alpha-shape / marching-cubes.
 
 ## Minimum you must supply
-- `rei_csv_1`, `rei_csv_2` — voxelized REI point clouds. Columns `x,y,z` and an
+- `rei_csv_1`, `rei_csv_2`: voxelized REI point clouds. Columns `x,y,z` and an
   optional integer `rare_cluster_id`. Produce these from `identify_rare_events`
   via its `rare_points_csv_path` output.
 
@@ -40,18 +40,18 @@ free. No KD-tree / alpha-shape / marching-cubes.
 
 ## Assumptions
 - Both grids are **regular** (constant spacing per axis) and **share an origin**.
-  Translation/rotation registration is out of scope — align the clouds first if
+  Translation/rotation registration is out of scope; align the clouds first if
   they do not share a frame.
 
 ## Outputs (in `output_dir`)
-- `overlap_metrics.json` — IoU (Jaccard), Dice, `containment_1`/`containment_2`
+- `overlap_metrics.json`: IoU (Jaccard), Dice, `containment_1`/`containment_2`
   (asymmetric), voxel counts and volumes.
-- `overlap_cloud.vtk` — classified point cloud, scalar `membership`
+- `overlap_cloud.vtk`: classified point cloud, scalar `membership`
   (1 = only-1, 2 = only-2, 3 = both) plus `cluster_id_1`/`cluster_id_2`.
-- `cluster_match.csv` — 1-to-1 cluster pairing with overlap volume + per-pair
+- `cluster_match.csv`: 1-to-1 cluster pairing with overlap volume + per-pair
   Jaccard/containment; unmatched clusters flagged with `-1`.
 
 ## Reading the numbers
-- `iou` — symmetric agreement of the two regions overall.
-- `containment_1 = |A∩B|/|A|`, `containment_2 = |A∩B|/|B|` — how much of each
+- `iou`: symmetric agreement of the two regions overall.
+- `containment_1 = |A∩B|/|A|`, `containment_2 = |A∩B|/|B|`: how much of each
   region the other covers (use when one REI is a reference).

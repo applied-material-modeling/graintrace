@@ -23,7 +23,7 @@ from typing import List, Optional
 from graintrace.mcp.app import mcp
 
 # Directories that are code (default scope for list/search).
-_CODE_ROOTS = ["graintrace", "examples", "tests", "demo", "mwe_data"]
+_CODE_ROOTS = ["graintrace", "examples", "tests", "mwe_data"]
 # Never walk these (huge / binary / generated).
 _SKIP_DIRS = {
     ".git",
@@ -136,7 +136,7 @@ def search_code(
     regex: bool = False,
     max_results: int = 150,
 ) -> dict:
-    """Search the repository source for a string (or regex) -- like grep.
+    """Search the repository source for a string (or regex), like grep.
 
     query: text to find. regex=true to treat it as an extended regex.
     subdir: repo-relative directory to scope to (default: the code dirs).

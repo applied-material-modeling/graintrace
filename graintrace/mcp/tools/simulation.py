@@ -36,13 +36,13 @@ def run_cpfe(
 ) -> dict:
     """Run a crystal-plasticity FE simulation with NEML2 v3 + MOOSE/PUMA
     (wraps `CPFESimulation`). Read `get_recommended_parameters('cpfe_simulation')`
-    first. Heaviest step -- GPU-bound, minutes to hours; always a background job.
+    first. Heaviest step: GPU-bound, minutes to hours; always a background job.
 
     LOADING CONDITIONS ARE NOT IN THE MESH. Supply `bounding_box` (sample
     dimensions) + `total_strain` (+ `loaded_axis`), or a `sample_json`, and this
     tool builds the `boundary` (bc: uniaxial displacement = total_strain*axis_extent,
     other faces stress-free) and `grid_properties` (probe grid inset by 1e-4)
-    sections for you. Without them it returns 'needs_input' -- ask the user rather
+    sections for you. Without them it returns 'needs_input'; ask the user rather
     than run on the silent unit-cube default.
 
     Parameters
@@ -55,7 +55,7 @@ def run_cpfe(
     loaded_axis : 'x'|'y'|'z' (default z).
     grid_elements : probe grid [nx,ny,nz] (default [20,20,20]).
     sample_json : experiment metadata supplying bounding_box + loading.
-    parameters : advanced -- explicit {section: {kwargs}} for set_parameters
+    parameters : advanced; explicit {section: {kwargs}} for set_parameters
         (material / simulation_parameters / boundary / grid_properties). Anything
         you provide here overrides the auto-built sections.
     init_params : CPFESimulation overrides (element_order, dim, use_ff_initial_field).

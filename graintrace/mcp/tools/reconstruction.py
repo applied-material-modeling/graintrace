@@ -76,22 +76,22 @@ def ff_reconstruct(
     ----------
     input_csv : FF grain CSV (X,Y,Z, Eul0/1/2, and eKen*/eFab* for the ee file).
     bounding_box : [xlo,xhi,ylo,yhi,zlo,zhi] micrometers. REQUIRED (from the user
-        or a sample.json) -- a CSV does not contain the sample dimensions.
+        or a sample.json); a CSV does not contain the sample dimensions.
     sample_json : path to an experiment sample.json (supplies bounding_box + units).
     output_dir : output folder (defaults under the MCP workdir).
     generate_mesh : **default False**. When False, this only produces the Voronoi
         tessellation + reconstruction_reformatted.csv + ee file (no mesh). GMSH tet
-        meshing (True) is an FF-only LAST RESORT -- the recommended CPFE mesh is
+        meshing (True) is an FF-only LAST RESORT; the recommended CPFE mesh is
         SCULPT hex: keep this False, then call `voxel_mesh` on
         reconstruction_reformatted.csv. Only set True if CUBIT/SCULPT is missing.
-    init_params : overrides for VoronoiMeshBuilder(...) -- e.g. unit ('deg'|'rad',
+    init_params : overrides for VoronoiMeshBuilder(...); e.g. unit ('deg'|'rad',
         must match the CSV), auto_rotate, rotate_angles, weighted,
         elastic_strain_identifier, strain_unit, bbox_fix_mode.
-    build_params : overrides for build_voronoi(...) -- option, CVT_iter,
+    build_params : overrides for build_voronoi(...): option, CVT_iter,
         morphoalgo, relative_el_size, tesr_size.
 
     If bounding_box / orientation unit are not provided (directly or via
-    sample_json), returns status 'needs_input' with suggestions -- ask the user.
+    sample_json), returns status 'needs_input' with suggestions; ask the user.
     Needs NEPER (and GMSH only when generate_mesh=true). Runs as a background job.
     """
     # Lazy: heavy graintrace submodule + mcp helper (pandas), imported on run.
@@ -114,11 +114,9 @@ def ff_reconstruct(
     if bounding_box is None:
         missing.append("bounding_box (sample dimensions [xlo,xhi,ylo,yhi,zlo,zhi] um)")
     if not unit_provided:
-        missing.append(
-            "orientation unit ('deg' or 'rad') -- confirm; not auto-detected"
-        )
+        missing.append("orientation unit ('deg' or 'rad'); confirm; not auto-detected")
     # Pre-flight: fail SYNCHRONOUSLY (not inside the background job) if the elastic
-    # strain columns aren't present -- e.g. a stitched CSV that dropped eKen.
+    # strain columns aren't present, e.g. a stitched CSV that dropped eKen.
     esid = init.get("elastic_strain_identifier")
     if esid:
         try:
@@ -205,14 +203,14 @@ def nf_reconstruct(
 ) -> dict:
     """Reconstruct a high-resolution NF-HEDM voxel microstructure from a folder
     of .mic layers (wraps `NearFieldMeshBuilder`). Segments the voxel grid, and
-    -- if `sculpt_config` is given -- also builds a hex Exodus mesh via SCULPT.
+    if `sculpt_config` is given, also builds a hex Exodus mesh via SCULPT.
 
     Parameters
     ----------
     input_folder : folder of .mic layer files.
     dz, nx, ny : layer thickness (um) and in-plane grid resolution.
     save_dir : output folder (defaults under the MCP workdir).
-    init_params : overrides for NearFieldMeshBuilder(...) -- exp_file_token,
+    init_params : overrides for NearFieldMeshBuilder(...): exp_file_token,
         angle_convention, angle_type ('radians'|'degrees'), symmetry, prefix.
     segmentation : legacy flat segmentation dict (misorientation_tol in radians,
         connectivity, grain_threshold, etc.).
@@ -303,10 +301,10 @@ def voxel_mesh(
     file_path : CSV with x,y,z + Euler columns (and optionally a grain-id col).
     euler_cols : the 3 Euler column names (default ['Eul0','Eul1','Eul2']).
     save_dir : output folder (defaults under the MCP workdir).
-    init_params : overrides for VoxelMeshBuilder(...) -- angle_convention,
+    init_params : overrides for VoxelMeshBuilder(...): angle_convention,
         angle_type ('radians'|'degrees'; use 'degrees' for FF output),
         symmetry, cell_id_col, prefix.
-    reconstruct_params : passed to reconstruct(...) -- apply_smoothing and the
+    reconstruct_params : passed to reconstruct(...): apply_smoothing and the
         segmentation dict (method 'graph'|'flood', params, graph_params).
     sculpt_config / sculpt_options : CUBIT/SCULPT config. If omitted, only
         segmentation runs (no mesh).

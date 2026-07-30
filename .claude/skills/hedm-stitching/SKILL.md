@@ -13,10 +13,10 @@ Mirrors `examples/demonstrate_hedm_study.py`. Env: `conda activate graintrace_en
 External tool: **NEPER** (crystal generation + z-scan). No MOOSE/CUBIT.
 
 ## Inputs
-Self-generating — `CrystalGenerator` writes `<out>/voronoi.tess`, `voronoi.csv`, and
+Self-generating: `CrystalGenerator` writes `<out>/voronoi.tess`, `voronoi.csv`, and
 `<out>/hedm_scan/scan_{i}.csv`. For real data, feed your own per-scan CSVs to the stitcher
 (whitespace/comma FF grain tables with `X,Y,Z,GrainRadius,Eul0/1/2,eKen*`; z already shifted
-per layer — see CLAUDE.md §2).
+per layer; see CLAUDE.md §2).
 
 ## Recipe
 ```python
@@ -51,15 +51,15 @@ ScanStitchingComparison(
 ```
 
 ## Key parameters
-- `crystal_morpho_args` — grain morphology (`CrystalGenerator.show_morpho_options()` lists all).
-- `nscan`, `overlap_percentage` — number of z-scan layers and their overlap.
-- `apply_noise`/`noise_level`, `remove_minimum_volume`/`min_vol` — mimic experiment noise.
+- `crystal_morpho_args`: grain morphology (`CrystalGenerator.show_morpho_options()` lists all).
+- `nscan`, `overlap_percentage`: number of z-scan layers and their overlap.
+- `apply_noise`/`noise_level`, `remove_minimum_volume`/`min_vol`: mimic experiment noise.
 - Stitch: `position_tolerance` (length), `orientation_tolerance` (deg), `weights`, `min_neighbors`.
 - Alternative stitchers: `NaiveStitching`, `RegionBaseStitching`.
 
 ## Gotchas
 - `orientation_tolerance` is in **degrees** here; if a downstream step uses radians, convert
-  (`np.deg2rad`) — see CLAUDE.md §10.
+  (`np.deg2rad`); see CLAUDE.md §10.
 - Radius: set `radius_tolerance=-1` to disable radius in the match cost.
 
 ## See also

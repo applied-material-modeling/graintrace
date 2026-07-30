@@ -5,7 +5,7 @@ setup. The MCP server serves them to the connecting model via the
 `get_recommended_parameters` tool and the `recipe://<name>` resources, so the
 model proposes good parameters *before* it previews a run.
 
-These are meant to be **edited and extended by domain experts** — they are plain
+These are meant to be **edited and extended by domain experts**; they are plain
 Markdown, so improving guidance never touches server code. Drop in a new
 `<name>.md` and it is picked up automatically (also add it to the package-data
 glob in `pyproject.toml` if you want it shipped in the wheel).
@@ -40,12 +40,12 @@ Notes:
 
 ## Current recipes
 
-- `ff_reconstruction` — FF Voronoi reconstruction (`ff_reconstruct`)
-- `stitching` — FF z-scan stitching (`stitch_scans`)
-- `cpfe_simulation` — MOOSE/PUMA CPFE run (`run_cpfe`)
-- `microstructure_generation` — NEPER morpho recipes incl. `aspratio` (feeds
+- `ff_reconstruction`: FF Voronoi reconstruction (`ff_reconstruct`)
+- `stitching`: FF z-scan stitching (`stitch_scans`)
+- `cpfe_simulation`: MOOSE/PUMA CPFE run (`run_cpfe`)
+- `microstructure_generation`: NEPER morpho recipes incl. `aspratio` (feeds
   `generate_synthetic_hedm` / `CrystalGenerator`), 12-case study
-- `meshing` — SCULPT `sculpt_options` (`voxel_mesh` / `nf_reconstruct` /
+- `meshing`: SCULPT `sculpt_options` (`voxel_mesh` / `nf_reconstruct` /
   `ff_reconstruct(generate_mesh=true)`), 12-case study
 
 Good next additions: `nf_reconstruction`, `material_calibration`,

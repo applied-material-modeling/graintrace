@@ -1,4 +1,4 @@
-# CLAUDE.md — graintrace Working Reference
+# CLAUDE.md: graintrace Working Reference
 
 This file is for Claude's use when helping write or debug experiment scripts. It is not a user README.
 
@@ -25,13 +25,13 @@ This file is for Claude's use when helping write or debug experiment scripts. It
 Raw files are whitespace-delimited with an 8-line header (skip lines 0-7). Column names appear on line 8, possibly prefixed with `%`. Key columns:
 
 ```
-X, Y, Z           — grain centroid position (micrometers)
-GrainRadius       — equivalent sphere radius (micrometers)
-Eul0, Eul1, Eul2 — Bunge Euler angles (degrees or radians; detect via "auto")
-Confidence        — fit quality, filter to >= 0.7 or 0.9
-eFab11..eFab33    — fabric/lattice strain tensor (row-major, 9 components)
-eKen11..eKen33    — Kenesei elastic strain tensor (row-major, 9 components), typically in microstrain
-ScanID            — assigned during stitching
+X, Y, Z           : grain centroid position (micrometers)
+GrainRadius       : equivalent sphere radius (micrometers)
+Eul0, Eul1, Eul2 : Bunge Euler angles (degrees or radians; detect via "auto")
+Confidence        : fit quality, filter to >= 0.7 or 0.9
+eFab11..eFab33    : fabric/lattice strain tensor (row-major, 9 components)
+eKen11..eKen33    : Kenesei elastic strain tensor (row-major, 9 components), typically in microstrain
+ScanID            : assigned during stitching
 ```
 
 To read raw FF files:
@@ -124,7 +124,7 @@ stitcher = RegionBaseStitching(
 )
 ```
 Helper: `graintrace/hedm_stitching_techniques/scan_tessellation.py::compute_cell_geometry`
-(runs `neper -T ... -morphooptistop iter=0` at the measured centroids — no CVT relaxation — and
+(runs `neper -T ... -morphooptistop iter=0` at the measured centroids (no CVT relaxation) and
 parses per-cell `Zmin/Zmax` + volume centroid). Note: on ~equiaxed grains the space-filling
 Voronoi extent slightly *overestimates* vs a sphere, so the benefit is specific to elongated
 grains; validate with `ScanStitchingComparison` before trusting it on new data.
@@ -134,7 +134,7 @@ FF measures the grain volume-centroid + equivalent size, not shape or a tessella
 reconstructing extents from centroids is ~⅓-radius noisy (verified: exact only from the true
 seeds; centroid/centroidsize NEPER optimization does not recover it). And even for strongly
 elongated grains (`aspratio(1,1,3)`), per-scan tessellation clips the cell at the scan FOV so it
-can't recover the full z-extent either — `examples/demonstrate_hedm_anisotropic.py` is a
+can't recover the full z-extent either; `examples/demonstrate_hedm_anisotropic.py` is a
 benchmark that shows tessellation does **not** reliably beat the sphere. For true grain
 morphology use NF-HEDM, not an FF tessellation. Generate anisotropic test microstructures with
 `CrystalGenerator` via the `raw` morpho type: `morpho_str="diameq:lognormal(130,5),aspratio(1,1,3)"`.
@@ -177,10 +177,10 @@ builder_ff.build_voronoi(
 ```
 
 Key outputs in `output_dir`:
-- `reconstruction.msh` — GMSH mesh (if `generate_mesh=True`)
-- `reconstruction_reformatted.csv` — per-voxel grain IDs and orientations
-- `reconstruction_cpfe_ee.csv` — per-grain elastic strain for CPFE initial conditions
-- `orientations.dat` — Euler angles for each grain (always degrees after FF build)
+- `reconstruction.msh`: GMSH mesh (if `generate_mesh=True`)
+- `reconstruction_reformatted.csv`: per-voxel grain IDs and orientations
+- `reconstruction_cpfe_ee.csv`: per-grain elastic strain for CPFE initial conditions
+- `orientations.dat`: Euler angles for each grain (always degrees after FF build)
 
 ### Step 3 (optional): Build graph from tessellation
 ```python
@@ -192,7 +192,7 @@ graph = parser.build_cell_graph()
 ### Step 4: Run CPFE simulation
 All orientations communicate as **neml2 v3 MRP** (`tan(θ/4)·axis`), the canonical
 on-disk/interchange format. The FF `orientations.dat` is Euler-Bunge (degrees); convert it
-via `orientation_helper` (which delegates to neml2 — do NOT hand-roll the math, and note the
+via `orientation_helper` (which delegates to neml2; do NOT hand-roll the math, and note the
 old v2 `neml2.tensors.Rot.fill_euler_angles(...).torch()` is gone in v3):
 ```python
 import torch, numpy as np
@@ -313,9 +313,9 @@ mesh_path = builder_nf.mesh(
 ```
 
 Key outputs in `save_dir`:
-- `merged_segmented_fixed_grid.npy` — segmented voxel grid (restart checkpoint)
-- `mesh.e` — Exodus mesh file for CPFE
-- `orientations.csv` — per-element MRP orientations
+- `merged_segmented_fixed_grid.npy`: segmented voxel grid (restart checkpoint)
+- `mesh.e`: Exodus mesh file for CPFE
+- `orientations.csv`: per-element MRP orientations
 
 ---
 
@@ -503,7 +503,7 @@ ipf.add_block_rgb_to_vtk(
 )
 ```
 
-### Rare event identification (REI) — IdentifyRareClusters
+### Rare event identification (REI): IdentifyRareClusters
 Takes the last grid output CSV (from `grid_out/`) and identifies spatially coherent rare regions.
 
 ```python
@@ -580,7 +580,7 @@ out = irc.run_get_rare_cluster(
 )
 ```
 
-### Compare two REIs — REIComparison
+### Compare two REIs: REIComparison
 Compare two rare-event point clouds (two metrics/thresholds/methods, or prediction vs.
 reference). First have each REI emit a point-cloud CSV: pass `rare_points_csv_path=...` to
 `run_get_rare_cluster` above (writes `x,y,z,rare_cluster_id` for the rare points). Then:
@@ -800,7 +800,7 @@ weight_cfg = WeightConfig(
 ## 10. Common Pitfalls
 
 ### cpfe_base path
-Always derive the cpfe_base path dynamically — do not hardcode it:
+Always derive the cpfe_base path dynamically, do not hardcode it:
 ```python
 import graintrace as _gt
 from pathlib import Path
@@ -810,7 +810,7 @@ _cpfe_base = str(Path(_gt.__file__).parent / "cpfe_base")
 
 ### `if __name__ == "__main__"` (clustering pipeline no longer requires it)
 The graph segmentation / REI clustering pipeline (`GraphSpatialCluster`,
-`IdentifyRareClusters`) **no longer uses `multiprocessing`** — the prune step is
+`IdentifyRareClusters`) **no longer uses `multiprocessing`**: the prune step is
 numba-threaded (`nogil`, with a single-threaded numpy fallback) and edge-distance
 computation is single-process. So the `if __name__ == "__main__"` guard is **no
 longer required** for clustering/REI scripts.
@@ -829,12 +829,12 @@ if __name__ == "__main__":
 
 ### Pole figures use neml2.texture (v3)
 `plot_pole_figure` uses `neml2.texture` (v3 renamed `neml2.postprocessing` → `neml2.texture`:
-`polefigure`, `odf`, IPF helpers). If the import fails the bindings are outdated — reinstall
+`polefigure`, `odf`, IPF helpers). If the import fails the bindings are outdated; reinstall
 neml2 v3 from `moose_neml2_v3/neml2` (`pip install . -v`) into `graintrace_env`.
 
 ### GPU: if available, always use it
 The GPU-accelerated steps are **CPFE** and **material calibration** (and pole
-figures). Policy: whenever a CUDA GPU is present, use it — CPU is much slower for
+figures). Policy: whenever a CUDA GPU is present, use it; CPU is much slower for
 these neml2-dominated workloads. Detect with `torch.cuda.is_available()` /
 `torch.cuda.device_count()`, then:
 - CPFE: `sim.set_parameters("simulation_parameters", device="cuda:0")` (or a
@@ -897,9 +897,9 @@ Use `ori_units = "auto"` and detect from values: if any Euler component exceeds 
 
 ### REI checkpoint pattern
 Three checkpointing levels in order of priority:
-1. `PICK_CLUSTER_RESTART` — load bundle pickle (fastest restart)
-2. `FINAL_CLUSTERING_RESTART` — load reduced CSV + GSC labels numpy
-3. `GRAPH_SEGMENTATION_RESTART` — load graph edges/weights/meta from `_gsc_ckpt.*`
+1. `PICK_CLUSTER_RESTART`: load bundle pickle (fastest restart)
+2. `FINAL_CLUSTERING_RESTART`: load reduced CSV + GSC labels numpy
+3. `GRAPH_SEGMENTATION_RESTART`: load graph edges/weights/meta from `_gsc_ckpt.*`
 
 ---
 
@@ -907,36 +907,36 @@ Three checkpointing levels in order of priority:
 
 ```
 graintrace/
-  construct_voronoi_mesh.py    VoronoiMeshBuilder    — FF HEDM reconstruction (NEPER)
-  construct_nf_mesh.py         NearFieldMeshBuilder  — NF HEDM reconstruction (SCULPT)
-  construct_voxel_mesh.py      VoxelMeshBuilder      — EBSD/NF voxel meshing (SCULPT)
-  nf_grid_conversion.py        NFGridConversion      — Pre-gridded NF data to CSV
-  run_cpfe_simulation.py       CPFESimulation        — MOOSE/PUMA CPFE runner
-  simulation_postprocessing.py SimulationResults     — Load/query CPFE output CSVs
-  experiment_postprocessing.py ExperimentResults     — Load experimental data
-  plot_postprocessing.py       plot_*                — Distribution/stress-strain/pole figures
-  ipf_postprocess.py           IPFProcessor          — IPF coloring on mesh
-  rare_cluster_indicator.py    IdentifyRareClusters  — REI full pipeline
-  graph_spatial_cluster.py     GraphSpatialCluster   — Graph segmentation of field data
-  cluster_indicator.py         ClusterAnalysisIndicator — Hierarchical clustering stage
-  similarity_metric_library.py SimilarityMetricLibrary  — Built-in feature metrics
-  rare_criteria_selection_library.py                 — select_highest_scalar, etc.
-  material_calibration.py      MaterialCalibration   — Taylor model parameter fitting
-  taylor.py                    TaylorModel           — NEML2 Taylor model wrapper
-  experiment_rotation_helper.py                      — Rotate experiment CSVs
+  construct_voronoi_mesh.py    VoronoiMeshBuilder    : FF HEDM reconstruction (NEPER)
+  construct_nf_mesh.py         NearFieldMeshBuilder  : NF HEDM reconstruction (SCULPT)
+  construct_voxel_mesh.py      VoxelMeshBuilder      : EBSD/NF voxel meshing (SCULPT)
+  nf_grid_conversion.py        NFGridConversion      : Pre-gridded NF data to CSV
+  run_cpfe_simulation.py       CPFESimulation        : MOOSE/PUMA CPFE runner
+  simulation_postprocessing.py SimulationResults     : Load/query CPFE output CSVs
+  experiment_postprocessing.py ExperimentResults     : Load experimental data
+  plot_postprocessing.py       plot_*                : Distribution/stress-strain/pole figures
+  ipf_postprocess.py           IPFProcessor          : IPF coloring on mesh
+  rare_cluster_indicator.py    IdentifyRareClusters  : REI full pipeline
+  graph_spatial_cluster.py     GraphSpatialCluster   : Graph segmentation of field data
+  cluster_indicator.py         ClusterAnalysisIndicator : Hierarchical clustering stage
+  similarity_metric_library.py SimilarityMetricLibrary  : Built-in feature metrics
+  rare_criteria_selection_library.py                 : select_highest_scalar, etc.
+  material_calibration.py      MaterialCalibration   : Taylor model parameter fitting
+  taylor.py                    TaylorModel           : NEML2 Taylor model wrapper
+  experiment_rotation_helper.py                      : Rotate experiment CSVs
   hedm_stitching_techniques/
-    region_base_stitching.py   RegionBaseStitching   — Multi-scan Z-stitching
-  scan_stitching_comparison.py ScanStitchingComparison — Compare stitching results
-  tess_to_gnn.py               NeperTessToGraphNN    — .tess → graph data structure
+    region_base_stitching.py   RegionBaseStitching   : Multi-scan Z-stitching
+  scan_stitching_comparison.py ScanStitchingComparison : Compare stitching results
+  tess_to_gnn.py               NeperTessToGraphNN    : .tess → graph data structure
   user_data_class.py           SimilarityMetric, WeightConfig, RareCriteria
   cpfe_base/                   MOOSE/NEML2 input templates (.i files)
-    neml2_cpfe.i               — CPFE material model definition
-    neml2_cpfe_calibration.i   — Taylor model for calibration
-    run_cpfe.i                 — Main MOOSE simulation input
-    grid_file.i                — Grid output configuration
-    initial_conditions.i       — Initial condition setup (NF orientation)
-    initial_conditions_ff.i    — Initial condition setup (FF-registered)
-    transfer.i                 — Variable transfer between meshes
+    neml2_cpfe.i               : CPFE material model definition
+    neml2_cpfe_calibration.i   : Taylor model for calibration
+    run_cpfe.i                 : Main MOOSE simulation input
+    grid_file.i                : Grid output configuration
+    initial_conditions.i       : Initial condition setup (NF orientation)
+    initial_conditions_ff.i    : Initial condition setup (FF-registered)
+    transfer.i                 : Variable transfer between meshes
 ```
 
 ---
@@ -949,12 +949,12 @@ distills the recipe. Run examples from `graintrace_env` (`conda activate graintr
 
 | `/skill` | Segment | Example | Self-contained data |
 |---|---|---|---|
-| `graintrace-overview` | segment → skill → example index + env/tool matrix | — | — |
+| `graintrace-overview` | segment → skill → example index + env/tool matrix | none | none |
 | `hedm-stitching` | synthetic crystal + z-scan + stitch + compare | demonstrate_hedm_study.py | self-generates (NEPER) |
 | `ff-reconstruction` | FF Voronoi reconstruction (`VoronoiMeshBuilder`) | demonstrate_farfield.py | mwe_data/ff_calibration |
 | `nf-reconstruction` | NF mesh (`NearFieldMeshBuilder`) | demonstrate_cpfe_nfff.py | synthetic (NEPER/CUBIT) |
 | `voxel-segmentation-mesh` | EBSD/NF voxel graph-seg + sculpt (`VoxelMeshBuilder`) | demonstrate_grid_segmentation_mesh.py | synthetic gen |
-| `microstructure-recommendations` | NEPER morpho (incl. `aspratio`) + SCULPT `sculpt_options` param guidance from a 12-case study | demonstrate_hedm_anisotropic.py | — |
+| `microstructure-recommendations` | NEPER morpho (incl. `aspratio`) + SCULPT `sculpt_options` param guidance from a 12-case study | demonstrate_hedm_anisotropic.py | none |
 | `experiment-rotation` | rotate raw FF CSVs into sim frame | demonstrate_farfield.py | mwe_data/ff_calibration |
 | `material-calibration` | pyzag-adjoint Taylor calibration | demonstrate_material_calibration.py | mwe_data/ff_calibration |
 | `cpfe-simulation` | FF CPFE via AOTI (`CPFESimulation`) | demonstrate_cpfe.py | mwe_data/cpfe_ff |
@@ -981,8 +981,8 @@ Follows the pyzag project's conventions: **black** + **pylint** (not ruff/pyrigh
 - **Formatting:** `black` (pinned `24.3.0` in `[dev]`); run `black graintrace tests`.
 - **Linting:** `pylint --rcfile=.pylintrc graintrace` must be clean (0 messages). `.pylintrc`
   sets `max-line-length=240` and disables `C0103,E1101,E1102,R0903,R0801` (pyzag base) plus the
-  `too-many-*` complexity family (`R0902,R0904,R0911,R0912,R0913,R0914,R0915,R0916,R0917,C0302`)
-  — complexity refactors of the numerical routines are deliberately out of scope. Docstring and
+  `too-many-*` complexity family (`R0902,R0904,R0911,R0912,R0913,R0914,R0915,R0916,R0917,C0302`);
+  complexity refactors of the numerical routines are deliberately out of scope. Docstring and
   import-placement rules stay ON and are fixed in code.
 - **Copyright:** every `.py` carries the MIT header (see any existing file).
 - **Lazy imports:** heavy/optional deps (neml2, pyzag, torch, torch_geometric, gmsh, matplotlib,

@@ -293,7 +293,7 @@ class CPFESimulation:
 
             f.write("[]\n\n")
 
-            # [Functions] — per-axis ramping functions
+            # [Functions]: per-axis ramping functions
             f.write("[Functions]\n")
             for axis, boundary_name, val in coupled_bcs:
                 func_name = f"ramping_load_{axis}_{boundary_name}"

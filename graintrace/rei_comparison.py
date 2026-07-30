@@ -56,10 +56,10 @@ class REIComparison:
     correspondence.
 
     Outputs written to ``output_dir``:
-      * ``overlap_metrics.json`` -- IoU/Dice/containment + counts/volumes
-      * ``overlap_cloud.vtk``    -- classified point cloud
-                                    (membership 1=only-1, 2=only-2, 3=both)
-      * ``cluster_match.csv``    -- 1-to-1 cluster pairing (if ``cluster_col``)
+      * ``overlap_metrics.json``: IoU/Dice/containment + counts/volumes
+      * ``overlap_cloud.vtk``: classified point cloud
+        (membership 1=only-1, 2=only-2, 3=both)
+      * ``cluster_match.csv``: 1-to-1 cluster pairing (if ``cluster_col``)
     """
 
     def __init__(

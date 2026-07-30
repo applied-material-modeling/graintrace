@@ -2,7 +2,7 @@
 name: experiment-rotation
 description: >
   Rotate/register raw far-field experiment CSVs into the simulation frame before
-  calibration — applies a sample tilt, builds a Voronoi per file, and appends the
+  calibration; applies a sample tilt, builds a Voronoi per file, and appends the
   rotated orientation matrix O11..O33 (experiment_rotation_helper.update_experiments).
   Use when preparing per-stress-level FF CSVs for material calibration.
 ---
@@ -37,10 +37,10 @@ update_experiments(
 ```
 
 ## Key parameters
-- `rotate_angles` + `unit` — the sample→sim tilt (radians here). Applied to positions and
+- `rotate_angles` + `unit`: the sample→sim tilt (radians here). Applied to positions and
   orientations.
-- `bounding_box` + `auto_fix_bbox`/`bbox_fix_mode` — drop out-of-box grains.
-- `elastic_strain_identifier` — the 9 eKen columns (scaled by 1e6 if `strain_unit="microstrain"`).
+- `bounding_box` + `auto_fix_bbox`/`bbox_fix_mode`: drop out-of-box grains.
+- `elastic_strain_identifier`: the 9 eKen columns (scaled by 1e6 if `strain_unit="microstrain"`).
 
 ## Outputs
 `out/rotated_experiments/<name>.csv` per input, each with rotated `O11..O33` (from
@@ -49,7 +49,7 @@ update_experiments(
 
 ## Gotchas
 - The helper **replaces** any pre-existing `O` columns with the freshly rotated ones (it drops
-  the raw `O` before concatenating) — no duplicate `O11.1` columns.
+  the raw `O` before concatenating), no duplicate `O11.1` columns.
 - Each file triggers a full NEPER tessellation; ~500 grains is fast, thousands are slower.
 - For a quick (non-registered) calibration you can skip this and point calibration straight at
   raw CSVs that already contain `O11..O33` (like `mwe_data/ff_calibration`).

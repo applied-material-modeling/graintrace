@@ -4,18 +4,18 @@ tool: inspect_experiment / sample_json
 applies_to: the non-inferrable metadata a raw HEDM CSV cannot carry
 ---
 
-# Experiment metadata (`sample.json`) — what a CSV can't tell you
+# Experiment metadata (`sample.json`): what a CSV can't tell you
 
 A raw FF-HEDM grain CSV carries per-grain `X,Y,Z`, `GrainRadius`, Euler angles,
 and optionally residual elastic strain (`eKen*`/`eFab*`). It does **not** carry:
 
-- **Sample dimensions** — the bounding box `[xlo,xhi,ylo,yhi,zlo,zhi]` (µm). CPFE
+- **Sample dimensions**: the bounding box `[xlo,xhi,ylo,yhi,zlo,zhi]` (µm). CPFE
   otherwise silently defaults to a **unit cube**; FF reconstruction needs it too.
-- **Loading conditions** — the applied `total_strain` (+ loaded axis), or explicit
+- **Loading conditions**: the applied `total_strain` (+ loaded axis), or explicit
   boundary conditions. Not in the CSV; there is no default that is physically right.
-- **Scan geometry** — the z-range (`zlo`,`zhi`) and `overlap_fraction` used when
+- **Scan geometry**: the z-range (`zlo`,`zhi`) and `overlap_fraction` used when
   stitching multiple z-scans.
-- **Units & conventions** — orientation `degrees`/`radians`, Euler convention,
+- **Units & conventions**: orientation `degrees`/`radians`, Euler convention,
   strain unit (`microstrain` vs `strain`), crystal symmetry. graintrace does
   **NOT** auto-detect these (there is no "|angle|>2π ⇒ degrees" rule in the code).
 
@@ -65,4 +65,4 @@ either pass a `sample.json` or confirm the values with the user. The tools retur
 | `elastic_strain_columns.prefix` | FF `elastic_strain_identifier` (`eKen*`/`eFab*`) |
 
 Pass it as the `sample_json` argument to `stitch_scans`, `ff_reconstruct`, and
-`run_cpfe`. `demo/experiment/sample.json` is a complete working example.
+`run_cpfe`. `examples/demo/experiment/sample.json` is a complete working example.

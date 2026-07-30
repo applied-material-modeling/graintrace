@@ -12,7 +12,7 @@ for progress. stdout/stderr from the run is tee'd to a per-job log file under
 the workdir so the client can tail it.
 
 This is deliberately simple (daemon threads, in-memory dict). It lives for the
-lifetime of the server process -- fine for a single-user chat session driving
+lifetime of the server process, fine for a single-user chat session driving
 one machine, which is the target. It is NOT a distributed queue.
 """
 

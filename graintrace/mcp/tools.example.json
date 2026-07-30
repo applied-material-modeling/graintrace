@@ -1,6 +1,6 @@
 {
-  "_comment": "Machine-local paths to graintrace's external tools. Copy to deploy/tools.json (gitignored) or ~/.config/graintrace/tools.json, or point $GRAINTRACE_TOOLS_JSON at it. SCULPT/CUBIT hex meshing is the RECOMMENDED path; GMSH tets are an FF-only last resort.",
-  "puma_opt": "/path/to/moose/puma/puma-opt",
+  "_comment": "Machine-local paths to graintrace's external tools. Copy to ~/.config/graintrace/tools.json or ./graintrace_tools.json, or point $GRAINTRACE_TOOLS_JSON at it. SCULPT/CUBIT hex meshing is the RECOMMENDED path; GMSH tets are an FF-only last resort.",
+  "puma_opt": "/path/to/puma/puma-opt",
   "neper": "/path/to/neper",
   "sculpt_config": {
     "launcher": "/path/to/cubit/bin/mpi/bin/mpiexec",

@@ -126,7 +126,7 @@ builder.mesh(
 )
 ```
 
-**Only two configs are worth using — both keep `-df 1` (defeaturing) safe:**
+**Only two configs are worth using, both keep `-df 1` (defeaturing) safe:**
 
 ### `adapt4`
 
@@ -160,18 +160,18 @@ SCULPT_OPTS = ("-df", "1", "-mvs", "2", "-S", "2", "-CS", "5")
 ## 3. Verification after each step
 
 **After microstructure generation:** confirm that the achieved grain-size
-distribution matches the prescribed one — plot the histogram from
+distribution matches the prescribed one: plot the histogram from
 `voronoi.stcell` against the target PDF. Non-agreement means either too few
 iterations or a NEPER limitation from the list above. Playing with the iterations
 and geometry (bounding box size) might help.
 
 **After meshing:** three things, all mandatory before running CPFE:
 
-1. **Grain preservation** — `N_mesh / N_tess` ≥ 98% for `adapt4`, ≥ 95% for
+1. **Grain preservation**: `N_mesh / N_tess` ≥ 98% for `adapt4`, ≥ 95% for
    `df1`. If lower, defeaturing has silently absorbed grains.
-2. **Min Scaled Jacobian > 0** — not just the mean. A single negative SJ element
+2. **Min Scaled Jacobian > 0**: not just the mean. A single negative SJ element
    will crash the MOOSE simulation.
-3. **Mesh-vs-tess grain-size distribution** check — same as after microstructure
+3. **Mesh-vs-tess grain-size distribution** check, same as after microstructure
    generation.
 
 **Sample size guidance:** always use the **minimum number of grains that

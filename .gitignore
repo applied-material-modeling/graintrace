@@ -64,9 +64,9 @@ deploy/env
 graintrace_mcp_out/
 
 # demo pipeline outputs + internal ground truth
-demo/out/
-demo/_truth/
-demo/*.log
+examples/demo/out/
+examples/demo/_truth/
+examples/demo/*.log
 
 # machine-local external tool paths
 deploy/tools.json

@@ -8,16 +8,16 @@ defaults:
   nprocs: <= physical cores
 ---
 
-# Meshing (SCULPT) — recommended parameters
+# Meshing (SCULPT): recommended parameters
 
 **SCULPT hex is the recommended mesh path for all of FF/NF/EBSD.** GMSH tets
-(`ff_reconstruct(build_params.generate_mesh=true)`) are an **FF-only last resort**
-— hex elements behave better for crystal plasticity, and the rest of graintrace
+(`ff_reconstruct(build_params.generate_mesh=true)`) are an **FF-only last resort**;
+hex elements behave better for crystal plasticity, and the rest of graintrace
 is built around SCULPT. The recommended FF route is:
 `ff_reconstruct(generate_mesh=false)` → `voxel_mesh` (SCULPT).
 
 The `sculpt_config` (CUBIT paths) comes from your **tools.json**
-(`deploy/tools.example.json`); `voxel_mesh` / `nf_reconstruct` load it
+(`graintrace/mcp/tools.example.json`); `voxel_mesh` / `nf_reconstruct` load it
 automatically, so you usually don't pass `sculpt_config` by hand. Check
 `dependency_status` → `cubit` first.
 
@@ -46,7 +46,7 @@ builder.mesh(
 )
 ```
 
-## Only two configs are worth using — both keep `-df 1` (defeaturing) safe
+## Only two configs are worth using: both keep `-df 1` (defeaturing) safe
 
 ### `adapt4`
 
@@ -74,14 +74,14 @@ SCULPT_OPTS = ("-df", "1", "-mvs", "2", "-S", "2", "-CS", "5")
 
 ## Verification (mandatory before running CPFE)
 
-1. **Grain preservation** — `N_mesh / N_tess` ≥ 98% for `adapt4`, ≥ 95% for
+1. **Grain preservation**: `N_mesh / N_tess` ≥ 98% for `adapt4`, ≥ 95% for
    `df1`. Lower ⇒ defeaturing has silently absorbed grains.
-2. **Min Scaled Jacobian > 0** — not just the mean. A single negative-SJ element
+2. **Min Scaled Jacobian > 0**: not just the mean. A single negative-SJ element
    crashes the MOOSE simulation.
-3. **Mesh-vs-tess grain-size distribution** — same histogram check as after
+3. **Mesh-vs-tess grain-size distribution**: same histogram check as after
    microstructure generation.
 
 **Sample size:** use the minimum number of grains that faithfully represents the
-target distribution — fewer grains ⇒ fewer elements ⇒ tractable CPFE wall-clock.
+target distribution; fewer grains ⇒ fewer elements ⇒ tractable CPFE wall-clock.
 Add grains only when the distribution histogram or the CPFE quantity of interest
 doesn't converge.

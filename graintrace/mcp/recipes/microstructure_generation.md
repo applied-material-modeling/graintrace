@@ -10,7 +10,7 @@ defaults:
   reg: -reg 1 (skip for lamellar)
 ---
 
-# Microstructure generation — recommended parameters
+# Microstructure generation: recommended parameters
 
 Based on 12 studied cases (equiaxed, lamellar, columnar, elongated × lognormal,
 normal, bi-modal). These are the observed-best settings for generating a
@@ -59,7 +59,7 @@ cg.generate_tessellation(
 
 Note: `aspratio` sets the grain *shape* only. Far-field HEDM cannot recover true
 grain morphology from centroids (a per-scan FF tessellation is a ~⅓-radius-noisy
-proxy) — the genuine source of anisotropic morphology is NF-HEDM. Use the
+proxy); the genuine source of anisotropic morphology is NF-HEDM. Use the
 elongated generator for benchmarks/ground truth, not to infer shape from FF.
 
 ## Required arguments
@@ -94,11 +94,11 @@ What the API does:
 
 ## Verification (do this after generation)
 
-Confirm the achieved grain-size distribution matches the prescribed one — plot
+Confirm the achieved grain-size distribution matches the prescribed one; plot
 the histogram from `voronoi.stcell` against the target PDF. Disagreement means
 too few iterations or one of the NEPER limitations above; adjusting iterations
 and geometry (bounding-box size) often helps.
 
 **Sample size:** use the *minimum* number of grains that faithfully represents
-the target distribution — fewer grains ⇒ fewer elements ⇒ tractable CPFE. Add
+the target distribution; fewer grains ⇒ fewer elements ⇒ tractable CPFE. Add
 grains only when the histogram or the CPFE quantity of interest hasn't converged.

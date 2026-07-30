@@ -25,8 +25,8 @@
 """Per-grain cell geometry from a Neper tessellation, for HEDM stitching.
 
 Given a set of grain centroids (one scan or a stitched accumulator), build a
-(Laguerre / power) Voronoi tessellation *at the measured centroids* — no CVT
-relaxation — and read back each grain's true polyhedral z-extent ``[Zmin, Zmax]``
+(Laguerre / power) Voronoi tessellation *at the measured centroids*, with no CVT
+relaxation, and read back each grain's true polyhedral z-extent ``[Zmin, Zmax]``
 and volume centroid. This replaces the equivalent-sphere ``z +/- GrainRadius``
 approximation used by the region classifier for elongated / anisotropic grains.
 """
@@ -129,7 +129,7 @@ def compute_cell_geometry(
     """Tessellate ``df``'s grains inside ``bbox`` and return per-grain cell geometry.
 
     The tessellation is a (Laguerre when ``weighted``) Voronoi diagram of the exact
-    measured centroids — ``-morphooptistop iter=0`` disables CVT relaxation so cells
+    measured centroids; ``-morphooptistop iter=0`` disables CVT relaxation so cells
     stay anchored at the grains. Cell *i* corresponds to input row *i* (the same
     seed-order assumption ``VoronoiMeshBuilder`` relies on for orientation mapping).
 

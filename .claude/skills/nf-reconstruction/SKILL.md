@@ -11,10 +11,10 @@ description: >
 
 Uses `NearFieldMeshBuilder`. Env: `conda activate graintrace_env`. External tools:
 **CUBIT/SCULPT** via `sculpt_config` (psculpt/epu/mpiexec). **Requires an
-`if __name__ == "__main__"` guard** — NF `pointcloud_to_fixed_grid` uses `multiprocess.Pool`.
+`if __name__ == "__main__"` guard**: NF `pointcloud_to_fixed_grid` uses `multiprocess.Pool`.
 
 ## Inputs
-A folder of per-layer `.mic` files (tab-delimited, `%`-headers; convert `.ang`→`.mic` first —
+A folder of per-layer `.mic` files (tab-delimited, `%`-headers; convert `.ang`→`.mic` first;
 see `run_experiment_afrl.py`). `exp_file_token` is the filename prefix used to find them. For
 the synthetic path, `SyntheticHEDMGenerator` writes the NF folder (see `/cpfe-nf-ff`).
 
@@ -47,15 +47,15 @@ if __name__ == "__main__":
 
 ## Key parameters
 - `dz` (layer thickness µm) must match the data; `nx,ny` in-plane grid resolution.
-- `segmentation` — **legacy flat dict** (no `method`/`params` nesting), `misorientation_tol`
+- `segmentation`: **legacy flat dict** (no `method`/`params` nesting), `misorientation_tol`
   in radians. `connectivity` 6 or 26.
 - `sculpt_config` (required: `psculpt`,`epu`,`nprocs`; +`launcher`/`environment` for MPI) and
-  `sculpt_options` tuple (e.g. `("--adapt","-S","2","-CS","4","--void_mat","0")`) — see CLAUDE.md §9.
+  `sculpt_options` tuple (e.g. `("--adapt","-S","2","-CS","4","--void_mat","0")`); see CLAUDE.md §9.
 
 ## Outputs (`save_dir`)
 - `merged_segmented_fixed_grid.npy` (segmented voxel grid / restart checkpoint)
 - `mesh.e` (Exodus mesh for CPFE)
-- `orientations.csv` (per-element **neml2 MRP** — use as CPFE `ori_file`)
+- `orientations.csv` (per-element **neml2 MRP**; use as CPFE `ori_file`)
 
 ## Gotchas
 - Restart: if segmentation already ran, load `merged_segmented_fixed_grid.npy` directly and

@@ -1,7 +1,7 @@
 # Publishing graintrace
 
 Runbook for building and publishing the `graintrace` wheel to PyPI, plus how to re-point the
-external submodules. **Nothing here is automated** — run each step yourself with your own
+external submodules. **Nothing here is automated**; run each step yourself with your own
 credentials. Do **not** `git push` or `twine upload` until the release is reviewed.
 
 ## 0. Pre-flight
@@ -63,7 +63,7 @@ git push origin v0.1.0        # only after the release is confirmed
 
 The native stack is pinned via a **single** submodule, `external/puma` (PUMA carries `moose/` and
 `neml2/` as its own submodules, so graintrace pins PUMA once and inherits the whole stack). NEML2/
-pyzag are **not** graintrace dependencies — they are the repo-pinned NEML2 source that PUMA builds
+pyzag are **not** graintrace dependencies; they are the repo-pinned NEML2 source that PUMA builds
 and installs into `graintrace_env`. Source-of-truth is `.gitmodules` (URL + branch) + the committed
 gitlink (commit).
 

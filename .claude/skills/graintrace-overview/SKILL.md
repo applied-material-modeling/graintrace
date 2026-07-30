@@ -8,7 +8,7 @@ description: >
   external-tool needs.
 ---
 
-# graintrace workflow — overview & router
+# graintrace workflow: overview & router
 
 `graintrace` links experimental grain data (FF/NF HEDM, EBSD) to MOOSE/PUMA CPFE
 simulations with NEML2 v3 material models, and post-processes for rare-event ID (REI).
@@ -49,6 +49,6 @@ Full API reference: `.claude/CLAUDE.md`.
 
 ## Orientation convention (important)
 All orientations communicate as **neml2 v3 MRP** (`tan(θ/4)·axis`). Convert via
-`graintrace.orientation_helper` (`euler_to_mrp`, `load_orientations_mrp`) — it delegates to
-neml2; do not hand-roll. graintrace "mrp" historically meant Gibbs/Rodrigues (`tan θ/2`) —
+`graintrace.orientation_helper` (`euler_to_mrp`, `load_orientations_mrp`); it delegates to
+neml2; do not hand-roll. graintrace "mrp" historically meant Gibbs/Rodrigues (`tan θ/2`),
 not the same thing; use the helpers.

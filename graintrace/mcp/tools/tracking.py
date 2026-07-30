@@ -36,9 +36,9 @@ def track_grains(
     output_dir : output folder (defaults under the MCP workdir).
     init_params : overrides for VoronoiMeshBuilder(...) (e.g. unit, dim,
         angle_identifier). Applied to both reconstructions.
-    build_params : overrides for build_graph(...) -- option, CVT_iter,
+    build_params : overrides for build_graph(...): option, CVT_iter,
         morphoalgo, device.
-    match_params : overrides for match_grains(...) -- message_passing_iter,
+    match_params : overrides for match_grains(...): message_passing_iter,
         neighbor_selection_param.
 
     Needs NEPER (graph build) and torch-geometric. Runs as a background job;

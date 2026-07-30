@@ -13,7 +13,7 @@ defaults:
   refine_extents: false
 ---
 
-# HEDM Stitching — recommended parameters
+# HEDM Stitching: recommended parameters
 
 `stitch_scans` wraps `RegionBaseStitching`: it merges duplicate grains across
 overlapping z-scans into one consistent grain set. **Needs NEPER only if
@@ -21,10 +21,10 @@ overlapping z-scans into one consistent grain set. **Needs NEPER only if
 Python.
 
 ## Minimum you must supply
-- `scan_files` — list of pre-processed per-layer CSVs with Z already shifted by
+- `scan_files`: list of pre-processed per-layer CSVs with Z already shifted by
   `Z + scan_idx * Zheight_per_file * (1 - overlap_fraction)`.
-- `output_csv` — merged output path.
-- `zlo`, `zhi`, `overlap_fraction` — passed to `.run(...)`.
+- `output_csv`: merged output path.
+- `zlo`, `zhi`, `overlap_fraction`: passed to `.run(...)`.
 
 **Must-ask (scan geometry not in the CSVs):** `zlo`, `zhi`, `overlap_fraction`,
 and `orientation_units`. Pass them directly or via a `sample_json`; otherwise

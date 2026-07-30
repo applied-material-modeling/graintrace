@@ -37,7 +37,7 @@ postprocess.plot_block_properties_over_time(res, tensor_prefix="cauchy_stress", 
                                             output_folder="out/post")
 ```
 
-Optional — pole figure (needs neml2 v3 `neml2.texture`) and IPF coloring:
+Optional, pole figure (needs neml2 v3 `neml2.texture`) and IPF coloring:
 ```python
 postprocess.plot_pole_figure(res, tensor_prefix="ori_rodrigues", time=1.0,
     direction=[0,0,1], crystal_symmetry="432", device="cpu", output_folder="out/post")
@@ -51,12 +51,12 @@ ipf.add_block_rgb_to_exodus(mesh_file="out/mesh/mesh.e",
 
 ## Key parameters
 - `FieldFileNaming(prefix, index_width, sep, suffix)` must match the grid CSV filenames.
-- `tensor_prefix` — field to plot (`ee`, `cauchy_stress`, `nye_tensor`, `ori_rodrigues`,
+- `tensor_prefix`: field to plot (`ee`, `cauchy_stress`, `nye_tensor`, `ori_rodrigues`,
   `strain`); `order` = tensor rank (2 for rank-2).
 - Pole figure: `crystal_symmetry`, `direction`, `construct_odf`.
 
 ## Gotchas
-- Pre-load steps (t ≤ `initialize_time`) have ~zero stress/ee — that's expected.
+- Pre-load steps (t ≤ `initialize_time`) have ~zero stress/ee; that's expected.
 - Pole figures require v3 neml2 (`neml2.texture`); reinstall neml2 v3 if the import fails.
 - Experiment half uses `experiment_postprocessing.ExperimentResults` with its own
   `FieldFileNaming` (e.g. prefix `expsyn_`, suffix `time.csv` for `mwe_data/synthetic_load_exp`).

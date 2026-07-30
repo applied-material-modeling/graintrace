@@ -50,7 +50,7 @@ calib.plot_strain_histogram(include_initial_strain=True)
 - model: `device="cuda"|"cpu"`, `npoints` (= pyzag time steps), `nchunk` (chunk size).
 - data: `n_grains` (subsample per load step; None=all), `max_strain` (macro-curve cap),
   `straintype` (`"eKen"`/`"eFab"`).
-- `calibrate`: `maxiter` is an **upper bound** — the plateau guard (`plateau_rtol`,
+- `calibrate`: `maxiter` is an **upper bound**; the plateau guard (`plateau_rtol`,
   `plateau_window`) stops early when relative loss improvement stalls.
 
 ## Outputs (`save_dir`)
@@ -60,10 +60,10 @@ elastic-strain histograms. Map `TaylorModel.opt_vars` → CPFE names (see CLAUDE
 
 ## Gotchas
 - **cuda**: works because `taylor.py` moves the model with `nsys.to(device)`. A cuda/cpu
-  mismatch (silent `loss=inf`) means the model stayed on CPU — do NOT reintroduce a
+  mismatch (silent `loss=inf`) means the model stayed on CPU; do NOT reintroduce a
   `torch.set_default_device` hack.
 - v3 mixed-control uses an **unweighted** grain mean; some params can hit reparametrization
-  bounds on small/demo configs (few grains, narrow window) — use more grains + wider window
+  bounds on small/demo configs (few grains, narrow window); use more grains + wider window
   for production fits.
 
 ## See also

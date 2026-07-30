@@ -393,7 +393,7 @@ class TaylorModel(BaseMaterialApproximationModel):
 
         Args:
             params: optional 1-D tensor of the six calibration values. If given,
-                they are assigned to the factory (no grad) before the solve —
+                they are assigned to the factory (no grad) before the solve;
                 use this for plotting a specific parameter set. Pass ``None`` to
                 run with the factory's current (possibly optimizer-owned)
                 parameters so gradients flow (used during calibration).

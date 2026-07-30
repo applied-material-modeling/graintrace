@@ -7,7 +7,7 @@
 
 A raw FF-HEDM grain CSV holds only per-grain centroids, radius, Euler angles, and
 (optionally) elastic strain. It does NOT carry sample dimensions, loading
-conditions, scan geometry, or units -- and graintrace silently defaults those
+conditions, scan geometry, or units, and graintrace silently defaults those
 (no unit auto-detection exists; CPFE even defaults to a unit-cube domain). This
 module lets the MCP tools (1) inspect what IS present and infer suggestions, and
 (2) load a ``sample.json`` that supplies the rest, so a tool can tell the caller
@@ -69,7 +69,7 @@ def inspect_csv(path: str, pad_frac: float = 0.02) -> Dict[str, Any]:
         info["orientation_units_confidence"] = (
             "high (values exceed 2pi -> degrees)"
             if maxabs > _TWO_PI
-            else "LOW (all |angles| <= 2pi -- could be radians OR small-angle degrees; CONFIRM)"
+            else "LOW (all |angles| <= 2pi; could be radians OR small-angle degrees; CONFIRM)"
         )
 
     strain_prefix = next(
@@ -149,7 +149,7 @@ def checklist(csv_path: Optional[str] = None) -> Dict[str, Any]:
             "loading_conditions": "total applied strain (or explicit BCs) + loaded axis "
             "(NOT in the CSV)",
             "scan_geometry": "z-range (zlo,zhi) and scan overlap fraction for stitching",
-            "units": "orientation deg/rad and strain unit (microstrain vs strain) -- "
+            "units": "orientation deg/rad and strain unit (microstrain vs strain); "
             "graintrace does NOT auto-detect these",
         },
         "how_to_supply": "Pass a sample.json (see the 'experiment_metadata' recipe) or "

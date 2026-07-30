@@ -29,7 +29,7 @@ def compare_stitching(
     confirm: bool = False,
 ) -> dict:
     """Compare a stitched grain set against a known/true grain set (recall,
-    precision, orientation error) -- wraps `ScanStitchingComparison`. Both CSVs
+    precision, orientation error); wraps `ScanStitchingComparison`. Both CSVs
     need X,Y,Z,GrainRadius,Eul0,Eul1,Eul2. Pure Python.
     """
     # Lazy: heavy graintrace submodule, imported only when the tool runs.
@@ -86,7 +86,7 @@ def compare_rei(
     params: Optional[Dict[str, Any]] = None,
     confirm: bool = False,
 ) -> dict:
-    """Compare two rare-event (REI) point clouds -- overlap metrics (IoU/Dice/
+    """Compare two rare-event (REI) point clouds: overlap metrics (IoU/Dice/
     containment), a 1-to-1 cluster correspondence, and a classified point cloud
     (only-1 / only-2 / both) exported to VTK. Wraps `REIComparison`. Pure Python.
 

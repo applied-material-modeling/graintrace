@@ -1,7 +1,7 @@
 ---
 name: cpfe-nf-ff
 description: >
-  Run a combined near-field + far-field CPFE simulation — NF provides the high-res mesh
+  Run a combined near-field + far-field CPFE simulation: NF provides the high-res mesh
   geometry + orientations, FF provides the initial elastic-strain field. Use when the
   user wants to drive CPFE from an NF mesh with an FF residual-strain initial condition
   (optionally end-to-end from synthetic HEDM).
@@ -16,9 +16,9 @@ External tools: **NEPER** (FF/synthetic), **CUBIT/SCULPT** (`sculpt_config`, NF 
 ## Pipeline
 1. (optional) `SyntheticHEDMGenerator(...).run(ff_iterations=10)` → writes `<out>/FF/ff.csv`
    and `<out>/NF/...`.
-2. **NF mesh** — `/nf-reconstruction`: `NearFieldMeshBuilder(...).reconstruct(...)` + `.mesh(...)`
+2. **NF mesh** (`/nf-reconstruction`): `NearFieldMeshBuilder(...).reconstruct(...)` + `.mesh(...)`
    → `nf_reconstruction/mesh.e` + `orientations.csv` (per-element MRP).
-3. **FF residual strain** — `/ff-reconstruction`: `VoronoiMeshBuilder(...).build_voronoi(
+3. **FF residual strain** (`/ff-reconstruction`): `VoronoiMeshBuilder(...).build_voronoi(
    generate_mesh=False, ...)` → `ff_reconstruction/reconstruction_cpfe_ee.csv`. Spatially
    shift its x,y,z to the NF frame if the two aren't co-registered.
 4. **CPFE** with NF mesh + NF orientations + FF ee (`use_ff_initial_field=False`, since the ee

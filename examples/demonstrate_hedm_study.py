@@ -25,7 +25,9 @@
 from graintrace.generate_random_crystal import CrystalGenerator
 from graintrace.scan_stitching_comparison import ScanStitchingComparison
 from graintrace.hedm_stitching_techniques.naive_stitching import NaiveStitching
-from graintrace.hedm_stitching_techniques.region_base_stitching import RegionBaseStitching
+from graintrace.hedm_stitching_techniques.region_base_stitching import (
+    RegionBaseStitching,
+)
 import os
 import matplotlib.pyplot as plt
 import sys
@@ -69,7 +71,7 @@ min_vol = 0.0
 # Acceptable tolerance for comparison and stitching
 position_tolerance = 20  # length units
 orientation_tolerance = 1  # degrees
-radius_tolerance = -1  # percentage units -- set to -1 to disable radius gating
+radius_tolerance = -1  # percentage units; set to -1 to disable radius gating
 
 compare_position_tolerance = (
     20  # adjusted such that max_pos_error remains the same as this value increases

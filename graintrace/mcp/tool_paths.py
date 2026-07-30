@@ -26,10 +26,9 @@ Search order (first found wins):
   1. $GRAINTRACE_TOOLS_JSON
   2. ./graintrace_tools.json  (current working dir)
   3. ~/.config/graintrace/tools.json
-  4. <repo>/deploy/tools.json
 
 `sculpt_config` is returned ready to hand to ``VoxelMeshBuilder.mesh`` /
-``NearFieldMeshBuilder.mesh``. See ``deploy/tools.example.json``.
+``NearFieldMeshBuilder.mesh``. See ``graintrace/mcp/tools.example.json``.
 """
 
 from __future__ import annotations
@@ -48,7 +47,6 @@ def _candidates() -> List[Path]:
         out.append(Path(env))
     out.append(Path.cwd() / "graintrace_tools.json")
     out.append(Path.home() / ".config" / "graintrace" / "tools.json")
-    out.append(Path(__file__).resolve().parents[2] / "deploy" / "tools.json")
     return out
 
 

@@ -68,7 +68,7 @@ def inspect_experiment(path: str) -> dict:
 
     ALWAYS call this first when handed a raw grain CSV. It returns the columns
     present, a suggested bounding box from the coordinate ranges, an Euler
-    unit *guess* (note: graintrace does NOT auto-detect units -- confirm it),
+    unit *guess* (note: graintrace does NOT auto-detect units, confirm it),
     whether residual-strain columns exist, and a must-confirm checklist. Then
     either collect a sample.json or confirm these values with the user before
     calling ff_reconstruct / stitch_scans / run_cpfe with confirm=true.

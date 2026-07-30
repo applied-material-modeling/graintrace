@@ -46,18 +46,18 @@ GraphGrainMatcher(graph_a=ga, graph_b=gb, output_dir="out/grain_tracking").match
 
 ## Key parameters
 - Per-step `bounding_box` (each load step can have a different z-extent).
-- `build_graph(CVT_iter=...)` — CVT iterations for the tessellation the graph is built on.
-- `match_grains(message_passing_iter, neighbor_selection_param)` — message-passing depth and
+- `build_graph(CVT_iter=...)`: CVT iterations for the tessellation the graph is built on.
+- `match_grains(message_passing_iter, neighbor_selection_param)`: message-passing depth and
   the neighbor-selection optimization (`lambda`, `iterations`, `tolerance`).
 
 ## Outputs
-`output_dir` — grain correspondence between the two graphs (matched IDs / mapping + any
+`output_dir`: grain correspondence between the two graphs (matched IDs / mapping + any
 diagnostics).
 
 ## Gotchas
 - Orientations are read as Euler-bunge; keep `angle_identifier`/`orientation_descriptor`
   consistent with the data. NEPER must be on PATH.
-- Uses `build_graph` (not a full mesh) — no GMSH/CUBIT needed.
+- Uses `build_graph` (not a full mesh); no GMSH/CUBIT needed.
 
 ## See also
 `examples/demonstrate_graintracking.py`; CLAUDE.md §3 Step 3 (graph from tessellation).

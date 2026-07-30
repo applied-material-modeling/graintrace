@@ -1,7 +1,7 @@
 ---
 name: rare-event-identification
 description: >
-  Rare-event identification (REI) — find spatially coherent rare regions in a CPFE
+  Rare-event identification (REI): find spatially coherent rare regions in a CPFE
   field (e.g. high Nye-tensor / von-Mises) via graph spatial clustering + hierarchical
   merge + rare-cluster selection, exporting VTK (IdentifyRareClusters, GraphSpatialCluster,
   ClusterAnalysisIndicator). Use to locate hotspots in grid_out results.
@@ -56,15 +56,15 @@ For simpler demos: `ClusterAnalysisIndicator` (single-stage hierarchical, `rei_e
 `GraphSpatialCluster` + `ClusterAnalysisIndicator` (two-stage, `rei_example_3D`).
 
 ## Key parameters
-- `spec` — the similarity feature (`SimilarityMetricLibrary`: `nye_tensor_norm`,
+- `spec`: the similarity feature (`SimilarityMetricLibrary`: `nye_tensor_norm`,
   `von_mises_stress`, …). Reduce to per-cluster means for stage 2 (`spec_reduced`).
 - Graph: `graph_mode` (`grid`/`knn`/`auto`), `manhattan_radius`, `networkit_kwargs["gamma"]`
   (higher = more clusters), `reduce_edges_topweights_k`, `weight_cfg` (RBF).
 - Hierarchical: `threshold`, `method`, `criterion`.
-- `RareCriteria` — how rare clusters are picked (`select_highest_scalar`, size quantiles).
+- `RareCriteria`: how rare clusters are picked (`select_highest_scalar`, size quantiles).
 
 ## Gotchas
-- Three checkpoint levels (bundle pickle → reduced CSV+labels → graph edges) — see CLAUDE.md §10
+- Three checkpoint levels (bundle pickle → reduced CSV+labels → graph edges); see CLAUDE.md §10
   REI restart pattern.
 - The `demonstrate_rei_*` scripts regenerate `synthetic_vms.csv` (`generate_synthetic=True`);
   point `input_csv_path` at your own CPFE grid CSV for real analysis.

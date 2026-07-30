@@ -43,13 +43,13 @@ def calibrate_material(
     ----------
     data_dir : folder of per-stress-level CSVs (O11..O33, coords, Eul0/1/2, eKen*).
     strain_stress_file : macro strain-stress CSV.
-    model_args : overrides for TaylorModel(...) -- neml2_path (defaults to the
+    model_args : overrides for TaylorModel(...): neml2_path (defaults to the
         packaged neml2_cpfe_calibration.i), npoints, nchunk, device
         ('cpu'|'cuda'), compile.
-    data_args : overrides for load_experiment_data(...) -- npoints,
+    data_args : overrides for load_experiment_data(...): npoints,
         full_field_strain_units, straintype ('eKen'|'eFab'), max_strain,
         n_grains, seed.
-    calibrate_args : overrides for calibrate(...) -- maxiter, lr,
+    calibrate_args : overrides for calibrate(...): maxiter, lr,
         max_iter_per_step, line_search_fn, plateau_rtol, plateau_window.
     save_dir : output folder (defaults under the MCP workdir).
     apply_elastic_correction / strain_window : optional elastic-slope correction.

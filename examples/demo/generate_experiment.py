@@ -3,18 +3,18 @@
 """Generate the synthetic "experiment output" for the live graintrace demo.
 
 Produces, under ``demo/``:
-  experiment/hedm_scan/scan_0..3.csv  -- 4 FF-HEDM z-scans at 25% overlap, each with
+  experiment/hedm_scan/scan_0..3.csv  : 4 FF-HEDM z-scans at 25% overlap, each with
                                          X,Y,Z,GrainRadius,Eul0-2 AND residual elastic
                                          strain eKen11..33 (microstrain, per-grain
                                          consistent across overlapping scans)
-  experiment/strain-stress.csv        -- hypothetical macro stress-strain curve
+  experiment/strain-stress.csv        : hypothetical macro stress-strain curve
                                          (copied from mwe_data/ff_calibration; the
                                          material-calibration TARGET)
-  experiment/sample.json              -- ALL non-inferrable metadata (sample size,
+  experiment/sample.json              : ALL non-inferrable metadata (sample size,
                                          loading conditions, scan geometry, units)
-  _truth/voronoi.{tess,csv,...}       -- ground-truth crystal, INTERNAL only
+  _truth/voronoi.{tess,csv,...}       : ground-truth crystal, INTERNAL only
 
-The ground-truth crystal is NOT placed in experiment/ -- experiment/ holds only what a
+The ground-truth crystal is NOT placed in experiment/; experiment/ holds only what a
 real FF-HEDM experiment would hand you. Run once, then `python demo/run_demo.py`.
 """
 
@@ -36,10 +36,10 @@ SEED = 42
 # ~200 grains. Enlarge the box or lower the mean to add grains; shrink to reduce.
 BOUNDING_BOX = [-300, 300, -300, 300, -320, 320]
 MORPHO = {"type": "diameq", "distribution": "lognormal", "params": (130.0, 5.0)}
-TESS_ITERATIONS = 1000                       # CVT relaxation (recommendations: equiaxed)
+TESS_ITERATIONS = 1000  # CVT relaxation (recommendations: equiaxed)
 NSCAN = 4
-OVERLAP_PCT = 25                             # 25% overlap between adjacent z-scans
-RESIDUAL_STDEV_MICROSTRAIN = 300.0           # stdev of the synthetic residual eKen field
+OVERLAP_PCT = 25  # 25% overlap between adjacent z-scans
+RESIDUAL_STDEV_MICROSTRAIN = 300.0  # stdev of the synthetic residual eKen field
 # Loading condition recorded in sample.json (uniaxial tension along z). 0.1% keeps
 # every CPFE increment inside the rate-dependent slip model's convergence radius;
 # raise it for more plasticity, but lower CPFE dt to match (see run_demo.py).
@@ -61,8 +61,8 @@ def _build_residual_field(df_true: pd.DataFrame, seed: int) -> np.ndarray:
     rng = np.random.default_rng(seed)
     n = len(df_true)
     E = rng.normal(0.0, RESIDUAL_STDEV_MICROSTRAIN, size=(n, 3, 3))
-    E = 0.5 * (E + E.transpose(0, 2, 1))        # symmetric tensor
-    return E.reshape(n, 9)                       # row-major 11,12,13,21,22,23,31,32,33
+    E = 0.5 * (E + E.transpose(0, 2, 1))  # symmetric tensor
+    return E.reshape(n, 9)  # row-major 11,12,13,21,22,23,31,32,33
 
 
 def _write_sample_json(zlo: float, zhi: float, n_grains: int) -> None:
@@ -161,11 +161,15 @@ def main() -> None:
     _write_sample_json(zlo=BOUNDING_BOX[4], zhi=BOUNDING_BOX[5], n_grains=n_true)
     print(f"    wrote experiment/sample.json")
 
-    print("\nDONE. experiment/ contains: hedm_scan/scan_0..%d.csv, strain-stress.csv, "
-          "sample.json" % (len(scan_files) - 1))
+    print(
+        "\nDONE. experiment/ contains: hedm_scan/scan_0..%d.csv, strain-stress.csv, "
+        "sample.json" % (len(scan_files) - 1)
+    )
     if not (150 <= n_true <= 260):
-        print(f"NOTE: {n_true} grains is off the ~200 target; adjust BOUNDING_BOX or "
-              "MORPHO params in this script and re-run.")
+        print(
+            f"NOTE: {n_true} grains is off the ~200 target; adjust BOUNDING_BOX or "
+            "MORPHO params in this script and re-run."
+        )
 
 
 if __name__ == "__main__":

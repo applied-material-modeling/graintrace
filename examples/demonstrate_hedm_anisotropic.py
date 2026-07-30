@@ -28,8 +28,8 @@ RegionBaseStitching classifies each grain into a region from its z-extent relati
 to the scan overlap band. By default that extent is the equivalent-sphere `z +/- r`,
 which badly under-estimates the true z-reach of *elongated* grains. This script
 generates a z-elongated microstructure (NEPER `aspratio`), simulates overlapping FF
-z-scans, and stitches it twice -- with the spherical extent and with the opt-in
-NEPER-tessellation extent (`refine_extents=True`) -- then scores both against the
+z-scans, and stitches it twice: with the spherical extent and with the opt-in
+NEPER-tessellation extent (`refine_extents=True`), then scores both against the
 ground truth to show where the tessellation refinement actually helps.
 
 This is a BENCHMARK HARNESS, not a demonstration of a guaranteed win. Whether the
@@ -37,7 +37,7 @@ tessellation helps is empirical, and in this elongated regime it often does NOT 
 the sphere, for two reasons worth understanding:
 
   1. Per-scan clipping: the stitcher tessellates each scan/accumulator over that scan's
-     z-FOV, so an elongated grain's cell is clipped at the FOV boundary -- the
+     z-FOV, so an elongated grain's cell is clipped at the FOV boundary; the
      tessellation cannot see the grain's full z-extent either (it only flags that the
      grain reaches the boundary). It recovers the true extent only for grains that fit
      entirely inside one scan, and those are interior (CORE) grains whose region never
@@ -52,7 +52,9 @@ classification" for the extent-model caveats (tessellation-from-centroids is a
 """
 from graintrace.generate_random_crystal import CrystalGenerator
 from graintrace.scan_stitching_comparison import ScanStitchingComparison
-from graintrace.hedm_stitching_techniques.region_base_stitching import RegionBaseStitching
+from graintrace.hedm_stitching_techniques.region_base_stitching import (
+    RegionBaseStitching,
+)
 import os
 
 # INPUT -------------------------------------------------------
@@ -78,9 +80,9 @@ noise_level = 0.01
 min_vol = 0.0
 
 # Tolerances / weights
-position_tolerance = 20     # length units
-orientation_tolerance = 1   # degrees
-radius_tolerance = -1       # -1 disables the radius gate
+position_tolerance = 20  # length units
+orientation_tolerance = 1  # degrees
+radius_tolerance = -1  # -1 disables the radius gate
 weights = {"pos": 0.1, "ori": 1.0, "rad": 0}
 min_neighbors = 5
 
@@ -129,10 +131,10 @@ def stitch_and_score(tag, refine_extents):
         radius_tolerance=radius_tolerance,
         weights=weights,
         min_neighbors=min_neighbors,
-        refine_extents=refine_extents,   # False -> spherical z +/- r; True -> NEPER tessellation
+        refine_extents=refine_extents,  # False -> spherical z +/- r; True -> NEPER tessellation
         tess_weighted=True,
-        update_centroid=False,           # keep FF centroids (see docs: cell centroid hurts matching)
-        neper_env=cg.env,                # reuse the working NEPER env
+        update_centroid=False,  # keep FF centroids (see docs: cell centroid hurts matching)
+        neper_env=cg.env,  # reuse the working NEPER env
     )
     stitcher.run(zlo=zlo, zhi=zhi, overlap_fraction=overlap_fraction)
 

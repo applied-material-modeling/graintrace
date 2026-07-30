@@ -14,19 +14,19 @@ defaults:
   use_ff_initial_field: true
 ---
 
-# CPFE Simulation — recommended parameters
+# CPFE Simulation: recommended parameters
 
 `run_cpfe` wraps `CPFESimulation` (NEML2 v3 AOTI-compiled crystal plasticity via
 MOOSE/PUMA). **Needs `puma-opt` (MOOSE/PUMA) and a working NEML2 v3 build.** This
-is the heaviest step — runs on GPU, minutes to hours. It always runs as a
+is the heaviest step: runs on GPU, minutes to hours. It always runs as a
 background job.
 
 ## Minimum you must supply
-- `mesh_file` — `.msh` (FF) or `.e` (NF) mesh.
-- `save_simulation_folder` — output dir.
-- `ori_file` — per-grain/element orientations, **NEML2 v3 MRP** (convert FF
+- `mesh_file`: `.msh` (FF) or `.e` (NF) mesh.
+- `save_simulation_folder`: output dir.
+- `ori_file`: per-grain/element orientations, **NEML2 v3 MRP** (convert FF
   `orientations.dat` with `orientation_helper.euler_to_mrp` first).
-- `moose_run_file` — path to your built `puma-opt`.
+- `moose_run_file`: path to your built `puma-opt`.
 
 **Must-ask (loading + sample dimensions are NOT in the mesh):** provide
 `bounding_box` + `total_strain` (+ `loaded_axis`), or a `sample_json`, and

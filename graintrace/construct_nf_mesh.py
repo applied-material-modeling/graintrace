@@ -43,7 +43,7 @@ class NearFieldMeshBuilder:
     Reads a folder of per-layer orientation maps, segments them into grains on a voxel
     grid, and generates a conformal hexahedral Exodus mesh via CUBIT/SCULPT, plus
     per-element MRP orientations for CPFE. See ``examples/demonstrate_cpfe_nfff.py`` and
-    the ``/nf-reconstruction`` skill. (NF reconstruction uses multiprocessing — call it
+    the ``/nf-reconstruction`` skill. (NF reconstruction uses multiprocessing, so call it
     under an ``if __name__ == "__main__":`` guard.)
     """
 

@@ -110,7 +110,7 @@ def gate(
             "log_path": job.log_path,
             "message": (
                 f"Started '{tool}' as background job {job.id}. This runs "
-                "asynchronously and CAN FAIL silently -- you MUST poll "
+                "asynchronously and CAN FAIL silently; you MUST poll "
                 "job_status(job_id) until its status is 'done' or 'error'. If it "
                 "is 'error', report the error + recent_log to the user; do not "
                 "assume success."

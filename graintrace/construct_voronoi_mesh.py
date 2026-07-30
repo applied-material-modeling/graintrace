@@ -42,7 +42,7 @@ class VoronoiMeshBuilder:
     Wraps NEPER (Voronoi/CVT tessellation) and optionally GMSH to turn a per-grain FF
     CSV (positions, Euler orientations, elastic strains) into a ``.tess``/``.msh`` mesh,
     per-grain orientation and initial elastic-strain files, and a voxelized
-    reconstruction — the inputs for a CPFE run or a grain graph. See
+    reconstruction: the inputs for a CPFE run or a grain graph. See
     ``examples/demonstrate_farfield.py`` and the ``/ff-reconstruction`` skill.
     """
 
@@ -178,7 +178,7 @@ class VoronoiMeshBuilder:
 
             print(f"Gmsh already available (v{gmsh.__version__})")
         except ImportError:
-            print("Gmsh not found — installing via pip...")
+            print("Gmsh not found; installing via pip...")
             run([sys.executable, "-m", "pip", "install", f"gmsh=={self.gmsh_version}"])
             print("Gmsh installed successfully via pip.")
 
@@ -712,7 +712,7 @@ class VoronoiMeshBuilder:
             )
 
         if not self.auto_fix_bbox:
-            print("Auto-fix disabled — using provided bounding box as-is.")
+            print("Auto-fix disabled; using provided bounding box as-is.")
         else:
 
             df = self.data.copy()
@@ -1166,7 +1166,7 @@ class VoronoiMeshBuilder:
 
             self.data[self.elastic_strain_id] = strain_rot.reshape(-1, 9)
         else:
-            print("No elastic strain identifier provided — skipping strain rotation.")
+            print("No elastic strain identifier provided; skipping strain rotation.")
 
     def generate_mesh(
         self,

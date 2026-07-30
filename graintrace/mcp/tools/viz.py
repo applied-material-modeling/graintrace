@@ -36,14 +36,14 @@ def visualize(
     out_png: Optional[str] = None,
     rare_only: bool = False,
 ):
-    """Render a VTK/VTU/mesh file to a PNG off-screen (pyvista/EGL -- no ParaView,
+    """Render a VTK/VTU/mesh file to a PNG off-screen (pyvista/EGL, no ParaView,
     no display) so grains / reconstructions / fields / REI hotspots can be shown.
 
     Parameters
     ----------
     path : a .vtk/.vtu/.msh file (e.g. a reconstruction VTK, a grid_out field, or
         the REI rare-cluster VTK). For an Exodus (.e) mesh, prefer opening it in
-        ParaView -- this renders a static snapshot only.
+        ParaView; this renders a static snapshot only.
     field : array to color by. A multi-component array uses its magnitude; a base
         name like 'nye_tensor' uses the norm over its *_11..33 columns. None ->
         solid surface (uses per-block RGB/IPF colors if present).
@@ -103,7 +103,7 @@ def plot_centroids(
     point_size: float = 6.0,
 ):
     """Scatter grain CENTROIDS from a grain CSV (xy / xz / yz projections) to a PNG
-    -- for pre/post-stitch centroid figures and quick microstructure QC. Uses
+    for pre/post-stitch centroid figures and quick microstructure QC. Uses
     matplotlib (no VTK); this is the CSV counterpart to `visualize` (which needs a
     mesh/VTK).
 

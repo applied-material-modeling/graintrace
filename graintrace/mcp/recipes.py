@@ -9,7 +9,7 @@ Each ``recipes/<name>.md`` file documents recommended parameters for a specific
 setup (e.g. FF reconstruction of an equiaxed Ti alloy). They are:
   * served as MCP resources at ``recipe://<name>`` so a client can read them,
   * looked up by the ``get_recommended_parameters`` tool, and
-  * meant to be edited/extended by domain experts -- they are plain Markdown,
+  * meant to be edited/extended by domain experts; they are plain Markdown,
     not code, so improving guidance never touches the server.
 
 The optional YAML-ish front-matter block (``--- ... ---``) may carry a
@@ -26,7 +26,7 @@ _RECIPE_DIR = Path(__file__).resolve().parent / "recipes"
 
 def _split_front_matter(text: str):
     """Return (front_matter_text, body). Front matter is an optional leading
-    ``---`` fenced block. Parsing is intentionally tiny -- no YAML dependency."""
+    ``---`` fenced block. Parsing is intentionally tiny (no YAML dependency)."""
     if text.startswith("---"):
         end = text.find("\n---", 3)
         if end != -1:

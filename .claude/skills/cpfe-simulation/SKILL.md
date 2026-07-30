@@ -60,10 +60,10 @@ sim.run(ncore=4)   # ncore == mpiexec -n; also spreads a device list over ranks
 ```
 
 ## Key parameters
-- `device` — `"cpu"`, `"cuda:0"`, or space-sep list `"cuda:0 cuda:1"` (multi-GPU over MPI).
-- `device_batch` — per-device NEML2 chunk (quad pts/call); a finite value caps GPU memory
+- `device`: `"cpu"`, `"cuda:0"`, or space-sep list `"cuda:0 cuda:1"` (multi-GPU over MPI).
+- `device_batch`: per-device NEML2 chunk (quad pts/call); a finite value caps GPU memory
   (0 = whole batch → OOM risk on large meshes).
-- `initialize_time` — load ramps from `initialize_time`→`total_time`; `sync_times` = grid-output times.
+- `initialize_time`: load ramps from `initialize_time`→`total_time`; `sync_times` = grid-output times.
 - `use_ff_initial_field=True` + real `eeres_file` = FF residual strain (12-col x,y,z+9);
   `eeres_file=None` writes a 12-col zero ee.
 - AOTI: material params are **baked** into the model .i and `neml2-compile`d on `run()`;
@@ -76,7 +76,7 @@ sim.run(ncore=4)   # ncore == mpiexec -n; also spreads a device list over ranks
 ## Gotchas
 - v3 has NO runtime `[NEML2] cli_args`/`[Schedulers]`; do not pass `scheduler_name`.
 - For neml2-dominated CPFE, use **fewer** MPI ranks (~#GPUs) for bigger per-rank batches.
-- Stiff first steps may make MOOSE cut `dt` and recover — that is normal, not a failure.
+- Stiff first steps may make MOOSE cut `dt` and recover; that is normal, not a failure.
 - Env/`LD_LIBRARY_PATH`/`neml2_load_files` auto-derive from `moose_run_file`'s repo layout.
 
 ## See also

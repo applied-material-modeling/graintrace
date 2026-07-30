@@ -104,7 +104,7 @@ class NeperTessToGraphNN:
         if not os.path.exists(self.tess_path):
             raise FileNotFoundError(f"Tessellation file not found: {self.tess_path}")
 
-        # Fresh storage per call — no shared state
+        # Fresh storage per call; no shared state
         sections = {
             "cell": {
                 "seed": [],
@@ -400,7 +400,9 @@ class NeperTessToGraphNN:
         """Construct a torch_geometric Data graph using selected features."""
 
         if not self.cell_to_faces:
-            raise RuntimeError("Cell-to-face topology missing — parse_tess() first.")
+            raise RuntimeError(
+                "Cell-to-face topology missing; call parse_tess() first."
+            )
 
         self.validate_topology()
 

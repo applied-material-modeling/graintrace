@@ -61,7 +61,7 @@ def _to_bunge(euler: torch.Tensor, convention: str) -> tuple:
 def _from_bunge(
     phi1: torch.Tensor, Phi: torch.Tensor, phi2: torch.Tensor, convention: str
 ) -> torch.Tensor:
-    """Inverse of :func:`_to_bunge` — Bunge angles (radians) back to convention."""
+    """Inverse of :func:`_to_bunge`: Bunge angles (radians) back to convention."""
     convention = convention.lower()
     if convention == "bunge":
         a, b, c = phi1, Phi, phi2

@@ -9,7 +9,7 @@
 (NEPER, MOOSE/PUMA ``puma-opt``, CUBIT/SCULPT ``psculpt``, NEML2/pyzag) is built
 separately (see the repo's ``external/`` submodules + PUBLISHING.md). These
 checks let a tool tell the user up front, in its preview, whether the tools it
-needs are present -- and if a run is attempted anyway, produce a friendly
+needs are present, and if a run is attempted anyway, produce a friendly
 "not built yet" message instead of a raw traceback.
 
 Detection is best-effort: PATH lookup for binaries, import probes for Python
@@ -113,7 +113,7 @@ def _check_puma() -> DepStatus:
         False,
         "MOOSE/PUMA `puma-opt` not found (tools.json, PATH, or external/puma)",
         "Build MOOSE + PUMA, then set `puma_opt` in a tools.json (see "
-        "deploy/tools.example.json) or pass its path as `moose_run_file`.",
+        "graintrace/mcp/tools.example.json) or pass its path as `moose_run_file`.",
     )
 
 
@@ -139,14 +139,14 @@ def _check_cubit() -> DepStatus:
         False,
         f"missing CUBIT/SCULPT binaries: {', '.join(missing)}",
         "Install CUBIT/Coreform and set `sculpt_config` in a tools.json (see "
-        "deploy/tools.example.json). SCULPT hex meshing is the recommended path "
+        "graintrace/mcp/tools.example.json). SCULPT hex meshing is the recommended path "
         "(GMSH tets are an FF-only last resort). CUBIT is licensed; never commit it.",
     )
 
 
 def _check_gpu() -> DepStatus:
-    """CUDA GPU visible to torch. Not a hard dependency -- runs fall back to CPU
-    -- but the policy is: if a GPU is available, always use it (CPFE + material
+    """CUDA GPU visible to torch. Not a hard dependency (runs fall back to CPU),
+    but the policy is: if a GPU is available, always use it (CPFE + material
     calibration are the GPU-accelerated steps)."""
     try:
         # Lazy: torch is a heavy dep and may be absent; probe softly.
@@ -195,7 +195,7 @@ def _check_python_pkg(pkg: str, build_hint: str) -> DepStatus:
 
 def _check_neml2() -> DepStatus:
     """neml2 python bindings importable. Sufficient for calibration/pyzag paths;
-    the CPFE run additionally needs the AOTI runtime -- see _check_neml2_aoti."""
+    the CPFE run additionally needs the AOTI runtime; see _check_neml2_aoti."""
     st = _check_python_pkg(
         "neml2",
         "NEML2 v3 is provided by the PUMA build (it builds the repo-pinned NEML2 "
@@ -217,7 +217,7 @@ def _check_neml2_aoti() -> DepStatus:
     """The compiled AOTI runtime that CPFE needs to load neml2-compile'd models.
 
     Distinct from `neml2` because the material-calibration (pyzag) path does NOT
-    need AOTI -- only the MOOSE/PUMA CPFE run does. A common failure here is an
+    need AOTI; only the MOOSE/PUMA CPFE run does. A common failure here is an
     ABI mismatch (e.g. libstdc++ CXXABI too old for the compiled _aoti.so).
     """
     base = _check_neml2()
@@ -229,7 +229,7 @@ def _check_neml2_aoti() -> DepStatus:
         f"LD_LIBRARY_PATH includes {conda_lib_dir()} (the env's newer libstdc++); "
         "the MCP server + demo driver set this automatically."
     )
-    # Probe in a subprocess WITH the env lib dir on LD_LIBRARY_PATH -- that's how
+    # Probe in a subprocess WITH the env lib dir on LD_LIBRARY_PATH; that's how
     # CPFE actually runs neml2-compile/puma-opt, so this reflects real runnability
     # even if the current process was started without the path.
     libdir = conda_lib_dir()
@@ -294,7 +294,7 @@ def require(*names: str) -> Optional[str]:
     """Return None if all named deps are present, else a user-facing message.
 
     Tools call this at the top of the ``confirm=True`` branch. The returned
-    string is meant to be relayed verbatim to the user -- it names what's
+    string is meant to be relayed verbatim to the user; it names what's
     missing and how to build it, with no traceback.
     """
     missing = [check(n) for n in names]

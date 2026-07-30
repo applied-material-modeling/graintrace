@@ -173,7 +173,7 @@ class MaterialCalibration:
         return reparam
 
     def _calibration_parameters(self) -> List[torch.nn.Parameter]:
-        """The optimizer variables — the RangeRescale ``.original`` leaves after
+        """The optimizer variables: the RangeRescale ``.original`` leaves after
         reparametrization (or the raw parameters before it)."""
         factory = self.model.factory
         out = []

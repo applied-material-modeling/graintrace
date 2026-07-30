@@ -1,7 +1,7 @@
 ---
 name: rei-comparison
 description: >
-  Compare two rare-event-identification (REI) point clouds for spatial overlap — IoU/Dice/
+  Compare two rare-event-identification (REI) point clouds for spatial overlap: IoU/Dice/
   containment metrics, a 1-to-1 cluster correspondence (split/merge detection), and a classified
   point cloud (only-1 / only-2 / both) exported to VTK (REIComparison). Use to compare two REI
   results (two metrics, thresholds, methods, or prediction vs. reference), possibly on grids of
@@ -18,7 +18,7 @@ but for rare-region point clouds instead of grain sets.
 Each rare point is the center of its voxel cube, so a REI is a union of axis-aligned cubes and
 overlap is a boolean **volume** intersection. Both regions are resampled onto a common **finer**
 lattice (`s_ref = min(spacing_1, spacing_2)`); membership is then an O(1) integer-index hash
-lookup (`ijk = round((p-origin)/s)` — voxels partition space, so "inside" ≡ "its cell is
+lookup (`ijk = round((p-origin)/s)`: voxels partition space, so "inside" ≡ "its cell is
 occupied"). Non-contiguous regions are handled for free. No surface reconstruction needed:
 region volume is just `voxel_count × voxel_volume`.
 
@@ -29,7 +29,7 @@ Two voxelized REI point-cloud CSVs, each with `x,y,z` columns and an optional in
 points). See the `/rare-event-identification` skill.
 
 **Assumptions:** each grid is regular (constant per-axis spacing) and the two grids **share an
-origin** (no rotation/translation is applied here — register the clouds first if they don't).
+origin** (no rotation/translation is applied here; register the clouds first if they don't).
 
 ## Recipe
 ```python
@@ -48,22 +48,22 @@ print(result["metrics"]["iou"], result["metrics"]["containment_1"])
 ```
 
 ## Outputs (in `output_dir`)
-- `overlap_metrics.json` — IoU (Jaccard), Dice, `containment_1`/`containment_2` (asymmetric),
+- `overlap_metrics.json`: IoU (Jaccard), Dice, `containment_1`/`containment_2` (asymmetric),
   voxel counts + volumes, and (with `cluster_col`) cluster/split/merge counts.
-- `overlap_cloud.vtk` — classified polydata points, scalar `membership` (1=only-1, 2=only-2,
+- `overlap_cloud.vtk`: classified polydata points, scalar `membership` (1=only-1, 2=only-2,
   3=both) + `cluster_id_1`/`cluster_id_2`. Color by `membership` in ParaView.
-- `cluster_match.csv` — 1-to-1 cluster pairing (Hungarian by overlap volume, label-agnostic)
+- `cluster_match.csv`: 1-to-1 cluster pairing (Hungarian by overlap volume, label-agnostic)
   with per-pair Jaccard/containment; unmatched clusters flagged with `-1`.
 
 ## Key parameters
-- `spacing_1` / `spacing_2` — scalar or `[dx,dy,dz]`. **Pass the true spacing**; auto-detect
+- `spacing_1` / `spacing_2`: scalar or `[dx,dy,dz]`. **Pass the true spacing**; auto-detect
   uses the min positive coordinate step and can be wrong for sparse clouds.
-- `cluster_col` — enables the cluster correspondence; `None` gives global overlap only.
-- `split_merge_fraction` (default 0.2) — significance threshold for split/merge counting.
+- `cluster_col`: enables the cluster correspondence; `None` gives global overlap only.
+- `split_merge_fraction` (default 0.2): significance threshold for split/merge counting.
 
 ## Gotchas
 - Different spacings are fine (the coarser region is upsampled to `s_ref`); different **origins**
-  are not — align first.
+  are not; align first.
 - Boundary discretization error is ~one `s_ref` voxel; increase `supersample` only if that
   matters. Coarse-vs-fine IoU < 1 even for the "same" region is expected (cube extents differ at
   the boundary by half the coarse cell).

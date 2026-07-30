@@ -8,7 +8,7 @@
 Importing the tool modules below registers every tool/resource on the shared
 FastMCP instance. ``main()`` is the ``graintrace-mcp`` console entry point.
 
-    graintrace-mcp                 # stdio (Claude Desktop / Claude Code / mcpo)
+    graintrace-mcp                 # stdio (Claude Desktop / Claude Code)
     graintrace-mcp --http          # streamable-http on 127.0.0.1:8000
     graintrace-mcp --http --host 0.0.0.0 --port 9000
 """

@@ -629,7 +629,7 @@ class CrystalGenerator:
         | Type          | Required Keys            | Description                                                                         |
         | ------------- | ------------------------ | ----------------------------------------------------------------------------------- |
         | "gg"          | mean                     | Grain growth morphology with absolute mean grain size.                              |
-        | "lamellar"    | n, v                     | Layered grains — number of lamellae n, direction v ('x','y','z','random','crysdir') |
+        | "lamellar"    | n, v                     | Layered grains: number of lamellae n, direction v ('x','y','z','random','crysdir') |
         | "columnar"    | n, v                     | Columnar n grains aligned with along direction ('x','y','z').                              |
         | "bamboo"      | n, v                     | 1D bamboo-like n grains along direction ('x','y','z').                                |
         | "diameq"      | distribution, params     | Equivalent-diameter distribution, e.g. lognormal(0.1,0.03).                         |

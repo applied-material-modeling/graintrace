@@ -82,7 +82,7 @@ def stitch_scans(
     if "orientation_convention" in smeta:
         p["orientation_convention"] = smeta["orientation_convention"]
 
-    # Scan geometry is NOT in the CSVs -- require it (directly or via sample_json).
+    # Scan geometry is NOT in the CSVs; require it (directly or via sample_json).
     missing = []
     if zlo is None or zhi is None:
         missing.append("z-range (zlo, zhi) of the stitched volume, in um")

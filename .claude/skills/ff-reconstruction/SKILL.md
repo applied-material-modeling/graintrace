@@ -42,18 +42,18 @@ builder.build_voronoi(
 ```
 
 ## Key parameters
-- `bounding_box` — [xlo,xhi,ylo,yhi,zlo,zhi] (µm). `auto_fix_bbox` + `bbox_fix_mode` handle
+- `bounding_box`: [xlo,xhi,ylo,yhi,zlo,zhi] (µm). `auto_fix_bbox` + `bbox_fix_mode` handle
   out-of-box points (`remove_points` for production).
 - `unit` (`"rad"`/`"deg"`) must match the actual Euler units; `strain_unit` for the ee columns.
-- `option`/`CVT_iter`/`morphoalgo` — tessellation morphology + CVT optimization.
-- `generate_mesh` — GMSH mesh (needed for CPFE); `relative_el_size` ~ elements per grain.
+- `option`/`CVT_iter`/`morphoalgo`: tessellation morphology + CVT optimization.
+- `generate_mesh`: GMSH mesh (needed for CPFE); `relative_el_size` ~ elements per grain.
 
 ## Outputs (in `output_dir`)
 - `reconstruction.tess` / `reconstruction.msh` (mesh) / `reconstruction.ori` (9-col rotmat)
-- `orientations.dat` — per-grain Euler, **always degrees after FF build** (convert with
+- `orientations.dat`: per-grain Euler, **always degrees after FF build** (convert with
   `orientation_helper.euler_to_mrp` before CPFE)
-- `reconstruction_cpfe_ee.csv` — per-grain initial elastic strain (12 cols: x,y,z + 9)
-- `reconstruction_reformatted.csv` — per-voxel grain IDs + Euler (FF→voxel input)
+- `reconstruction_cpfe_ee.csv`: per-grain initial elastic strain (12 cols: x,y,z + 9)
+- `reconstruction_reformatted.csv`: per-voxel grain IDs + Euler (FF→voxel input)
 
 ## Gotchas
 - FF `orientations.dat` is degrees regardless of input; downstream `VoxelMeshBuilder` needs

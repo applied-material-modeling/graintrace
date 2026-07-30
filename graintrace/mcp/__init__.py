@@ -6,14 +6,14 @@
 """graintrace MCP server.
 
 Exposes the graintrace HEDM -> CPFE -> REI workflow as Model Context Protocol
-(MCP) tools so that any MCP-capable chat client (Claude Desktop, Claude Code,
-or Open WebUI via the ``mcpo`` proxy) can drive graintrace. The server itself
-contains no LLM -- the connecting client supplies the reasoning model and the
-user's key. See ``graintrace/mcp/README.md`` for setup.
+(MCP) tools so that any MCP-capable chat client (Claude Desktop, Claude Code, or
+any other MCP client) can drive graintrace. The server itself contains no LLM;
+the connecting client supplies the reasoning model and the user's key. See
+``graintrace/mcp/README.md`` for setup.
 
 Run with::
 
-    graintrace-mcp                 # stdio transport (Claude Desktop / mcpo)
+    graintrace-mcp                 # stdio transport (Claude Desktop / Code)
     graintrace-mcp --http          # streamable-http transport on :8000
 
 Design invariants:

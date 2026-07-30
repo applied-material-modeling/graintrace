@@ -36,7 +36,7 @@ pytest.importorskip("neml2")
 
 
 class TestOrientationHelper:
-    """Tests requiring neml2 — marked as unit but neml2 must be installed."""
+    """Tests requiring neml2 (marked as unit, but neml2 must be installed)."""
 
     def test_misorientation_identical_zero(self):
         from graintrace.orientation_helper import misorientation
