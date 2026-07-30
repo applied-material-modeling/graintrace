@@ -40,7 +40,7 @@ classifiers = [
 # PUMA's repo-pinned build into `graintrace_env` (ABI-matched to `puma-opt`), not
 # a PyPI wheel. `__init__` lazy-imports it, so bare `pip install graintrace` runs
 # the pure-Python features (REI, stitching); neml2-using features (calibration,
-# CPFE) need the PUMA-built stack. See README + PUBLISHING.md.
+# CPFE) need the PUMA-built stack. See README.
 dependencies = [
     "numpy>=1.26",
     "pandas>=2.0",

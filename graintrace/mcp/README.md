@@ -61,7 +61,7 @@ pip install "graintrace[mcp]"      # or: pip install -e ".[mcp]" from a checkout
 ```
 
 The compiled stack (NEPER, MOOSE/PUMA, CUBIT/SCULPT, NEML2, pyzag) is **not** on
-PyPI; build it separately (see the repo README + PUBLISHING.md). The MCP server
+PyPI; build it separately (see the repo README). The MCP server
 runs without it; tools that need a missing piece just report so.
 
 Run it standalone to sanity-check:

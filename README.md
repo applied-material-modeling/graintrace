@@ -111,7 +111,7 @@ git submodule update --init --recursive external/puma
 ```
 
 > Pinned to a specific PUMA commit (recursive init also pins PUMA's moose/neml2), so updates are
-> deliberate. See `PUBLISHING.md` for the re-point procedure.
+> deliberate. To re-point, update `.gitmodules` and the `external/puma` gitlink, then re-init.
 
 ## CUBIT/SCULPT (proprietary; bring your own license)
 

@@ -7,7 +7,7 @@
 
 ``pip install graintrace`` gives you the Python code only. The heavy stack
 (NEPER, MOOSE/PUMA ``puma-opt``, CUBIT/SCULPT ``psculpt``, NEML2/pyzag) is built
-separately (see the repo's ``external/`` submodules + PUBLISHING.md). These
+separately (see the repo README). These
 checks let a tool tell the user up front, in its preview, whether the tools it
 needs are present, and if a run is attempted anyway, produce a friendly
 "not built yet" message instead of a raw traceback.
