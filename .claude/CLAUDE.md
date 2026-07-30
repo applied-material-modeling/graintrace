@@ -971,3 +971,25 @@ distills the recipe. Run examples from `graintrace_env` (`conda activate graintr
 **External-tool matrix:** NEPER → ff-reconstruction, nf/ff/hedm synthetic; CUBIT/`sculpt_config`
 → nf-reconstruction, voxel-segmentation-mesh, cpfe-nf-ff; MOOSE `puma-opt` + `neml2-compile` →
 cpfe-simulation, cpfe-nf-ff; NEML2 v3 only → material-calibration; none → post-processing, REI.
+
+---
+
+## 13. Code Standards
+
+Follows the pyzag project's conventions: **black** + **pylint** (not ruff/pyright).
+
+- **Formatting:** `black` (pinned `24.3.0` in `[dev]`); run `black graintrace tests`.
+- **Linting:** `pylint --rcfile=.pylintrc graintrace` must be clean (0 messages). `.pylintrc`
+  sets `max-line-length=240` and disables `C0103,E1101,E1102,R0903,R0801` (pyzag base) plus the
+  `too-many-*` complexity family (`R0902,R0904,R0911,R0912,R0913,R0914,R0915,R0916,R0917,C0302`)
+  — complexity refactors of the numerical routines are deliberately out of scope. Docstring and
+  import-placement rules stay ON and are fixed in code.
+- **Copyright:** every `.py` carries the MIT header (see any existing file).
+- **Lazy imports:** heavy/optional deps (neml2, pyzag, torch, torch_geometric, gmsh, matplotlib,
+  pyvista, vtk, …) are imported inside functions with an inline
+  `# pylint: disable=import-outside-toplevel`; `graintrace/__init__.py` uses a PEP 562 lazy
+  `__getattr__` so `import graintrace` never pulls the compiled stack.
+- **Tests:** pytest; `torch.float64`; `torch.manual_seed(42)` for reproducibility; finite-difference
+  checks for gradients. NEML2/pyzag-dependent tests `pytest.importorskip` so a plain checkout skips
+  them. `pylint` gate is on `graintrace/` only; `black --check` on `graintrace` + `tests`.
+- Keep comments succinct.

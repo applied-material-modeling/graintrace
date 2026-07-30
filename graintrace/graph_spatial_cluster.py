@@ -22,17 +22,20 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+"""Graph-based spatial clustering of field data (grid/kNN edges, NetworKit segmentation)."""
+
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple, Union
+import json
+import os
+import re
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
 import pandas as pd
-from typing import List, Optional, Tuple, Callable, Dict, Any
-from .user_data_class import SimilarityMetric, WeightConfig
 from tqdm import tqdm
-import os
-import json
-import re
+
+from .user_data_class import SimilarityMetric, WeightConfig
 
 
 # numba-accelerated top-k pruning (thread-parallel, no multiprocessing); falls back
@@ -41,7 +44,7 @@ try:
     from numba import njit, prange, set_num_threads as _nb_set_threads
 
     _HAS_NUMBA = True
-except Exception:  # pragma: no cover - numba is a declared dependency
+except ImportError:  # pragma: no cover - numba is a declared dependency
     _HAS_NUMBA = False
 
 
@@ -55,7 +58,7 @@ if _HAS_NUMBA:
         bool[2E] in sorted-position space, so per-node segments never race.
         """
         n = indptr.shape[0] - 1
-        for nidx in prange(n):
+        for nidx in prange(n):  # pylint: disable=not-an-iterable  # numba prange
             s = indptr[nidx]
             e = indptr[nidx + 1]
             m = e - s
@@ -74,6 +77,7 @@ if _HAS_NUMBA:
 
 
 class GraphSpatialCluster:
+    """Cluster point-cloud field data by building a spatial graph and segmenting it."""
 
     def __init__(
         self,
@@ -105,7 +109,7 @@ class GraphSpatialCluster:
         self.data = df
 
     def check_feature_matrix(self, spec: SimilarityMetric) -> None:
-
+        """Validate that all feature columns required by `spec` exist in the data."""
         if self.data is None:
             self.load_data()
 
@@ -145,7 +149,7 @@ class GraphSpatialCluster:
         resume_from_checkpoint: bool = False,
         mp_start_method: Optional[str] = None,
     ) -> Dict[str, Any]:
-
+        """Run the full pipeline: build edges, weight them, segment, return labels/props."""
         print("\n=== Running GraphSpatialCluster ===\n")
 
         self.load_data()
@@ -349,7 +353,8 @@ class GraphSpatialCluster:
         n_threads: int = 1,
         **networkit_kwargs: Any,
     ) -> np.ndarray:
-
+        """Segment a weighted graph with NetworKit (leiden/plm/plp), returning labels."""
+        # pylint: disable=import-outside-toplevel  # networkit is a heavy optional dep
         import networkit as nk
 
         if edges.shape[0] != weights.shape[0]:
@@ -383,6 +388,9 @@ class GraphSpatialCluster:
 
         chosen = method.lower()
 
+        # networkit is a C-extension; its community members are invisible to static
+        # analysis (I1101), so disable c-extension-no-member for this block.
+        # pylint: disable=c-extension-no-member
         if chosen == "leiden":
             if not hasattr(nk.community, "ParallelLeiden"):
                 raise ValueError(
@@ -520,6 +528,7 @@ class GraphSpatialCluster:
         if k < 1:
             raise ValueError("k must be >= 1")
 
+        # pylint: disable=import-outside-toplevel  # scipy imported lazily
         from scipy.spatial import cKDTree
 
         tree = cKDTree(coords)
@@ -623,11 +632,13 @@ class GraphSpatialCluster:
         edges: np.ndarray,
         X: np.ndarray,
         spec: SimilarityMetric,
+        # n_jobs / mp_start_method kept for backward compat only (unused).
+        # pylint: disable-next=unused-argument
         n_jobs: int = 1,
         chunk_size: int = 1_000_000,
-        mp_start_method: Optional[str] = None,
+        mp_start_method: Optional[str] = None,  # pylint: disable=unused-argument
     ) -> np.ndarray:
-
+        """Compute per-edge distances with `spec.func`, chunked and single-process."""
         if edges.ndim != 2 or edges.shape[1] != 2:
             raise ValueError("edges must be shape (E,2)")
         if edges.shape[0] == 0:
@@ -649,6 +660,7 @@ class GraphSpatialCluster:
         distances: np.ndarray,
         weight_cfg: WeightConfig,
     ) -> np.ndarray:
+        """Convert edge distances to edge weights per `weight_cfg`."""
         return GraphSpatialCluster._dist_to_weight_vec(
             np.asarray(distances, dtype=np.float64),
             weight_cfg,
@@ -659,6 +671,7 @@ class GraphSpatialCluster:
         distances: np.ndarray,
         quantile: float = 0.5,
     ) -> float:
+        """Estimate an RBF sigma as the given quantile of the distance array."""
         if distances.shape[0] == 0:
             raise ValueError("No distances available to estimate sigma from.")
         sigma = float(np.quantile(distances, quantile))
@@ -675,6 +688,7 @@ class GraphSpatialCluster:
         n_jobs: int = 1,
         chunk_size: int = 1_000_000,
     ) -> np.ndarray:
+        """Compute edge weights = distances_to_weights(compute_edge_distances(...))."""
         distances = self.compute_edge_distances(
             edges=edges,
             X=X,
@@ -712,7 +726,9 @@ class GraphSpatialCluster:
         weights: np.ndarray,
         k: Optional[int],
         n_jobs: int = 1,
+        # pylint: disable-next=unused-argument
         nodes_chunk: int = 250_000,  # accepted for backward compat; ignored
+        # pylint: disable-next=unused-argument
         mp_start_method: Optional[str] = None,  # accepted for backward compat; ignored
     ) -> Tuple[np.ndarray, np.ndarray]:
         """Keep each node's k highest-weight incident edges (union over endpoints).
@@ -785,7 +801,7 @@ class GraphSpatialCluster:
         X: np.ndarray,
         feature_names: List[str],
     ) -> pd.DataFrame:
-
+        """Aggregate per-cluster stats: size, centroid, feature means, tensor norms."""
         if labels.ndim != 1:
             labels = labels.ravel()
 
@@ -852,6 +868,7 @@ class GraphSpatialCluster:
         quantile: float = 0.5,  # 0.5 = median
         seed: int = 0,
     ) -> float:
+        """Estimate an RBF sigma from a random sample of edge distances."""
         if edges.shape[0] == 0:
             raise ValueError("No edges to estimate sigma from.")
 

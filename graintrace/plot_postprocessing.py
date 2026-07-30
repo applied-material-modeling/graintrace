@@ -22,17 +22,15 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+"""Plotting helpers for CPFE field distributions, stress-strain, and pole figures."""
+
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, List, Optional, Union
-import re
-import pandas as pd
+from typing import Any
+
 import numpy as np
 from matplotlib import pyplot as plt
-
-import torch
-import neml2
 
 
 def plot_block_properties_distribution(
@@ -50,6 +48,7 @@ def plot_block_properties_distribution(
     if order not in (0, 1, 2):
         raise ValueError("order must be 0, 1, or 2")
 
+    # pylint: disable-next=protected-access  # internal results cache
     block = results._block_df
     if block is None:
         raise RuntimeError("Block dataframe not loaded.")
@@ -75,6 +74,8 @@ def plot_block_properties_distribution(
         nrows, ncols = 3, 2
     elif nplots == 9:
         nrows, ncols = 3, 3
+    else:
+        raise ValueError(f"Unsupported number of subplots: {nplots}")
 
     fig, axes = plt.subplots(
         nrows,
@@ -116,7 +117,7 @@ def plot_macroscopic_stress_strain(
     volume_prefix,
     output_folder="postprocess_out",
 ):
-
+    """Plot volume-weighted macroscopic stress-strain curves per component."""
     grain_ids = results.grain_ids
 
     T = results.get_tensor_block(
@@ -210,6 +211,8 @@ def plot_block_properties_over_time(
         nrows, ncols = 3, 2
     elif ncomp == 9:
         nrows, ncols = 3, 3
+    else:
+        raise ValueError(f"Unsupported number of components: {ncomp}")
 
     fig, axes = plt.subplots(
         nrows,
@@ -266,12 +269,16 @@ def plot_pole_figure(
     orientation_type="mrp",
     orientation_units="radians",
     odf_ncontour=12,
-):
+):  # pylint: disable=dangerous-default-value  # read-only list defaults
+    """Plot discrete inverse/direct pole figures (and optional ODF) at a time."""
+    # pylint: disable=import-outside-toplevel  # torch/neml2 are heavy optional deps
     import torch
     from neml2 import types as _t
     from neml2 import texture as _texture
+
     from .orientation_helper import euler_to_matrix, mrp_to_matrix
 
+    # pylint: disable-next=protected-access  # internal results cache
     block = results._block_df
     if block is None:
         raise RuntimeError("Block dataframe not loaded.")
@@ -281,7 +288,7 @@ def plot_pole_figure(
 
     pdirection = torch.tensor(direction, dtype=torch.double, device=device)
 
-    data, comp_names = results.get_tensor_block(
+    data, _comp_names = results.get_tensor_block(
         tensor_prefix,
         order=1,
         sample="id",

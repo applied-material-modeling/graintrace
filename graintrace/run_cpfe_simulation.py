@@ -22,17 +22,21 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+"""MOOSE/PUMA crystal-plasticity FE simulation runner (NEML2 v3 / AOTI)."""
+
 from __future__ import annotations
 
+import copy
 import os
 import re
-import subprocess, sys
 import shutil
+import subprocess
 from pathlib import Path
+
 import numpy as np
-import copy
-from .orientation_helper import load_orientations
 import pandas as pd
+
+from .orientation_helper import load_orientations
 
 
 class CPFESimulation:
@@ -150,11 +154,13 @@ class CPFESimulation:
         self.use_ff_initial_field = use_ff_initial_field
 
     def set_parameters(self, section, **kwargs):
+        """Update the given parameter section with keyword overrides."""
         if section not in self.params:
             raise KeyError(f"Unknown parameter section: {section}")
         self.params[section].update(kwargs)
 
     def get_section(self, section):
+        """Return the parameter dict for the given section."""
         if section not in self.params:
             raise KeyError(f"Unknown parameter section: {section}")
         return self.params[section]
@@ -201,20 +207,21 @@ class CPFESimulation:
                     )
 
     def write_bc_file(self):
+        """Write boundary_conditions.i and return the fix/roll node coordinates."""
         self.validate_geometry_and_bcs()
         b = self.params["boundary"]
         sim = self.params["simulation_parameters"]
 
         if self.dim == 3:
-            xlo, xhi, ylo, yhi, zlo, zhi = b["bounding_box"]
-            xbufflo, xbuffhi, ybufflo, ybuffhi, zbufflo, zbuffhi = b[
+            xlo, _xhi, ylo, yhi, zlo, _zhi = b["bounding_box"]
+            xbufflo, _xbuffhi, ybufflo, ybuffhi, zbufflo, _zbuffhi = b[
                 "bounding_box_buffer"
             ]
         else:
-            xlo, xhi, ylo, yhi = b["bounding_box"]
-            xbufflo, xbuffhi, ybufflo, ybuffhi = b["bounding_box_buffer"]
-            zlo, zhi = 0.0, 0.0
-            zbufflo, zbuffhi = 0.0, 0.0
+            xlo, _xhi, ylo, yhi = b["bounding_box"]
+            xbufflo, _xbuffhi, ybufflo, ybuffhi = b["bounding_box_buffer"]
+            zlo, _zhi = 0.0, 0.0
+            zbufflo, _zbuffhi = 0.0, 0.0
 
         fixnode_x, fixnode_y, fixnode_z = xlo + xbufflo, ylo + ybufflo, zlo + zbufflo
         yroll_x, yroll_y, yroll_z = xlo + xbufflo, yhi + ybuffhi, zlo + zbufflo
@@ -222,7 +229,7 @@ class CPFESimulation:
         coupled_axes = set()
 
         out = self.save_simulation_folder / "boundary_conditions.i"
-        with open(out, "w") as f:
+        with open(out, "w", encoding="utf-8") as f:
             f.write("[BCs]\n")
             f.write("    ## BCs for all stages\n")
 
@@ -381,7 +388,7 @@ class CPFESimulation:
                 self.save_simulation_folder / Path(self.eeres_file).name,
             )
 
-        with open(out, "w") as f:
+        with open(out, "w", encoding="utf-8") as f:
             f.write("[Postprocessors]\n")
             f.write("    # Automatically generated strain postprocessors\n")
 
@@ -447,7 +454,7 @@ class CPFESimulation:
             for i in range(1, ncell + 1):
                 f.write(f"    [volume_{i}]\n")
                 f.write("        type = ElementAverageValue\n")
-                f.write(f"        variable = volume\n")
+                f.write("        variable = volume\n")
                 f.write("        use_displaced_mesh = True\n")
                 f.write(f"        block = {i}\n")
                 f.write("    []\n")
@@ -456,7 +463,7 @@ class CPFESimulation:
             f.write("[]\n")
 
     def write_orientation_file(self):
-
+        """Write mrps_orientation.csv from the orientation file; return grain count."""
         df = pd.read_csv(self.ori_file, sep=r"[,\s]+", engine="python", header=None)
 
         # 9 columns = rotation matrix
@@ -473,6 +480,7 @@ class CPFESimulation:
             )
         # 3 columns = MRPs, copy as-is
         elif df.shape[1] == 3:
+            # pylint: disable=import-outside-toplevel  # torch is a heavy optional dep
             import torch
 
             shutil.copy(
@@ -521,7 +529,7 @@ class CPFESimulation:
 
     def _bake_neml2_model(self, src, dst):
         """Substitute @BAKE-marked material params into the model .i for AOTI compile."""
-        text = Path(src).read_text()
+        text = Path(src).read_text(encoding="utf-8")
         m = self.params["material"]
         enu_g = f"{m['elastic_E']:.12g} {m['elastic_nu']:.12g} {m['elastic_G']:.12g}"
         text, n = re.subn(
@@ -546,17 +554,25 @@ class CPFESimulation:
             )
             if n != 1:
                 raise RuntimeError(f"Failed to bake '@BAKE {marker}' in neml2_cpfe.i")
-        Path(dst).write_text(text)
+        Path(dst).write_text(text, encoding="utf-8")
 
     def _compile_neml2_model(self, model_i, out_dir, devices, load_files):
         """Run `neml2-compile` to produce the AOTI package + stub; return the stub."""
         out_dir = Path(out_dir)
         out_dir.mkdir(parents=True, exist_ok=True)
         cmd = [
-            "neml2-compile", str(model_i), "--model", "model",
-            "--dtype", "float64", "--device", *devices,
-            "--output-dir", str(out_dir),
-            "-d", "neml2_stress:spatial_deformation_gradient_increment",
+            "neml2-compile",
+            str(model_i),
+            "--model",
+            "model",
+            "--dtype",
+            "float64",
+            "--device",
+            *devices,
+            "--output-dir",
+            str(out_dir),
+            "-d",
+            "neml2_stress:spatial_deformation_gradient_increment",
         ]
         for lf in load_files:
             cmd += ["--load", lf]
@@ -572,7 +588,7 @@ class CPFESimulation:
 
         log = out_dir / "neml2_compile.log"
         print(f"\n==> neml2-compile ({' '.join(devices)}) -> {out_dir}", flush=True)
-        with open(log, "w") as lf:
+        with open(log, "w", encoding="utf-8") as lf:
             subprocess.run(
                 cmd,
                 cwd=self.save_simulation_folder,
@@ -743,7 +759,8 @@ class CPFESimulation:
         )
         Path(log_path).parent.mkdir(parents=True, exist_ok=True)
 
-        with open(log_path, "w", buffering=1) as lf:
+        with open(log_path, "w", buffering=1, encoding="utf-8") as lf:
+            # pylint: disable=consider-using-with  # persistent detached background run
             proc = subprocess.Popen(
                 argv,
                 cwd=self.save_simulation_folder,

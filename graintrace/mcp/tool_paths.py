@@ -53,6 +53,7 @@ def _candidates() -> List[Path]:
 
 
 def config_path() -> Optional[str]:
+    """Return the first existing tools.json path in the search order, else None."""
     for c in _candidates():
         if c.is_file():
             return str(c)
@@ -65,8 +66,9 @@ def _load() -> Dict[str, Any]:
     if not p:
         return {}
     try:
-        return json.loads(Path(p).read_text())
-    except Exception:
+        return json.loads(Path(p).read_text(encoding="utf-8"))
+    # Best-effort: a missing/malformed config falls back to empty.
+    except Exception:  # pylint: disable=broad-exception-caught
         return {}
 
 
@@ -83,6 +85,7 @@ def puma_opt() -> Optional[str]:
 
 
 def neper() -> Optional[str]:
+    """Configured neper path (if it exists), else None."""
     p = _load().get("neper")
     return p if p and Path(p).exists() else None
 

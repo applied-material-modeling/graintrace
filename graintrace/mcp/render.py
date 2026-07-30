@@ -16,14 +16,19 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
+
+import numpy as np
 
 # Must be set before importing pyvista so it starts off-screen.
 os.environ.setdefault("PYVISTA_OFF_SCREEN", "true")
 
 
 def _plotter():
-    import pyvista as pv
+    """Import pyvista off-screen (after the env var is set) and return the module."""
+    # pyvista must be imported only after PYVISTA_OFF_SCREEN is set (see above).
+    import pyvista as pv  # pylint: disable=import-outside-toplevel
+
     pv.OFF_SCREEN = True
     return pv
 
@@ -41,7 +46,6 @@ def list_fields(path: str) -> dict:
 def _pick_scalar(mesh, field: Optional[str]):
     """Resolve a usable scalar name; if `field` names a multi-component array,
     a magnitude is added. Returns the scalar name to color by (or None)."""
-    import numpy as np
     if field is None:
         return None
     for store in (mesh.point_data, mesh.cell_data):
@@ -53,8 +57,11 @@ def _pick_scalar(mesh, field: Optional[str]):
                 return mag
             return field
     # component columns like nye_tensor_11..33 -> build a norm
-    comp = [c for c in list(mesh.point_data.keys()) + list(mesh.cell_data.keys())
-            if c.startswith(field)]
+    comp = [
+        c
+        for c in list(mesh.point_data.keys()) + list(mesh.cell_data.keys())
+        if c.startswith(field)
+    ]
     if comp:
         store = mesh.point_data if comp[0] in mesh.point_data else mesh.cell_data
         stacked = np.stack([store[c] for c in comp], axis=1)
@@ -94,16 +101,28 @@ def render_vtk(
         p.add_mesh(mesh, color="lightgray", opacity=0.08)
         try:
             rare = mesh.threshold(1.5, scalars="rare_cluster_id")
-            p.add_mesh(rare, scalars="rare_cluster_id", cmap="turbo",
-                       show_scalar_bar=True, opacity=1.0)
-        except Exception:
+            p.add_mesh(
+                rare,
+                scalars="rare_cluster_id",
+                cmap="turbo",
+                show_scalar_bar=True,
+                opacity=1.0,
+            )
+        # Best-effort: fall back to plain coloring if thresholding fails.
+        except Exception:  # pylint: disable=broad-exception-caught
             p.add_mesh(mesh, scalars="rare_cluster_id", cmap="turbo")
     elif scalar is not None:
         p.add_mesh(mesh, scalars=scalar, cmap=cmap, show_scalar_bar=True)
     else:
         # solid — try RGB arrays (IPF) if present, else a neutral color
-        rgb_name = next((n for n in ("RGB", "rgb", "ipf_rgb", "colors")
-                         if n in mesh.point_data or n in mesh.cell_data), None)
+        rgb_name = next(
+            (
+                n
+                for n in ("RGB", "rgb", "ipf_rgb", "colors")
+                if n in mesh.point_data or n in mesh.cell_data
+            ),
+            None,
+        )
         if rgb_name is not None:
             p.add_mesh(mesh, scalars=rgb_name, rgb=True)
         else:

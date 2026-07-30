@@ -22,6 +22,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+"""Flood-fill grain segmentation and cleanup for NF voxel grids."""
+
 from __future__ import annotations
 
 import torch
@@ -40,7 +42,7 @@ def flood(
     batch_norm=10000000,
     grain_threshold=100,
     stop_count=100,
-    **kwargs
+    **kwargs,
 ):
     """Flood-fill segmentation of connected components in a 3D voxel grid.
 
@@ -65,7 +67,7 @@ def flood(
         angles[Xk, Yk, Zk].reshape(-1, 3),
         metrics.misorientation,
         chunk_size=batch_norm,
-        **kwargs
+        **kwargs,
     ).reshape(Xk.shape)
 
     # Mark invalid distances as infinity so we don't flood them

@@ -22,6 +22,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+"""Inverse pole figure (IPF) coloring of meshes (Exodus/VTK) and legend charts."""
+
 from __future__ import annotations
 
 import os
@@ -33,6 +35,7 @@ import pandas as pd
 import scipy.io as sio
 import matplotlib.pyplot as plt
 import torch
+import pyvista as pv
 from matplotlib.patches import Polygon
 
 from neml2.texture import (
@@ -44,16 +47,18 @@ from neml2.texture import (
 
 from .orientation_helper import euler_to_matrix, mrp_to_matrix
 
-import pyvista as pv
-
 
 class IPFProcessor:
+    """Compute and apply IPF (inverse pole figure) coloring to meshes and legends."""
+
     available_projections = {
         "stereographic": StereographicProjection(),
         "lambert": LambertProjection(),
     }
 
     class IPFColorScheme:
+        """Map fundamental-sector crystal directions to RGB IPF colors."""
+
         @staticmethod
         def _as_vec(v, default):
             if v is None:
@@ -144,6 +149,7 @@ class IPFProcessor:
         ngrid=100,
         nline=100,
     ):
+        """Render the IPF color legend triangle, save it, and return the axes."""
         colorizer = self.IPFColorScheme(
             self.reduction.v[0], self.reduction.v[1], self.reduction.v[2]
         )
@@ -260,6 +266,7 @@ class IPFProcessor:
         return picked
 
     def get_ipf_color(self, orientations, direction):
+        """Return per-orientation IPF RGB colors for the given sample direction."""
         dirs = self.get_reduced_ipf_directions(orientations, direction)
         colorizer = self.IPFColorScheme(
             self.reduction.v[0], self.reduction.v[1], self.reduction.v[2]
@@ -275,6 +282,7 @@ class IPFProcessor:
         angle_convention="kocks",
         angle_type="radians",
     ):
+        """Write per-block IPF RGB element variables into an Exodus mesh copy."""
         output_path = self._resolve_path(output_file)
         shutil.copyfile(mesh_file, output_path)
 
@@ -353,6 +361,7 @@ class IPFProcessor:
         angle_type="radians",
         orientation_fields=("Eul1", "Eul2", "Eul3"),
     ):
+        """Write per-cell IPF RGB colors into a VTK mesh copy."""
         output_path = self._resolve_path(output_file)
 
         mesh = pv.read(vtk_file)
@@ -370,7 +379,7 @@ class IPFProcessor:
         eul2 = np.asarray(mesh.cell_data[orientation_fields[1]])
         eul3 = np.asarray(mesh.cell_data[orientation_fields[2]])
 
-        if not (len(eul1) == len(eul2) == len(eul3)):
+        if not len(eul1) == len(eul2) == len(eul3):
             raise ValueError("Orientation cell data fields must have the same length")
 
         ori = np.column_stack((eul1, eul2, eul3))

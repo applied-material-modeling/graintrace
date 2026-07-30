@@ -158,7 +158,9 @@ class TestGraphSpatialCluster:
 
         csv_path = self._make_grid_csv(tmp_path / "grid2.csv")
         out_csv = str(tmp_path / "labeled.csv")
-        gsc = GraphSpatialCluster(csv_path=csv_path, id_col="id", coord_cols=("x", "y", "z"))
+        gsc = GraphSpatialCluster(
+            csv_path=csv_path, id_col="id", coord_cols=("x", "y", "z")
+        )
         lib = SimilarityMetricLibrary()
         spec = lib.von_mises_stress()
         gsc.run(
@@ -181,9 +183,7 @@ class TestGraphSpatialClusterFixes:
     @staticmethod
     def _random_undirected(n, n_edges, seed=0):
         rng = np.random.default_rng(seed)
-        e = np.stack(
-            [rng.integers(0, n, n_edges), rng.integers(0, n, n_edges)], axis=1
-        )
+        e = np.stack([rng.integers(0, n, n_edges), rng.integers(0, n, n_edges)], axis=1)
         e = np.unique(np.sort(e, axis=1), axis=0)
         e = e[e[:, 0] != e[:, 1]]
         w = rng.random(e.shape[0])
@@ -276,8 +276,12 @@ class TestGraphSpatialClusterFixes:
                     e_new, w_new = gsc.prune_topk_per_node_parallel(
                         n_nodes=n, edges=edges, weights=w, k=k, n_jobs=n_jobs
                     )
-                    assert np.array_equal(e_new, e_ref), f"edges differ k={k} nj={n_jobs}"
-                    assert np.array_equal(w_new, w_ref), f"weights differ k={k} nj={n_jobs}"
+                    assert np.array_equal(
+                        e_new, e_ref
+                    ), f"edges differ k={k} nj={n_jobs}"
+                    assert np.array_equal(
+                        w_new, w_ref
+                    ), f"weights differ k={k} nj={n_jobs}"
 
     def test_compute_edge_distances_vectorized_njobs_no_deadlock(self):
         # Vectorized metrics must run single-process even when n_jobs>1.
@@ -288,9 +292,7 @@ class TestGraphSpatialClusterFixes:
         rng = np.random.default_rng(0)
         n = 500
         X = rng.normal(0.0, 1.0, size=(n, 6))
-        edges = np.stack(
-            [rng.integers(0, n, 5000), rng.integers(0, n, 5000)], axis=1
-        )
+        edges = np.stack([rng.integers(0, n, 5000), rng.integers(0, n, 5000)], axis=1)
         spec = SimilarityMetricLibrary().von_mises_stress()
         d1 = gsc.compute_edge_distances(edges=edges, X=X, spec=spec, n_jobs=1)
         d4 = gsc.compute_edge_distances(edges=edges, X=X, spec=spec, n_jobs=4)

@@ -29,14 +29,21 @@ import os
 import pytest
 
 
+# The working neml2/pyzag is the repo-pinned build PUMA installs into
+# graintrace_env; on a plain checkout without it these skip (not error).
+
+
 def test_neml2_importable():
-    """neml2 must be importable (built from MOOSE contrib or PyPI)."""
+    """neml2 must be importable (repo-pinned build supplied by PUMA)."""
+    pytest.importorskip("neml2")
     import neml2  # noqa: F401
 
 
 def test_neml2_has_types():
     """neml2.types (v3) must expose the tensor wrappers used for orientation math."""
+    pytest.importorskip("neml2")
     from neml2 import types
+
     assert hasattr(types, "MRP"), "neml2.types.MRP not found"
     assert hasattr(types, "Vec"), "neml2.types.Vec not found"
     assert hasattr(types, "R2"), "neml2.types.R2 not found"
@@ -44,19 +51,25 @@ def test_neml2_has_types():
 
 def test_neml2_has_symmetry():
     """neml2 (v3) must expose crystal symmetry operators."""
+    pytest.importorskip("neml2")
     from neml2.ops import symmetry
+
     assert callable(symmetry), "neml2.ops.symmetry not callable"
 
 
 def test_neml2_has_texture():
     """neml2.texture (v3, was neml2.postprocessing) must expose pole-figure tools."""
+    pytest.importorskip("neml2")
     from neml2 import texture
+
     assert hasattr(texture, "pretty_plot_pole_figure_points")
     assert hasattr(texture, "symmetry_operators_as_R2")
 
 
 def test_pyzag_backend_available():
     """The NEML2 v3 pyzag adapter + pyzag must be importable for calibration."""
+    pytest.importorskip("neml2")
+    pytest.importorskip("pyzag")
     from neml2.pyzag import NEML2PyzagFactory  # noqa: F401
     from pyzag import nonlinear, chunktime, reparametrization  # noqa: F401
 

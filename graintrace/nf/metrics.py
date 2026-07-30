@@ -22,6 +22,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+"""Orientation averaging and misorientation metrics for NF grids."""
+
 from __future__ import annotations
 
 import torch

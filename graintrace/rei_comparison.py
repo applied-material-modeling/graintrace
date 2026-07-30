@@ -22,6 +22,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+"""Compare two rare-event-identification point clouds for spatial overlap."""
+
 from __future__ import annotations
 
 import json
@@ -91,7 +93,7 @@ class REIComparison:
             try:
                 cols = set(pd.read_csv(path, nrows=0).columns)
             except Exception as exc:  # pragma: no cover - passthrough of pandas error
-                raise ValueError(f"Failed to read {label}: {exc}")
+                raise ValueError(f"Failed to read {label}: {exc}") from exc
             missing = required - cols
             if missing:
                 raise ValueError(
@@ -167,9 +169,11 @@ class REIComparison:
     def _cluster_ids(self, df: pd.DataFrame, n: int) -> np.ndarray:
         if self.cluster_col is None:
             return np.ones(n, dtype=np.int64)
-        return pd.to_numeric(df[self.cluster_col], errors="coerce").fillna(
-            0
-        ).to_numpy(dtype=np.int64)
+        return (
+            pd.to_numeric(df[self.cluster_col], errors="coerce")
+            .fillna(0)
+            .to_numpy(dtype=np.int64)
+        )
 
     def _resolve_geometry(self) -> None:
         coords_1 = self.df_1[list(self.coord_cols)].to_numpy(dtype=np.float64)
@@ -308,9 +312,7 @@ class REIComparison:
         stencil = np.stack([ox.ravel(), oy.ravel(), oz.ravel()], axis=1)  # (S,3)
 
         cand = start[:, None, :] + stencil[None, :, :]  # (M,S,3)
-        src_cid = np.broadcast_to(
-            cluster_ids[:, None], cand.shape[:2]
-        ).reshape(-1)
+        src_cid = np.broadcast_to(cluster_ids[:, None], cand.shape[:2]).reshape(-1)
         src_cell = np.broadcast_to(cells[:, None, :], cand.shape).reshape(-1, 3)
         cand = cand.reshape(-1, 3)
 
@@ -393,7 +395,7 @@ class REIComparison:
         }
 
         metrics_path = os.path.join(self.output_dir, "overlap_metrics.json")
-        with open(metrics_path, "w") as f:
+        with open(metrics_path, "w", encoding="utf-8") as f:
             json.dump(self.metrics, f, indent=2)
 
         print("\n=== REI Comparison Metrics ===")
@@ -424,9 +426,9 @@ class REIComparison:
 
     def _match_clusters(
         self,
-        keys_1: np.ndarray,
+        _keys_1: np.ndarray,
         fcid_1: np.ndarray,
-        keys_2: np.ndarray,
+        _keys_2: np.ndarray,
         fcid_2: np.ndarray,
         both: np.ndarray,
         cid1_u: np.ndarray,
@@ -549,6 +551,8 @@ class REIComparison:
         cid1_u: np.ndarray,
         cid2_u: np.ndarray,
     ) -> str:
+        # np.unravel_index returns one array per dim; pylint can't infer the count
+        # pylint: disable-next=unbalanced-tuple-unpacking
         ix, iy, iz = np.unravel_index(union_keys, dims)
         idx = np.stack([ix, iy, iz], axis=1) + mn
         coords = self.origin[None, :] + idx.astype(float) * self.s_ref[None, :]
@@ -559,7 +563,10 @@ class REIComparison:
             "cluster_id_2": cid2_u.astype(np.int64),
         }
         vtk_path = os.path.join(self.output_dir, "overlap_cloud.vtk")
-        IdentifyRareClusters._write_polydata_points_vtk(vtk_path, coords, point_data)
+        # Reuse the REI VTK point-cloud writer (shared internal helper).
+        IdentifyRareClusters._write_polydata_points_vtk(  # pylint: disable=protected-access
+            vtk_path, coords, point_data
+        )
         print(f"Saved classified overlap cloud: {vtk_path}")
         return vtk_path
 

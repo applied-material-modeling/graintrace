@@ -59,7 +59,7 @@ def _read_tess_sections(tess_path: str) -> dict:
     """Group a ``.tess`` file's non-empty lines by top-level (``**``) section name."""
     sections: dict = {}
     current = None
-    with open(tess_path, "r") as fh:
+    with open(tess_path, "r", encoding="utf-8") as fh:
         for raw in fh:
             s = raw.strip()
             if not s:
@@ -170,7 +170,7 @@ def compute_cell_geometry(
                     f"weighted tessellation requires a '{radius_col}' column."
                 )
             r = df[radius_col].to_numpy(dtype=float)
-            w = (4.0 / 3.0) * np.pi * (r ** 3)
+            w = (4.0 / 3.0) * np.pi * (r**3)
             total = w.sum()
             if total > 0:
                 w = w / total
@@ -184,18 +184,36 @@ def compute_cell_geometry(
         domain = f"cube({sx},{sy},{sz}):translate({xlo},{ylo},{zlo})"
 
         cmd = [
-            neper_bin, "-T", "-n", str(n), "-id", "1", "-dim", "3",
-            "-domain", domain,
-            "-morpho", "voronoi",
-            "-morphooptiini", morpho_ini,
-            "-morphooptistop", "iter=0",
-            "-o", "scan_tess",
-            "-format", "tess",
-            "-statcell", "x,y,z,vol",
+            neper_bin,
+            "-T",
+            "-n",
+            str(n),
+            "-id",
+            "1",
+            "-dim",
+            "3",
+            "-domain",
+            domain,
+            "-morpho",
+            "voronoi",
+            "-morphooptiini",
+            morpho_ini,
+            "-morphooptistop",
+            "iter=0",
+            "-o",
+            "scan_tess",
+            "-format",
+            "tess",
+            "-statcell",
+            "x,y,z,vol",
         ]
         subprocess.run(
-            cmd, check=True, env=env, cwd=work_dir,
-            stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT,
+            cmd,
+            check=True,
+            env=env,
+            cwd=work_dir,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.STDOUT,
         )
 
         out = os.path.join(work_dir, "scan_tess")

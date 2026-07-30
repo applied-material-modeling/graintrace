@@ -58,6 +58,10 @@ coreform*/
 cubit*/
 # local deploy secret (mcpo key)
 deploy/env
+# open-webui local secret key (never commit)
+.webui_secret_key
+# MCP server run outputs (jobs logs, plots) -- generated at runtime
+graintrace_mcp_out/
 
 # demo pipeline outputs + internal ground truth
 demo/out/

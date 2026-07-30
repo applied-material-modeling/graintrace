@@ -22,13 +22,18 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+"""Naive HEDM scan stitching: concatenate scan CSVs in order."""
+
 from __future__ import annotations
 
-from typing import List
 import os
+
 import pandas as pd
 
-class NaiveStitching():
+
+class NaiveStitching:
+    """Combine per-scan HEDM CSVs by simple ordered concatenation."""
+
     def __init__(self, scan_files: list[str], output_csv: str):
         """scan_files: per-scan CSVs. output_csv: path for combined output."""
         self.scan_files = scan_files

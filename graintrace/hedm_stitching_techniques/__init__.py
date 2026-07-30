@@ -22,5 +22,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from __future__ import annotations
+"""HEDM scan-stitching techniques (region-based, naive) and support utilities."""
 
+from __future__ import annotations

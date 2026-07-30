@@ -11,7 +11,6 @@ not take a ``confirm`` flag.
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import List, Optional
 
 from graintrace.mcp import deps, jobs, recipes, sample_meta
@@ -19,6 +18,7 @@ from graintrace.mcp.app import mcp, workdir
 
 
 # ---- external stack status ---------------------------------------------------
+
 
 @mcp.tool()
 def dependency_status() -> dict:
@@ -32,6 +32,7 @@ def dependency_status() -> dict:
 
 
 # ---- recommendation recipes --------------------------------------------------
+
 
 @mcp.tool()
 def list_recommended_recipes() -> List[str]:
@@ -80,11 +81,14 @@ def recipe_resource(name: str) -> str:
     """Serve a recommendation recipe as a readable Markdown resource."""
     rec = recipes.get_recipe(name)
     if rec is None:
-        return f"# Unknown recipe '{name}'\nAvailable: {', '.join(recipes.list_recipes())}"
+        return (
+            f"# Unknown recipe '{name}'\nAvailable: {', '.join(recipes.list_recipes())}"
+        )
     return rec["markdown"]
 
 
 # ---- background jobs ---------------------------------------------------------
+
 
 @mcp.tool()
 def job_status(job_id: str) -> dict:
@@ -92,7 +96,10 @@ def job_status(job_id: str) -> dict:
     (CPFE, reconstruction, meshing, calibration)."""
     job = jobs.get(job_id)
     if job is None:
-        return {"error": f"no job '{job_id}'", "known_jobs": [j["job_id"] for j in jobs.all_jobs()]}
+        return {
+            "error": f"no job '{job_id}'",
+            "known_jobs": [j["job_id"] for j in jobs.all_jobs()],
+        }
     snap = job.snapshot()
     snap["recent_log"] = jobs.tail(job_id, 40)
     return snap
@@ -112,6 +119,7 @@ def job_log(job_id: str, lines: int = 100) -> str:
 
 # ---- outputs -----------------------------------------------------------------
 
+
 @mcp.tool()
 def list_outputs(subdir: Optional[str] = None) -> dict:
     """List files produced under the MCP workdir (where all tool outputs land).
@@ -124,9 +132,19 @@ def list_outputs(subdir: Optional[str] = None) -> dict:
     if not str(base).startswith(str(root)):
         return {"error": "subdir escapes the workdir"}
     if not base.exists():
-        return {"workdir": str(root), "listing_of": str(base), "files": [], "note": "does not exist"}
+        return {
+            "workdir": str(root),
+            "listing_of": str(base),
+            "files": [],
+            "note": "does not exist",
+        }
     files = []
     for p in sorted(base.rglob("*")):
         if p.is_file():
             files.append({"path": str(p), "size_bytes": p.stat().st_size})
-    return {"workdir": str(root), "listing_of": str(base), "n_files": len(files), "files": files[:500]}
+    return {
+        "workdir": str(root),
+        "listing_of": str(base),
+        "n_files": len(files),
+        "files": files[:500],
+    }

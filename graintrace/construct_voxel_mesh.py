@@ -22,16 +22,18 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+"""EBSD/NF voxel-grid segmentation and hex meshing (VoxelMeshBuilder)."""
+
 from __future__ import annotations
 
 import functools
 from pathlib import Path
 from typing import Any, Dict, Optional, Sequence, Union
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
-from tqdm import tqdm
 
 from .nf import convert, mesh, segment
 from .nf.smooth import smooth
@@ -42,8 +44,6 @@ from .similarity_metric_library import (
     misorientation_distance,
 )
 from .user_data_class import SimilarityMetric, WeightConfig
-
-import matplotlib.pyplot as plt
 
 PathLike = Union[str, Path]
 
@@ -405,10 +405,6 @@ class VoxelMeshBuilder:
         return out
 
     def _build_graph_metric(self) -> SimilarityMetric:
-        from .similarity_metric_library import (
-            misorientation_distance,
-        )
-
         return SimilarityMetric(
             name="misorientation",
             feature_cols=list(self.euler_cols),
@@ -619,70 +615,68 @@ class VoxelMeshBuilder:
             if self.write_vtk:
                 convert.fixed_grid_to_vtk(grid_t.cpu().numpy(), str(merged_grid_vtk))
             return self.merged_grid_npy
-        else:
-            seg = self._normalize_segmentation(segmentation)
-            params = seg["params"]
-            print(f"Segmentation method: {seg['method']}")
 
-            if seg["method"] == "flood":
-                print("Running flood segmentation...")
+        seg = self._normalize_segmentation(segmentation)
+        params = seg["params"]
+        print(f"Segmentation method: {seg['method']}")
 
-                grid_t[..., 0] = segment.flood(
-                    grid_t[..., 1:4],
-                    grid_t[..., 0],
-                    params["misorientation_tol"],
-                    connectivity=params["connectivity"],
-                    batch_norm=params["batch_norm"],
-                    grain_threshold=params["grain_threshold"],
-                    stop_count=params["stop_count"],
-                    angle_convention=self.angle_convention,
-                    angle_type=self.angle_type,
-                    symmetry=self.symmetry,
-                )
+        if seg["method"] == "flood":
+            print("Running flood segmentation...")
 
-            elif seg["method"] == "graph":
-                print("Running graph segmentation...")
-                graph_params = seg["graph_params"]
-                grid_t = self._segment_graph(grid_t, params, graph_params)
-
-            else:
-                raise ValueError(f"Unknown segmentation method: {seg['method']}")
-
-            if self.write_intermediate:
-                np.save(self.segmented_grid_npy, grid_t.cpu().numpy())
-            if self.write_vtk:
-                convert.fixed_grid_to_vtk(grid_t.cpu().numpy(), str(segmented_grid_vtk))
-
-            print("Removing small segments...")
-            grid_t = segment.remove_small_segments(
-                grid_t,
-                params["grain_threshold_final"],
+            grid_t[..., 0] = segment.flood(
+                grid_t[..., 1:4],
+                grid_t[..., 0],
+                params["misorientation_tol"],
                 connectivity=params["connectivity"],
+                batch_norm=params["batch_norm"],
+                grain_threshold=params["grain_threshold"],
+                stop_count=params["stop_count"],
+                angle_convention=self.angle_convention,
+                angle_type=self.angle_type,
+                symmetry=self.symmetry,
             )
 
-            print("Infilling segmented grid...")
-            grid_t = segment.infill_nearest_neighbor(
-                grid_t, connectivity=params["connectivity"]
-            )
+        elif seg["method"] == "graph":
+            print("Running graph segmentation...")
+            graph_params = seg["graph_params"]
+            grid_t = self._segment_graph(grid_t, params, graph_params)
 
-            print("Relabeling phase IDs to be contiguous...")
-            grid_t = self._relabel_phase_ids_contiguous(grid_t)
+        else:
+            raise ValueError(f"Unknown segmentation method: {seg['method']}")
 
-            out_dir = self._graph_segmentation_dir()
-            final_labels = (
-                grid_t[..., 0].detach().cpu().numpy().astype(np.int64).ravel()
-            )
-            self._plot_graph_labels(
-                final_labels,
-                out_dir,
-                filename="final_cluster_size_distribution.png",
-            )
+        if self.write_intermediate:
+            np.save(self.segmented_grid_npy, grid_t.cpu().numpy())
+        if self.write_vtk:
+            convert.fixed_grid_to_vtk(grid_t.cpu().numpy(), str(segmented_grid_vtk))
 
-            np.save(self.merged_grid_npy, grid_t.cpu().numpy())
-            if self.write_vtk:
-                convert.fixed_grid_to_vtk(grid_t.cpu().numpy(), str(merged_grid_vtk))
+        print("Removing small segments...")
+        grid_t = segment.remove_small_segments(
+            grid_t,
+            params["grain_threshold_final"],
+            connectivity=params["connectivity"],
+        )
 
-            return self.merged_grid_npy
+        print("Infilling segmented grid...")
+        grid_t = segment.infill_nearest_neighbor(
+            grid_t, connectivity=params["connectivity"]
+        )
+
+        print("Relabeling phase IDs to be contiguous...")
+        grid_t = self._relabel_phase_ids_contiguous(grid_t)
+
+        out_dir = self._graph_segmentation_dir()
+        final_labels = grid_t[..., 0].detach().cpu().numpy().astype(np.int64).ravel()
+        self._plot_graph_labels(
+            final_labels,
+            out_dir,
+            filename="final_cluster_size_distribution.png",
+        )
+
+        np.save(self.merged_grid_npy, grid_t.cpu().numpy())
+        if self.write_vtk:
+            convert.fixed_grid_to_vtk(grid_t.cpu().numpy(), str(merged_grid_vtk))
+
+        return self.merged_grid_npy
 
     def _load_grid(self, path: Path) -> torch.Tensor:
         arr = np.load(path)
@@ -703,6 +697,7 @@ class VoxelMeshBuilder:
         mesh_path: Optional[PathLike] = None,
         mapped_orientations_path: Optional[PathLike] = None,
     ) -> Path:
+        """Run SCULPT on the segmented grid and map orientations to the mesh."""
         cfg = self._validate_sculpt_config(sculpt_config)
         options = (
             list(sculpt_options)

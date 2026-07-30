@@ -35,7 +35,7 @@ order = "SECOND" if any("10" in c.type for c in m.cells) else "FIRST"
 
 sim = CPFESimulation(
     mesh_file=ff + "/reconstruction.msh", save_simulation_folder=out,
-    moose_run_file="/home/tranh/projects/moose_neml2_v3/puma/puma-opt",
+    moose_run_file="external/puma/puma-opt",   # EDIT: your built puma-opt
     element_order=order, eeres_file=None, ori_file=out + "/orientations_MRP.dat",
     dim=3, use_ff_initial_field=True,           # eeres_file=None -> 12-col zero ee
 )

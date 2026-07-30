@@ -22,13 +22,17 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+"""Library of similarity/distance metrics for graph-based field clustering."""
+
 from __future__ import annotations
 
-from typing import List, Optional
-import numpy as np
-from .user_data_class import SimilarityMetric
 import functools
 from dataclasses import dataclass
+from typing import List, Optional
+
+import numpy as np
+
+from .user_data_class import SimilarityMetric
 
 
 # Resident orientation cache (GPU): keep the full orientation array on-device and
@@ -37,6 +41,7 @@ _RESIDENT_X = {"key": None, "tensor": None}
 
 
 def _resident_orientations(X: np.ndarray, device, dtype):
+    # pylint: disable=import-outside-toplevel  # torch is a heavy optional dep
     import torch
 
     key = (id(X), X.shape, str(device), str(dtype))
@@ -47,6 +52,7 @@ def _resident_orientations(X: np.ndarray, device, dtype):
 
 
 def von_mises_stress_distance(u: np.ndarray, v: np.ndarray) -> float:
+    """Relative absolute difference of von Mises stress between two 6-component stress vectors."""
     sxx_u, syy_u, szz_u, sxy_u, syz_u, sxz_u = u
     sxx_v, syy_v, szz_v, sxy_v, syz_v, sxz_v = v
 
@@ -62,6 +68,7 @@ def von_mises_stress_distance(u: np.ndarray, v: np.ndarray) -> float:
 
 
 def von_mises_stress_distance_batch(X: np.ndarray, edges: np.ndarray) -> np.ndarray:
+    """Vectorized von Mises stress distance over all edges (endpoint index pairs)."""
     sxx = X[:, 0]
     syy = X[:, 1]
     szz = X[:, 2]
@@ -87,6 +94,8 @@ def misorientation_distance(
     symmetry: str = "432",
     output_unit: str = "degrees",
 ) -> float:
+    """Misorientation angle between two orientations, respecting crystal symmetry."""
+    # pylint: disable=import-outside-toplevel  # torch/neml2-backed helpers are heavy optional deps
     import torch
     from .orientation_helper import (
         euler_to_matrix,
@@ -121,6 +130,8 @@ def misorientation_distance(
 
 @dataclass(frozen=True)
 class MisorientationDistEdges:
+    """Callable computing symmetry-aware misorientation distances over graph edges."""
+
     angle_convention: str = "bunge"
     input_angle_type: str = "degrees"
     symmetry: str = "432"
@@ -128,6 +139,7 @@ class MisorientationDistEdges:
     device: str = "cpu"  # "cpu" or "cuda"/"cuda:N"
 
     def __call__(self, X: np.ndarray, edges: np.ndarray) -> np.ndarray:
+        # pylint: disable=import-outside-toplevel  # torch/neml2-backed helpers are heavy optional deps
         import torch
         from .orientation_helper import (
             euler_to_matrix,
@@ -153,8 +165,9 @@ class MisorientationDistEdges:
             Xg = _resident_orientations(X, self.device, torch.float64)
             Ig = torch.as_tensor(np.ascontiguousarray(I), device=self.device)
             Jg = torch.as_tensor(np.ascontiguousarray(J), device=self.device)
-            e1 = Xg[Ig]
-            e2 = Xg[Jg]
+            # Xg is a torch tensor (lazy-imported); pylint can't infer that here
+            e1 = Xg[Ig]  # pylint: disable=unsubscriptable-object
+            e2 = Xg[Jg]  # pylint: disable=unsubscriptable-object
         else:
             e1 = torch.as_tensor(X[I], dtype=torch.float64, device=self.device)
             e2 = torch.as_tensor(X[J], dtype=torch.float64, device=self.device)
@@ -178,6 +191,7 @@ def make_misorientation_dist_edges(
     output_unit: str = "degrees",
     device: str = "cpu",
 ) -> MisorientationDistEdges:
+    """Build a MisorientationDistEdges callable with the given conventions/device."""
     return MisorientationDistEdges(
         angle_convention=angle_convention,
         input_angle_type=input_angle_type,
@@ -188,6 +202,7 @@ def make_misorientation_dist_edges(
 
 
 def diff_norm_3x3(u: np.ndarray, v: np.ndarray) -> float:
+    """Frobenius norm of the difference between two flattened 3x3 tensors."""
     nye_u = u.reshape((3, 3))
     nye_v = v.reshape((3, 3))
 
@@ -198,6 +213,7 @@ def diff_norm_3x3(u: np.ndarray, v: np.ndarray) -> float:
 
 
 def diff_norm_3x3_batch(X: np.ndarray, edges: np.ndarray) -> np.ndarray:
+    """Vectorized Frobenius norm of tensor differences over all edges."""
     I = edges[:, 0]
     J = edges[:, 1]
 
@@ -218,7 +234,7 @@ class SimilarityMetricLibrary:
         self,
         cols: Optional[List[str]] = None,
     ) -> SimilarityMetric:
-
+        """SimilarityMetric for von Mises stress distance."""
         default = ["sxx", "syy", "szz", "sxy", "syz", "sxz"]
 
         use_cols = cols if cols is not None else default
@@ -239,7 +255,7 @@ class SimilarityMetricLibrary:
         output_unit: str = "degrees",
         device: str = "cpu",
     ) -> SimilarityMetric:
-
+        """SimilarityMetric for symmetry-aware misorientation distance."""
         if feature_cols is None:
             feature_cols = ["ori_rodrigues_x", "ori_rodrigues_y", "ori_rodrigues_z"]
 
@@ -266,7 +282,7 @@ class SimilarityMetricLibrary:
         )
 
     def nye_tensor_norm(self, cols: Optional[List[str]] = None) -> SimilarityMetric:
-
+        """SimilarityMetric for the Frobenius-norm distance of the Nye tensor."""
         cols = [
             "nye_tensor_11",
             "nye_tensor_12",

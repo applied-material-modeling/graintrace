@@ -22,9 +22,9 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from __future__ import annotations
+"""Voxel connectivity helpers for NF grid images."""
 
-from typing import List, Tuple
+from __future__ import annotations
 
 import torch
 

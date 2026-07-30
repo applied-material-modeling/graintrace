@@ -18,9 +18,15 @@ from graintrace.mcp.app import mcp, workdir
 from graintrace.mcp.confirm import gate
 
 _EKEN_9 = [
-    "eKen11", "eKen12", "eKen13",
-    "eKen21", "eKen22", "eKen23",
-    "eKen31", "eKen32", "eKen33",
+    "eKen11",
+    "eKen12",
+    "eKen13",
+    "eKen21",
+    "eKen22",
+    "eKen23",
+    "eKen31",
+    "eKen32",
+    "eKen33",
 ]
 
 _FF_INIT_DEFAULTS: Dict[str, Any] = {
@@ -88,6 +94,8 @@ def ff_reconstruct(
     sample_json), returns status 'needs_input' with suggestions -- ask the user.
     Needs NEPER (and GMSH only when generate_mesh=true). Runs as a background job.
     """
+    # Lazy: heavy graintrace submodule + mcp helper (pandas), imported on run.
+    # pylint: disable=import-outside-toplevel
     from graintrace.construct_voronoi_mesh import VoronoiMeshBuilder
     from graintrace.mcp import sample_meta
 
@@ -106,13 +114,16 @@ def ff_reconstruct(
     if bounding_box is None:
         missing.append("bounding_box (sample dimensions [xlo,xhi,ylo,yhi,zlo,zhi] um)")
     if not unit_provided:
-        missing.append("orientation unit ('deg' or 'rad') -- confirm; not auto-detected")
+        missing.append(
+            "orientation unit ('deg' or 'rad') -- confirm; not auto-detected"
+        )
     # Pre-flight: fail SYNCHRONOUSLY (not inside the background job) if the elastic
     # strain columns aren't present -- e.g. a stitched CSV that dropped eKen.
     esid = init.get("elastic_strain_identifier")
     if esid:
         try:
-            import pandas as pd
+            import pandas as pd  # pylint: disable=import-outside-toplevel
+
             cols = set(pd.read_csv(input_csv, nrows=1).columns)
             if not set(esid).issubset(cols):
                 missing.append(
@@ -120,13 +131,16 @@ def ff_reconstruct(
                     f"input_csv ({input_csv}). If this is a stitched CSV, re-run "
                     "stitch_scans (it now re-attaches residual eKen from the scans), "
                     "or set init_params.elastic_strain_identifier=null for zero "
-                    "initial strain.")
-        except Exception:
+                    "initial strain."
+                )
+        # Best-effort pre-flight: skip the column check if the CSV can't be read.
+        except Exception:  # pylint: disable=broad-exception-caught
             pass
     if missing:
         try:
             suggestions = sample_meta.inspect_csv(input_csv)
-        except Exception as exc:
+        # Best-effort: surface inspection failure as a suggestion, not a crash.
+        except Exception as exc:  # pylint: disable=broad-exception-caught
             suggestions = {"inspection_error": str(exc)}
 
     build = {**_FF_BUILD_DEFAULTS, **(build_params or {})}
@@ -142,8 +156,10 @@ def ff_reconstruct(
 
     def _run():
         builder = VoronoiMeshBuilder(
-            input_csv=input_csv, output_dir=output_dir,
-            bounding_box=bounding_box, **init,
+            input_csv=input_csv,
+            output_dir=output_dir,
+            bounding_box=bounding_box,
+            **init,
         )
         builder.build_voronoi(**build)
         return {
@@ -152,14 +168,25 @@ def ff_reconstruct(
                 f"{output_dir}/reconstruction_reformatted.csv",
                 f"{output_dir}/reconstruction_cpfe_ee.csv",
                 f"{output_dir}/orientations.dat",
-            ] + ([f"{output_dir}/reconstruction.msh"] if build.get("generate_mesh") else []),
+            ]
+            + (
+                [f"{output_dir}/reconstruction.msh"]
+                if build.get("generate_mesh")
+                else []
+            ),
         }
 
     return gate(
-        tool="ff_reconstruct", confirm=confirm, resolved_params=resolved,
-        needs=needs, will_write=[output_dir], run=_run, background=True,
+        tool="ff_reconstruct",
+        confirm=confirm,
+        resolved_params=resolved,
+        needs=needs,
+        will_write=[output_dir],
+        run=_run,
+        background=True,
         notes="CVT relaxation can take a while; runs in the background.",
-        missing_required=missing, suggestions=suggestions,
+        missing_required=missing,
+        suggestions=suggestions,
     )
 
 
@@ -197,6 +224,8 @@ def nf_reconstruct(
     the background. Outputs: merged_segmented_fixed_grid.npy, mesh.e (if meshed),
     orientations.csv.
     """
+    # Lazy: heavy graintrace submodule + mcp helper, imported on run.
+    # pylint: disable=import-outside-toplevel
     from graintrace.construct_nf_mesh import NearFieldMeshBuilder
     from graintrace.mcp import tool_paths
 
@@ -205,21 +234,31 @@ def nf_reconstruct(
     if save_dir is None:
         save_dir = str(workdir() / "NF")
     init = {
-        "exp_file_token": "layer", "angle_convention": "bunge",
-        "angle_type": "radians", "symmetry": "432", "prefix": "reconstructed",
+        "exp_file_token": "layer",
+        "angle_convention": "bunge",
+        "angle_type": "radians",
+        "symmetry": "432",
+        "prefix": "reconstructed",
         **(init_params or {}),
     }
     do_mesh = sculpt_config is not None
     resolved = {
-        "input_folder": input_folder, "save_dir": save_dir,
-        "dz": dz, "nx": nx, "ny": ny, "init_params": init,
-        "segmentation": segmentation, "will_mesh": do_mesh,
+        "input_folder": input_folder,
+        "save_dir": save_dir,
+        "dz": dz,
+        "nx": nx,
+        "ny": ny,
+        "init_params": init,
+        "segmentation": segmentation,
+        "will_mesh": do_mesh,
     }
     needs = ["cubit"] if do_mesh else []
 
     def _run():
         builder = NearFieldMeshBuilder(
-            input_folder=input_folder, save_dir=save_dir, **init,
+            input_folder=input_folder,
+            save_dir=save_dir,
+            **init,
         )
         merged = builder.reconstruct(dz=dz, nx=nx, ny=ny, segmentation=segmentation)
         out = {"save_dir": save_dir, "merged_grid": str(merged)}
@@ -234,8 +273,13 @@ def nf_reconstruct(
         return out
 
     return gate(
-        tool="nf_reconstruct", confirm=confirm, resolved_params=resolved,
-        needs=needs, will_write=[save_dir], run=_run, background=True,
+        tool="nf_reconstruct",
+        confirm=confirm,
+        resolved_params=resolved,
+        needs=needs,
+        will_write=[save_dir],
+        run=_run,
+        background=True,
         notes="Segmentation is Python; meshing needs CUBIT/SCULPT.",
     )
 
@@ -269,6 +313,8 @@ def voxel_mesh(
 
     Meshing needs CUBIT/SCULPT. Runs in the background.
     """
+    # Lazy: heavy graintrace submodule + mcp helper, imported on run.
+    # pylint: disable=import-outside-toplevel
     from graintrace.construct_voxel_mesh import VoxelMeshBuilder
     from graintrace.mcp import tool_paths
 
@@ -279,20 +325,29 @@ def voxel_mesh(
     if euler_cols is None:
         euler_cols = ["Eul0", "Eul1", "Eul2"]
     init = {
-        "angle_convention": "bunge", "angle_type": "radians", "symmetry": "432",
+        "angle_convention": "bunge",
+        "angle_type": "radians",
+        "symmetry": "432",
         **(init_params or {}),
     }
     recon = reconstruct_params or {}
     do_mesh = sculpt_config is not None
     resolved = {
-        "file_path": file_path, "euler_cols": euler_cols, "save_dir": save_dir,
-        "init_params": init, "reconstruct_params": recon, "will_mesh": do_mesh,
+        "file_path": file_path,
+        "euler_cols": euler_cols,
+        "save_dir": save_dir,
+        "init_params": init,
+        "reconstruct_params": recon,
+        "will_mesh": do_mesh,
     }
     needs = ["cubit"] if do_mesh else []
 
     def _run():
         builder = VoxelMeshBuilder(
-            file_path=file_path, save_dir=save_dir, euler_cols=euler_cols, **init,
+            file_path=file_path,
+            save_dir=save_dir,
+            euler_cols=euler_cols,
+            **init,
         )
         merged = builder.reconstruct(**recon)
         out = {"save_dir": save_dir, "merged_grid": str(merged)}
@@ -306,7 +361,12 @@ def voxel_mesh(
         return out
 
     return gate(
-        tool="voxel_mesh", confirm=confirm, resolved_params=resolved,
-        needs=needs, will_write=[save_dir], run=_run, background=True,
+        tool="voxel_mesh",
+        confirm=confirm,
+        resolved_params=resolved,
+        needs=needs,
+        will_write=[save_dir],
+        run=_run,
+        background=True,
         notes="Segmentation is Python; meshing needs CUBIT/SCULPT.",
     )

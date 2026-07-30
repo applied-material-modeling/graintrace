@@ -19,13 +19,16 @@ from __future__ import annotations
 import json
 import math
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
 _COORD_SETS = [("X", "Y", "Z"), ("x", "y", "z")]
-_EULER_SETS = [("Eul0", "Eul1", "Eul2"), ("Eul1", "Eul2", "Eul3"),
-               ("phi1", "Phi", "phi2")]
+_EULER_SETS = [
+    ("Eul0", "Eul1", "Eul2"),
+    ("Eul1", "Eul2", "Eul3"),
+    ("phi1", "Phi", "phi2"),
+]
 _STRAIN_PREFIXES = ("eKen", "eFab")
 _TWO_PI = 2.0 * math.pi
 
@@ -55,7 +58,7 @@ def inspect_csv(path: str, pad_frac: float = 0.02) -> Dict[str, Any]:
         for lo, hi, p in zip(mins, maxs, pads):
             bbox.extend([round(lo - p, 4), round(hi + p, 4)])
         info["coord_ranges"] = {c: [lo, hi] for c, lo, hi in zip(coord, mins, maxs)}
-        info["suggested_bounding_box"] = bbox   # [xlo,xhi,ylo,yhi,zlo,zhi]
+        info["suggested_bounding_box"] = bbox  # [xlo,xhi,ylo,yhi,zlo,zhi]
 
     euler = _first_present(cols, _EULER_SETS)
     info["euler_columns"] = euler
@@ -64,12 +67,14 @@ def inspect_csv(path: str, pad_frac: float = 0.02) -> Dict[str, Any]:
         info["euler_abs_max"] = round(maxabs, 4)
         info["orientation_units_guess"] = "degrees" if maxabs > _TWO_PI else "radians"
         info["orientation_units_confidence"] = (
-            "high (values exceed 2pi -> degrees)" if maxabs > _TWO_PI
+            "high (values exceed 2pi -> degrees)"
+            if maxabs > _TWO_PI
             else "LOW (all |angles| <= 2pi -- could be radians OR small-angle degrees; CONFIRM)"
         )
 
-    strain_prefix = next((p for p in _STRAIN_PREFIXES
-                          if f"{p}11" in cols or f"{p}_11" in cols), None)
+    strain_prefix = next(
+        (p for p in _STRAIN_PREFIXES if f"{p}11" in cols or f"{p}_11" in cols), None
+    )
     info["strain_columns_present"] = strain_prefix is not None
     info["strain_prefix"] = strain_prefix
     info["has_grain_radius"] = "GrainRadius" in cols
@@ -78,8 +83,10 @@ def inspect_csv(path: str, pad_frac: float = 0.02) -> Dict[str, Any]:
 
 # ---- sample.json ------------------------------------------------------------
 
+
 def load_sample_json(path: str) -> Dict[str, Any]:
-    return json.loads(Path(path).read_text())
+    """Parse a sample.json file into a dict."""
+    return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
 def resolve_sample(sample_json: Optional[str]) -> Dict[str, Any]:
@@ -93,7 +100,7 @@ def resolve_sample(sample_json: Optional[str]) -> Dict[str, Any]:
     if "bounding_box_um" in samp:
         out["bounding_box"] = samp["bounding_box_um"]
     if "orientation" in units:
-        out["orientation_units"] = units["orientation"]         # 'degrees'/'radians'
+        out["orientation_units"] = units["orientation"]  # 'degrees'/'radians'
         out["unit"] = "deg" if str(units["orientation"]).startswith("deg") else "rad"
     if "orientation_convention" in units:
         out["orientation_convention"] = units["orientation_convention"]
@@ -121,12 +128,15 @@ def resolve_sample(sample_json: Optional[str]) -> Dict[str, Any]:
 REQUIRED: Dict[str, List[str]] = {
     "stitch_scans": ["zlo", "zhi", "overlap_fraction", "orientation_units"],
     "ff_reconstruct": ["bounding_box", "unit (orientation deg/rad)"],
-    "run_cpfe": ["bounding_box (sample dimensions)",
-                 "loading (total_strain or explicit bc)"],
+    "run_cpfe": [
+        "bounding_box (sample dimensions)",
+        "loading (total_strain or explicit bc)",
+    ],
 }
 
 
 def required_inputs_for(tool: str) -> List[str]:
+    """Return the non-inferrable inputs a given tool requires."""
     return REQUIRED.get(tool, [])
 
 
@@ -135,19 +145,20 @@ def checklist(csv_path: Optional[str] = None) -> Dict[str, Any]:
     out: Dict[str, Any] = {
         "must_confirm": {
             "sample_dimensions": "bounding box [xlo,xhi,ylo,yhi,zlo,zhi] in um "
-                                 "(NOT in the CSV; CPFE otherwise defaults to a unit cube)",
+            "(NOT in the CSV; CPFE otherwise defaults to a unit cube)",
             "loading_conditions": "total applied strain (or explicit BCs) + loaded axis "
-                                  "(NOT in the CSV)",
+            "(NOT in the CSV)",
             "scan_geometry": "z-range (zlo,zhi) and scan overlap fraction for stitching",
             "units": "orientation deg/rad and strain unit (microstrain vs strain) -- "
-                     "graintrace does NOT auto-detect these",
+            "graintrace does NOT auto-detect these",
         },
         "how_to_supply": "Pass a sample.json (see the 'experiment_metadata' recipe) or "
-                         "provide these values explicitly after confirming with the user.",
+        "provide these values explicitly after confirming with the user.",
     }
     if csv_path:
         try:
             out["inspection"] = inspect_csv(csv_path)
-        except Exception as exc:
+        # Best-effort: report any inspection failure instead of raising.
+        except Exception as exc:  # pylint: disable=broad-exception-caught
             out["inspection_error"] = str(exc)
     return out

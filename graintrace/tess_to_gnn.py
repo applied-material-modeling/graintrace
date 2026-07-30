@@ -22,12 +22,16 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+"""Parse Neper .tess files into torch_geometric graph representations."""
+
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+import os
+import re
+from typing import Any
+
 import torch
 from torch_geometric.data import Data
-import os
 
 from .orientation_helper import matrix_to_mrp, euler_to_mrp, quat_to_matrix
 
@@ -66,6 +70,7 @@ class NeperTessToGraphNN:
         self.edge_feature_registry = {}
         self.active_node_features = []
         self.active_edge_features = []
+        self._df_node_tensors = None
 
         self.parse_tess()
 
@@ -86,13 +91,13 @@ class NeperTessToGraphNN:
         self.activate_all_registered_features()
 
     def install_neper(self):
-        pass
+        """Placeholder hook for installing NEPER (not implemented)."""
 
     def load_geometry_information(self, cell_file, face_file):
-        pass
+        """Placeholder hook for loading precomputed cell/face geometry (not implemented)."""
 
     def run_neper_for_geometry_information(self, tess_path):
-        pass
+        """Placeholder hook for computing geometry via NEPER (not implemented)."""
 
     def parse_tess(self):
         """Parse the Neper .tess file."""
@@ -111,7 +116,7 @@ class NeperTessToGraphNN:
             "polyhedron": [],
         }
 
-        with open(self.tess_path, "r") as f:
+        with open(self.tess_path, "r", encoding="utf-8") as f:
             lines = [ln.strip() for ln in f if ln.strip()]
 
         section = None
@@ -145,8 +150,6 @@ class NeperTessToGraphNN:
         IDs are implicit by order (1-based in file, 0-based in code). Signed edges/faces
         are preserved for orientation use.
         """
-        import re
-
         # Cells
         cell_data = sections.get("cell", {})
         self.cell_seeds = torch.zeros((0, 4), dtype=self.dtype, device=self.device)
@@ -251,7 +254,7 @@ class NeperTessToGraphNN:
             for line in lines:
                 parts = list(map(int, line.split()))
                 if len(parts) >= 2:
-                    pid, nfaces = parts[:2]
+                    _pid, nfaces = parts[:2]
 
                     # keep sign, fix 1-based indexing
                     faces_signed = [
@@ -320,8 +323,7 @@ class NeperTessToGraphNN:
                     "Faces not properly shared. "
                     "Either non-manifold or isolated faces detected."
                 )
-            else:
-                print("\nAll faces belong to 1 or 2 cells.\n")
+            print("\nAll faces belong to 1 or 2 cells.\n")
 
         return {
             "internal": internal,
@@ -343,7 +345,7 @@ class NeperTessToGraphNN:
         """
         Register every column in a pandas DataFrame as a node feature.
         """
-
+        # pylint: disable=import-outside-toplevel  # pandas is a heavy optional dep
         import pandas as pd
 
         if not isinstance(data, pd.DataFrame):
@@ -381,6 +383,7 @@ class NeperTessToGraphNN:
             self._df_node_tensors[col] = t
 
             def _feat(self_ref, name=col):
+                # pylint: disable=protected-access  # self_ref is a same-class instance
                 return self_ref._df_node_tensors[name]
 
             self.node_feature_registry[col] = _feat
@@ -477,7 +480,8 @@ class NeperTessToGraphNN:
         show_node_labels=True,
         show_edge_labels=True,
     ):
-
+        """Render a 2D NetworkX plot of the cell-cell graph and save it to ``outpath``."""
+        # pylint: disable=import-outside-toplevel  # matplotlib/networkx are heavy optional deps
         import matplotlib.pyplot as plt
         import networkx as nx
 
@@ -560,14 +564,16 @@ class NeperTessToGraphNN:
         edge_attr=None,
         cmap="viridis",
         show_node_labels=False,
-        show_edge_labels=False,
+        show_edge_labels=False,  # pylint: disable=unused-argument  # parity with 2D API
     ):
         """
         3D visualization of the cell-cell graph using centroid positions if available.
         Falls back to seed positions if centroids are not yet computed.
         """
-
-        from mpl_toolkits.mplot3d import Axes3D
+        # matplotlib is a heavy optional dep; Axes3D import registers the '3d'
+        # projection as a side effect (hence unused-import is expected).
+        # pylint: disable=import-outside-toplevel,unused-import
+        from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
         import matplotlib.pyplot as plt
 
         if "centroid" in self.node_feature_registry:
@@ -618,7 +624,7 @@ class NeperTessToGraphNN:
             ax.plot(x, y, z, color=color, alpha=0.7, linewidth=0.8)
 
         # Draw nodes
-        sc = ax.scatter(
+        ax.scatter(
             pos[:, 0],
             pos[:, 1],
             pos[:, 2],
@@ -641,9 +647,11 @@ class NeperTessToGraphNN:
 
 
 if __name__ == "__main__":
-    tess_path = "output_test/voronoi.tess"
+    demo_tess_path = "output_test/voronoi.tess"
 
-    parser = NeperTessToGraphNN(tess_path=tess_path, device="cpu", dtype=torch.float64)
+    parser = NeperTessToGraphNN(
+        tess_path=demo_tess_path, device="cpu", dtype=torch.float64
+    )
 
     print("\n=== Basic Stats ===")
     print("num_cells    :", parser.cell_seeds.shape[0])
@@ -664,10 +672,10 @@ if __name__ == "__main__":
     for fe in parser.face_edges[:5]:
         print(" ", fe)
     print("polyhedra (first 5 cells → their faces):")
-    for faces in parser.cell_to_faces[:5]:
-        print(" ", faces)
+    for cell_faces in parser.cell_to_faces[:5]:
+        print(" ", cell_faces)
 
     print("\n=== Graph information ===")
-    graph = parser.build_cell_graph()
-    parser.visualize_graph_2D(graph)
-    parser.visualize_graph_3D(graph)
+    demo_graph = parser.build_cell_graph()
+    parser.visualize_graph_2D(demo_graph)
+    parser.visualize_graph_3D(demo_graph)

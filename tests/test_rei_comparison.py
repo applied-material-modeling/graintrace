@@ -131,9 +131,7 @@ class TestREIComparisonClusters:
         from graintrace.rei_comparison import REIComparison
 
         # two well-separated blobs; REI 2 has DIFFERENT labels + a small shift
-        a = _blobs_csv(
-            tmp_path / "a.csv", [(1, (10, 10, 10), 4), (2, (40, 40, 40), 4)]
-        )
+        a = _blobs_csv(tmp_path / "a.csv", [(1, (10, 10, 10), 4), (2, (40, 40, 40), 4)])
         b = _blobs_csv(
             tmp_path / "b.csv", [(77, (11, 10, 10), 4), (88, (41, 40, 40), 4)]
         )

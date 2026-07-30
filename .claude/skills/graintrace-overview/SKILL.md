@@ -13,7 +13,7 @@ description: >
 `graintrace` links experimental grain data (FF/NF HEDM, EBSD) to MOOSE/PUMA CPFE
 simulations with NEML2 v3 material models, and post-processes for rare-event ID (REI).
 
-**Always run in the project env:** `conda activate graintrace_env` (neml2 v3.0.6 + pyzag +
+**Always run in the project env:** `conda activate graintrace_env` (neml2 v3 + pyzag +
 torch/CUDA). Examples live in `examples/demonstrate_*.py` (flat top-level `## INPUT` style).
 Full API reference: `.claude/CLAUDE.md`.
 

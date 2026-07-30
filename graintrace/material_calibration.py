@@ -22,16 +22,19 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+"""Crystal-plasticity material parameter calibration (NEML2 v3 + pyzag adjoint)."""
+
 from __future__ import annotations
 
-from typing import Any, List, Optional
+import json
 import math
 import os
+from typing import Any, List, Optional
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 import torch
-import torch.nn.utils.parametrize as parametrize
+from torch.nn.utils import parametrize
 from tqdm import tqdm
 
 from pyzag import reparametrization
@@ -190,6 +193,7 @@ class MaterialCalibration:
                 parametrize.remove_parametrizations(
                     factory, name, leave_parametrized=True
                 )
+        # pylint: disable-next=protected-access  # required to refresh NEML2 param values
         factory._update_parameter_values()
 
     def _predict_axial(self) -> torch.Tensor:
@@ -220,6 +224,7 @@ class MaterialCalibration:
                     )[:, self.axial_index]
                 else:
                     sim = self._predict_axial()
+        # pylint: disable-next=broad-exception-caught  # diagnostic: any failure -> default_err
         except Exception:
             return default_err
         return torch.norm(sim - target).item()
@@ -236,6 +241,7 @@ class MaterialCalibration:
         plateau_window: int = 3,
         autosave: bool = True,
     ) -> torch.Tensor:
+        # pylint: disable=unused-argument  # `method` kept for backward-compat API
         """Calibrate the six parameters with analytic-adjoint gradients + LBFGS.
         ``method`` is accepted for backward compatibility only."""
         model = self.model
@@ -260,6 +266,7 @@ class MaterialCalibration:
                 pred = self._predict_axial()
                 loss = ((pred - target) ** 2).mean()
                 loss.backward()
+            # pylint: disable-next=protected-access,c-extension-no-member  # torch internal LinAlg error type
             except (torch._C._LinAlgError, RuntimeError):
                 optimizer.zero_grad()
                 return torch.tensor(
@@ -276,6 +283,7 @@ class MaterialCalibration:
             progress.set_postfix({"loss": f"{loss_v:.3e}"})
 
             if autosave:
+                # pylint: disable-next=attribute-defined-outside-init  # set on first calibrate()
                 self.opt_params = model.get_params()
                 self.save(autosave_path)
 
@@ -291,6 +299,7 @@ class MaterialCalibration:
 
         # Bake final physical values back into plain parameters
         self._remove_reparametrization()
+        # pylint: disable=attribute-defined-outside-init  # results set on first calibrate()
         self.opt_params = model.get_params()
         self.loss_history = loss_history
 
@@ -371,6 +380,7 @@ class MaterialCalibration:
         self, direction: Optional[List[float]] = None, crystal_symmetry: str = "432"
     ) -> None:
         """Plot experimental pole figures (neml2.texture)."""
+        # pylint: disable-next=import-outside-toplevel  # neml2 is a heavy optional dep
         from neml2 import texture
 
         if direction is None:
@@ -440,8 +450,6 @@ class MaterialCalibration:
 
     def save(self, filepath: str):
         """Save the optimized material parameters to a JSON file."""
-        import json
-
         if not hasattr(self, "opt_params"):
             raise RuntimeError("No optimized parameters found. Run calibrate() first.")
 
@@ -451,22 +459,21 @@ class MaterialCalibration:
             k: float(v) for k, v in zip(self.model.opt_vars, self.opt_params)
         }
 
-        with open(filepath, "w") as f:
+        with open(filepath, "w", encoding="utf-8") as f:
             json.dump(params_dict, f, indent=2)
 
         return filepath
 
     def load(self, filepath: str):
         """Load previously saved optimized material parameters from a JSON file."""
-        import json
-
         if not os.path.exists(filepath):
             raise FileNotFoundError(f"Cannot find saved parameter file: {filepath}")
 
-        with open(filepath, "r") as f:
+        with open(filepath, "r", encoding="utf-8") as f:
             params_dict = json.load(f)
 
         opt_params = [params_dict[k] for k in self.model.opt_vars if k in params_dict]
+        # pylint: disable-next=attribute-defined-outside-init  # populated on load()
         self.opt_params = torch.tensor(opt_params, dtype=torch.float64)
 
         # Push the loaded values into the model so simulate()/plots use them.

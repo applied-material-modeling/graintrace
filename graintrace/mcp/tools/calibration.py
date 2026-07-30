@@ -15,7 +15,10 @@ from graintrace.mcp.confirm import gate
 
 
 def _cpfe_base() -> str:
-    import graintrace as _gt
+    """Return the path to the packaged cpfe_base template directory."""
+    # Lazy self-import to locate the package without a load-time cycle.
+    import graintrace as _gt  # pylint: disable=import-outside-toplevel
+
     return str(Path(_gt.__file__).parent / "cpfe_base")
 
 
@@ -54,6 +57,8 @@ def calibrate_material(
     Needs NEML2 v3 + pyzag. Runs as a background job; writes
     calibrated_material.json.
     """
+    # Lazy: heavy graintrace/neml2 submodules, imported only when the tool runs.
+    # pylint: disable=import-outside-toplevel
     from graintrace.material_calibration import MaterialCalibration
     from graintrace.taylor import TaylorModel
     from graintrace.mcp import deps
@@ -64,38 +69,63 @@ def calibrate_material(
     # GPU policy: default to cuda when a GPU is available (caller can override).
     m_args = {
         "neml2_path": _cpfe_base() + "/neml2_cpfe_calibration.i",
-        "npoints": 30, "nchunk": 2, "device": deps.default_device(), "compile": False,
+        "npoints": 30,
+        "nchunk": 2,
+        "device": deps.default_device(),
+        "compile": False,
         **(model_args or {}),
     }
     d_args = {
-        "data_dir": data_dir, "strain_stress_file": strain_stress_file,
-        "npoints": 30, "full_field_strain_units": "microstrain",
-        "straintype": "eKen", "max_strain": 0.006, "n_grains": 100, "seed": 42,
+        "data_dir": data_dir,
+        "strain_stress_file": strain_stress_file,
+        "npoints": 30,
+        "full_field_strain_units": "microstrain",
+        "straintype": "eKen",
+        "max_strain": 0.006,
+        "n_grains": 100,
+        "seed": 42,
         **(data_args or {}),
     }
     c_args = {
-        "maxiter": 15, "lr": 0.3, "max_iter_per_step": 6,
-        "line_search_fn": "strong_wolfe", "plateau_rtol": 1e-3,
-        "plateau_window": 2, **(calibrate_args or {}),
+        "maxiter": 15,
+        "lr": 0.3,
+        "max_iter_per_step": 6,
+        "line_search_fn": "strong_wolfe",
+        "plateau_rtol": 1e-3,
+        "plateau_window": 2,
+        **(calibrate_args or {}),
     }
     resolved = {
-        "model_args": m_args, "data_args": d_args, "calibrate_args": c_args,
-        "save_dir": save_dir, "apply_elastic_correction": apply_elastic_correction,
+        "model_args": m_args,
+        "data_args": d_args,
+        "calibrate_args": c_args,
+        "save_dir": save_dir,
+        "apply_elastic_correction": apply_elastic_correction,
         "strain_window": strain_window,
     }
 
     def _run():
         calib = MaterialCalibration(
-            model_class=TaylorModel, model_args=m_args, data_args=d_args,
-            save_dir=save_dir, apply_elastic_correction=apply_elastic_correction,
+            model_class=TaylorModel,
+            model_args=m_args,
+            data_args=d_args,
+            save_dir=save_dir,
+            apply_elastic_correction=apply_elastic_correction,
             strain_window=tuple(strain_window) if strain_window else None,
         )
         calib.calibrate(**c_args)
-        return {"save_dir": save_dir, "calibrated_material": f"{save_dir}/calibrated_material.json"}
+        return {
+            "save_dir": save_dir,
+            "calibrated_material": f"{save_dir}/calibrated_material.json",
+        }
 
     return gate(
-        tool="calibrate_material", confirm=confirm, resolved_params=resolved,
-        needs=["neml2", "pyzag"], will_write=[save_dir], run=_run,
+        tool="calibrate_material",
+        confirm=confirm,
+        resolved_params=resolved,
+        needs=["neml2", "pyzag"],
+        will_write=[save_dir],
+        run=_run,
         background=True,
         notes="Iterative LBFGS fit; runs in the background.",
     )

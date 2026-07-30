@@ -22,6 +22,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+"""graintrace: link grain-scale HEDM/EBSD data to CPFE simulations."""
+
 from __future__ import annotations
 
 from importlib import import_module

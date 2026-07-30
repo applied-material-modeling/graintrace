@@ -22,24 +22,25 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+"""Match grains across two load steps via graph message passing and neighbor selection."""
+
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Optional, Tuple
-import numpy as np
-import torch
-from .orientation_helper import mrp_to_matrix, misorientation_matrix
-from torch_geometric.data import Data
-import os
-import pandas as pd
-import sys
-import subprocess
-import shutil
-import tqdm
-import math
 import json
+import math
+import os
+from typing import Any, Dict
+
+import pandas as pd
+import torch
+import tqdm
+from torch_geometric.data import Data
+
+from .orientation_helper import mrp_to_matrix, misorientation_matrix
 
 
 class GraphGrainMatcher:
+    """Match grains between two grain graphs (A and B) and write correspondence results."""
 
     def __init__(
         self,
@@ -59,12 +60,15 @@ class GraphGrainMatcher:
         message_passing_function=None,
         neighbor_selection_cost_function=None,
         message_passing_iter: int = 6,
-        neighbor_selection_param: dict = {
-            "lambda": 0.125,
-            "iterations": 100,
-            "tolerance": 1e-6,
-        },
+        neighbor_selection_param: dict = None,
     ):
+        """Run message passing on both graphs, select matches, write and return results."""
+        if neighbor_selection_param is None:
+            neighbor_selection_param = {
+                "lambda": 0.125,
+                "iterations": 100,
+                "tolerance": 1e-6,
+            }
 
         if message_passing_function is None:
             message_passing_function = (
@@ -125,6 +129,7 @@ class GraphGrainMatcher:
         message_passing_iter: int = 6,
         use_default: bool = False,
     ):
+        """Propagate node features over graph edges for a fixed number of iterations."""
         if not isinstance(graph, Data):
             raise TypeError("graph must be a torch_geometric.data.Data")
         if getattr(graph, "x", None) is None or graph.x.ndim != 2:
@@ -250,6 +255,7 @@ class GraphGrainMatcher:
         neighbor_selection_cost_function,
         neighbor_selection_param=None,
     ):
+        """Assign each grain in A to a grain in B by iterative cost-minimizing selection."""
         if neighbor_selection_param is None:
             neighbor_selection_param = {
                 "lambda": 0.125,
@@ -315,8 +321,8 @@ class GraphGrainMatcher:
 
         a_to_b = [-1] * Na
         mean_cost_history = []
-        prev_mean = math.inf
 
+        _it = max_it - 1  # defined even if max_it == 0 (loop body never runs)
         for _it in tqdm.tqdm(range(max_it), desc="Neighbor Selection"):
 
             best_for_i = [(-1, math.inf)] * Na  # (j, cost)
@@ -354,7 +360,6 @@ class GraphGrainMatcher:
             mean_cost = float(sum(costs) / len(costs))
             mean_cost_history.append(mean_cost)
 
-            prev_mean = mean_cost
             a_to_b = new_a_to_b
 
         if _it < max_it - 1:
@@ -432,16 +437,18 @@ class GraphGrainMatcher:
                 "required_node_features", None
             ),
         }
-        with open(os.path.join(out_dir, f"{run}_meta.json"), "w") as f:
+        with open(
+            os.path.join(out_dir, f"{run}_meta.json"), "w", encoding="utf-8"
+        ) as f:
             json.dump(meta, f, indent=2)
 
     @staticmethod
     def default_message_passing_function(
-        angle_convention="kocks",
+        angle_convention="kocks",  # pylint: disable=unused-argument  # kept for interface parity
         angle_type="radians",
         symmetry="432",
     ):
-
+        """Return (spec, phi_operator) for the default misorientation message-passing scheme."""
         spec = {
             "required_node_features": ["X", "Y", "Z", "Eul0", "Eul1", "Eul2"],
         }
@@ -506,6 +513,8 @@ class GraphGrainMatcher:
     def default_neighbor_selection_cost_function(
         Fa, Fb, neigh_a, neigh_b, a_to_b, i, j, lam
     ):
+        """Default matching cost: feature distance plus a neighbor-consistency term."""
+
         def psi(u, v):
             return -torch.sum((u - v) ** 2).item()
 

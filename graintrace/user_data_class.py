@@ -22,10 +22,13 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+"""User-facing dataclasses for similarity metrics, weighting, and rare criteria."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional, Callable, Dict, Any, Union
+from typing import Any, Callable, Dict, List, Optional, Union
+
 import numpy as np
 import pandas as pd
 
@@ -35,6 +38,8 @@ BatchDistanceFunction = Callable[[np.ndarray, np.ndarray], np.ndarray]
 
 @dataclass
 class SimilarityMetric:
+    """A named feature-space distance metric and its required columns."""
+
     name: str
     feature_cols: List[str]  # required feature names
     func: DistanceFunction  # metric(u, v) -> float
@@ -43,6 +48,8 @@ class SimilarityMetric:
 
 @dataclass(frozen=True)
 class WeightConfig:
+    """Configuration for converting edge distances into graph weights."""
+
     mode: str = "inverse"  # "inverse" | "rbf" | "exp" | "identity" | "log_inv"
     eps: float = 1e-8  # used by inverse/log_inv
     sigma: Optional[float] = None  # used by rbf/exp

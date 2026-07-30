@@ -63,6 +63,8 @@ def run_cpfe(
 
     Needs `puma-opt` (MOOSE/PUMA) and a working NEML2 v3 build.
     """
+    # Lazy: heavy graintrace submodule + mcp helpers (pandas), imported on run.
+    # pylint: disable=import-outside-toplevel
     from graintrace.run_cpfe_simulation import CPFESimulation
     from graintrace.mcp import sample_meta, tool_paths
 
@@ -71,7 +73,9 @@ def run_cpfe(
     if save_simulation_folder is None:
         save_simulation_folder = str(workdir() / "simulation")
     init = {
-        "element_order": "SECOND", "dim": 3, "use_ff_initial_field": True,
+        "element_order": "SECOND",
+        "dim": 3,
+        "use_ff_initial_field": True,
         **(init_params or {}),
     }
     smeta = sample_meta.resolve_sample(sample_json)
@@ -90,16 +94,21 @@ def run_cpfe(
     missing = []
     if "boundary" not in sections or "grid_properties" not in sections:
         if bounding_box is None:
-            missing.append("bounding_box (sample dimensions [xlo,xhi,ylo,yhi,zlo,zhi] um)")
+            missing.append(
+                "bounding_box (sample dimensions [xlo,xhi,ylo,yhi,zlo,zhi] um)"
+            )
         if "boundary" not in sections and total_strain is None:
-            missing.append("loading: total_strain (+ loaded_axis) or an explicit "
-                           "boundary bc")
+            missing.append(
+                "loading: total_strain (+ loaded_axis) or an explicit boundary bc"
+            )
     if not missing:
         lo_i, hi_i = _AXIS_IDX.get(loaded_axis, (4, 5))
         if "boundary" not in sections:
             displace = float(total_strain) * (bounding_box[hi_i] - bounding_box[lo_i])
-            bc = {a: {"negative": "stress_free", "positive": "stress_free"}
-                  for a in ("x", "y", "z")}
+            bc = {
+                a: {"negative": "stress_free", "positive": "stress_free"}
+                for a in ("x", "y", "z")
+            }
             bc[loaded_axis] = {"negative": 0, "positive": displace}
             sections["boundary"] = {"bounding_box": bounding_box, "bc": bc}
         if "grid_properties" not in sections:
@@ -108,8 +117,10 @@ def run_cpfe(
                 grid_bb[i] += 1e-4
             for i in (1, 3, 5):
                 grid_bb[i] -= 1e-4
-            sections["grid_properties"] = {"number_of_elements": grid_elements,
-                                           "bounding_box": grid_bb}
+            sections["grid_properties"] = {
+                "number_of_elements": grid_elements,
+                "bounding_box": grid_bb,
+            }
 
     # GPU policy: default the device to the GPU when available.
     if deps.gpu_available():
@@ -118,16 +129,23 @@ def run_cpfe(
 
     suggestions = {}
     if missing:
-        suggestions = {"loaded_axis": loaded_axis,
-                       "hint": "Pass bounding_box + total_strain (or a sample_json)."}
+        suggestions = {
+            "loaded_axis": loaded_axis,
+            "hint": "Pass bounding_box + total_strain (or a sample_json).",
+        }
 
     resolved = {
-        "mesh_file": mesh_file, "ori_file": ori_file,
+        "mesh_file": mesh_file,
+        "ori_file": ori_file,
         "moose_run_file": moose_run_file,
         "save_simulation_folder": save_simulation_folder,
-        "eeres_file": eeres_file, "init_params": init,
-        "bounding_box": bounding_box, "total_strain": total_strain,
-        "loaded_axis": loaded_axis, "parameters": sections, "ncore": ncore,
+        "eeres_file": eeres_file,
+        "init_params": init,
+        "bounding_box": bounding_box,
+        "total_strain": total_strain,
+        "loaded_axis": loaded_axis,
+        "parameters": sections,
+        "ncore": ncore,
     }
 
     def _run():
@@ -145,9 +163,14 @@ def run_cpfe(
         return {"save_simulation_folder": save_simulation_folder}
 
     return gate(
-        tool="run_cpfe", confirm=confirm, resolved_params=resolved,
-        needs=["puma-opt", "neml2-aoti"], will_write=[save_simulation_folder],
-        run=_run, background=True,
+        tool="run_cpfe",
+        confirm=confirm,
+        resolved_params=resolved,
+        needs=["puma-opt", "neml2-aoti"],
+        will_write=[save_simulation_folder],
+        run=_run,
+        background=True,
         notes="GPU-bound; can take a long time. Poll job_status for progress.",
-        missing_required=missing, suggestions=suggestions,
+        missing_required=missing,
+        suggestions=suggestions,
     )

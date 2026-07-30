@@ -58,21 +58,22 @@ _NON_RECIPES = {"readme"}
 
 
 def list_recipes() -> List[str]:
+    """Return the names of available recipes (excluding docs)."""
     if not _RECIPE_DIR.exists():
         return []
     return sorted(
-        p.stem for p in _RECIPE_DIR.glob("*.md")
-        if p.stem.lower() not in _NON_RECIPES
+        p.stem for p in _RECIPE_DIR.glob("*.md") if p.stem.lower() not in _NON_RECIPES
     )
 
 
 def get_recipe(name: str) -> Optional[dict]:
+    """Return a recipe's parsed body/defaults, or None if it does not exist."""
     if name.lower() in _NON_RECIPES:
         return None
     path = _RECIPE_DIR / f"{name}.md"
     if not path.exists():
         return None
-    text = path.read_text()
+    text = path.read_text(encoding="utf-8")
     fm, body = _split_front_matter(text)
     return {
         "name": name,

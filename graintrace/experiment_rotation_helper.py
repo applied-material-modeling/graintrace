@@ -22,15 +22,19 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+"""Rotate/register raw far-field experiment CSVs into the simulation frame."""
+
 from __future__ import annotations
 
-from typing import List, Optional, Sequence, Tuple
 import os
+import glob
 import shutil
+from typing import List, Optional, Sequence, Tuple
+
 import numpy as np
 import pandas as pd
+
 from .construct_voronoi_mesh import VoronoiMeshBuilder
-import glob
 
 
 def update_experiments(
@@ -131,6 +135,7 @@ def update_experiments(
 
 
 def try_parse_float(s):
+    """Return ``float(s)`` or ``None`` if it is not parseable."""
     try:
         return float(s)
     except ValueError:

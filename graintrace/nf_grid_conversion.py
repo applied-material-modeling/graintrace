@@ -22,12 +22,15 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+"""Convert pre-gridded NF HEDM layers into a VoxelMeshBuilder-ready CSV."""
+
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional, Union
+from typing import Union
 
 import numpy as np
+import pandas as pd
 
 from .nf import convert
 
@@ -35,6 +38,8 @@ PathLike = Union[str, Path]
 
 
 class NFGridConversion:
+    """Read a folder of pre-gridded NF layers and emit a flat grid CSV."""
+
     def __init__(
         self,
         *,
@@ -98,8 +103,6 @@ class NFGridConversion:
         flat = fixed_grid.reshape(-1, fixed_grid.shape[-1])
 
         # fixed grid format: [phase, Eul1, Eul2, Eul3, X, Y, Z]
-        import pandas as pd
-
         df = pd.DataFrame(
             {
                 "cell_id": flat[:, 0].astype(np.int64),

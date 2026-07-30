@@ -117,9 +117,7 @@ class TestSimilarityMetricLibrary:
         pytest.importorskip("neml2")
         rng = np.random.default_rng(0)
         X = rng.normal(0.0, 0.15, size=(200, 3))
-        edges = np.stack(
-            [rng.integers(0, 200, 500), rng.integers(0, 200, 500)], axis=1
-        )
+        edges = np.stack([rng.integers(0, 200, 500), rng.integers(0, 200, 500)], axis=1)
         d = self.lib.misorientation(device="cpu").dist_edges(X, edges)
         assert d.shape == (500,)
         assert np.all(d >= 0.0)

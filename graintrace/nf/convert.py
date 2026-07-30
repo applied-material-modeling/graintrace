@@ -22,25 +22,30 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+"""NF point-cloud to fixed-grid conversion and VTK export helpers."""
+
 from __future__ import annotations
 
-from typing import List, Optional, Tuple
 import glob
+import os
 import os.path
-import multiprocess
+import re
 
+import multiprocess
 import numpy as np
 import pandas as pd
 import scipy.spatial as sp
 
+# vtk exposes these as C-extension names pylint cannot statically resolve
+# pylint: disable=no-name-in-module,import-error
 from vtkmodules.vtkCommonCore import vtkPoints, vtkDoubleArray
 from vtkmodules.vtkCommonDataModel import vtkStructuredGrid
 from vtkmodules.vtkIOLegacy import vtkStructuredGridWriter
 from vtk.util import numpy_support
 
+# pylint: enable=no-name-in-module,import-error
+
 import tqdm
-import os
-import re
 
 
 def layer_number(path: str, token: str = "layer") -> int:
@@ -170,8 +175,11 @@ def pointcloud_to_fixed_grid(pointcloud, nx, ny):
     return np.stack(layer_collection, axis=2)
 
 
-def fixed_grid_to_vtk(
-    fixed_grid, filename, varlabels=["phase", "Eul1", "Eul2", "Eul3", "X", "Y", "Z"]
+def fixed_grid_to_vtk(  # pylint: disable=dangerous-default-value
+    # varlabels is a read-only list literal, never mutated inside the function
+    fixed_grid,
+    filename,
+    varlabels=["phase", "Eul1", "Eul2", "Eul3", "X", "Y", "Z"],
 ):
     """Save an nx x ny x nz x 7 fixed grid to a structured-grid VTK file.
 
@@ -181,7 +189,7 @@ def fixed_grid_to_vtk(
         varlabels (list): labels for the 7 columns
     """
     varray = vtkStructuredGrid()
-    nx, ny, nz, nvars = fixed_grid.shape
+    nx, ny, nz, _nvars = fixed_grid.shape
     if nz == 1:
         dz = 1.0
     else:

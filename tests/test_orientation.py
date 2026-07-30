@@ -29,6 +29,11 @@ import numpy as np
 import pytest
 import torch
 
+# orientation_helper's conversions delegate to neml2 (types/ops). The working
+# neml2 is the repo-pinned build supplied by PUMA into graintrace_env; on a plain
+# checkout without it, skip this module rather than erroring.
+pytest.importorskip("neml2")
+
 
 class TestOrientationHelper:
     """Tests requiring neml2 — marked as unit but neml2 must be installed."""
@@ -37,7 +42,9 @@ class TestOrientationHelper:
         from graintrace.orientation_helper import misorientation
 
         e = [0.0, 0.0, 0.0]
-        val = misorientation(e, e, angle_convention="bunge", angle_type="degrees", symmetry="1")
+        val = misorientation(
+            e, e, angle_convention="bunge", angle_type="degrees", symmetry="1"
+        )
         assert float(val) == pytest.approx(0.0, abs=1e-4)
 
     def test_misorientation_small_angle(self):
@@ -45,7 +52,9 @@ class TestOrientationHelper:
 
         e1 = [0.0, 0.0, 0.0]
         e2 = [5.0, 0.0, 0.0]
-        val = misorientation(e1, e2, angle_convention="bunge", angle_type="degrees", symmetry="1")
+        val = misorientation(
+            e1, e2, angle_convention="bunge", angle_type="degrees", symmetry="1"
+        )
         assert float(val) == pytest.approx(5.0, abs=0.5)
 
     def test_misorientation_cubic_symmetry(self):
@@ -54,7 +63,9 @@ class TestOrientationHelper:
         # 90-degree rotation about z is equivalent in cubic symmetry
         e1 = [0.0, 0.0, 0.0]
         e2 = [90.0, 0.0, 0.0]
-        val = misorientation(e1, e2, angle_convention="bunge", angle_type="degrees", symmetry="432")
+        val = misorientation(
+            e1, e2, angle_convention="bunge", angle_type="degrees", symmetry="432"
+        )
         assert float(val) == pytest.approx(0.0, abs=1e-3)
 
     def test_matrix_to_quat_identity(self):
@@ -100,6 +111,7 @@ class TestOrientationHelper:
         from graintrace.orientation_helper import load_weights
 
         import pandas as pd
+
         df = pd.DataFrame({"GrainRadius": [10.0, 20.0, 30.0, 40.0]})
         w = load_weights(df)
         assert float(w.sum()) == pytest.approx(1.0, abs=1e-6)
@@ -134,7 +146,9 @@ class TestOrientationInterchange:
 
         M = oh.euler_to_matrix(self._E, "bunge", "degrees").contiguous()
         ref = t.MRP.from_matrix(t.R2(M, 0)).data
-        assert torch.allclose(oh.euler_to_mrp(self._E, "bunge", "degrees"), ref, atol=1e-10)
+        assert torch.allclose(
+            oh.euler_to_mrp(self._E, "bunge", "degrees"), ref, atol=1e-10
+        )
 
     def test_load_orientations_returns_neml2_mrp(self):
         from graintrace import orientation_helper as oh
@@ -154,7 +168,9 @@ class TestOrientationInterchange:
         from graintrace import orientation_helper as oh
 
         e = self._E[:3]  # a small cluster to average
-        mrp, euler = average_rotations(e, angle_convention="bunge", angle_type="degrees")
+        mrp, euler = average_rotations(
+            e, angle_convention="bunge", angle_type="degrees"
+        )
         assert mrp.shape == (3,)
         assert euler.shape == (3,)
         # the returned MRP and euler describe the same rotation
@@ -200,5 +216,7 @@ class TestNFMetrics:
         from graintrace.nf.metrics import misorientation as nf_mis
 
         e = torch.zeros(5, 3, dtype=torch.float64)
-        result = nf_mis(e, e, angle_convention="bunge", angle_type="radians", symmetry="1")
+        result = nf_mis(
+            e, e, angle_convention="bunge", angle_type="radians", symmetry="1"
+        )
         assert torch.allclose(result, torch.zeros_like(result), atol=1e-5)

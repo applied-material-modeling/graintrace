@@ -22,6 +22,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+"""Orientation-field smoothing for NF voxel grids."""
+
 from __future__ import annotations
 
 import torch

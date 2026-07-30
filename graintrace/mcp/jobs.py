@@ -33,10 +33,12 @@ from graintrace.mcp.app import workdir
 
 @dataclass
 class Job:
+    """State of a single background run (status, timing, result/error, log path)."""
+
     id: str
     tool: str
-    status: str = "pending"          # pending | running | done | error
-    submitted: float = field(default_factory=lambda: time.time())
+    status: str = "pending"  # pending | running | done | error
+    submitted: float = field(default_factory=time.time)
     started: Optional[float] = None
     finished: Optional[float] = None
     result: Any = None
@@ -45,6 +47,7 @@ class Job:
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
     def snapshot(self) -> dict:
+        """Return a thread-safe dict view of this job's current state."""
         with self._lock:
             elapsed = None
             if self.started is not None:
@@ -88,21 +91,24 @@ def submit(tool: str, fn: Callable[[], Any]) -> Job:
         _JOBS[job_id] = job
 
     def _run():
+        # job._lock is this module's own dataclass field; accessing it here is fine.
+        # pylint: disable=protected-access
         with job._lock:
             job.status = "running"
             job.started = time.time()
         try:
-            with open(log_path, "w") as fh:
+            with open(log_path, "w", encoding="utf-8") as fh:
                 tee = _Tee(fh)
                 with contextlib.redirect_stdout(tee), contextlib.redirect_stderr(tee):
                     result = fn()
             with job._lock:
                 job.result = result
                 job.status = "done"
-        except Exception as exc:  # captured, surfaced via job_status
+        # Best-effort: any run failure is captured and surfaced via job_status.
+        except Exception as exc:  # pylint: disable=broad-exception-caught
             tb = traceback.format_exc()
             with contextlib.suppress(Exception):
-                with open(log_path, "a") as fh:
+                with open(log_path, "a", encoding="utf-8") as fh:
                     fh.write("\n" + tb)
             with job._lock:
                 job.error = f"{type(exc).__name__}: {exc}"
@@ -116,20 +122,23 @@ def submit(tool: str, fn: Callable[[], Any]) -> Job:
 
 
 def get(job_id: str) -> Optional[Job]:
+    """Return the job with ``job_id``, or None if unknown."""
     with _JOBS_LOCK:
         return _JOBS.get(job_id)
 
 
 def all_jobs() -> List[dict]:
+    """Return snapshots of all jobs, most recently submitted first."""
     with _JOBS_LOCK:
         jobs = list(_JOBS.values())
     return [j.snapshot() for j in sorted(jobs, key=lambda j: j.submitted, reverse=True)]
 
 
 def tail(job_id: str, n: int = 40) -> str:
+    """Return the last ``n`` lines of a job's log file (empty if unavailable)."""
     job = get(job_id)
     if job is None or not job.log_path or not Path(job.log_path).exists():
         return ""
-    with open(job.log_path, "r", errors="replace") as fh:
+    with open(job.log_path, "r", encoding="utf-8", errors="replace") as fh:
         lines = fh.readlines()
     return "".join(lines[-n:])

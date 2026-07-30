@@ -54,13 +54,16 @@ def ensure_runtime_ld_library_path() -> str:
 
 @dataclass(frozen=True)
 class DepStatus:
+    """Result of one dependency probe: name, availability, detail, build hint."""
+
     name: str
     ok: bool
-    detail: str          # where it was found, or why it's missing
-    build_hint: str      # how to get it
+    detail: str  # where it was found, or why it's missing
+    build_hint: str  # how to get it
 
 
 # ---- individual probes -------------------------------------------------------
+
 
 def _repo_external() -> Path:
     """Location of the repo's external/ submodule tree, if running from a checkout."""
@@ -85,14 +88,18 @@ def _check_neper() -> DepStatus:
     if p:
         return DepStatus("neper", True, f"found: {p}", "")
     return DepStatus(
-        "neper", False, "not found on PATH or in external/neper",
+        "neper",
+        False,
+        "not found on PATH or in external/neper",
         "Build NEPER (https://neper.info) and put `neper` on PATH, "
         "e.g. ~/.local/bin/neper.",
     )
 
 
 def _check_puma() -> DepStatus:
-    from graintrace.mcp import tool_paths
+    # Lazy import keeps the server import-light and avoids an import cycle.
+    from graintrace.mcp import tool_paths  # pylint: disable=import-outside-toplevel
+
     cfg = tool_paths.puma_opt()
     if cfg:
         return DepStatus("puma-opt", True, f"found (tools.json): {cfg}", "")
@@ -102,7 +109,8 @@ def _check_puma() -> DepStatus:
     if p:
         return DepStatus("puma-opt", True, f"found: {p}", "")
     return DepStatus(
-        "puma-opt", False,
+        "puma-opt",
+        False,
         "MOOSE/PUMA `puma-opt` not found (tools.json, PATH, or external/puma)",
         "Build MOOSE + PUMA, then set `puma_opt` in a tools.json (see "
         "deploy/tools.example.json) or pass its path as `moose_run_file`.",
@@ -110,19 +118,26 @@ def _check_puma() -> DepStatus:
 
 
 def _check_cubit() -> DepStatus:
-    from graintrace.mcp import tool_paths
+    # Lazy import keeps the server import-light and avoids an import cycle.
+    from graintrace.mcp import tool_paths  # pylint: disable=import-outside-toplevel
+
     cfg = tool_paths.sculpt_config()
     if cfg:
         return DepStatus(
-            "cubit", True,
-            f"found (tools.json): psculpt={cfg['psculpt']}; epu={cfg['epu']}", "")
+            "cubit",
+            True,
+            f"found (tools.json): psculpt={cfg['psculpt']}; epu={cfg['epu']}",
+            "",
+        )
     psculpt = _which_or_external("psculpt")
     epu = _which_or_external("epu")
     if psculpt and epu:
         return DepStatus("cubit", True, f"psculpt: {psculpt}; epu: {epu}", "")
     missing = [n for n, v in (("psculpt", psculpt), ("epu", epu)) if not v]
     return DepStatus(
-        "cubit", False, f"missing CUBIT/SCULPT binaries: {', '.join(missing)}",
+        "cubit",
+        False,
+        f"missing CUBIT/SCULPT binaries: {', '.join(missing)}",
         "Install CUBIT/Coreform and set `sculpt_config` in a tools.json (see "
         "deploy/tools.example.json). SCULPT hex meshing is the recommended path "
         "(GMSH tets are an FF-only last resort). CUBIT is licensed; never commit it.",
@@ -134,21 +149,27 @@ def _check_gpu() -> DepStatus:
     -- but the policy is: if a GPU is available, always use it (CPFE + material
     calibration are the GPU-accelerated steps)."""
     try:
-        import torch
+        # Lazy: torch is a heavy dep and may be absent; probe softly.
+        import torch  # pylint: disable=import-outside-toplevel
+
         if torch.cuda.is_available():
             n = torch.cuda.device_count()
             names = ", ".join(torch.cuda.get_device_name(i) for i in range(n))
             return DepStatus("gpu", True, f"{n} CUDA device(s): {names}", "")
         return DepStatus(
-            "gpu", False, "no CUDA device visible to torch",
+            "gpu",
+            False,
+            "no CUDA device visible to torch",
             "Runs fall back to CPU (much slower for CPFE/calibration). Ensure "
             "CUDA drivers + a cuda-enabled torch build if a GPU is expected.",
         )
-    except Exception as exc:  # torch missing/broken
+    # Best-effort: torch missing/broken should not crash the probe.
+    except Exception as exc:  # pylint: disable=broad-exception-caught
         return DepStatus("gpu", False, f"torch CUDA probe failed: {exc}", "")
 
 
 def gpu_available() -> bool:
+    """True if a CUDA GPU is visible to torch."""
     return _check_gpu().ok
 
 
@@ -165,7 +186,9 @@ def default_cpfe_device() -> str:
 def _check_python_pkg(pkg: str, build_hint: str) -> DepStatus:
     spec = importlib.util.find_spec(pkg)
     if spec is None:
-        return DepStatus(pkg, False, f"python package `{pkg}` not importable", build_hint)
+        return DepStatus(
+            pkg, False, f"python package `{pkg}` not importable", build_hint
+        )
     # Importable, but neml2's AOTI runtime binding may still be broken; flag softly.
     return DepStatus(pkg, True, f"importable: {spec.origin}", "")
 
@@ -175,14 +198,17 @@ def _check_neml2() -> DepStatus:
     the CPFE run additionally needs the AOTI runtime -- see _check_neml2_aoti."""
     st = _check_python_pkg(
         "neml2",
-        "Install NEML2 v3 python bindings from external/neml2 "
-        "(`pip install . -v`) into this env.",
+        "NEML2 v3 is provided by the PUMA build (it builds the repo-pinned NEML2 "
+        "source and installs the python bindings into `graintrace_env`). Build "
+        "PUMA (external/puma; see its README / scripts/get_dependencies.sh).",
     )
     if not st.ok:
         return st
     try:  # pragma: no cover - depends on local build
-        import neml2  # noqa: F401
-    except Exception as exc:  # importable-but-broken
+        # Import probe only: surfaces an importable-but-broken build.
+        import neml2  # noqa: F401  # pylint: disable=import-outside-toplevel,unused-import
+    # Best-effort: any import failure is reported, not raised.
+    except Exception as exc:  # pylint: disable=broad-exception-caught
         return DepStatus("neml2", False, f"neml2 import raised: {exc}", st.build_hint)
     return st
 
@@ -212,14 +238,20 @@ def _check_neml2_aoti() -> DepStatus:
     try:  # pragma: no cover - depends on local build
         r = subprocess.run(
             [sys.executable, "-c", "import neml2.aoti._aoti"],
-            env=env, capture_output=True, timeout=90,
+            env=env,
+            capture_output=True,
+            timeout=90,
+            check=False,
         )
-    except Exception as exc:
+    # Best-effort: a failed subprocess probe is reported, not raised.
+    except Exception as exc:  # pylint: disable=broad-exception-caught
         return DepStatus("neml2-aoti", False, f"AOTI probe failed: {exc}", hint)
     if r.returncode == 0:
         return DepStatus(
-            "neml2-aoti", True,
-            f"AOTI runtime OK (requires LD_LIBRARY_PATH to include {libdir})", "",
+            "neml2-aoti",
+            True,
+            f"AOTI runtime OK (requires LD_LIBRARY_PATH to include {libdir})",
+            "",
         )
     tail = (r.stderr.decode(errors="replace").strip().splitlines() or [""])[-1]
     return DepStatus("neml2-aoti", False, f"AOTI import failed: {tail}", hint)
@@ -234,7 +266,9 @@ _PROBES: Dict[str, Callable[[], DepStatus]] = {
     "neml2": _check_neml2,
     "neml2-aoti": _check_neml2_aoti,
     "pyzag": lambda: _check_python_pkg(
-        "pyzag", "Install pyzag from external/pyzag (`pip install . -v`)."
+        "pyzag",
+        "pyzag is installed alongside NEML2 by the PUMA build into "
+        "`graintrace_env` (neml2 depends on pyzag). Build PUMA (external/puma).",
     ),
     "gmsh": lambda: _check_python_pkg("gmsh", "`pip install gmsh`."),
     "torch_geometric": lambda: _check_python_pkg(
@@ -244,6 +278,7 @@ _PROBES: Dict[str, Callable[[], DepStatus]] = {
 
 
 def check(name: str) -> DepStatus:
+    """Run the probe for a single named dependency."""
     probe = _PROBES.get(name)
     if probe is None:
         return DepStatus(name, False, f"unknown dependency '{name}'", "")
@@ -251,6 +286,7 @@ def check(name: str) -> DepStatus:
 
 
 def check_all() -> List[DepStatus]:
+    """Run every registered dependency probe."""
     return [check(n) for n in _PROBES]
 
 

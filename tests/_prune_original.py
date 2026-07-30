@@ -53,9 +53,7 @@ def prune_original(
             edges[:, 1].astype(np.int64, copy=False),
         ]
     )
-    eid = np.concatenate(
-        [np.arange(E, dtype=np.int64), np.arange(E, dtype=np.int64)]
-    )
+    eid = np.concatenate([np.arange(E, dtype=np.int64), np.arange(E, dtype=np.int64)])
     adj_w_half = np.concatenate(
         [
             weights.astype(np.float64, copy=False),

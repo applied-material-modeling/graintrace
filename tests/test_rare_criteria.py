@@ -49,7 +49,11 @@ def _make_cluster_df(n=10, seed=0):
             "syz_mean_mean": rng.normal(0, 5, n),
             "sxz_mean_mean": rng.normal(0, 5, n),
             "scalar_val": rng.uniform(0, 1, n),
-            **{f"t{i}{j}_mean_mean": rng.normal(0, 1, n) for i in range(1, 4) for j in range(1, 4)},
+            **{
+                f"t{i}{j}_mean_mean": rng.normal(0, 1, n)
+                for i in range(1, 4)
+                for j in range(1, 4)
+            },
         }
     )
 

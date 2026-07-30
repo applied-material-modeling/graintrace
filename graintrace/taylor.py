@@ -38,7 +38,7 @@ import numpy as np
 import pandas as pd
 import scipy.interpolate as inter
 import torch
-import torch.nn as nn
+from torch import nn
 
 import neml2
 from neml2.pyzag import NEML2PyzagFactory
@@ -129,9 +129,9 @@ class UniaxialTaylorModel(nn.Module):
         if initial_strains is None:
             es0 = torch.zeros(nbatch, n_grains, 6, device=device, dtype=dtype)
         else:
-            es0 = torch.as_tensor(
-                initial_strains, device=device, dtype=dtype
-            ).reshape(nbatch, n_grains, 6)
+            es0 = torch.as_tensor(initial_strains, device=device, dtype=dtype).reshape(
+                nbatch, n_grains, 6
+            )
 
         ic_dict = {
             "elastic_strain": es0,
@@ -177,7 +177,9 @@ class UniaxialTaylorModel(nn.Module):
         block = result[..., : n_grains * _PER_GRAIN_BASE].reshape(
             ntime, nbatch, n_grains, _PER_GRAIN_BASE
         )
-        elastic_strain = block[..., :_N_ELASTIC_STRAIN].squeeze(1)  # (ntime, n_grains, 6)
+        elastic_strain = block[..., :_N_ELASTIC_STRAIN].squeeze(
+            1
+        )  # (ntime, n_grains, 6)
         return macro_stress, elastic_strain
 
 
@@ -202,9 +204,10 @@ class TaylorModel(BaseMaterialApproximationModel):
         nchunk: int = 5,
         equation_system: str = "eq_sys",
         exclude_parameters: list[str] | None = None,
-        compile: bool = False,
+        compile: bool = False,  # pylint: disable=redefined-builtin  # NEML2 factory kwarg name
         device: str | torch.device = "cpu",
     ):
+        # pylint: disable=super-init-not-called  # v3 path wraps a NonlinearSystem, see below
         # Deliberately does NOT call BaseMaterialApproximationModel.__init__;
         # the v3 path loads a NonlinearSystem and wraps it in a pyzag factory.
         self.neml2_path = neml2_path
@@ -254,9 +257,10 @@ class TaylorModel(BaseMaterialApproximationModel):
         with torch.no_grad():
             for v, pv in zip(self.opt_vars, values):
                 getattr(self.factory, v).copy_(pv)
+        # pylint: disable-next=protected-access  # required to push new values into NEML2
         self.factory._update_parameter_values()
 
-    def load_experiment_data(
+    def load_experiment_data(  # pylint: disable=arguments-renamed  # richer v3 signature
         self,
         data_dir: str,
         strain_stress_file: str,
@@ -363,18 +367,18 @@ class TaylorModel(BaseMaterialApproximationModel):
         ]
         use_weights = exp_weights[0]
 
-        return dict(
-            files=files,
-            stress_levels=stress_levels,
-            strain_stress=strain_stress,
-            exp_strain=exp_strain,
-            exp_texture=exp_texture,
-            exp_weights=exp_weights,
-            avg_exp_strain=avg_exp_strain,
-            avg_axial_strain=avg_axial_strain,
-            use_weights=use_weights,
-            cutoff_strain=cutoff_strain,
-        )
+        return {
+            "files": files,
+            "stress_levels": stress_levels,
+            "strain_stress": strain_stress,
+            "exp_strain": exp_strain,
+            "exp_texture": exp_texture,
+            "exp_weights": exp_weights,
+            "avg_exp_strain": avg_exp_strain,
+            "avg_axial_strain": avg_axial_strain,
+            "use_weights": use_weights,
+            "cutoff_strain": cutoff_strain,
+        }
 
     def simulate(
         self,
@@ -413,9 +417,9 @@ class TaylorModel(BaseMaterialApproximationModel):
         strain = experiment_data["strain_stress"][:, 0]
 
         if initial_strains is not None:
-            initial_strains = torch.as_tensor(
-                initial_strains, dtype=torch.float64
-            ).to(self.device)
+            initial_strains = torch.as_tensor(initial_strains, dtype=torch.float64).to(
+                self.device
+            )
 
         if params is not None:
             self.set_params(params)

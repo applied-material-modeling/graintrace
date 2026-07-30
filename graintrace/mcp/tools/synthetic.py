@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 from graintrace.mcp.app import mcp, workdir
 from graintrace.mcp.confirm import gate
@@ -42,30 +42,48 @@ def generate_synthetic_hedm(
 
     Needs NEPER. Runs as a background job; writes FF/ and NF/ subfolders.
     """
+    # Lazy: heavy graintrace submodule, imported only when the tool runs.
+    # pylint: disable=import-outside-toplevel
     from graintrace.synthetic_hedm_generator import SyntheticHEDMGenerator
 
     if output_dir is None:
         output_dir = str(workdir() / "synthetic_hedm")
     resolved = {
-        "output_dir": output_dir, "ff_bounding_box": ff_bounding_box,
+        "output_dir": output_dir,
+        "ff_bounding_box": ff_bounding_box,
         "ff_grain_characteristics": ff_grain_characteristics,
-        "ff_strain_stdev": ff_strain_stdev, "nf_bounding_box": nf_bounding_box,
-        "nf_dz": nf_dz, "nf_spacing": nf_spacing, "random_seed": random_seed,
+        "ff_strain_stdev": ff_strain_stdev,
+        "nf_bounding_box": nf_bounding_box,
+        "nf_dz": nf_dz,
+        "nf_spacing": nf_spacing,
+        "random_seed": random_seed,
         "ff_iterations": ff_iterations,
     }
 
     def _run():
         gen = SyntheticHEDMGenerator(
-            output_dir=output_dir, ff_bounding_box=ff_bounding_box,
+            output_dir=output_dir,
+            ff_bounding_box=ff_bounding_box,
             ff_strain_stdev=ff_strain_stdev,
             ff_grain_characteristics=ff_grain_characteristics,
-            nf_bounding_box=nf_bounding_box, nf_dz=nf_dz, nf_spacing=nf_spacing,
+            nf_bounding_box=nf_bounding_box,
+            nf_dz=nf_dz,
+            nf_spacing=nf_spacing,
             random_seed=random_seed,
         )
         gen.run(ff_iterations=ff_iterations)
-        return {"output_dir": output_dir, "ff_dir": f"{output_dir}/FF", "nf_dir": f"{output_dir}/NF"}
+        return {
+            "output_dir": output_dir,
+            "ff_dir": f"{output_dir}/FF",
+            "nf_dir": f"{output_dir}/NF",
+        }
 
     return gate(
-        tool="generate_synthetic_hedm", confirm=confirm, resolved_params=resolved,
-        needs=["neper"], will_write=[output_dir], run=_run, background=True,
+        tool="generate_synthetic_hedm",
+        confirm=confirm,
+        resolved_params=resolved,
+        needs=["neper"],
+        will_write=[output_dir],
+        run=_run,
+        background=True,
     )

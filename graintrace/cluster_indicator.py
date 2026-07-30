@@ -22,16 +22,21 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+"""Cluster indicators wrapping sklearn/scipy clustering over similarity metrics."""
+
 from __future__ import annotations
 
-from dataclasses import dataclass
+from typing import List, Optional, Tuple, Dict, Any
+
 import pandas as pd
 import numpy as np
-from typing import List, Optional, Tuple, Callable, Dict, Any
+
 from .user_data_class import SimilarityMetric
 
 
 class ClusterAnalysisIndicator:
+    """Run clustering algorithms on field data and summarize per-cluster statistics."""
+
     def __init__(
         self,
         csv_path: str,
@@ -62,7 +67,7 @@ class ClusterAnalysisIndicator:
         self.data = df
 
     def check_feature_matrix(self, spec: SimilarityMetric) -> None:
-
+        """Validate that the required feature columns for ``spec`` are numeric and finite."""
         if self.data is None:
             self.load_data()
 
@@ -199,7 +204,7 @@ class ClusterAnalysisIndicator:
         noise_label: int = -1,
         minimal_return: bool = False,
     ) -> Tuple[Optional[pd.DataFrame], pd.DataFrame, Dict[str, Any]]:
-
+        """Cluster with sklearn DBSCAN and return points, cluster summaries, and extras."""
         if self.data is None:
             self.load_data()
         df = self.data
@@ -210,6 +215,7 @@ class ClusterAnalysisIndicator:
         all_feat_cols = self._get_all_feature_cols(df)
         X_all = df[all_feat_cols].to_numpy(dtype=float)
 
+        # pylint: disable=import-outside-toplevel  # sklearn is a heavy optional dep
         from sklearn.cluster import DBSCAN
 
         clustering = DBSCAN(
@@ -261,7 +267,7 @@ class ClusterAnalysisIndicator:
         compute_distances: bool = False,
         minimal_return: bool = False,
     ) -> Tuple[Optional[pd.DataFrame], pd.DataFrame, Dict[str, Any]]:
-
+        """Cluster with sklearn AgglomerativeClustering using the metric's distance func."""
         if self.data is None:
             self.load_data()
         df = self.data
@@ -278,6 +284,7 @@ class ClusterAnalysisIndicator:
         all_feat_cols = self._get_all_feature_cols(df)
         X_all = df[all_feat_cols].to_numpy(dtype=float)
 
+        # pylint: disable=import-outside-toplevel  # sklearn is a heavy optional dep
         from sklearn.cluster import AgglomerativeClustering
 
         clustering = AgglomerativeClustering(
@@ -333,7 +340,7 @@ class ClusterAnalysisIndicator:
         noise_label: int = -1,
         minimal_return: bool = False,
     ) -> Tuple[Optional[pd.DataFrame], pd.DataFrame, Dict[str, Any]]:
-
+        """Cluster with sklearn OPTICS and return points, cluster summaries, and extras."""
         if self.data is None:
             self.load_data()
         df = self.data
@@ -344,6 +351,7 @@ class ClusterAnalysisIndicator:
         all_feat_cols = self._get_all_feature_cols(df)
         X_all = df[all_feat_cols].to_numpy(dtype=float)
 
+        # pylint: disable=import-outside-toplevel  # sklearn is a heavy optional dep
         from sklearn.cluster import OPTICS
 
         clustering = OPTICS(
@@ -398,7 +406,8 @@ class ClusterAnalysisIndicator:
         ax=None,
         no_labels: bool = True,
     ) -> Dict[str, Any]:
-
+        """Plot a hierarchical-clustering dendrogram with a cut threshold; return leaf info."""
+        # pylint: disable=import-outside-toplevel  # matplotlib/scipy are heavy optional deps
         import matplotlib.pyplot as plt
         from scipy.cluster.hierarchy import dendrogram
 
@@ -437,7 +446,7 @@ class ClusterAnalysisIndicator:
         dendrogram_path: Optional[str] = None,
         minimal_return: bool = False,
     ) -> Tuple[Optional[pd.DataFrame], pd.DataFrame, Dict[str, Any]]:
-
+        """Cluster with scipy hierarchical linkage and return points, summaries, and extras."""
         if self.data is None:
             self.load_data()
         df = self.data
@@ -448,6 +457,7 @@ class ClusterAnalysisIndicator:
         all_feat_cols = self._get_all_feature_cols(df)
         X_all = df[all_feat_cols].to_numpy(dtype=float)
 
+        # pylint: disable=import-outside-toplevel  # scipy/sklearn are heavy optional deps
         from scipy.cluster.hierarchy import linkage, cophenet, fclusterdata
         from scipy.spatial.distance import pdist, squareform
         from sklearn.manifold import MDS

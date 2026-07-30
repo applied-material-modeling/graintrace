@@ -22,6 +22,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+"""NF HEDM reconstruction: segment .mic layers and build a hex mesh."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -124,8 +126,7 @@ class NearFieldMeshBuilder:
                 + ", ".join(sorted(missing))
                 + "\nRequired keys and defaults:\n"
                 + "\n".join(
-                    f"  {k}: {self.DEFAULT_SEGMENTATION[k]!r}"
-                    for k in self.DEFAULT_SEGMENTATION
+                    f"  {k}: {v!r}" for k, v in self.DEFAULT_SEGMENTATION.items()
                 )
             )
         if extra:

@@ -22,20 +22,28 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+"""Dataclasses shared by the HEDM stitching techniques."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
+
 import pandas as pd
+
 
 @dataclass
 class ScanMetadata:
+    """Per-scan metadata: name, id, and z-extent."""
+
     name: str
     scan_id: int
     zmin: float
     zmax: float
 
+
 @dataclass
 class GrainSet:
     """A set of grains: a raw scan or a stitched aggregate."""
-    df: pd.DataFrame        # columns: X,Y,Z,GrainRadius,Eul0,Eul1,Eul2
+
+    df: pd.DataFrame  # columns: X,Y,Z,GrainRadius,Eul0,Eul1,Eul2
     meta: ScanMetadata

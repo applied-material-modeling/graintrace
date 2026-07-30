@@ -22,6 +22,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+"""Orientation math helpers: Euler/matrix/MRP/quaternion conversions and misorientation."""
+
 from __future__ import annotations
 
 from math import sqrt
@@ -56,8 +58,9 @@ def _to_bunge(euler: torch.Tensor, convention: str) -> tuple:
     raise ValueError(f"Unknown angle_convention: {convention!r}")
 
 
-def _from_bunge(phi1: torch.Tensor, Phi: torch.Tensor, phi2: torch.Tensor,
-                convention: str) -> torch.Tensor:
+def _from_bunge(
+    phi1: torch.Tensor, Phi: torch.Tensor, phi2: torch.Tensor, convention: str
+) -> torch.Tensor:
     """Inverse of :func:`_to_bunge` — Bunge angles (radians) back to convention."""
     convention = convention.lower()
     if convention == "bunge":
@@ -89,6 +92,7 @@ def euler_to_matrix(
     Returns:
         (..., 3, 3) rotation matrices.
     """
+    # pylint: disable-next=import-outside-toplevel  # neml2 is a heavy optional dep
     from neml2.types import MRP, Vec, Scalar, euler_rodrigues, compose
 
     e = torch.as_tensor(euler, dtype=torch.float64)
@@ -149,6 +153,7 @@ def matrix_to_euler(
 
 def matrix_to_mrp(M: Union[np.ndarray, torch.Tensor]) -> torch.Tensor:
     """Convert rotation matrices (..., 3, 3) to neml2 v3 MRP (..., 3)."""
+    # pylint: disable-next=import-outside-toplevel  # neml2 is a heavy optional dep
     from neml2 import types as _t
 
     M = torch.as_tensor(M, dtype=torch.float64).contiguous()
@@ -168,6 +173,7 @@ def quat_to_matrix(q: torch.Tensor) -> torch.Tensor:
     """Convert a scalar-first unit quaternion (..., 4) ``(w, x, y, z)`` to a
     rotation matrix (..., 3, 3), via neml2 ``quaternion_rotation_matrix``.
     """
+    # pylint: disable-next=import-outside-toplevel  # neml2 is a heavy optional dep
     from neml2 import types as _t
 
     q = torch.as_tensor(q, dtype=torch.float64).contiguous()
@@ -176,6 +182,7 @@ def quat_to_matrix(q: torch.Tensor) -> torch.Tensor:
 
 def mrp_to_matrix(p: Union[np.ndarray, list, torch.Tensor]) -> torch.Tensor:
     """Convert neml2 v3 MRP orientations (..., 3) to rotation matrices (..., 3, 3)."""
+    # pylint: disable-next=import-outside-toplevel  # neml2 is a heavy optional dep
     from neml2 import types as _t
 
     p = torch.as_tensor(p, dtype=torch.float64).contiguous()
@@ -193,6 +200,7 @@ def mrp_to_euler(
 
 def symmetry_operators(symmetry: str) -> torch.Tensor:
     """Crystal symmetry operators as rotation matrices (nops, 3, 3)."""
+    # pylint: disable-next=import-outside-toplevel  # neml2 is a heavy optional dep
     from neml2.ops import symmetry as _symmetry
 
     ops = _symmetry(symmetry).data
@@ -252,7 +260,9 @@ def move_to_fundamental_zone(R: torch.Tensor, symmetry: str = "1") -> torch.Tens
     Returns:
         (..., 3, 3) reduced rotation matrices.
     """
-    ops = symmetry_operators(symmetry).to(device=R.device, dtype=R.dtype)  # (nops, 3, 3)
+    ops = symmetry_operators(symmetry).to(
+        device=R.device, dtype=R.dtype
+    )  # (nops, 3, 3)
     cand = torch.matmul(ops, R.unsqueeze(-3))  # (..., nops, 3, 3)
     trace = cand.diagonal(dim1=-2, dim2=-1).sum(-1)  # (..., nops)
     idx = torch.argmax(trace, dim=-1)  # (...,)
@@ -306,17 +316,17 @@ def average_orientation(
 
     # Reference = highest-weight orientation; align every orientation to it by
     # picking the symmetry op O maximizing <ref, O @ R_i>.
-    ref = R[int(torch.argmax(w))]                         # (3, 3)
+    ref = R[int(torch.argmax(w))]  # (3, 3)
     cand = torch.matmul(ops.unsqueeze(0), R.unsqueeze(1))  # (N, nops, 3, 3)
-    score = torch.einsum("ij,nkij->nk", ref, cand)        # (N, nops)
-    best = torch.argmax(score, dim=1)                     # (N,)
-    R_aligned = cand[torch.arange(n), best]              # (N, 3, 3)
+    score = torch.einsum("ij,nkij->nk", ref, cand)  # (N, nops)
+    best = torch.argmax(score, dim=1)  # (N,)
+    R_aligned = cand[torch.arange(n), best]  # (N, 3, 3)
 
     # Weighted matrix mean, re-projected onto SO(3).
     M = torch.einsum("n,nij->ij", w, R_aligned) / w.sum()
     U, _, Vh = torch.linalg.svd(M)
     Ravg = U @ Vh
-    if torch.det(Ravg) < 0:                               # guard against reflection
+    if torch.det(Ravg) < 0:  # guard against reflection
         U = U.clone()
         U[:, -1] = -U[:, -1]
         Ravg = U @ Vh
@@ -362,7 +372,8 @@ def misorientation(
 if __name__ == "__main__":
 
     def check(e1, e2, expected, tol=1e-3):
-        val = misorientation(
+        """Self-test: assert misorientation(e1, e2) matches the expected angle."""
+        angle = misorientation(
             e1,
             e2,
             angle_convention="bunge",
@@ -370,12 +381,14 @@ if __name__ == "__main__":
             symmetry="432",
         )
 
-        val = val.item() if isinstance(val, torch.Tensor) else val
+        angle = angle.item() if isinstance(angle, torch.Tensor) else angle
 
-        print(f"e1={e1}, e2={e2} -> {val:.4f} deg")
+        print(f"e1={e1}, e2={e2} -> {angle:.4f} deg")
 
         if expected is not None:
-            assert abs(val - expected) < tol, f"Expected {expected} deg, got {val} deg"
+            assert (
+                abs(angle - expected) < tol
+            ), f"Expected {expected} deg, got {angle} deg"
 
     check([0, 0, 0], [0, 0, 0], 0.0)
     check([0, 0, 0], [90, 0, 0], 0.0)
@@ -463,6 +476,7 @@ def matrix_to_quat(M: torch.Tensor) -> torch.Tensor:
     """Convert rotation matrices (..., 3, 3) to scalar-first unit quaternions
     (..., 4) ``(w, x, y, z)``, via neml2 (``MRP.from_matrix`` -> ``to_quaternion``).
     """
+    # pylint: disable-next=import-outside-toplevel  # neml2 is a heavy optional dep
     from neml2 import types as _t
 
     M = torch.as_tensor(M, dtype=torch.float64).contiguous()

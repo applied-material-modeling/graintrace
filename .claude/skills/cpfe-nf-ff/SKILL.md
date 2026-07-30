@@ -31,7 +31,7 @@ sim = CPFESimulation(
     eeres_file=out + "/ff_reconstruction/reconstruction_cpfe_ee_shifted.csv",
     ori_file=out + "/nf_reconstruction/orientations.csv",
     dim=3, element_order="FIRST",           # NF meshes are typically FIRST order
-    moose_run_file="/home/tranh/projects/moose_neml2_v3/puma/puma-opt",
+    moose_run_file="external/puma/puma-opt",   # EDIT: your built puma-opt
     use_ff_initial_field=False,             # ee from a DIFFERENT mesh
 )
 sim.set_parameters("material", ...)         # see /material-calibration for values

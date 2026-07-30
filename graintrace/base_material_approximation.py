@@ -22,10 +22,14 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+"""Abstract base interface for NEML2-backed material approximation models."""
+
 from __future__ import annotations
 
 from typing import Any, Optional
+
 import torch
+
 import neml2
 
 
@@ -44,6 +48,7 @@ class BaseMaterialApproximationModel:
     def load_experiment_data(
         self, data_dir: str, strain_stress_file: str, npoints: int
     ) -> None:
+        # pylint: disable=unused-argument  # abstract stub; args define the interface
         """Load experiment data (macroscopic stress-strain plus per-file CSVs)."""
         return None
 

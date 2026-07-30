@@ -14,13 +14,18 @@ on PyPI and cannot be `pip install`ed:
 
 | Provided by `pip install graintrace` | Must be provided separately |
 |---|---|
-| the `graintrace` package + its Python deps (numpy, pandas, scipy, torch, pyvista, gmsh Python API, …) | **NEML2 v3**, **pyzag**, **MOOSE + PUMA** (`puma-opt`), **libtorch** — built from source (git submodules below) |
+| the `graintrace` package + its Python deps (numpy, pandas, scipy, torch, pyvista, gmsh Python API, …) | **NEML2 v3 + pyzag** — provided by the **PUMA** build (see below); *not* pinned by graintrace |
+| | **MOOSE + PUMA** (`puma-opt`), **libtorch** — built from source via PUMA (git submodule below) |
 | | **NEPER** + standalone **gmsh** binary — installed separately |
 | | **Coreform CUBIT/SCULPT** — proprietary, licensed; obtain your own license (never commit it) |
 
-So `pip install graintrace` gives you an importable package and lets you run the
-Python-only parts (post-processing, REI, stitching); running reconstruction/CPFE end-to-end
-requires the external tools.
+`graintrace/__init__.py` lazy-imports the compiled stack, so `pip install graintrace` gives you
+an importable package that runs the **Python-only** parts (post-processing, REI, stitching,
+similarity metrics) with no NEML2 present. Features that use NEML2 (material calibration, pole
+figures, CPFE) require the **PUMA-built NEML2** in the shared `graintrace_env` — graintrace does
+**not** install neml2/pyzag itself, because the working, ABI-matched build is the repo-pinned
+NEML2 source that PUMA builds (so `puma-opt`'s C++ library and the Python package stay in lockstep;
+a public PyPI neml2 wheel is a different build and is deliberately not relied upon).
 
 ## Requirements
 
@@ -30,92 +35,67 @@ requires the external tools.
 - MOOSE with the PUMA app, linked with NEML2 (v3) + libtorch
 - NEML2 (v3) and pyzag
 
-## Quick install (Python package only)
+## Install
+
+There are two tiers, depending on whether you need the NEML2/CPFE features.
+
+**1. Python-only** (post-processing, REI, stitching, rei_comparison, similarity metrics) — no
+conda, no NEML2, no native build:
 
 ```bash
 pip install graintrace            # once published to PyPI
+# from a source checkout instead:  pip install -e .
 # optional extras:
-pip install "graintrace[gnn]"     # grain-graph / GNN utilities (torch-geometric)
-pip install "graintrace[mcp]"     # MCP server (drive graintrace from Claude Desktop / Open WebUI)
+pip install "graintrace[gnn]"       # grain-graph / GNN utilities (torch-geometric)
+pip install "graintrace[mcp]"       # MCP server (drive graintrace from Claude Desktop / Open WebUI)
 pip install "graintrace[examples]"  # deps used by examples/ (meshio)
+pip install "graintrace[dev]"       # test/lint/build tooling (pytest, black, isort, build, twine)
 ```
 
-Or from source with the conda environment:
+`import graintrace` works with no NEML2 present (the compiled stack is lazy-imported).
+
+**2. NEML2 / CPFE features** (material calibration, pole figures, reconstruction, CPFE) — these
+need the native stack, which is provided entirely by **PUMA**. Build PUMA first; it creates the
+shared conda env `graintrace_env`, builds MOOSE + libtorch + the repo-pinned NEML2 v3, and installs
+the ABI-matched NEML2/pyzag Python packages into that env. Then install graintrace on top:
 
 ```bash
-git clone --recursive https://github.com/applied-material-modeling/graintrace.git
+git clone https://github.com/applied-material-modeling/graintrace.git
 cd graintrace
-conda env create -f environment.yml      # creates env "graintrace_env"
-conda activate graintrace_env
-pip install -e .
-```
+git submodule update --init --recursive external/puma   # pulls puma -> moose + neml2
 
-`--recursive` (or `git submodule update --init`) fetches the pinned external sources under
-`external/` (see below). The `environment.yml` mirrors a working `moose-src`-style env
-(neml2 v3 + editable pyzag + torch/CUDA).
-
-## External compiled stack (git submodules)
-
-The exact working versions of MOOSE/NEML2/PUMA/pyzag are pinned as git submodules under
-`external/`:
-
-| Submodule | Repo | Branch |
-|---|---|---|
-| `external/moose`  | github.com/hugary1995/moose | neml2-v3-migration |
-| `external/neml2`  | github.com/hdt5kt/neml2 | pyzag_v3_port |
-| `external/puma`   | github.com/applied-material-modeling/puma | development |
-| `external/pyzag`  | github.com/applied-material-modeling/pyzag | huy_pyzag_abstraction_neml2_v3 |
-
-```bash
-git submodule update --init external/moose external/neml2 external/puma external/pyzag
-```
-
-> These currently track development forks/branches; they are expected to move to the official
-> upstream repos over time (see `PUBLISHING.md` for the one-command re-point procedure). The
-> submodules are pinned to specific commits, so updates are deliberate.
-
-## Building MOOSE + NEML2 + PUMA (for reconstruction/CPFE)
-
-Build inside your conda env (worked on Ubuntu 20.04 with the appropriate MPI/compilers). Use
-the submodule checkouts under `external/`:
-
-```bash
-export CC=mpicc CXX=mpicxx FC=mpif90 F90=mpif90 F77=mpif77
-export MOOSE_DIR=${PWD}/external/moose MOOSE_JOBS=12 METHODS=opt
-
-# 1) MOOSE deps
-cd external/moose/scripts
-./update_and_rebuild_petsc.sh
-./update_and_rebuild_libmesh.sh
-./update_and_rebuild_wasp.sh
-cd ../../..
-
-# 2) libtorch (GPU build; pick the CUDA version matching your driver)
-#    https://pytorch.org/get-started/locally/ -> Stable / Linux / LibTorch
-wget https://download.pytorch.org/libtorch/cu126/libtorch-shared-with-deps-2.10.0%2Bcu126.zip
-unzip libtorch-shared-with-deps-2.10.0+cu126.zip
-export LIBTORCH_DIR=${PWD}/libtorch
-
-# 3) NEML2 + MOOSE
-cd external/moose
-./configure --with-libtorch --with-neml2
-./scripts/update_and_rebuild_neml2.sh
-cd ../..
-
-# 4) PUMA (MOOSE app that runs CPFE)
+# Build the native stack via PUMA (see external/puma/README.md for prerequisites):
 cd external/puma
-make -j 12
-./run_tests          # all should pass
+conda env create -f environment.yml        # creates "graintrace_env" (toolchain + NEML2 v3 stack)
+conda activate graintrace_env
+scripts/get_dependencies.sh --build        # inits moose/neml2, builds NEML2 into MOOSE
+make -j                                     # builds puma-opt
 cd ../..
 
-# 5) NEML2 Python bindings (v3) into the active env
-pip install ./external/neml2 -v
-# pyzag (editable) into the active env
-pip install -e ./external/pyzag
+# Install graintrace into the same env (does NOT reinstall neml2/pyzag):
+pip install -e .        # or:  pip install -e ".[dev]"  to run the tests
 ```
 
-The PUMA binary is then `external/puma/puma-opt` — pass this as `moose_run_file` to
-`CPFESimulation` (see `examples/demonstrate_cpfe.py`).
+graintrace depends on PUMA (one-way): the only thing it needs at runtime is the `puma-opt` binary
+at `external/puma/puma-opt` — pass it as `moose_run_file` to `CPFESimulation` (see
+`examples/demonstrate_cpfe.py`). graintrace intentionally does **not** pin or install neml2/pyzag;
+they come from PUMA's build so `puma-opt`'s C++ library and the Python package stay in lockstep.
+
+## External compiled stack (single PUMA submodule)
+
+The native stack is pinned via **one** submodule; PUMA carries MOOSE and NEML2 as its own
+submodules, so graintrace pins PUMA once and gets the whole stack:
+
+| Submodule | Repo | Branch | Carries |
+|---|---|---|---|
+| `external/puma` | github.com/applied-material-modeling/puma | development | `moose/` + `neml2/` (its own submodules) |
+
+```bash
+git submodule update --init --recursive external/puma
+```
+
+> Pinned to a specific PUMA commit (recursive init also pins PUMA's moose/neml2), so updates are
+> deliberate. See `PUBLISHING.md` for the re-point procedure.
 
 ## CUBIT/SCULPT (proprietary — bring your own license)
 
@@ -155,15 +135,16 @@ Python-only checks (no MOOSE/CUBIT/NEPER needed):
 ## Running the test suite
 
 ```bash
-conda activate graintrace_env
 pip install -e ".[dev]"
 pytest tests/
 ```
 
-All **86 tests** should pass. The suite covers data classes, similarity metrics, clustering,
-orientation math, simulation/experiment post-processing, and stitching. It also checks that
-`neml2`/`pyzag` import; CUBIT-binary tests skip unless you set `PSCULPT` / `CUBIT_MPIEXEC`
-(or `CUBIT_BIN_DIR`).
+**101 tests.** On a plain checkout without the PUMA-built NEML2, the NEML2/pyzag-dependent tests
+(orientation math, dependency checks) **skip** via `pytest.importorskip` rather than error, so the
+pure-Python subset (data classes, similarity metrics, clustering, post-processing, stitching, REI
+comparison) runs green. Run inside the PUMA-built `graintrace_env` to exercise the full suite
+(then **99 pass, 2 skip** — the 2 skips are the CUBIT-binary checks, which skip unless you set
+`PSCULPT` / `CUBIT_MPIEXEC` or `CUBIT_BIN_DIR`).
 
 ```bash
 pytest tests/ -m "not slow"          # fast pure-Python subset

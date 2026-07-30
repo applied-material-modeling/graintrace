@@ -41,14 +41,14 @@ COORD = ["X", "Y", "Z"]
 # ---------------------------------------------------------------- INPUT
 # External tool paths come from tools.json (deploy/tools.json or
 # ~/.config/graintrace/tools.json); the literals are fallbacks for this box.
-MOOSE_RUN_FILE = _tp.puma_opt() or "/home/tranh/projects/moose_neml2_v3/puma/puma-opt"
+MOOSE_RUN_FILE = _tp.puma_opt() or "external/puma/puma-opt"  # EDIT: your built puma-opt
 CVT_ITER = 300                    # reconstruction CVT relaxation (fast)
 REL_EL_SIZE = 3.5                 # (unused by the SCULPT path; kept for reference)
 TESR_SIZE = [24, 24, 26]          # voxelization grid -> hex mesh resolution (~14k hex)
 
 # CUBIT/SCULPT hex meshing (production path; NOT GMSH tets). Recommended options
 # from the 'meshing' recipe: adapt4 (-A 4 -df 1) preserves >=98% of grains.
-_CUBIT_BIN = "/home/tranh/Progs/cubit_gov/bin"
+_CUBIT_BIN = "/path/to/cubit/bin"  # EDIT: your Coreform CUBIT/SCULPT install (paths only)
 SCULPT_CONFIG = _tp.sculpt_config() or {
     "launcher": f"{_CUBIT_BIN}/mpi/bin/mpiexec",
     "psculpt": f"{_CUBIT_BIN}/psculpt",

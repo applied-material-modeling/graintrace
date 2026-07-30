@@ -22,17 +22,23 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+"""Generate synthetic crystal tessellations with NEPER and simulate HEDM z-scans."""
+
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
 import os
-import subprocess
-import pandas as pd
 import shutil
+import subprocess
+import sys
+from textwrap import dedent
+from typing import Any, Dict, List, Optional
+
 import numpy as np
+import pandas as pd
 
 
 class CrystalGenerator:
+    """Build NEPER Voronoi tessellations and derive HEDM-like scan CSVs from them."""
 
     _MORPHO_SCHEMA = {
         "gg": {"required": ["mean"], "optional": []},
@@ -103,21 +109,21 @@ class CrystalGenerator:
         if mtype == "gg":
             return f"gg({morpho_arg['mean']})"
 
-        elif mtype == "lamellar":
+        if mtype == "lamellar":
             return f"lamellar(n={morpho_arg['n']},v={morpho_arg['v']})"
 
-        elif mtype in ["columnar", "bamboo"]:
+        if mtype in ["columnar", "bamboo"]:
             return f"{mtype}({morpho_arg['v']})"
 
-        elif mtype in ["size", "diameq"]:
+        if mtype in ["size", "diameq"]:
             dist_name = morpho_arg["distribution"]
             params = morpho_arg["params"]
             self.validate_distribution(dist_name, params)
             param_str = ",".join(map(str, params))
             return f"{mtype}:{dist_name}({param_str})"
 
-        elif mtype == "raw":
-            return morpho_arg["morpho_str"]
+        # mtype == "raw" (validate_morpho guarantees a known type)
+        return morpho_arg["morpho_str"]
 
     def generate_tessellation(
         self,
@@ -151,6 +157,8 @@ class CrystalGenerator:
 
         elif mtype in ("columnar", "bamboo"):
             n_arg = ["-n", str(int(morpho_args["n"]))]
+        else:
+            raise ValueError(f"Unsupported morpho type: {mtype}")
 
         tess_name = os.path.join(self.output_dir, "voronoi")
         output_cell = "id,vol,w,x,y,z,radeq"
@@ -183,7 +191,7 @@ class CrystalGenerator:
         print("\n=== Running Neper Tessellation ===\n")
         print("> " + " ".join(neper_cmd))
 
-        proc = subprocess.run(
+        subprocess.run(
             neper_cmd,
             cwd=self.output_dir,
             env=self.env,
@@ -222,7 +230,7 @@ class CrystalGenerator:
         os.makedirs(output_hedm_dir, exist_ok=True)
 
         # scanning window geometry
-        xmin, xmax, ymin, ymax, zmin, zmax = self.bounding_box
+        _xmin, _xmax, _ymin, _ymax, zmin, zmax = self.bounding_box
         total_height = zmax - zmin
         overlap_fraction = overlap_percentage / 100.0
         z_scan_height = total_height / (nstep - (nstep - 1) * overlap_fraction)
@@ -285,7 +293,7 @@ class CrystalGenerator:
                 min_vol=min_vol,
             )
 
-        print(f"\n=== HEDM z-scan generation complete ===")
+        print("\n=== HEDM z-scan generation complete ===")
         print(f"Outputs saved in: {output_hedm_dir}\n")
 
     def check_dependencies(self) -> None:
@@ -538,16 +546,15 @@ class CrystalGenerator:
 
         # extract ncell
         def _get_ncell(tess_file):
-            with open(tess_file, "r") as f:
+            with open(tess_file, "r", encoding="utf-8") as f:
                 for line in f:
                     if line.lstrip().startswith("**cell"):
                         next_line = next(f, "").strip()
                         if next_line.isdigit():
                             return int(next_line)
-                        else:
-                            raise RuntimeError(
-                                f"Unexpected format after **cell: '{next_line}'"
-                            )
+                        raise RuntimeError(
+                            f"Unexpected format after **cell: '{next_line}'"
+                        )
             raise RuntimeError("Failed to find cell count in .tess file.")
 
         ncell = _get_ncell(tess_name)
@@ -615,8 +622,6 @@ class CrystalGenerator:
     @staticmethod
     def show_morpho_options(exit_after: bool = False) -> None:
         """Display available morphology configurations and supported distributions."""
-        from textwrap import dedent
-
         morpho_info = dedent(
             """
         Available morphology configurations:
@@ -672,8 +677,6 @@ class CrystalGenerator:
         print(dist_info)
 
         if exit_after:
-            import sys
-
             sys.exit(0)
 
     @staticmethod

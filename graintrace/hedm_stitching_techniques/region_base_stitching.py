@@ -22,20 +22,28 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+"""Region-based multi-scan HEDM z-stitching (RegionBaseStitching)."""
+
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple
-import pandas as pd
 import os
-from typing import List, Tuple, Dict, Optional
+from typing import Dict, List, Optional, Tuple
+
+import numpy as np
+import pandas as pd
+from scipy.optimize import linear_sum_assignment
+from scipy.spatial import cKDTree
+
+from graintrace.orientation_helper import misorientation
+
 from .pair_stitching_utils import PairwiseStitcher, merge_properties
 from .dataclass_utils import ScanMetadata, GrainSet
 from .scan_tessellation import compute_cell_geometry, default_neper_env
-from graintrace.orientation_helper import misorientation
-from scipy.optimize import linear_sum_assignment
 
 
 class RegionBaseStitching:
+    """Iteratively stitch overlapping HEDM scan layers into one grain set."""
+
     def __init__(
         self,
         scan_files: List[str],
@@ -73,6 +81,8 @@ class RegionBaseStitching:
         self.neper_env = neper_env
         self.xy_bounding_box = xy_bounding_box
         self._xy_bounds = None  # (xlo, xhi, ylo, yhi), set in run()
+        self.global_zlo: Optional[float] = None  # set in run()
+        self.global_zhi: Optional[float] = None  # set in run()
         # Avoid a mutable default argument shared across instances/calls.
         if output_column is None:
             output_column = [
@@ -107,8 +117,8 @@ class RegionBaseStitching:
 
         self._load_and_sort_scans()
 
-        all_zmin = min(gs.meta.zmin for gs in self.scans)
-        all_zmax = max(gs.meta.zmax for gs in self.scans)
+        _all_zmin = min(gs.meta.zmin for gs in self.scans)
+        _all_zmax = max(gs.meta.zmax for gs in self.scans)
 
         # no overlap
         if overlap_fraction == 0.0:
@@ -141,7 +151,7 @@ class RegionBaseStitching:
         denom = nscan - (nscan - 1) * overlap_fraction
         if denom <= 0:
             raise ValueError(
-                f"Inconsistent configuration. Check overlap_fraction value."
+                "Inconsistent configuration. Check overlap_fraction value."
             )
 
         z_scan_height = H / denom
@@ -293,17 +303,15 @@ class RegionBaseStitching:
         return stitcher.run()
 
     def _nonoverlap_stitch_pair(
-        self, A: GrainSet, B: GrainSet, pair_id: int
+        self, A: GrainSet, B: GrainSet, pair_id: int  # pylint: disable=unused-argument
     ) -> GrainSet:
         """
         Non-overlap stitching: for each A grain in the top slab, find k nearest B
         candidates, keep the smallest-misorientation match within tolerance and slab
         distance, resolved via Hungarian assignment.
-        """
-        from scipy.spatial import cKDTree
-        import numpy as np
-        import pandas as pd
 
+        ``pair_id`` is accepted for a uniform call signature with the overlap path.
+        """
         dfA, dfB = A.df, B.df
         rA_all = dfA["GrainRadius"].to_numpy(float)
         rB_all = dfB["GrainRadius"].to_numpy(float)
@@ -417,9 +425,7 @@ class RegionBaseStitching:
         rtol = self.radius_tolerance if self.radius_tolerance > 0 else 1.0
 
         edge_cost = (
-            w_pos * (dpos2 / ptol)
-            + w_ori * (dori2 / otol)
-            + w_rad * (drad2 / rtol)
+            w_pos * (dpos2 / ptol) + w_ori * (dori2 / otol) + w_rad * (drad2 / rtol)
         )
 
         # unmatch cost just above max feasible cost
@@ -441,9 +447,9 @@ class RegionBaseStitching:
         for (a, b), (dp, do, cc, _, _) in pair.items():
             C[a, b] = cc
 
-        C[0:nA, nB : nB + nA] = UNMATCH_COST      # Real A -> dummy cols (unmatch A)
-        C[nA : nA + nB, 0:nB] = UNMATCH_COST      # Dummy rows -> real B (unmatch B)
-        C[nA : nA + nB, nB : nB + nA] = 0.0       # Dummy -> dummy
+        C[0:nA, nB : nB + nA] = UNMATCH_COST  # Real A -> dummy cols (unmatch A)
+        C[nA : nA + nB, 0:nB] = UNMATCH_COST  # Dummy rows -> real B (unmatch B)
+        C[nA : nA + nB, nB : nB + nA] = 0.0  # Dummy -> dummy
 
         row_ind, col_ind = linear_sum_assignment(C)
 
@@ -473,7 +479,9 @@ class RegionBaseStitching:
 
             new_row = rowA.copy()
             new_row = merge_properties(
-                new_row, rowA, rowB,
+                new_row,
+                rowA,
+                rowB,
                 angle_convention=self.angle_convention,
                 angle_type=self.angle_type,
                 symmetry=self.symmetry,

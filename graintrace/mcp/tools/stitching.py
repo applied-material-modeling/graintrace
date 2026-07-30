@@ -59,6 +59,8 @@ def stitch_scans(
 
     Needs NEPER only when refine_extents=true; otherwise pure Python.
     """
+    # Lazy: heavy graintrace submodule + mcp helper (pandas), imported on run.
+    # pylint: disable=import-outside-toplevel
     from graintrace.hedm_stitching_techniques.region_base_stitching import (
         RegionBaseStitching,
     )
@@ -125,40 +127,57 @@ def stitch_scans(
         # through, so downstream ff_reconstruct (which reads eKen*/eFab*) would
         # fail. Re-attach per-grain strain from the original scans by nearest
         # centroid, exactly like the demo driver does.
-        import pandas as pd
+        import pandas as pd  # pylint: disable=import-outside-toplevel
+
         reattached = None
         try:
             df = pd.read_csv(output_csv)
             scan0 = pd.read_csv(scan_files[0], nrows=1)
             for pref in ("eKen", "eFab"):
                 scols = [f"{pref}{i}{j}" for i in (1, 2, 3) for j in (1, 2, 3)]
-                if set(scols).issubset(scan0.columns) and not set(scols).issubset(df.columns):
+                if set(scols).issubset(scan0.columns) and not set(scols).issubset(
+                    df.columns
+                ):
+                    # pylint: disable=import-outside-toplevel
                     from scipy.spatial import cKDTree
-                    coord = next((c for c in (["X", "Y", "Z"], ["x", "y", "z"])
-                                  if set(c) <= set(df.columns)), None)
+
+                    coord = next(
+                        (
+                            c
+                            for c in (["X", "Y", "Z"], ["x", "y", "z"])
+                            if set(c) <= set(df.columns)
+                        ),
+                        None,
+                    )
                     if coord is None:
                         break
-                    allscan = pd.concat([pd.read_csv(s) for s in scan_files],
-                                        ignore_index=True)
+                    allscan = pd.concat(
+                        [pd.read_csv(s) for s in scan_files], ignore_index=True
+                    )
                     tree = cKDTree(allscan[coord].to_numpy())
                     _, idx = tree.query(df[coord].to_numpy())
                     df[scols] = allscan[scols].to_numpy()[idx]
                     df.to_csv(output_csv, index=False)
                     reattached = pref
                     break
-        except Exception as exc:
+        # Best-effort: strain re-attachment failure is recorded, not raised.
+        except Exception as exc:  # pylint: disable=broad-exception-caught
             reattached = f"failed: {exc}"
 
         n = None
         try:
             n = len(getattr(result, "grains", result))
-        except Exception:
+        # Best-effort grain count: fall back to counting the output CSV rows.
+        except Exception:  # pylint: disable=broad-exception-caught
             try:
                 n = len(pd.read_csv(output_csv))
-            except Exception:
+            except Exception:  # pylint: disable=broad-exception-caught
                 pass
-        return {"output_csv": output_csv, "n_stitched_grains": n,
-                "residual_strain_reattached": reattached}
+        return {
+            "output_csv": output_csv,
+            "n_stitched_grains": n,
+            "residual_strain_reattached": reattached,
+        }
 
     return gate(
         tool="stitch_scans",

@@ -22,17 +22,18 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+"""Reconstruct FF-HEDM microstructures via NEPER Voronoi tessellation (VoronoiMeshBuilder)."""
+
 from __future__ import annotations
 
-#!/usr/bin/env python3
-
 import os
-import subprocess
-import pandas as pd
-import sys
-import subprocess
 import shutil
+import subprocess
+import sys
+from pathlib import Path
+
 import numpy as np
+import pandas as pd
 
 
 class VoronoiMeshBuilder:
@@ -171,16 +172,14 @@ class VoronoiMeshBuilder:
         os.makedirs(prefix, exist_ok=True)
 
         # Gmsh via pip
-        gmsh_installed = False
         try:
+            # pylint: disable=import-outside-toplevel  # gmsh is a heavy optional dep
             import gmsh
 
-            gmsh_installed = True
             print(f"Gmsh already available (v{gmsh.__version__})")
         except ImportError:
-            print(f"Gmsh not found — installing via pip...")
+            print("Gmsh not found — installing via pip...")
             run([sys.executable, "-m", "pip", "install", f"gmsh=={self.gmsh_version}"])
-            gmsh_installed = True
             print("Gmsh installed successfully via pip.")
 
         # Install GSL locally if missing
@@ -447,35 +446,35 @@ class VoronoiMeshBuilder:
             self.rotate_matrix = eigenvectors
             print("Data rotated to align with principal axes.\n")
             return
-        else:
-            # Manual rotation using scipy
-            print("Manual rotation:")
-            from scipy.spatial.transform import Rotation as R
 
-            ang = np.array(self.rotate_angles, dtype=float)
-            if self.unit == "deg":
-                ang = np.radians(ang)
+        # Manual rotation using scipy
+        print("Manual rotation:")
+        # pylint: disable=import-outside-toplevel  # scipy imported lazily
+        from scipy.spatial.transform import Rotation as R
 
-            if self.rotate_convention == "xyz":
-                rot = R.from_euler("xyz", ang, degrees=False)
-                self.rotate_matrix = rot.as_matrix()
-                if self.dim == 3:
-                    df[["X", "Y", "Z"]] = np.dot(
-                        df[["X", "Y", "Z"]].to_numpy(), self.rotate_matrix.T
-                    )
-                else:
-                    df[["X", "Y"]] = np.dot(
-                        df[["X", "Y"]].to_numpy(), self.rotate_matrix[:2, :2].T
-                    )
+        ang = np.array(self.rotate_angles, dtype=float)
+        if self.unit == "deg":
+            ang = np.radians(ang)
 
-            self.data = df
-            print(
-                f"Rotated dataset by rotate_angles {self.rotate_angles} ({self.unit}).\n"
-            )
+        if self.rotate_convention == "xyz":
+            rot = R.from_euler("xyz", ang, degrees=False)
+            self.rotate_matrix = rot.as_matrix()
+            if self.dim == 3:
+                df[["X", "Y", "Z"]] = np.dot(
+                    df[["X", "Y", "Z"]].to_numpy(), self.rotate_matrix.T
+                )
+            else:
+                df[["X", "Y"]] = np.dot(
+                    df[["X", "Y"]].to_numpy(), self.rotate_matrix[:2, :2].T
+                )
+
+        self.data = df
+        print(f"Rotated dataset by rotate_angles {self.rotate_angles} ({self.unit}).\n")
 
     def compute_principal_axes(self):
         """Compute PCA principal axes (2D/3D, right-handed). Returns (eigenvectors, eigenvalues)."""
 
+        # pylint: disable=import-outside-toplevel  # sklearn is a heavy optional dep
         from sklearn.decomposition import PCA
 
         if self.data is None or self.data.empty:
@@ -513,10 +512,10 @@ class VoronoiMeshBuilder:
         return eigenvectors, eigenvalues
 
     def plot_centroids(self, plot_box=True, save_path="centroid_plot.png"):
+        """Plot centroid data in three orthogonal views (XY, YZ, XZ)."""
+        # pylint: disable=import-outside-toplevel  # matplotlib is a heavy optional dep
         import matplotlib.pyplot as plt
         from matplotlib.patches import Rectangle
-
-        """Plot centroid data in three orthogonal views (XY, YZ, XZ)."""
 
         if self.data is None or self.data.empty:
             raise RuntimeError("No centroid data loaded. Call read_input() first.")
@@ -811,10 +810,13 @@ class VoronoiMeshBuilder:
         relative_el_size: float = None,
         morphoalgo: str = "praxis",
         mesh_quality_min: float = 0.9,
-        tesr_size: list = [20, 20, 20],
+        tesr_size: list = None,
         CVT_iter: int = 1000,
     ):
         """Build a Voronoi (or Laguerre) tessellation using Neper."""
+
+        if tesr_size is None:
+            tesr_size = [20, 20, 20]
 
         valid_options = ["voronoi", "centroid", "centroidal", "centroidsize"]
         if option not in valid_options:
@@ -978,7 +980,7 @@ class VoronoiMeshBuilder:
 
         log_path = os.path.join(self.output_dir, "neper_voronoi_builder.log")
 
-        with open(log_path, "w") as logf:
+        with open(log_path, "w", encoding="utf-8") as logf:
             print("\n=== Running Neper Tessellation ===", file=logf)
             print("> " + " ".join(neper_cmd), file=logf)
             logf.flush()
@@ -992,9 +994,9 @@ class VoronoiMeshBuilder:
 
         print(f"Voronoi tessellation completed: {tess_name}.tess\n")
 
-        print(f"Evaluating tessellation correctness, in figures folder\n")
+        print("Evaluating tessellation correctness, in figures folder\n")
 
-        print(f"\n=== Updating cell properties with rotation ===\n")
+        print("\n=== Updating cell properties with rotation ===\n")
         self.apply_rotation_to_properties(
             tess_file=tess_name + ".tess",
         )
@@ -1010,7 +1012,7 @@ class VoronoiMeshBuilder:
                 mesh_quality_min=mesh_quality_min,
             )
 
-        print(f"\n=== Reformatting .tesr file ===\n")
+        print("\n=== Reformatting .tesr file ===\n")
         self.reformat_tesr_file(
             tesr_file=tess_name + ".tesr", orientation_file=orientation_path
         )
@@ -1024,7 +1026,7 @@ class VoronoiMeshBuilder:
         visualize2D: bool = False,
         visualize3D: bool = False,
     ):
-
+        """Build a Voronoi tessellation and convert it to a graph representation."""
         self.build_voronoi(
             generate_mesh=False,
             option=option,
@@ -1033,6 +1035,7 @@ class VoronoiMeshBuilder:
             CVT_iter=CVT_iter,
         )
 
+        # pylint: disable=import-outside-toplevel  # torch/tess_to_gnn are heavy optional deps
         from .tess_to_gnn import NeperTessToGraphNN
         import torch
 
@@ -1083,7 +1086,7 @@ class VoronoiMeshBuilder:
             shutil.copy(tess_file, backup_path)
 
         # Read file and locate *ori section
-        with open(tess_file, "r") as f:
+        with open(tess_file, "r", encoding="utf-8") as f:
             lines = f.readlines()
 
         ori_start, ori_end = None, None
@@ -1125,7 +1128,7 @@ class VoronoiMeshBuilder:
                     f"Each *ori line must have 9 numbers; found {ori_data.shape[1]}."
                     "this indicates corrupted .tess file."
                 )
-            ori_mats = ori_data.reshape(-1, 3, 3)
+            ori_mats = ori_data.reshape((-1, 3, 3))
             if transpose:
                 ori_rot = np.array([np.dot(self.rotate_matrix, R) for R in ori_mats])
             else:
@@ -1141,7 +1144,7 @@ class VoronoiMeshBuilder:
         ]
         lines[ori_start + 2 : ori_end] = new_ori_lines
 
-        with open(tess_file, "w") as f:
+        with open(tess_file, "w", encoding="utf-8") as f:
             f.writelines(lines)
 
         print(f"\nUpdated *ori section in {tess_file}")
@@ -1184,6 +1187,10 @@ class VoronoiMeshBuilder:
             fmt_arg = format_type
         elif isinstance(format_type, (list, tuple)):
             fmt_arg = ",".join(str(f).strip() for f in format_type)
+        else:
+            raise TypeError(
+                f"format_type must be str/list/tuple, got {type(format_type)}"
+            )
 
         if not os.path.exists(tess_file):
             raise FileNotFoundError(f"Tessellation file not found: {tess_file}")
@@ -1221,7 +1228,7 @@ class VoronoiMeshBuilder:
 
         log_path = os.path.join(self.output_dir, "neper_voronoi_mesh.log")
 
-        with open(log_path, "w") as logf:
+        with open(log_path, "w", encoding="utf-8") as logf:
             print("> " + " ".join(neper_cmd), file=logf)
             logf.flush()
             subprocess.run(
@@ -1244,8 +1251,6 @@ class VoronoiMeshBuilder:
         output_seed="id,w,x,y,z",
     ):
         """Compute Neper cell/seed stats, merge them, and export CPFE strain files."""
-        from pathlib import Path
-
         print("\n=== Computing Voronoi Cell and Seed Properties ===")
 
         if not os.path.exists(tess_file):
@@ -1308,7 +1313,7 @@ class VoronoiMeshBuilder:
             strain_data = np.zeros((num_cells, 9), dtype=float)
 
         # Write .ee file
-        with open(ee_file, "w") as f:
+        with open(ee_file, "w", encoding="utf-8") as f:
             for row in strain_data:
                 f.write(" ".join(f"{v:.8e}" for v in row) + "\n")
 
@@ -1323,9 +1328,8 @@ class VoronoiMeshBuilder:
 
     def evaluate_output_voronoi(self, tess_file: str, length_norm: bool = False):
         """Evaluate Neper Voronoi output: compare cell vs seed props, save figures."""
-
+        # pylint: disable=import-outside-toplevel  # matplotlib is a heavy optional dep
         import matplotlib.pyplot as plt
-        from pathlib import Path
 
         if not os.path.exists(tess_file):
             raise FileNotFoundError(f"Tessellation file not found: {tess_file}")
@@ -1355,7 +1359,7 @@ class VoronoiMeshBuilder:
         else:
             raise ValueError("Unsupported dimension (must be 2 or 3).")
 
-        dfdat[coord_cols]
+        _ = dfdat[coord_cols]
 
         seed_w = np.array(df["w_seed"])  # input weight
         cell_xyz = np.array(df[["x_cell", "y_cell", "z_cell"]])
@@ -1444,12 +1448,12 @@ class VoronoiMeshBuilder:
             raise FileNotFoundError(f"Orientation file not found: {orientation_file}")
 
         if self.dim == 2:
-            xmin, xmax, ymin, ymax = map(float, self.bounding_box)
+            xmin, _xmax, ymin, _ymax = map(float, self.bounding_box)
             zmin = 0.0
         else:
-            xmin, xmax, ymin, ymax, zmin, zmax = map(float, self.bounding_box)
+            xmin, _xmax, ymin, _ymax, zmin, _zmax = map(float, self.bounding_box)
 
-        with open(tesr_file, "r") as f:
+        with open(tesr_file, "r", encoding="utf-8") as f:
             lines = [ln.rstrip("\n") for ln in f]
 
         dim = None
@@ -1611,7 +1615,7 @@ class VoronoiMeshBuilder:
             eul[nonvoid] = ori[voxel_ids[nonvoid] - 1]
 
         # Write CSV
-        base, ext = os.path.splitext(tesr_file)
+        base, _ext = os.path.splitext(tesr_file)
         csv_out = base + "_reformatted.csv"
         vtk_out = base + "_reformatted.vtk"
 
@@ -1630,7 +1634,7 @@ class VoronoiMeshBuilder:
         print(f"Wrote CSV: {csv_out}")
 
         # Write legacy ASCII VTK as structured points / image-style raster
-        with open(vtk_out, "w") as f:
+        with open(vtk_out, "w", encoding="utf-8") as f:
             f.write("# vtk DataFile Version 3.0\n")
             f.write("TESR reformatted voxel data\n")
             f.write("ASCII\n")

@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import glob
 import json
 import os
 from typing import Any, Dict, List, Optional
@@ -17,6 +18,7 @@ from graintrace.mcp.confirm import gate
 
 
 # ---- stitching comparison ----------------------------------------------------
+
 
 @mcp.tool()
 def compare_stitching(
@@ -30,18 +32,29 @@ def compare_stitching(
     precision, orientation error) -- wraps `ScanStitchingComparison`. Both CSVs
     need X,Y,Z,GrainRadius,Eul0,Eul1,Eul2. Pure Python.
     """
+    # Lazy: heavy graintrace submodule, imported only when the tool runs.
+    # pylint: disable=import-outside-toplevel
     from graintrace.scan_stitching_comparison import ScanStitchingComparison
 
     if output_dir is None:
         output_dir = str(workdir() / "stitching_comparison")
     p = {
-        "position_tolerance": 1.0, "orientation_tolerance": 1.0,
-        "radius_tolerance": 1.0, "orientation_units": "degrees",
-        "orientation_convention": "bunge", "symmetry": "432",
-        "weights": {"pos": 1.0, "ori": 0.0, "rad": 0.0}, "min_neighbors": 5,
+        "position_tolerance": 1.0,
+        "orientation_tolerance": 1.0,
+        "radius_tolerance": 1.0,
+        "orientation_units": "degrees",
+        "orientation_convention": "bunge",
+        "symmetry": "432",
+        "weights": {"pos": 1.0, "ori": 0.0, "rad": 0.0},
+        "min_neighbors": 5,
         **(params or {}),
     }
-    resolved = {"true_csv": true_csv, "stitch_csv": stitch_csv, "output_dir": output_dir, **p}
+    resolved = {
+        "true_csv": true_csv,
+        "stitch_csv": stitch_csv,
+        "output_dir": output_dir,
+        **p,
+    }
 
     def _run():
         cmp = ScanStitchingComparison(
@@ -50,12 +63,18 @@ def compare_stitching(
         return {"output_dir": output_dir, "comparison": cmp.run_comparison()}
 
     return gate(
-        tool="compare_stitching", confirm=confirm, resolved_params=resolved,
-        needs=[], will_write=[output_dir], run=_run, background=False,
+        tool="compare_stitching",
+        confirm=confirm,
+        resolved_params=resolved,
+        needs=[],
+        will_write=[output_dir],
+        run=_run,
+        background=False,
     )
 
 
 # ---- REI comparison ----------------------------------------------------------
+
 
 @mcp.tool()
 def compare_rei(
@@ -77,6 +96,8 @@ def compare_rei(
     from the CSV; pass the true grid spacing when the cloud is sparse). Such CSVs
     come from `identify_rare_events` when run with a rare-points CSV output.
     """
+    # Lazy: heavy graintrace submodule, imported only when the tool runs.
+    # pylint: disable=import-outside-toplevel
     from graintrace.rei_comparison import REIComparison
 
     if output_dir is None:
@@ -88,25 +109,38 @@ def compare_rei(
         **(params or {}),
     }
     resolved = {
-        "rei_csv_1": rei_csv_1, "rei_csv_2": rei_csv_2,
-        "spacing_1": spacing_1, "spacing_2": spacing_2,
-        "output_dir": output_dir, **p,
+        "rei_csv_1": rei_csv_1,
+        "rei_csv_2": rei_csv_2,
+        "spacing_1": spacing_1,
+        "spacing_2": spacing_2,
+        "output_dir": output_dir,
+        **p,
     }
 
     def _run():
         cmp = REIComparison(
-            rei_csv_1=rei_csv_1, rei_csv_2=rei_csv_2, output_dir=output_dir,
-            spacing_1=spacing_1, spacing_2=spacing_2, **p,
+            rei_csv_1=rei_csv_1,
+            rei_csv_2=rei_csv_2,
+            output_dir=output_dir,
+            spacing_1=spacing_1,
+            spacing_2=spacing_2,
+            **p,
         )
         return {"output_dir": output_dir, "comparison": cmp.run_comparison()}
 
     return gate(
-        tool="compare_rei", confirm=confirm, resolved_params=resolved,
-        needs=[], will_write=[output_dir], run=_run, background=False,
+        tool="compare_rei",
+        confirm=confirm,
+        resolved_params=resolved,
+        needs=[],
+        will_write=[output_dir],
+        run=_run,
+        background=False,
     )
 
 
 # ---- CPFE post-processing ----------------------------------------------------
+
 
 @mcp.tool()
 def postprocess(
@@ -136,6 +170,8 @@ def postprocess(
 
     'pole_figure' needs NEML2 v3 bindings; the others do not.
     """
+    # Lazy: heavy graintrace submodules, imported only when the tool runs.
+    # pylint: disable=import-outside-toplevel
     from graintrace.simulation_postprocessing import SimulationResults, FieldFileNaming
     from graintrace import plot_postprocessing as pp
 
@@ -143,41 +179,64 @@ def postprocess(
         output_folder = str(workdir() / "postprocess")
     if plots is None:
         plots = ["stress_strain"]
-    fn = {"prefix": "out_element_centroid", "index_width": 4, "sep": "_", "suffix": ".csv", **(field_naming or {})}
+    fn = {
+        "prefix": "out_element_centroid",
+        "index_width": 4,
+        "sep": "_",
+        "suffix": ".csv",
+        **(field_naming or {}),
+    }
     extra = params or {}
     resolved = {
-        "block_csv": block_csv, "field_dir": field_dir, "plots": plots,
-        "time": time, "output_folder": output_folder, "field_naming": fn, "params": extra,
+        "block_csv": block_csv,
+        "field_dir": field_dir,
+        "plots": plots,
+        "time": time,
+        "output_folder": output_folder,
+        "field_naming": fn,
+        "params": extra,
     }
     needs = ["neml2"] if "pole_figure" in plots else []
 
     def _run():
         res = SimulationResults(
-            block_csv=block_csv, field_dir=field_dir,
+            block_csv=block_csv,
+            field_dir=field_dir,
             field_naming=FieldFileNaming(**fn),
         )
         made = []
         if "stress_strain" in plots:
             pp.plot_macroscopic_stress_strain(
-                res, stress_tensor_prefix="cauchy_stress",
-                strain_tensor_prefix="strain", volume_prefix="volume",
+                res,
+                stress_tensor_prefix="cauchy_stress",
+                strain_tensor_prefix="strain",
+                volume_prefix="volume",
                 output_folder=output_folder,
             )
             made.append("stress_strain")
         if "ee_distribution" in plots:
             pp.plot_block_properties_distribution(
-                res, time=time, tensor_prefix="ee", order=2, output_folder=output_folder)
+                res, time=time, tensor_prefix="ee", order=2, output_folder=output_folder
+            )
             made.append("ee_distribution")
         if "nye_distribution" in plots:
             pp.plot_block_properties_distribution(
-                res, time=time, tensor_prefix="nye_tensor", order=2, output_folder=output_folder)
+                res,
+                time=time,
+                tensor_prefix="nye_tensor",
+                order=2,
+                output_folder=output_folder,
+            )
             made.append("nye_distribution")
         if "pole_figure" in plots:
             pp.plot_pole_figure(
-                res, tensor_prefix="ori_rodrigues", time=time,
+                res,
+                tensor_prefix="ori_rodrigues",
+                time=time,
                 direction=extra.get("direction", [0, 0, 1]),
                 crystal_symmetry=extra.get("crystal_symmetry", "432"),
-                device=extra.get("device", deps.default_device()), output_folder=output_folder,
+                device=extra.get("device", deps.default_device()),
+                output_folder=output_folder,
                 construct_odf=extra.get("construct_odf", False),
             )
             made.append("pole_figure")
@@ -186,28 +245,39 @@ def postprocess(
     # Preview (confirm=false) goes through the standard gate.
     if not confirm:
         return gate(
-            tool="postprocess", confirm=False, resolved_params=resolved,
-            needs=needs, will_write=[output_folder], run=_run, background=False,
+            tool="postprocess",
+            confirm=False,
+            resolved_params=resolved,
+            needs=needs,
+            will_write=[output_folder],
+            run=_run,
+            background=False,
         )
     # confirm=true: check deps, run, and return the PNGs INLINE.
-    import glob
     msg = deps.require(*needs) if needs else None
     if msg:
         return {"status": "blocked", "tool": "postprocess", "message": msg}
-    before = set(glob.glob(os.path.join(output_folder, "*.png"))) \
-        if os.path.isdir(output_folder) else set()
+    before = (
+        set(glob.glob(os.path.join(output_folder, "*.png")))
+        if os.path.isdir(output_folder)
+        else set()
+    )
     result = _run()
     after = set(glob.glob(os.path.join(output_folder, "*.png")))
     pngs = sorted(after - before) or sorted(after)
     info = {"status": "done", **result, "png_files": pngs}
     try:
-        from mcp.server.fastmcp import Image
+        # Optional client feature; imported lazily so absence degrades gracefully.
+        from mcp.server.fastmcp import Image  # pylint: disable=import-outside-toplevel
+
         return [Image(path=p) for p in pngs] + [json.dumps(info)]
-    except Exception:
+    # Best-effort: fall back to plain metadata if inline images are unsupported.
+    except Exception:  # pylint: disable=broad-exception-caught
         return info
 
 
 # ---- rare-event identification ----------------------------------------------
+
 
 @mcp.tool()
 def identify_rare_events(
@@ -233,6 +303,8 @@ def identify_rare_events(
     threshold : hierarchical merge distance threshold (default 5e-4).
     n_jobs : parallel workers (default 12).
     """
+    # Lazy: heavy graintrace submodules, imported only when the tool runs.
+    # pylint: disable=import-outside-toplevel
     from graintrace.rare_cluster_indicator import IdentifyRareClusters
     from graintrace.similarity_metric_library import SimilarityMetricLibrary
     from graintrace.user_data_class import SimilarityMetric, WeightConfig, RareCriteria
@@ -241,16 +313,20 @@ def identify_rare_events(
     if output_dir is None:
         output_dir = str(workdir() / "rei")
     p = {
-        "id_col": "id", "coord_cols": ["x", "y", "z"],
+        "id_col": "id",
+        "coord_cols": ["x", "y", "z"],
         "nye_cols": [f"nye_tensor_{i}{j}" for i in (1, 2, 3) for j in (1, 2, 3)],
-        "k": 5, "gamma": 10.0, "manhattan_radius": 4, "threshold": 5e-4,
-        "n_jobs": 12, "seed": 42,
+        "k": 5,
+        "gamma": 10.0,
+        "manhattan_radius": 4,
+        "threshold": 5e-4,
+        "n_jobs": 12,
+        "seed": 42,
         **(params or {}),
     }
     resolved = {"input_csv": input_csv, "output_dir": output_dir, **p}
 
     def _run():
-        import os
         os.makedirs(output_dir, exist_ok=True)
         base = os.path.join(output_dir, "rei")
 
@@ -264,38 +340,60 @@ def identify_rare_events(
         scalar_col = spec_reduced.name + "_mean"
         rare_criteria = RareCriteria(
             selector=lambda df: rcs.select_highest_scalar(
-                df, k=p["k"], required_cols=scalar_col, min_size=1)
+                df, k=p["k"], required_cols=scalar_col, min_size=1
+            )
         )
         weight_cfg = WeightConfig(
-            mode="rbf", power=2.0, sigma=None,
-            sigma_auto={"sample_size": 500_000, "random_state": p["seed"], "quantile": 0.5},
+            mode="rbf",
+            power=2.0,
+            sigma=None,
+            sigma_auto={
+                "sample_size": 500_000,
+                "random_state": p["seed"],
+                "quantile": 0.5,
+            },
         )
         irc = IdentifyRareClusters(
-            input_csv_path=input_csv, id_col=p["id_col"],
+            input_csv_path=input_csv,
+            id_col=p["id_col"],
             coord_cols=tuple(p["coord_cols"]),
         )
         gsc, indicator = irc.make_stage_objects(graph_cluster_out=base + "_reduced.csv")
         bundle = irc.run_clustering(
-            gsc=gsc, indicator=indicator, reduced_csv_path=base + "_reduced.csv",
-            gsc_run_kwargs=dict(
-                spec=spec, graph_mode="grid", manhattan_radius=p["manhattan_radius"],
-                grid_tol=1e-6, n_jobs=p["n_jobs"], weight_chunk_size=500_000,
-                segmenter="leiden", seed=p["seed"], weight_cfg=weight_cfg,
-                reduce_edges_topweights_k=20,
-                networkit_kwargs={"gamma": p["gamma"]},
-                checkpoint_base_path=base + "_gsc_ckpt",
-                resume_from_checkpoint=False,
-            ),
-            indicator_run_kwargs=dict(
-                method_type="scipy_hierarchical", spec=spec_reduced,
-                threshold=p["threshold"], method="average", criterion="distance",
-                dendrogram_path=base + "_dendrogram.png",
-            ),
+            gsc=gsc,
+            indicator=indicator,
+            reduced_csv_path=base + "_reduced.csv",
+            gsc_run_kwargs={
+                "spec": spec,
+                "graph_mode": "grid",
+                "manhattan_radius": p["manhattan_radius"],
+                "grid_tol": 1e-6,
+                "n_jobs": p["n_jobs"],
+                "weight_chunk_size": 500_000,
+                "segmenter": "leiden",
+                "seed": p["seed"],
+                "weight_cfg": weight_cfg,
+                "reduce_edges_topweights_k": 20,
+                "networkit_kwargs": {"gamma": p["gamma"]},
+                "checkpoint_base_path": base + "_gsc_ckpt",
+                "resume_from_checkpoint": False,
+            },
+            indicator_run_kwargs={
+                "method_type": "scipy_hierarchical",
+                "spec": spec_reduced,
+                "threshold": p["threshold"],
+                "method": "average",
+                "criterion": "distance",
+                "dendrogram_path": base + "_dendrogram.png",
+            },
         )
         out = irc.run_get_rare_cluster(
-            bundle=bundle, criteria=rare_criteria,
+            bundle=bundle,
+            criteria=rare_criteria,
             output_vtk_path=base + "_rare_clusters.vtk",
-            export_control="auto", background_block_id=1, first_rare_block_id=2,
+            export_control="auto",
+            background_block_id=1,
+            first_rare_block_id=2,
             also_write_final_label=True,
             rare_reduced_stats_csv_path=base + "_rare_cluster_stats.csv",
             use_sample_std=False,
@@ -308,7 +406,12 @@ def identify_rare_events(
         }
 
     return gate(
-        tool="identify_rare_events", confirm=confirm, resolved_params=resolved,
-        needs=[], will_write=[output_dir], run=_run, background=True,
+        tool="identify_rare_events",
+        confirm=confirm,
+        resolved_params=resolved,
+        needs=[],
+        will_write=[output_dir],
+        run=_run,
+        background=True,
         notes="Graph clustering can be slow on large grids; runs in background.",
     )

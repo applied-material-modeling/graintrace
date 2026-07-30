@@ -22,16 +22,21 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+"""Generate synthetic FF/NF HEDM datasets from a NEPER crystal (SyntheticHEDMGenerator)."""
+
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple
-import pandas as pd
-import numpy as np
 import os
+
+import numpy as np
+import pandas as pd
+
 from .generate_random_crystal import CrystalGenerator
 
 
 class SyntheticHEDMGenerator:
+    """Build synthetic far-field and near-field HEDM data for stitching/CPFE tests."""
+
     def __init__(
         self,
         output_dir,
@@ -62,6 +67,7 @@ class SyntheticHEDMGenerator:
         self._validate_init()
 
     def run(self, ff_iterations: int = 10) -> None:
+        """Generate FF then NF datasets and report the NF point count."""
         self.generate_ff(iterations=ff_iterations)
         self.generate_nf()
 
@@ -105,7 +111,8 @@ class SyntheticHEDMGenerator:
 
         try:
             cg.validate_morpho(self.ff_grain_characteristics)
-        except Exception:
+        except Exception:  # pylint: disable=broad-exception-caught
+            # Any morpho validation failure should surface the available options.
             cg.show_morpho_options(exit_after=True)
 
         cg.generate_tessellation(
@@ -192,7 +199,7 @@ class SyntheticHEDMGenerator:
 
     def _read_voronoi_tess_seeds_and_orientations(self, tess_path: str):
 
-        with open(tess_path, "r") as f:
+        with open(tess_path, "r", encoding="utf-8") as f:
             lines = f.readlines()
 
         # find **cell count
@@ -230,7 +237,6 @@ class SyntheticHEDMGenerator:
             # expected: id x y z w
             if len(parts) < 5:
                 continue
-            sid = int(parts[0])
             x, y, z = float(parts[1]), float(parts[2]), float(parts[3])
             seeds[row, :] = (x, y, z)
             row += 1
@@ -357,9 +363,7 @@ class SyntheticHEDMGenerator:
             raise ValueError("nf_bounding_box has zmax < zmin.")
 
         # at least one layer
-        n_layers = int(np.floor(span / dz)) + 1
-        if n_layers < 1:
-            n_layers = 1
+        n_layers = max(int(np.floor(span / dz)) + 1, 1)
 
         zmax_snapped = zmin + (n_layers - 1) * dz
         self.nf_bounding_box[5] = zmax_snapped
@@ -440,7 +444,8 @@ class SyntheticHEDMGenerator:
     def _nf_visualize(
         self, plot_grid=True, plot_layer_property=False, layer_idx=0, eulers=None
     ):
-        import matplotlib.pyplot as plt
+        # matplotlib is an optional/heavy dep, imported only when visualizing.
+        import matplotlib.pyplot as plt  # pylint: disable=import-outside-toplevel
 
         vis_dir = os.path.join(self.nf_dir, "visualize")
         os.makedirs(vis_dir, exist_ok=True)
@@ -502,7 +507,7 @@ class SyntheticHEDMGenerator:
             titles = ["Eul1", "Eul2", "Eul3"]
 
             for i in range(3):
-                sc = axs[i].scatter(
+                axs[i].scatter(
                     vertices_xy[:, 0],
                     vertices_xy[:, 1],
                     c=eulers[:, i],

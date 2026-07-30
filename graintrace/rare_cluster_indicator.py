@@ -22,12 +22,16 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+"""Identify and export spatially coherent rare clusters from CPFE field data."""
+
 from __future__ import annotations
+
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
+
 from .user_data_class import RareCriteria
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from .graph_spatial_cluster import GraphSpatialCluster
 from .cluster_indicator import ClusterAnalysisIndicator
 
@@ -56,7 +60,7 @@ class IdentifyRareClusters:
         indicator_run_kwargs: Dict[str, Any],
         reduced_csv_path: str,
     ) -> Dict[str, Any]:
-
+        """Run graph spatial clustering then the merge indicator; return a result bundle."""
         print("Running clustering analysis...")
 
         input_df = self._load_input_df()
@@ -126,9 +130,9 @@ class IdentifyRareClusters:
         also_write_final_label: bool = True,
         rare_reduced_stats_csv_path: Optional[str] = None,
         rare_points_csv_path: Optional[str] = None,
-        use_sample_std: bool = False,
+        use_sample_std: bool = False,  # pylint: disable=unused-argument  # public API kwarg
     ) -> Dict[str, Any]:
-
+        """Select rare clusters from the bundle and export them to VTK (and optional CSVs)."""
         input_df: pd.DataFrame = bundle["input_df"]
         gsc_labels: np.ndarray = bundle["gsc_labels"]
         indicator_points_df: pd.DataFrame = bundle["indicator_points_df"]
@@ -176,7 +180,7 @@ class IdentifyRareClusters:
             )
 
             sum_cols = [c for c in cdf.columns if c.endswith("_sum")]
-            bases = [c[:-4] for c in sum_cols if (c[:-4] + "_sumsq") in cdf.columns]
+            bases = [c[:-4] for c in sum_cols if c[:-4] + "_sumsq" in cdf.columns]
 
             new_cols = {}
             n = pd.to_numeric(cdf["n"], errors="coerce").astype(float)
@@ -216,9 +220,7 @@ class IdentifyRareClusters:
 
         if rare_points_csv_path is not None:
             rare_mask = block_id >= first_rare_block_id
-            rare_df = pd.DataFrame(
-                coords[rare_mask], columns=list(self.coord_cols)
-            )
+            rare_df = pd.DataFrame(coords[rare_mask], columns=list(self.coord_cols))
             rare_df["rare_cluster_id"] = block_id[rare_mask].astype(np.int64)
             rare_df.to_csv(rare_points_csv_path, index=False)
             print(
@@ -310,6 +312,7 @@ class IdentifyRareClusters:
         *,
         graph_cluster_out: str,
     ) -> Tuple[GraphSpatialCluster, ClusterAnalysisIndicator]:
+        """Construct the GraphSpatialCluster and ClusterAnalysisIndicator stage objects."""
         gsc = GraphSpatialCluster(
             csv_path=self.input_csv_path,
             id_col=self.id_col,
