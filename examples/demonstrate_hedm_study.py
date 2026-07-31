@@ -59,12 +59,18 @@ crystal_morpho_args = {
 nscan = 4
 overlap_percentage = 25  # percentage units (0-100)
 
-# Mimic experiment noise conditions
-apply_noise = False
+# Mimic experiment noise conditions (each applied only when > 0; all-zero = noiseless)
 remove_minimum_volume = False
 
-# gaussian distribution noise, 0.005 = 0.5%
-noise_level = 0.01
+# centroid uncertainty: absolute Gaussian std in physical length units (micrometers),
+# additive and origin-independent (comparable to position_tolerance below)
+position_noise_std = 0.0
+# orientation uncertainty: proper random misorientation, Gaussian std in degrees
+orientation_noise_std = 0.0
+# grain-radius uncertainty: relative (fractional) Gaussian std, e.g. 0.05 = 5%
+radius_noise = 0.0
+# seed for reproducible noise (None -> nondeterministic)
+noise_seed = 42
 # grain volume minimum threshold
 min_vol = 0.0
 
@@ -105,9 +111,11 @@ cg.hedm_zscan(
     overlap_percentage=overlap_percentage,
     verbose=False,
     # Noise controls sections
-    apply_noise=apply_noise,
+    position_noise_std=position_noise_std,
+    orientation_noise_std=orientation_noise_std,
+    radius_noise=radius_noise,
+    noise_seed=noise_seed,
     remove_minimum_volume=remove_minimum_volume,
-    noise_level=noise_level,
     min_vol=min_vol,
 )
 

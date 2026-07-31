@@ -31,7 +31,9 @@ cg = CrystalGenerator(output_dir="hedm_out", bounding_box=bounding_box, seed=42)
 cg.generate_tessellation(morpho_args={"type": "diameq", "distribution": "lognormal",
                                       "params": (130.0, 5.0)})
 cg.hedm_zscan(tess_file="hedm_out/voronoi.tess", nstep=nscan,
-              overlap_percentage=overlap_percentage, apply_noise=False)
+              overlap_percentage=overlap_percentage,
+              position_noise_std=0.0, orientation_noise_std=0.0, radius_noise=0.0,
+              noise_seed=42)
 
 scan_files = [f"hedm_out/hedm_scan/scan_{i}.csv" for i in range(nscan)]
 stitcher = RegionBaseStitching(
@@ -53,7 +55,9 @@ ScanStitchingComparison(
 ## Key parameters
 - `crystal_morpho_args`: grain morphology (`CrystalGenerator.show_morpho_options()` lists all).
 - `nscan`, `overlap_percentage`: number of z-scan layers and their overlap.
-- `apply_noise`/`noise_level`, `remove_minimum_volume`/`min_vol`: mimic experiment noise.
+- Noise (each applied only when > 0; `noise_seed` for reproducibility): `position_noise_std`
+  (absolute centroid std, length units), `orientation_noise_std` (proper misorientation, degrees),
+  `radius_noise` (relative fraction). `remove_minimum_volume`/`min_vol` drop small grains.
 - Stitch: `position_tolerance` (length), `orientation_tolerance` (deg), `weights`, `min_neighbors`.
 - Alternative stitchers: `NaiveStitching`, `RegionBaseStitching`.
 

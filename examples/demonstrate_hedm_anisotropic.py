@@ -74,9 +74,13 @@ nscan = 4
 overlap_percentage = 25  # percentage units (0-100)
 
 # Noise off so the spherical-vs-tessellation difference is purely the extent model.
-apply_noise = False
+# (each knob applied only when > 0: position in length units, orientation in degrees,
+#  radius as a relative fraction)
+position_noise_std = 0.0
+orientation_noise_std = 0.0
+radius_noise = 0.0
+noise_seed = 42
 remove_minimum_volume = False
-noise_level = 0.01
 min_vol = 0.0
 
 # Tolerances / weights
@@ -108,9 +112,11 @@ cg.hedm_zscan(
     nstep=nscan,
     overlap_percentage=overlap_percentage,
     verbose=False,
-    apply_noise=apply_noise,
+    position_noise_std=position_noise_std,
+    orientation_noise_std=orientation_noise_std,
+    radius_noise=radius_noise,
+    noise_seed=noise_seed,
     remove_minimum_volume=remove_minimum_volume,
-    noise_level=noise_level,
     min_vol=min_vol,
 )
 
