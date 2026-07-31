@@ -236,10 +236,17 @@ class ScanStitchingComparison:
         w_ori = float(self.weights.get("ori", 0.0))
         w_rad = float(self.weights.get("rad", 0.0))
 
-        eps = 1e-14
-        ptol = self.position_tolerance if self.position_tolerance != 0.0 else eps
-        otol = self.orientation_tolerance if self.orientation_tolerance != 0.0 else eps
-        rtol = self.radius_tolerance if self.radius_tolerance != 0.0 else eps
+        # Cost normalizers must stay positive: the -1 "disable" sentinel (and 0)
+        # would otherwise divide a cost term by a non-positive value (negative for
+        # -1), making worse matches look cheaper. Fall back to a positive scale,
+        # mirroring RegionBaseStitching's `> 0` guard (position has no slab
+        # thickness here, so it falls back to the median candidate distance).
+        pos_fallback = float(np.median(diff_pos)) if diff_pos.size else 1.0
+        if pos_fallback <= 0.0:
+            pos_fallback = 1.0
+        ptol = self.position_tolerance if self.position_tolerance > 0 else pos_fallback
+        otol = self.orientation_tolerance if self.orientation_tolerance > 0 else 1.0
+        rtol = self.radius_tolerance if self.radius_tolerance > 0 else 1.0
 
         # feasibility mask
         ok = np.ones_like(diff_pos, dtype=bool)

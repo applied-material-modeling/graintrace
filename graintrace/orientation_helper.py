@@ -198,6 +198,63 @@ def mrp_to_euler(
     return matrix_to_euler(mrp_to_matrix(p), convention, angle_type)
 
 
+def perturb_orientation(
+    euler: Union[np.ndarray, list, torch.Tensor],
+    sigma_deg: float,
+    convention: str = "bunge",
+    angle_type: str = "degrees",
+    rng: Optional[np.random.Generator] = None,
+) -> torch.Tensor:
+    """Apply an independent random misorientation to each orientation.
+
+    Each orientation is composed with a random rotation about a uniformly
+    distributed axis, with rotation angle drawn from ``N(0, sigma_deg)`` (degrees).
+    ``sigma_deg`` is therefore the standard deviation of the applied rotation angle;
+    the resulting fundamental-zone misorientation magnitude is ``|angle|``. This is a
+    proper (gimbal-free) perturbation, unlike scaling each Euler angle independently.
+    ``sigma_deg <= 0`` returns the input orientations unchanged.
+
+    Args:
+        euler: (..., 3) Euler angles.
+        sigma_deg: std of the applied rotation angle, in degrees.
+        convention: 'bunge', 'kocks', or 'roe'.
+        angle_type: 'degrees' or 'radians' (applies to both input and output).
+        rng: optional numpy Generator for reproducibility (default: ``np.random``).
+
+    Returns:
+        (..., 3) perturbed Euler angles in the same convention/units.
+    """
+    e = torch.as_tensor(euler, dtype=torch.float64)
+    if sigma_deg <= 0.0:
+        return e.clone()
+
+    R = euler_to_matrix(e, convention, angle_type)  # (..., 3, 3)
+    flat = R.reshape(-1, 3, 3)
+    n = flat.shape[0]
+
+    draw = rng if rng is not None else np.random
+    # uniform random axes on the unit sphere + gaussian rotation angle (radians)
+    axis = torch.as_tensor(draw.normal(0.0, 1.0, size=(n, 3)), dtype=torch.float64)
+    axis = axis / torch.linalg.norm(axis, dim=1, keepdim=True).clamp_min(1e-300)
+    angle = torch.as_tensor(
+        np.deg2rad(draw.normal(0.0, sigma_deg, size=n)), dtype=torch.float64
+    )
+
+    # Rodrigues delta rotations: dR = I + sin(a) K + (1 - cos(a)) K^2
+    K = torch.zeros(n, 3, 3, dtype=torch.float64)
+    ax, ay, az = axis[:, 0], axis[:, 1], axis[:, 2]
+    K[:, 0, 1], K[:, 0, 2] = -az, ay
+    K[:, 1, 0], K[:, 1, 2] = az, -ax
+    K[:, 2, 0], K[:, 2, 1] = -ay, ax
+    eye = torch.eye(3, dtype=torch.float64).expand(n, 3, 3)
+    s = torch.sin(angle).reshape(n, 1, 1)
+    c = torch.cos(angle).reshape(n, 1, 1)
+    dR = eye + s * K + (1.0 - c) * torch.matmul(K, K)
+
+    R_new = torch.matmul(dR, flat).reshape(R.shape)
+    return matrix_to_euler(R_new, convention, angle_type)
+
+
 def symmetry_operators(symmetry: str) -> torch.Tensor:
     """Crystal symmetry operators as rotation matrices (nops, 3, 3)."""
     # pylint: disable-next=import-outside-toplevel  # neml2 is a heavy optional dep

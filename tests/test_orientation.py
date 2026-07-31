@@ -118,6 +118,60 @@ class TestOrientationHelper:
         assert (w > 0).all()
 
 
+class TestPerturbOrientation:
+    """perturb_orientation applies a proper random misorientation of a given
+    angular std (degrees), measurable back via misorientation_matrix."""
+
+    _E = torch.tensor(
+        [[10.0, 20.0, 30.0], [45.0, 45.0, 0.0], [0.0, 0.0, 0.0], [123.0, 44.0, 271.0]],
+        dtype=torch.float64,
+    )
+
+    def test_zero_sigma_is_identity(self):
+        from graintrace.orientation_helper import perturb_orientation
+
+        out = perturb_orientation(self._E, 0.0, "bunge", "degrees")
+        assert torch.allclose(out, self._E, atol=1e-12)
+
+    def test_applied_misorientation_scales_with_sigma(self):
+        from graintrace.orientation_helper import (
+            perturb_orientation,
+            euler_to_matrix,
+            misorientation_matrix,
+        )
+
+        rng = np.random.default_rng(42)
+        sigma = 2.0
+        n = 4000
+        euler = torch.tensor(
+            rng.uniform([0.0, 0.0, 0.0], [360.0, 180.0, 360.0], size=(n, 3)),
+            dtype=torch.float64,
+        )
+        out = perturb_orientation(euler, sigma, "bunge", "degrees", rng)
+
+        R0 = euler_to_matrix(euler, "bunge", "degrees")
+        R1 = euler_to_matrix(out, "bunge", "degrees")
+        mis = misorientation_matrix(R1, R0, symmetry="1", angle_type="degrees")
+
+        # symmetry="1": measured angle == |applied angle| ~ half-normal(sigma),
+        # so E[mis] = sigma*sqrt(2/pi) ~ 0.8*sigma. Loose band around that.
+        mean_mis = float(mis.mean())
+        assert 0.5 * sigma < mean_mis < 1.1 * sigma
+        # nothing should blow up far beyond a few sigma
+        assert float(mis.max()) < 8.0 * sigma
+
+    def test_reproducible_with_seed(self):
+        from graintrace.orientation_helper import perturb_orientation
+
+        a = perturb_orientation(
+            self._E, 1.5, "bunge", "degrees", np.random.default_rng(0)
+        )
+        b = perturb_orientation(
+            self._E, 1.5, "bunge", "degrees", np.random.default_rng(0)
+        )
+        assert torch.allclose(a, b, atol=1e-12)
+
+
 class TestOrientationInterchange:
     """graintrace's canonical orientation interchange is neml2 v3 MRP; every
     converter must round-trip through the rotation matrix consistently."""

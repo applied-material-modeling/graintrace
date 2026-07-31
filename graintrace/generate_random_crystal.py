@@ -211,16 +211,22 @@ class CrystalGenerator:
         overlap_percentage: float,
         output_hedm: str = "hedm_scan",
         verbose: bool = False,
-        apply_noise: bool = False,
-        apply_noise_method: str = "gaussian",
-        noise_level: float = 1e-4,
+        position_noise_std: float = 0.0,
+        orientation_noise_std: float = 0.0,
+        radius_noise: float = 0.0,
+        noise_seed: Optional[int] = None,
         remove_minimum_volume: bool = False,
         min_vol: float = 0.0,
     ):
         """Generate overlapping z-direction tessellation cuts to simulate HEDM scans.
 
         nstep slices span the domain z-extent; overlap_percentage (0-100) sets the
-        overlap between adjacent scans; output_hedm is the output subfolder name."""
+        overlap between adjacent scans; output_hedm is the output subfolder name.
+
+        Per-scan measurement error is forwarded to write_to_csv: position_noise_std
+        (absolute length units), orientation_noise_std (degrees, proper
+        misorientation), radius_noise (relative fraction); noise_seed for
+        reproducibility."""
         if not os.path.exists(tess_file):
             raise FileNotFoundError(f"Tessellation file not found: {tess_file}")
 
@@ -286,9 +292,11 @@ class CrystalGenerator:
                 ori_file=f"{out_name}.ori",
                 output_csv=f"{out_csv_name}.csv",
                 verbose=verbose,
-                apply_noise=apply_noise,
-                apply_noise_method=apply_noise_method,
-                noise_level=noise_level,
+                position_noise_std=position_noise_std,
+                orientation_noise_std=orientation_noise_std,
+                radius_noise=radius_noise,
+                # per-scan seed offset -> independent but reproducible noise streams
+                noise_seed=None if noise_seed is None else noise_seed + i,
                 remove_minimum_volume=remove_minimum_volume,
                 min_vol=min_vol,
             )
@@ -444,17 +452,25 @@ class CrystalGenerator:
         ori_file: str,
         output_csv: str,
         verbose: bool = True,
-        apply_noise: bool = False,
-        apply_noise_method: str = "gaussian",
-        noise_level: float = 1e-4,
+        position_noise_std: float = 0.0,
+        orientation_noise_std: float = 0.0,
+        radius_noise: float = 0.0,
+        noise_seed: Optional[int] = None,
         remove_minimum_volume: bool = False,
         min_vol: float = 0.0,
     ):
         """Combine Neper .stcell (geometry) and .ori (orientation) into one CSV
         mimicking HEDM APS output (columns X, Y, Z, GrainRadius, Eul0, Eul1, Eul2).
 
-        apply_noise adds gaussian noise scaled by value magnitude (noise_level =
-        relative stdev); remove_minimum_volume drops grains below min_vol."""
+        Measurement error is injected per property, each applied only when its value
+        is > 0 (all-zero -> noiseless):
+          - position_noise_std: additive absolute Gaussian on X, Y, Z, in the data's
+            physical length units (micrometers), isotropic and origin-independent.
+          - orientation_noise_std: proper random misorientation of this angular std
+            (degrees), applied via orientation_helper.perturb_orientation.
+          - radius_noise: relative (fractional) Gaussian std on GrainRadius.
+        noise_seed makes the noise reproducible (None -> global np.random);
+        remove_minimum_volume drops grains below min_vol."""
 
         if not os.path.exists(stat_file):
             raise FileNotFoundError(f"Missing .stcell file: {stat_file}")
@@ -499,21 +515,37 @@ class CrystalGenerator:
             columns={"x": "X", "y": "Y", "z": "Z", "radeq": "GrainRadius"}
         )[["X", "Y", "Z", "GrainRadius", "Eul0", "Eul1", "Eul2"]]
 
-        # optionally apply noise
-        if apply_noise:
-            if apply_noise_method.lower() == "gaussian":
-                numeric_cols = ["X", "Y", "Z", "GrainRadius", "Eul0", "Eul1", "Eul2"]
-                for col in numeric_cols:
-                    df_final[col] += df_final[col] * np.random.normal(
-                        0, noise_level, size=len(df_final)
-                    )
-                print(
-                    f"        Applied Gaussian noise ({noise_level*100:.2f}% mean) to all properties."
+        # optionally inject per-property measurement error
+        if position_noise_std > 0 or orientation_noise_std > 0 or radius_noise > 0:
+            rng = np.random.default_rng(noise_seed)
+            n = len(df_final)
+
+            # centroid: additive absolute Gaussian (physical length units), isotropic
+            if position_noise_std > 0:
+                for col in ("X", "Y", "Z"):
+                    df_final[col] += rng.normal(0.0, position_noise_std, size=n)
+
+            # orientation: proper random misorientation (degrees); data is Bunge deg
+            if orientation_noise_std > 0:
+                # pylint: disable-next=import-outside-toplevel  # torch-heavy optional dep
+                from .orientation_helper import perturb_orientation
+
+                euler = df_final[["Eul0", "Eul1", "Eul2"]].to_numpy()
+                perturbed = perturb_orientation(
+                    euler, orientation_noise_std, "bunge", "degrees", rng
                 )
-            else:
-                raise ValueError(
-                    f"Noise method '{apply_noise_method}' has not yet been implemented."
+                df_final[["Eul0", "Eul1", "Eul2"]] = perturbed.numpy()
+
+            # radius: relative (fractional) Gaussian
+            if radius_noise > 0:
+                df_final["GrainRadius"] += df_final["GrainRadius"] * rng.normal(
+                    0.0, radius_noise, size=n
                 )
+
+            print(
+                f"        Applied noise: position_std={position_noise_std} (len units), "
+                f"orientation_std={orientation_noise_std} deg, radius={radius_noise*100:.2f}%."
+            )
 
         df_final.to_csv(output_csv, index=False)
 
