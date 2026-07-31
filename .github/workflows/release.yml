@@ -1,0 +1,56 @@
+# Build and publish graintrace to PyPI on a GitHub Release, via PyPI Trusted
+# Publishing (OIDC). No API token is stored anywhere: PyPI verifies the
+# workflow's identity directly.
+#
+# One-time PyPI setup (see notes at the bottom of this file):
+#   PyPI -> project "graintrace" -> Settings -> Publishing -> add a trusted
+#   publisher matching owner/repo/workflow/environment below.
+#
+# To cut a release: bump `version` in pyproject.toml, commit, then publish a
+# GitHub Release whose tag is v<version> (e.g. v0.1.1).
+
+name: Publish to PyPI
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build:
+    name: Build sdist + wheel
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        # No submodules: the wheel is pure-Python (graintrace/ only); the
+        # compiled stack (external/puma) is never bundled.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build
+        run: |
+          python -m pip install --upgrade build
+          python -m build
+      - name: Check metadata
+        run: |
+          python -m pip install --upgrade twine
+          python -m twine check dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    name: Publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/graintrace/
+    permissions:
+      id-token: write # required for Trusted Publishing (OIDC)
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
