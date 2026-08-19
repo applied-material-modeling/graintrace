@@ -206,6 +206,72 @@ class MaterialCalibration:
         )
         return pred[:, self.axial_index]
 
+    def _predict_axial_and_state(self, return_state: bool = False):
+        """Single differentiable solve: axial-stress trajectory and (optionally)
+        the per-grain elastic-strain history ``(npoints, n_grains, 6)``."""
+        out = self.model.simulate(
+            None,
+            d=self.d,
+            assumed_rate=self.assumed_rate,
+            experiment_data=self.experiment_data,
+            return_state=return_state,
+        )
+        if return_state:
+            stress_hist, state_hist = out
+            return stress_hist[:, self.axial_index], state_hist
+        return out[:, self.axial_index], None
+
+    def _full_field_strain_loss(
+        self,
+        state_hist: torch.Tensor,
+        sim_axial: torch.Tensor,
+        components: Optional[List[int]] = None,
+        n_quantiles: int = 64,
+    ) -> torch.Tensor:
+        """Distribution-matched per-grain elastic-strain loss.
+
+        For each experimental stress level, take the model per-grain elastic
+        strain at the nearest simulated step and compare its per-component value
+        DISTRIBUTION to the experimental one via a quantile (sorted) L2. This is
+        correspondence-free (no grain tracking required) and differentiable
+        through ``torch.quantile``; it reduces to a per-grain L2 when the grain
+        sets are identically ordered and equal in size. Returns 0 if no
+        full-field strain data are present.
+        """
+        exp = self.experiment_data
+        exp_strains = exp.get("exp_strain", None)
+        exp_levels = exp.get("stress_levels", None)
+        device = self.model.device
+        if not exp_strains or exp_levels is None or len(exp_strains) == 0:
+            return torch.zeros((), dtype=torch.float64, device=device)
+
+        if components is None:
+            components = list(range(state_hist.shape[-1]))
+
+        sim_axial_det = sim_axial.detach()
+        probs = torch.linspace(
+            0.0, 1.0, n_quantiles, dtype=torch.float64, device=device
+        )
+
+        total = torch.zeros((), dtype=torch.float64, device=device)
+        count = 0
+        for e_s, level in zip(exp_strains, exp_levels):
+            idx = int(torch.argmin(torch.abs(sim_axial_det - float(level))))
+            model_step = state_hist[idx]  # (n_grains, 6)
+            e_s = torch.as_tensor(e_s, dtype=torch.float64, device=device)
+            for c in components:
+                mq = torch.quantile(model_step[:, c], probs)
+                eq = torch.quantile(e_s[:, c], probs)
+                # Relative (dimensionless) quantile mismatch, so this term is
+                # scale-free and commensurate with the normalized macro term in
+                # calibrate(). Raw strain^2 ~ 1e-6 would otherwise be dwarfed by
+                # the stress MSE and leave the full-field term inert.
+                num = ((mq - eq) ** 2).mean()
+                den = (eq**2).mean() + 1e-30
+                total = total + num / den
+                count += 1
+        return total / max(count, 1)
+
     def objective(self, params: Any = None, default_err: float = 1e6) -> float:
         """L2 norm of (model axial stress - experimental stress). If ``params``
         is given, evaluate at those values; otherwise at the current factory
@@ -240,10 +306,21 @@ class MaterialCalibration:
         plateau_rtol: float = 1e-3,
         plateau_window: int = 3,
         autosave: bool = True,
+        full_field_weight: float = 0.0,
+        full_field_components: Optional[List[int]] = None,
+        n_quantiles: int = 64,
     ) -> torch.Tensor:
         # pylint: disable=unused-argument  # `method` kept for backward-compat API
         """Calibrate the six parameters with analytic-adjoint gradients + LBFGS.
-        ``method`` is accepted for backward compatibility only."""
+        ``method`` is accepted for backward compatibility only.
+
+        ``full_field_weight`` (default 0.0) adds a distribution-matched per-grain
+        elastic-strain term to the macroscopic-stress loss:
+        ``loss = mean((sigma_model - sigma_exp)^2)
+                 + full_field_weight * fullfield_strain_loss``.
+        When 0.0 the objective is macroscopic-stress-only (unchanged behavior).
+        ``full_field_components`` selects strain tensor components (default all 6);
+        ``n_quantiles`` sets the quantile resolution of the distribution match."""
         model = self.model
 
         self._apply_reparametrization(param_ranges)
@@ -260,11 +337,25 @@ class MaterialCalibration:
         progress = tqdm(total=maxiter, desc="Optimization progress", ncols=80)
         autosave_path = os.path.join(self.save_dir, "autosave_material.json")
 
+        use_full_field = full_field_weight > 0
+
         def closure():
             optimizer.zero_grad()
             try:
-                pred = self._predict_axial()
-                loss = ((pred - target) ** 2).mean()
+                if use_full_field:
+                    pred, state = self._predict_axial_and_state(return_state=True)
+                    # Normalize the macro term to a relative (dimensionless) MSE so
+                    # the O(1) relative full-field term is a clean tradeoff via
+                    # full_field_weight (raw stress MSE ~1e1-1e4 would dominate).
+                    macro_scale = (target**2).mean().detach().clamp_min(1e-30)
+                    macro_loss = ((pred - target) ** 2).mean() / macro_scale
+                    ff_loss = self._full_field_strain_loss(
+                        state, pred, full_field_components, n_quantiles
+                    )
+                    loss = macro_loss + full_field_weight * ff_loss
+                else:
+                    pred = self._predict_axial()
+                    loss = ((pred - target) ** 2).mean()
                 loss.backward()
             # pylint: disable-next=protected-access,c-extension-no-member  # torch internal LinAlg error type
             except (torch._C._LinAlgError, RuntimeError):

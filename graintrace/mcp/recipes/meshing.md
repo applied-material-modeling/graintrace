@@ -66,6 +66,24 @@ SCULPT_OPTS = ("-df", "1", "-mvs", "2", "-S", "2", "-CS", "5")
   relatively larger grains.
 - Generally faster than `adapt4`.
 
+## No-SCULPT alternative: `mesher="voxel"`
+
+`VoxelMeshBuilder.mesh(mesher="voxel")` dumps the grid straight to Exodus as **one
+axis-aligned cube hex per voxel** -- no CUBIT/SCULPT, no `sculpt_config` needed:
+
+```python
+builder.mesh(mesher="voxel", merged_grid=merged_grid_path)
+# -> mesh.e (HEX8, one block per grain, ids 1..N) + <mapped_orientations>.csv (MRP)
+```
+
+- **Scaled Jacobian = 1 everywhere, zero inverted/sliver elements, 100% grain
+  preservation** -- by construction. Verified MOOSE-readable (`--mesh-only`).
+- Trade-offs: **stair-stepped** grain boundaries (not smoothed) and a fixed one
+  hex per filled voxel (element count = voxel count), so control resolution via
+  the tesr/grid size.
+- Use it when SCULPT smoothing produces bad elements (junction slivers) or when
+  you want a guaranteed-clean mesh without tuning `sculpt_options`.
+
 ## Known limitation (SCULPT 2024.8)
 
 - **`-df 1` on its own eats grains.** Without `-A 4` (adapt4) or `-mvs 2` (df1),

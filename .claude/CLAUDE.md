@@ -119,7 +119,7 @@ stitcher = RegionBaseStitching(
     tess_weighted=True,       # Laguerre weight = effective grain volume (4/3)πr³; False = plain Voronoi
     update_centroid=False,    # True -> replace X,Y,Z with the cell volume-centroid (degrades equiaxed matching; experimental)
     tess_dir=None,            # scratch dir for NEPER I/O (temp dir per call if None)
-    neper_env=None,           # defaults to graintrace's ~/.local NEPER env (scan_tessellation.default_neper_env)
+    neper_env=None,           # defaults to scan_tessellation.default_neper_env, which resolves a user-installed NEPER (NEPER env var -> tools.json -> PATH)
     xy_bounding_box=None,     # [xlo,xhi,ylo,yhi]; inferred from data (+2% pad) if None
 )
 ```
@@ -192,8 +192,7 @@ graph = parser.build_cell_graph()
 ### Step 4: Run CPFE simulation
 All orientations communicate as **neml2 v3 MRP** (`tan(θ/4)·axis`), the canonical
 on-disk/interchange format. The FF `orientations.dat` is Euler-Bunge (degrees); convert it
-via `orientation_helper` (which delegates to neml2; do NOT hand-roll the math, and note the
-old v2 `neml2.tensors.Rot.fill_euler_angles(...).torch()` is gone in v3):
+via `orientation_helper` (which delegates to neml2; do NOT hand-roll the math):
 ```python
 import torch, numpy as np
 from graintrace import orientation_helper as oh
@@ -241,7 +240,7 @@ sim.set_parameters("simulation_parameters",
     # recompile=True (default) rebuilds the .pt2 when params change; compile_devices/
     # neml2_load_files/extra_ld_library_paths auto-derive from moose_run_file's repo layout.
 )
-# v3 removed runtime [NEML2] cli_args + [Schedulers]: no scheduler_name/hybrid_batch_sizes.
+# v3 has no runtime [NEML2] cli_args or [Schedulers]: no scheduler_name/hybrid_batch_sizes.
 # Multi-GPU = MPI ranks over a device list (ncore == mpiexec -n); fewer ranks (~#GPUs) give
 # bigger per-rank NEML2 batches + better GPU utilization for neml2-dominated CPFE.
 
@@ -293,7 +292,7 @@ merged_grid_path = builder_nf.reconstruct(
     dz=5.0,          # layer thickness in micrometers
     nx=200,          # in-plane grid resolution x
     ny=300,          # in-plane grid resolution y
-    segmentation={   # legacy flat dict for NearFieldMeshBuilder
+    segmentation={   # flat dict for NearFieldMeshBuilder (no method/params nesting)
         "misorientation_tol": 5.0/180*np.pi,   # radians
         "connectivity": 6,
         "batch_norm": 200_000,
@@ -767,7 +766,7 @@ segmentation = {
 }
 ```
 
-Note: For `NearFieldMeshBuilder.reconstruct()`, the `segmentation` argument is the legacy flat dict (no `method`/`params` nesting), using `misorientation_tol` directly in radians.
+Note: For `NearFieldMeshBuilder.reconstruct()`, the `segmentation` argument is a flat dict (no `method`/`params` nesting), using `misorientation_tol` directly in radians.
 
 ### `bc` dict format
 ```python
@@ -799,6 +798,16 @@ weight_cfg = WeightConfig(
 
 ## 10. Common Pitfalls
 
+### NEPER is bring-your-own
+`VoronoiMeshBuilder` and `CrystalGenerator` resolve a **user-installed** NEPER via
+`graintrace/neper_env.py` (`resolve_neper_env`): precedence is explicit
+`neper_path=`/`env=` → `NEPER` env var → `graintrace_tools.json` `"neper"` key →
+`neper` on PATH. If none resolve, the builder raises a clear `RuntimeError` linking
+neper.info. An opt-in `auto_install=True` performs a Linux `~/.local` source build
+(GSL + OpenBLAS + NEPER). gmsh is a pip dependency (auto-installed with graintrace),
+so the builders take no gmsh arguments. `scan_tessellation.default_neper_env()`
+delegates to the same resolver.
+
 ### cpfe_base path
 Always derive the cpfe_base path dynamically, do not hardcode it:
 ```python
@@ -808,16 +817,16 @@ _cpfe_base = str(Path(_gt.__file__).parent / "cpfe_base")
 # Contains: neml2_cpfe.i, neml2_cpfe_calibration.i, run_cpfe.i, etc.
 ```
 
-### `if __name__ == "__main__"` (clustering pipeline no longer requires it)
+### `if __name__ == "__main__"` (not required for clustering)
 The graph segmentation / REI clustering pipeline (`GraphSpatialCluster`,
-`IdentifyRareClusters`) **no longer uses `multiprocessing`**: the prune step is
+`IdentifyRareClusters`) does not use `multiprocessing`: the prune step is
 numba-threaded (`nogil`, with a single-threaded numpy fallback) and edge-distance
-computation is single-process. So the `if __name__ == "__main__"` guard is **no
-longer required** for clustering/REI scripts.
+computation is single-process. So the `if __name__ == "__main__"` guard is **not
+required** for clustering/REI scripts.
 
-It is still **required** for any script that calls **NF reconstruction**
-(`graintrace/nf/convert.py` `pointcloud_to_fixed_grid` still uses `multiprocess.Pool`
-for GIL-bound scipy Delaunay work). It also remains good practice generally, so the
+It **is required** for any script that calls **NF reconstruction**
+(`graintrace/nf/convert.py` `pointcloud_to_fixed_grid` uses `multiprocess.Pool`
+for GIL-bound scipy Delaunay work). It is also good practice generally, so the
 example scripts keep the pattern:
 ```python
 def main():
@@ -828,9 +837,9 @@ if __name__ == "__main__":
 ```
 
 ### Pole figures use neml2.texture (v3)
-`plot_pole_figure` uses `neml2.texture` (v3 renamed `neml2.postprocessing` → `neml2.texture`:
-`polefigure`, `odf`, IPF helpers). If the import fails the bindings are outdated; reinstall
-neml2 v3 from `moose_neml2_v3/neml2` (`pip install . -v`) into `graintrace_env`.
+`plot_pole_figure` uses `neml2.texture` (`polefigure`, `odf`, IPF helpers). If the
+import fails the bindings are outdated; reinstall neml2 v3 from `moose_neml2_v3/neml2`
+(`pip install . -v`) into `graintrace_env`.
 
 ### GPU: if available, always use it
 The GPU-accelerated steps are **CPFE** and **material calibration** (and pole
@@ -851,7 +860,7 @@ reports the visible GPUs.
 `TaylorModel(device="cuda")` works because `taylor.py` moves the whole nonlinear system with
 `nsys.to(device)` before wrapping it in the pyzag factory. `factory.to(device)` alone leaves the
 model's crystal-geometry buffers (Schmid tensors) on CPU → a cuda/cpu mismatch that surfaces as
-a silent `loss=inf`. The old `torch.set_default_device("cuda")` hack is no longer needed.
+a silent `loss=inf`.
 
 ### `orientation_tolerance` units must match `ori_units`
 When `ori_units="radians"`, convert `orientation_tolerance` before passing to `RegionBaseStitching`:
@@ -907,6 +916,7 @@ Three checkpointing levels in order of priority:
 
 ```
 graintrace/
+  neper_env.py                 resolve_neper_env     : locate a user-installed NEPER (env var/tools.json/PATH); opt-in ~/.local build
   construct_voronoi_mesh.py    VoronoiMeshBuilder    : FF HEDM reconstruction (NEPER)
   construct_nf_mesh.py         NearFieldMeshBuilder  : NF HEDM reconstruction (SCULPT)
   construct_voxel_mesh.py      VoxelMeshBuilder      : EBSD/NF voxel meshing (SCULPT)
@@ -954,7 +964,8 @@ distills the recipe. Run examples from `graintrace_env` (`conda activate graintr
 | `ff-reconstruction` | FF Voronoi reconstruction (`VoronoiMeshBuilder`) | demonstrate_farfield.py | mwe_data/ff_calibration |
 | `nf-reconstruction` | NF mesh (`NearFieldMeshBuilder`) | demonstrate_cpfe_nfff.py | synthetic (NEPER/CUBIT) |
 | `voxel-segmentation-mesh` | EBSD/NF voxel graph-seg + sculpt (`VoxelMeshBuilder`) | demonstrate_grid_segmentation_mesh.py | synthetic gen |
-| `microstructure-recommendations` | NEPER morpho (incl. `aspratio`) + SCULPT `sculpt_options` param guidance from a 12-case study | demonstrate_hedm_anisotropic.py | none |
+| `microstructure-generation` | NEPER morpho (incl. `aspratio`) generation param guidance from a 12-case study | demonstrate_hedm_anisotropic.py | none |
+| `meshing` | SCULPT `sculpt_options` (2 safe configs) + `mesher="voxel"` direct-to-Exodus dump | demonstrate_synthetic_cpfe.py | synthetic (NEPER/CUBIT) |
 | `experiment-rotation` | rotate raw FF CSVs into sim frame | demonstrate_farfield.py | mwe_data/ff_calibration |
 | `material-calibration` | pyzag-adjoint Taylor calibration | demonstrate_material_calibration.py | mwe_data/ff_calibration |
 | `cpfe-simulation` | FF CPFE via AOTI (`CPFESimulation`) | demonstrate_cpfe.py | mwe_data/cpfe_ff |

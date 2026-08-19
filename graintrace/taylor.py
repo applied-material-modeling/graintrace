@@ -25,7 +25,7 @@
 """Uniaxial Taylor crystal-plasticity forward + calibration model (NEML2 v3).
 
 A mixed-control NEML2 ``NonlinearSystem`` (``cpfe_base/neml2_cpfe_calibration.i``)
-is wrapped by :class:`neml2.pyzag.NEML2PyzagFactory` and driven through
+is wrapped by :class:`neml2.pyzag.NEML2PyzagModel` and driven through
 :func:`pyzag.nonlinear.solve_adjoint` for analytic parameter gradients.
 """
 
@@ -41,7 +41,7 @@ import torch
 from torch import nn
 
 import neml2
-from neml2.pyzag import NEML2PyzagFactory
+from neml2.pyzag import NEML2PyzagModel
 from pyzag import chunktime, nonlinear
 
 from .base_material_approximation import BaseMaterialApproximationModel
@@ -60,7 +60,7 @@ _N_ELASTIC_STRAIN = 6
 class UniaxialTaylorModel(nn.Module):
     """Differentiable uniaxial Taylor forward via a NEML2 mixed-control eq_sys.
 
-    Wraps a :class:`neml2.pyzag.NEML2PyzagFactory` and integrates the strain
+    Wraps a :class:`neml2.pyzag.NEML2PyzagModel` and integrates the strain
     history with ``pyzag.nonlinear.solve_adjoint``. Uniaxial loading is expressed
     with NEML2's ``MixedControlSetup``: ``control`` selects the axial component as
     strain-controlled (``prescribed = rate``); the remaining components are
@@ -70,7 +70,7 @@ class UniaxialTaylorModel(nn.Module):
 
     def __init__(
         self,
-        factory: NEML2PyzagFactory,
+        factory: NEML2PyzagModel,
         axial_index: int = 2,
         nchunk: int = 5,
         rtol: float = 1e-6,
@@ -227,9 +227,16 @@ class TaylorModel(BaseMaterialApproximationModel):
         # mismatch on cuda. nsys.to() moves all model buffers.
         nsys = neml2.load_nonlinear_system(neml2_path, equation_system)
         nsys.to(self.device)
-        self.factory = NEML2PyzagFactory(
-            nsys, exclude_parameters=exclude_parameters, compile=compile
-        ).to(self.device)
+        # NEML2 v3 pyzag adapter: NEML2PyzagModel replaces the old
+        # NEML2PyzagFactory, and compilation is a separate in-place neml2.compile
+        # call (not a constructor kwarg). The new adapter also lowers
+        # torch._functorch donated_buffer so torch>=2.12 compile works through the
+        # retain_graph adjoint.
+        self.factory = NEML2PyzagModel(nsys, exclude_parameters=exclude_parameters).to(
+            self.device
+        )
+        if compile:
+            neml2.compile(self.factory)
 
         self.tmodel = UniaxialTaylorModel(
             self.factory, axial_index=axial_index, nchunk=nchunk

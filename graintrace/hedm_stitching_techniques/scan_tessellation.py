@@ -43,16 +43,17 @@ import pandas as pd
 
 
 def default_neper_env() -> dict:
-    """Environment that lets a ``~/.local`` Neper install find its GSL/OpenBLAS libs.
+    """Subprocess environment for a user-installed NEPER.
 
-    Mirrors the env built by ``VoronoiMeshBuilder.check_dependencies`` (see
-    ``construct_voronoi_mesh.py``) but without the install side effects.
+    Resolves the ``neper`` binary via ``graintrace.neper_env`` (NEPER env var ->
+    tools.json -> PATH) and puts its bin/lib directories on ``PATH`` /
+    ``LD_LIBRARY_PATH`` so a self-built NEPER finds its GSL/OpenBLAS libs. Falls
+    back to a plain ``os.environ`` copy when NEPER cannot be located.
     """
-    prefix = os.path.join(os.path.expanduser("~"), ".local")
-    env = os.environ.copy()
-    env["PATH"] = f"{prefix}/bin:" + env.get("PATH", "")
-    env["LD_LIBRARY_PATH"] = f"{prefix}/lib:" + env.get("LD_LIBRARY_PATH", "")
-    return env
+    # Lazy import keeps this module light and avoids an import cycle.
+    from graintrace import neper_env  # pylint: disable=import-outside-toplevel
+
+    return neper_env.build_env(neper_env.find_neper())
 
 
 def _read_tess_sections(tess_path: str) -> dict:

@@ -689,21 +689,28 @@ class VoxelMeshBuilder:
     def mesh(
         self,
         *,
-        sculpt_config: Dict[str, Any],
+        sculpt_config: Optional[Dict[str, Any]] = None,
         sculpt_options: Optional[Sequence[str]] = None,
         merged_grid: Optional[PathLike] = None,
         spn_path: Optional[PathLike] = None,
         orientations_path: Optional[PathLike] = None,
         mesh_path: Optional[PathLike] = None,
         mapped_orientations_path: Optional[PathLike] = None,
+        mesher: str = "sculpt",
+        background_id: int = 0,
     ) -> Path:
-        """Run SCULPT on the segmented grid and map orientations to the mesh."""
-        cfg = self._validate_sculpt_config(sculpt_config)
-        options = (
-            list(sculpt_options)
-            if sculpt_options is not None
-            else list(self.DEFAULT_SCULPT_OPTIONS)
-        )
+        """Mesh the segmented grid and map orientations to the mesh.
+
+        mesher="sculpt" (default) runs CUBIT/SCULPT for a conformal, smoothed hex
+        mesh (needs sculpt_config). mesher="voxel" instead dumps the grid straight
+        to Exodus as one cube hex per voxel (no SCULPT, no external tools): every
+        element is a perfect cube (scaled Jacobian = 1, so zero inverted/sliver
+        elements) at the cost of stair-stepped grain boundaries. Both write the
+        mesh to mesh_path and per-block MRP orientations to
+        mapped_orientations_path + ".csv".
+        """
+        if mesher not in ("sculpt", "voxel"):
+            raise ValueError(f"Invalid mesher {mesher!r}. Must be 'sculpt' or 'voxel'.")
 
         grid_path = (
             Path(merged_grid) if merged_grid is not None else self.merged_grid_npy
@@ -714,12 +721,6 @@ class VoxelMeshBuilder:
                 "Run reconstruct() first or pass merged_grid=... explicitly."
             )
 
-        spn_out = Path(spn_path) if spn_path is not None else self.spn_path
-        ori_out = (
-            Path(orientations_path)
-            if orientations_path is not None
-            else self.orientations_path
-        )
         mesh_out = Path(mesh_path) if mesh_path is not None else self.mesh_path
         map_out = (
             Path(mapped_orientations_path)
@@ -729,6 +730,39 @@ class VoxelMeshBuilder:
 
         print("Loading merged grid for meshing...")
         data = self._load_grid(grid_path)
+
+        if mesher == "voxel":
+            print("Dumping voxel grid directly to Exodus (one cube hex per voxel)...")
+            info = mesh.write_voxel_exodus(
+                data,
+                str(mesh_out),
+                str(map_out),
+                angle_convention=self.angle_convention,
+                angle_type=self.angle_type,
+                background_id=background_id,
+            )
+            print(
+                f"Voxel mesh: {info['elements']} hexes, {info['nodes']} nodes, "
+                f"{info['blocks']} blocks -> {mesh_out}"
+            )
+            return mesh_out
+
+        # mesher == "sculpt"
+        if sculpt_config is None:
+            raise ValueError("sculpt_config is required when mesher='sculpt'.")
+        cfg = self._validate_sculpt_config(sculpt_config)
+        options = (
+            list(sculpt_options)
+            if sculpt_options is not None
+            else list(self.DEFAULT_SCULPT_OPTIONS)
+        )
+
+        spn_out = Path(spn_path) if spn_path is not None else self.spn_path
+        ori_out = (
+            Path(orientations_path)
+            if orientations_path is not None
+            else self.orientations_path
+        )
 
         print("Writing SPN and orientations...")
         mesh.write_spn(

@@ -1,0 +1,21 @@
+# Test suite with coverage (mirrors the pyzag project's run_tests workflow, plus
+# coverage). Tests that need the external stack (NEPER, CUBIT/SCULPT, MOOSE/PUMA)
+# or the neml2/pyzag bindings self-skip via skipif / importorskip, so this stays
+# green without them.
+name: Run tests
+on: [push, pull_request]
+jobs:
+  run-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install ".[dev]"
+      - run: pytest --cov=graintrace --cov-report=term-missing --cov-report=xml
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml
+          path: coverage.xml
