@@ -43,8 +43,6 @@ def update_experiments(
     bounding_box: List[float],
     dim: int = 3,
     weighted: bool = False,
-    gmsh_version: str = "4.12.2",
-    neper_version: str = "4.10.1",
     auto_fix_bbox: bool = False,
     bbox_fix_mode: Optional[str] = None,
     bbox_tolerance: float = 0.0,
@@ -58,6 +56,8 @@ def update_experiments(
     elastic_strain_identifier: Optional[List[str]] = None,
     strain_unit: str = "microstrain",
     env: Optional[dict] = None,
+    neper_path: Optional[str] = None,
+    auto_install: bool = False,
 ) -> None:
     """Rotate each input CSV via a Voronoi build, appending Oij columns, saving under output_root."""
 
@@ -75,8 +75,6 @@ def update_experiments(
             bounding_box=bounding_box,
             dim=dim,
             weighted=weighted,
-            gmsh_version=gmsh_version,
-            neper_version=neper_version,
             auto_fix_bbox=auto_fix_bbox,
             bbox_fix_mode=bbox_fix_mode,
             bbox_tolerance=bbox_tolerance,
@@ -90,6 +88,8 @@ def update_experiments(
             elastic_strain_identifier=elastic_strain_identifier,
             strain_unit=strain_unit,
             env=env,
+            neper_path=neper_path,
+            auto_install=auto_install,
         )
 
         builder.read_input()

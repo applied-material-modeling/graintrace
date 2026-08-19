@@ -477,7 +477,12 @@ class GraphSpatialCluster:
         nx, ny, nz = xs.size, ys.size, zs.size
         lin = ix + nx * (iy + ny * iz)
 
-        inv = np.empty(nx * ny * nz, dtype=np.int64)
+        # -1 sentinel: lattice positions with no data point (void voxels in a grid that
+        # does not fill its bounding box, e.g. NF) stay -1 so neighbor lookups into them
+        # are dropped below. np.empty would leave them uninitialized -> garbage node
+        # indices (out-of-bounds crash, or silent spurious edges when garbage lands in
+        # [0, N)).
+        inv = np.full(nx * ny * nz, -1, dtype=np.int64)
         inv[lin] = np.arange(coords.shape[0], dtype=np.int64)
 
         r = manhattan_radius
@@ -511,6 +516,9 @@ class GraphSpatialCluster:
             lin2 = ix2[mask] + nx * (iy2[mask] + ny * iz2[mask])
             j = inv[lin2]
             i = np.nonzero(mask)[0].astype(np.int64)
+
+            valid = j >= 0  # drop neighbors that fall on void (no-data) lattice sites
+            i, j = i[valid], j[valid]
 
             keep = i < j  # undirected: keep i<j only
             if np.any(keep):

@@ -84,15 +84,21 @@ def _which_or_external(binary: str, *rel_candidates: str) -> Optional[str]:
 
 
 def _check_neper() -> DepStatus:
-    p = _which_or_external("neper", "neper/build/neper", "neper/src/neper")
+    # Lazy import keeps the server import-light and avoids an import cycle.
+    from graintrace import neper_env  # pylint: disable=import-outside-toplevel
+
+    p = neper_env.find_neper() or _which_or_external(
+        "neper", "neper/build/neper", "neper/src/neper"
+    )
     if p:
         return DepStatus("neper", True, f"found: {p}", "")
     return DepStatus(
         "neper",
         False,
-        "not found on PATH or in external/neper",
-        "Build NEPER (https://neper.info) and put `neper` on PATH, "
-        "e.g. ~/.local/bin/neper.",
+        "not found via NEPER env var, tools.json, PATH, or external/neper",
+        "Install NEPER (https://neper.info/doc/introduction.html#installing-neper) "
+        "and point graintrace at it via the NEPER env var, a graintrace_tools.json "
+        "`neper` key, or `neper` on PATH.",
     )
 
 

@@ -46,7 +46,8 @@ a public PyPI neml2 wheel is a different build and is deliberately not relied up
 ## Requirements
 
 - python **>= 3.10**, conda with pip
-- NEPER, gmsh
+- gmsh (installed automatically with graintrace via pip)
+- NEPER (bring your own; install from <https://neper.info> and point graintrace at it)
 - CUBIT/SCULPT (Coreform license required)
 - MOOSE with the PUMA app, linked with NEML2 (v3) + libtorch
 - NEML2 (v3) and pyzag
@@ -131,6 +132,30 @@ Coreform CUBIT (National-Lab, commercial, or education license) provides CUBIT +
 >                     "OPAL_PREFIX": "/path/to/cubit/bin/mpi"},
 > }
 > ```
+
+## NEPER and gmsh
+
+**gmsh** is a pip package (declared in `pyproject.toml`), so it is installed automatically with
+`pip install graintrace` (or `pip install -e .`). Nothing extra to do.
+
+**NEPER** is an external tool graintrace drives (like CUBIT/SCULPT); it is **not** a pip package, so
+you install it yourself. graintrace no longer downloads or compiles NEPER on your behalf by default
+(the old behavior was Linux-only and fragile). Install NEPER once, then point graintrace at it:
+
+1. Install NEPER: see <https://neper.info/doc/introduction.html#installing-neper> (a distro package,
+   the official tarball, or a from-source build all work).
+2. Let graintrace find it, in this precedence order:
+   - the `NEPER` environment variable set to the absolute path of the `neper` binary
+     (`export NEPER=/abs/path/to/neper`),
+   - a `graintrace_tools.json` with a `"neper"` key (see `graintrace/mcp/tools.example.json`; the
+     search order is `$GRAINTRACE_TOOLS_JSON` → `./graintrace_tools.json` → `~/.config/graintrace/tools.json`),
+   - `neper` on your `PATH`,
+   - or pass `neper_path=/abs/path/to/neper` (or a prepared `env=`) to `VoronoiMeshBuilder` /
+     `CrystalGenerator`.
+
+If NEPER cannot be found, the builders raise a clear error with these instructions. As a last resort
+on Linux you can pass `auto_install=True` to build GSL + OpenBLAS + NEPER into `~/.local` (the legacy
+behavior, now opt-in).
 
 ## Examples & workflow segments
 

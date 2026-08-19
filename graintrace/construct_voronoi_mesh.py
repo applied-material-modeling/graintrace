@@ -29,7 +29,6 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
-import sys
 from pathlib import Path
 
 import numpy as np
@@ -53,8 +52,6 @@ class VoronoiMeshBuilder:
         bounding_box,
         dim=3,
         weighted=False,
-        gmsh_version="4.12.2",
-        neper_version="4.10.1",
         auto_fix_bbox=False,
         bbox_fix_mode=None,
         bbox_tolerance=0.0,  # percentage tolerance (e.g., 5.0 = 5%)
@@ -69,14 +66,14 @@ class VoronoiMeshBuilder:
         ori_rotmat_identifier=None,
         strain_unit="microstrain",
         env=None,
+        neper_path=None,
+        auto_install=False,
     ):
         self.input_csv = input_csv
         self.output_dir = output_dir
         self.bounding_box = bounding_box
         self.dim = dim
         self.weighted = weighted
-        self.gmsh_version = gmsh_version
-        self.neper_version = neper_version
         self.auto_fix_bbox = auto_fix_bbox
         self.bbox_fix_mode = bbox_fix_mode
         self.bbox_tolerance = bbox_tolerance
@@ -91,7 +88,13 @@ class VoronoiMeshBuilder:
         self.strain_unit = strain_unit
         self.ori_rotmat_id = ori_rotmat_identifier
 
-        self.env = self.check_dependencies() if env is None else env
+        if env is None:
+            self.neper_bin, self.env = self.check_dependencies(
+                neper_path=neper_path, auto_install=auto_install
+            )
+        else:
+            self.env = env
+            self.neper_bin = neper_path or "neper"
 
         if unit not in ("deg", "rad"):
             raise ValueError("Rotation unit must be 'deg' or 'rad'.")
@@ -153,158 +156,21 @@ class VoronoiMeshBuilder:
         if self.dim not in [2, 3]:
             raise ValueError("Dimension 'dim' must be either 2 or 3.")
 
-    def check_dependencies(self):
-        """Install Neper & Gmsh (plus GSL/OpenBLAS) locally under ~/.local if absent."""
+    def check_dependencies(self, neper_path=None, auto_install=False):
+        """Locate NEPER (user-installed) and build its subprocess environment.
 
-        home = os.path.expanduser("~")
-        prefix = os.path.join(home, ".local")
-        env = os.environ.copy()
-        env["PATH"] = f"{prefix}/bin:" + env["PATH"]
-        env["LD_LIBRARY_PATH"] = f"{prefix}/lib:" + env.get("LD_LIBRARY_PATH", "")
+        gmsh ships with graintrace via pip, so no gmsh handling is needed here.
+        Returns ``(neper_bin, env)``. Raises ``RuntimeError`` with install
+        guidance when NEPER cannot be found and ``auto_install`` is False.
+        """
+        # pylint: disable=import-outside-toplevel  # avoid an import cycle
+        from graintrace.neper_env import resolve_neper_env
 
-        def is_installed(cmd):
-            return shutil.which(cmd, path=env["PATH"]) is not None
-
-        def run(cmd, cwd=None):
-            print(">", " ".join(cmd))
-            subprocess.run(cmd, check=True, cwd=cwd, env=env)
-
-        os.makedirs(prefix, exist_ok=True)
-
-        # Gmsh via pip
-        try:
-            # pylint: disable=import-outside-toplevel  # gmsh is a heavy optional dep
-            import gmsh
-
-            print(f"Gmsh already available (v{gmsh.__version__})")
-        except ImportError:
-            print("Gmsh not found; installing via pip...")
-            run([sys.executable, "-m", "pip", "install", f"gmsh=={self.gmsh_version}"])
-            print("Gmsh installed successfully via pip.")
-
-        # Install GSL locally if missing
-        gsl_lib = os.path.join(prefix, "lib", "libgsl.so")
-        if not os.path.exists(gsl_lib):
-            print("Installing GSL locally...")
-            run(
-                [
-                    "wget",
-                    "https://ftp.gnu.org/gnu/gsl/gsl-latest.tar.gz",
-                    "-O",
-                    os.path.join(home, "gsl.tar.gz"),
-                ]
-            )
-            run(["tar", "-xzf", "gsl.tar.gz"], cwd=home)
-            gsl_src = next(
-                (
-                    os.path.join(home, d)
-                    for d in os.listdir(home)
-                    if d.startswith("gsl-")
-                ),
-                None,
-            )
-            if gsl_src:
-                run(["./configure", f"--prefix={prefix}"], cwd=gsl_src)
-                run(["make", "-j", str(os.cpu_count())], cwd=gsl_src)
-                run(["make", "install"], cwd=gsl_src)
-            else:
-                raise RuntimeError("GSL extraction failed.")
-
-        # Install OpenBLAS locally if missing
-        openblas_lib = os.path.join(prefix, "lib", "libopenblas.so.0")
-        if not os.path.exists(openblas_lib):
-            print("Installing OpenBLAS locally...")
-            progs_dir = os.path.expanduser("~/Progs")
-            os.makedirs(progs_dir, exist_ok=True)
-            run(
-                ["git", "clone", "https://github.com/xianyi/OpenBLAS.git"],
-                cwd=progs_dir,
-            )
-            openblas_src = os.path.join(progs_dir, "OpenBLAS")
-            conda_prefix = os.environ.get("CONDA_PREFIX", "")
-            run(
-                [
-                    "make",
-                    f"PREFIX={prefix}",
-                    f"FC={conda_prefix}/bin/x86_64-conda-linux-gnu-gfortran",
-                    "-j",
-                    str(os.cpu_count()),
-                ],
-                cwd=openblas_src,
-            )
-            run(["make", "install", f"PREFIX={prefix}"], cwd=openblas_src)
-
-        # Neper installation
-        neper_installed = is_installed("neper")
-
-        if not neper_installed:
-            print("Installing Neper locally...")
-            stable_version = "4.10.1"
-            stable_url = f"https://neper.info/download/neper-{stable_version}.tar.gz"
-            progs_dir = os.path.expanduser("~/Progs")
-            os.makedirs(progs_dir, exist_ok=True)
-
-            try:
-                # Try stable release first
-                print(f"Attempting official stable release v{stable_version}...")
-                run(
-                    [
-                        "wget",
-                        stable_url,
-                        "-O",
-                        os.path.join(progs_dir, f"neper-{stable_version}.tar.gz"),
-                    ]
-                )
-                run(["tar", "-zxf", f"neper-{stable_version}.tar.gz"], cwd=progs_dir)
-                neper_src_dir = os.path.join(
-                    progs_dir, f"neper-{stable_version}", "src"
-                )
-            except subprocess.CalledProcessError:
-                # Fall back to GitHub repository
-                print("Stable release unavailable, cloning GitHub master instead...")
-                repo_url = "https://github.com/rquey/neper.git"
-                neper_src_dir = os.path.join(progs_dir, "neper", "src")
-                if not os.path.exists(os.path.join(progs_dir, "neper")):
-                    run(["git", "clone", repo_url, os.path.join(progs_dir, "neper")])
-                else:
-                    run(["git", "-C", os.path.join(progs_dir, "neper"), "pull"])
-
-            # Build & install
-            build_dir = os.path.join(neper_src_dir, "build")
-            os.makedirs(build_dir, exist_ok=True)
-            run(
-                [
-                    "cmake",
-                    f"-DCMAKE_INSTALL_PREFIX={prefix}",
-                    "-DNEPER_INSTALL_BASH_COMPLETION=OFF",  # disable sudo path
-                    "..",
-                ],
-                cwd=build_dir,
-            )
-            run(["make", "-j", str(os.cpu_count())], cwd=build_dir)
-            run(["make", "install"], cwd=build_dir)
-
-            if is_installed("neper"):
-                neper_installed = True
-                print("Neper installed successfully (stable or GitHub build).")
-            else:
-                raise RuntimeError("Neper installation failed.")
-
-        else:
-            print("Neper already available in PATH.")
-
-        home = os.path.expanduser("~")
-        prefix = os.path.join(home, ".local")
-
-        final_env = os.environ.copy()
-        final_env["PATH"] = f"{prefix}/bin:" + final_env.get("PATH", "")
-        final_env["LD_LIBRARY_PATH"] = (
-            f"{prefix}/lib:{prefix}/lib64:/usr/local/lib:/usr/lib:/usr/lib64:/lib/x86_64-linux-gnu"
+        neper_bin, env = resolve_neper_env(
+            neper_path=neper_path, auto_install=auto_install
         )
-
-        self.env = final_env
-
-        return final_env
+        self.env = env
+        return neper_bin, env
 
     def read_input(self):
         """Read/validate input CSV: spatial coords, optional GrainRadius, angles, strain."""
@@ -950,7 +816,7 @@ class VoronoiMeshBuilder:
 
         neper_cmd = (
             [
-                "neper",
+                self.neper_bin,
                 "-T",
                 "-n",
                 str(len(df)),
@@ -1198,7 +1064,7 @@ class VoronoiMeshBuilder:
         element_type = "tri" if self.dim == 2 else "tet"
 
         neper_cmd = [
-            "neper",
+            self.neper_bin,
             "-M",
             tess_file,
             "-elttype",
@@ -1258,7 +1124,7 @@ class VoronoiMeshBuilder:
 
         # Run Neper to generate .statcell and .statseed
         neper_cmd = [
-            "neper",
+            self.neper_bin,
             "-T",
             "-loadtess",
             tess_file,

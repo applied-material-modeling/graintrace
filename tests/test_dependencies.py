@@ -102,3 +102,49 @@ def test_cubit_mpiexec_exists():
         pytest.skip("Set CUBIT_MPIEXEC or CUBIT_BIN_DIR to test the CUBIT mpiexec")
     assert os.path.isfile(mpiexec), f"mpiexec not found at {mpiexec}"
     assert os.access(mpiexec, os.X_OK), f"mpiexec not executable: {mpiexec}"
+
+
+# ---- NEPER resolution (pure Python; no external tool needed) ----------------
+
+
+def test_neper_env_var_takes_precedence(tmp_path, monkeypatch):
+    """find_neper resolves the NEPER env var to an existing binary."""
+    from graintrace import neper_env
+
+    fake = tmp_path / "bin" / "neper"
+    fake.parent.mkdir(parents=True)
+    fake.write_text("#!/bin/sh\n")
+    monkeypatch.setenv("NEPER", str(fake))
+    assert neper_env.find_neper() == str(fake)
+
+
+def test_neper_explicit_path_wins(tmp_path, monkeypatch):
+    """An explicit neper_path beats the NEPER env var."""
+    from graintrace import neper_env
+
+    explicit = tmp_path / "explicit_neper"
+    explicit.write_text("#!/bin/sh\n")
+    monkeypatch.setenv("NEPER", "/does/not/exist/neper")
+    assert neper_env.find_neper(str(explicit)) == str(explicit)
+
+
+def test_build_env_puts_neper_on_path(tmp_path):
+    """build_env prepends the binary's dir to PATH and its libs to LD_LIBRARY_PATH."""
+    from graintrace import neper_env
+
+    neper_bin = tmp_path / "bin" / "neper"
+    neper_bin.parent.mkdir(parents=True)
+    env = neper_env.build_env(str(neper_bin))
+    assert env["PATH"].split(os.pathsep)[0] == str(tmp_path / "bin")
+    libdirs = env["LD_LIBRARY_PATH"].split(os.pathsep)
+    assert str(tmp_path / "lib") in libdirs
+    assert str(tmp_path / "lib64") in libdirs
+
+
+def test_resolve_neper_env_raises_when_missing(monkeypatch):
+    """With no NEPER anywhere and auto_install off, resolution raises with guidance."""
+    from graintrace import neper_env
+
+    monkeypatch.setattr(neper_env, "find_neper", lambda *a, **k: None)
+    with pytest.raises(RuntimeError, match="NEPER not found"):
+        neper_env.resolve_neper_env(auto_install=False)

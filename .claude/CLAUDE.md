@@ -119,7 +119,7 @@ stitcher = RegionBaseStitching(
     tess_weighted=True,       # Laguerre weight = effective grain volume (4/3)πr³; False = plain Voronoi
     update_centroid=False,    # True -> replace X,Y,Z with the cell volume-centroid (degrades equiaxed matching; experimental)
     tess_dir=None,            # scratch dir for NEPER I/O (temp dir per call if None)
-    neper_env=None,           # defaults to graintrace's ~/.local NEPER env (scan_tessellation.default_neper_env)
+    neper_env=None,           # defaults to scan_tessellation.default_neper_env, which resolves a user-installed NEPER (NEPER env var -> tools.json -> PATH)
     xy_bounding_box=None,     # [xlo,xhi,ylo,yhi]; inferred from data (+2% pad) if None
 )
 ```
@@ -799,6 +799,18 @@ weight_cfg = WeightConfig(
 
 ## 10. Common Pitfalls
 
+### NEPER is bring-your-own (no more auto-download)
+graintrace no longer downloads/builds NEPER by default. `VoronoiMeshBuilder` and
+`CrystalGenerator` resolve a **user-installed** NEPER via `graintrace/neper_env.py`
+(`resolve_neper_env`): precedence is explicit `neper_path=`/`env=` → `NEPER` env var
+→ `graintrace_tools.json` `"neper"` key → `neper` on PATH. If none resolve, the
+builder raises a clear `RuntimeError` linking neper.info. The legacy Linux
+`~/.local` source build (GSL + OpenBLAS + NEPER) is retained only behind an opt-in
+`auto_install=True`. gmsh is a pip dependency (auto-installed with graintrace), so
+there is no gmsh handling in the builders anymore. The old `gmsh_version` /
+`neper_version` constructor args were **removed**. `scan_tessellation.default_neper_env()`
+now delegates to the same resolver.
+
 ### cpfe_base path
 Always derive the cpfe_base path dynamically, do not hardcode it:
 ```python
@@ -907,6 +919,7 @@ Three checkpointing levels in order of priority:
 
 ```
 graintrace/
+  neper_env.py                 resolve_neper_env     : locate a user-installed NEPER (env var/tools.json/PATH); opt-in ~/.local build
   construct_voronoi_mesh.py    VoronoiMeshBuilder    : FF HEDM reconstruction (NEPER)
   construct_nf_mesh.py         NearFieldMeshBuilder  : NF HEDM reconstruction (SCULPT)
   construct_voxel_mesh.py      VoxelMeshBuilder      : EBSD/NF voxel meshing (SCULPT)
@@ -954,7 +967,8 @@ distills the recipe. Run examples from `graintrace_env` (`conda activate graintr
 | `ff-reconstruction` | FF Voronoi reconstruction (`VoronoiMeshBuilder`) | demonstrate_farfield.py | mwe_data/ff_calibration |
 | `nf-reconstruction` | NF mesh (`NearFieldMeshBuilder`) | demonstrate_cpfe_nfff.py | synthetic (NEPER/CUBIT) |
 | `voxel-segmentation-mesh` | EBSD/NF voxel graph-seg + sculpt (`VoxelMeshBuilder`) | demonstrate_grid_segmentation_mesh.py | synthetic gen |
-| `microstructure-recommendations` | NEPER morpho (incl. `aspratio`) + SCULPT `sculpt_options` param guidance from a 12-case study | demonstrate_hedm_anisotropic.py | none |
+| `microstructure-generation` | NEPER morpho (incl. `aspratio`) generation param guidance from a 12-case study | demonstrate_hedm_anisotropic.py | none |
+| `meshing` | SCULPT `sculpt_options` (2 safe configs) + `mesher="voxel"` direct-to-Exodus dump | demonstrate_synthetic_cpfe.py | synthetic (NEPER/CUBIT) |
 | `experiment-rotation` | rotate raw FF CSVs into sim frame | demonstrate_farfield.py | mwe_data/ff_calibration |
 | `material-calibration` | pyzag-adjoint Taylor calibration | demonstrate_material_calibration.py | mwe_data/ff_calibration |
 | `cpfe-simulation` | FF CPFE via AOTI (`CPFESimulation`) | demonstrate_cpfe.py | mwe_data/cpfe_ff |
