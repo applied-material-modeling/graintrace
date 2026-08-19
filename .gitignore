@@ -8,6 +8,13 @@ build/
 test.csv
 *.pyc
 __pycache__/
+
+# test / coverage artifacts
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.pytest_cache/
 experiment_try*/
 log*.out
 err*.out
