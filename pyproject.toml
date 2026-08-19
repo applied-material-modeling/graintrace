@@ -66,7 +66,7 @@ gnn = ["torch-geometric>=2.3"]
 mcp = ["mcp[cli]>=1.2"]
 # Extra deps used by the example scripts under examples/.
 examples = ["meshio>=5.0"]
-dev = ["pytest", "black==24.3.0", "isort", "pylint", "build", "twine"]
+dev = ["pytest", "pytest-cov", "black==24.3.0", "isort", "pylint", "build", "twine"]
 
 [project.scripts]
 graintrace-mcp = "graintrace.mcp.server:main"

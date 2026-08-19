@@ -2,6 +2,13 @@
 max-line-length=240
 max-module-lines=1500
 
+[TYPECHECK]
+# These are not pip-installable (built alongside MOOSE) or are optional extras, so
+# they are absent in CI / plain checkouts. Ignore them so lazy `import neml2` /
+# `import pyzag` / `import torch_geometric` inside functions do not raise
+# import-error. Their member checks (E1101) are already disabled above.
+ignored-modules=neml2,pyzag,torch_geometric,mcp
+
 [MESSAGES CONTROL]
 # Base set follows the pyzag project standard: C0103 (invalid-name), E1101 (no-member),
 # E1102 (not-callable; torch C-extension false positives), R0903 (too-few-public-methods),

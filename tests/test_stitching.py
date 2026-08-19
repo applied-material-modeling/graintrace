@@ -25,6 +25,7 @@
 """Tests for scan_stitching_comparison and hedm_stitching_techniques."""
 from __future__ import annotations
 
+import importlib.util
 from pathlib import Path
 
 import numpy as np
@@ -58,6 +59,12 @@ _needs_neper = pytest.mark.skipif(
     not NEPER_AVAILABLE, reason="Neper not available in this environment"
 )
 
+# Orientation comparison / stitching goes through orientation_helper, which imports
+# neml2 (not pip-installable). Skip cleanly when it is absent (e.g. in CI).
+_needs_neml2 = pytest.mark.skipif(
+    importlib.util.find_spec("neml2") is None, reason="neml2 not installed"
+)
+
 
 def _make_grain_csv(path, n=15, seed=0, x_offset=0.0):
     rng = np.random.default_rng(seed)
@@ -77,6 +84,7 @@ def _make_grain_csv(path, n=15, seed=0, x_offset=0.0):
     return str(path)
 
 
+@_needs_neml2
 class TestScanStitchingComparison:
     def test_loads_and_compares(self, tmp_path):
         from graintrace.scan_stitching_comparison import ScanStitchingComparison
@@ -183,6 +191,7 @@ class TestScanTessellation:
 
 
 @_needs_neper
+@_needs_neml2
 class TestRegionBaseStitchingTessellation:
     def _run(self, tmp_path, **extra):
         from graintrace.hedm_stitching_techniques.region_base_stitching import (
