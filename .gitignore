@@ -9,6 +9,9 @@ test.csv
 *.pyc
 __pycache__/
 
+# benchmark results (machine-specific timings; not committed, not regression gates)
+benchmark/results/
+
 # test / coverage artifacts
 .coverage
 .coverage.*
