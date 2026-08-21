@@ -522,6 +522,18 @@ class CPFESimulation:
                     "Could not locate R2IncrementToRate.py for `neml2-compile --load`. "
                     "Set simulation_parameters['neml2_load_files'] or export MOOSE_DIR."
                 )
+            need_puma_ext = False
+            try:
+                import neml2  # pylint: disable=import-outside-toplevel
+
+                registry = neml2.factory._registry  # pylint: disable=protected-access
+                need_puma_ext = "R2LinearCombination" not in registry
+            except ImportError:
+                pass
+            if need_puma_ext:
+                pkg = self.moose_run_file.parent / "neml2_models" / "python"
+                if pkg.exists():
+                    files.append(pkg)
         missing = [f for f in files if not f.exists()]
         if missing:
             raise FileNotFoundError(f"neml2_load_files not found: {missing}")
