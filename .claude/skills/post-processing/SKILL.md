@@ -11,7 +11,7 @@ description: >
 
 Uses `simulation_postprocessing.SimulationResults` + `plot_postprocessing` (+ optional
 `ipf_postprocess.IPFProcessor`, `experiment_postprocessing.ExperimentResults`). Env:
-`conda activate graintrace_env`. Pure Python (no MOOSE/NEPER).
+`conda activate moose-src`. Pure Python (no MOOSE/NEPER).
 
 ## Inputs
 A CPFE block CSV + a directory of per-time grid field CSVs. Self-contained:

@@ -9,7 +9,7 @@ description: >
 
 # NF (near-field) mesh reconstruction
 
-Uses `NearFieldMeshBuilder`. Env: `conda activate graintrace_env`. External tools:
+Uses `NearFieldMeshBuilder`. Env: `conda activate moose-src`. External tools:
 **CUBIT/SCULPT** via `sculpt_config` (psculpt/epu/mpiexec). **Requires an
 `if __name__ == "__main__"` guard**: NF `pointcloud_to_fixed_grid` uses `multiprocess.Pool`.
 

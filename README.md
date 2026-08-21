@@ -23,41 +23,51 @@ The pipeline runs reconstruct, calibrate, simulate (CPFE), then analyze and iden
 
 Analysis (field distributions, macroscopic stress vs strain, pole figures, IPF coloring) rounds out the pipeline. *See `examples/demonstrate_postprocess.py`.*
 
-## What you get from `pip` vs. what you must build
+## Capabilities and what each one needs
 
-`graintrace` is the **Python** layer. The heavy compiled / licensed stack it *drives* is **not**
-on PyPI and cannot be `pip install`ed:
+`graintrace` is the **Python** layer. Some features are pure-Python and run straight from
+`pip install graintrace`; others drive a compiled or licensed stack you install separately.
+`graintrace/__init__.py` lazy-imports the compiled stack, so `import graintrace` always works and
+a feature raises a clear error only when a tool it needs is missing.
 
-| Provided by `pip install graintrace` | Must be provided separately |
-|---|---|
-| the `graintrace` package + its Python deps (numpy, pandas, scipy, torch, pyvista, gmsh Python API, …) | **NEML2 v3 + pyzag**: provided by the **PUMA** build (see below), *not* pinned by graintrace |
-| | **MOOSE + PUMA** (`puma-opt`), **libtorch**: built from source via PUMA (git submodule below) |
-| | **NEPER** + standalone **gmsh** binary: installed separately |
-| | **Coreform CUBIT/SCULPT**: proprietary, licensed; obtain your own license (never commit it) |
+| Capability | `pip install graintrace` | NEML2 (Python) | PUMA `puma-opt` | NEPER | CUBIT/SCULPT |
+|---|:---:|:---:|:---:|:---:|:---:|
+| Post-processing (distributions, stress–strain) | ✅ | | | | |
+| Rare-event identification (REI) + REI comparison | ✅ | | | | |
+| HEDM stitching, similarity metrics | ✅ | | | | |
+| FF Voronoi reconstruction, grain tracking | ✅ | | | ✅ | |
+| NF / EBSD segmentation + hex meshing | ✅ | | | | ✅ |
+| Material calibration | ✅ | ✅ | | | |
+| Pole figures / orientation math | ✅ | ✅ | | | |
+| CPFE simulation | ✅ | ✅ | ✅ | ✅¹ | ✅¹ |
 
-`graintrace/__init__.py` lazy-imports the compiled stack, so `pip install graintrace` gives you
-an importable package that runs the **Python-only** parts (post-processing, REI, stitching,
-similarity metrics) with no NEML2 present. Features that use NEML2 (material calibration, pole
-figures, CPFE) require the **PUMA-built NEML2** in the shared `graintrace_env`; graintrace does
-**not** install neml2/pyzag itself, because the working, ABI-matched build is the repo-pinned
-NEML2 source that PUMA builds (so `puma-opt`'s C++ library and the Python package stay in lockstep;
-a public PyPI neml2 wheel is a different build and is deliberately not relied upon).
+¹ CPFE needs a mesh: FF meshes come from NEPER, NF/EBSD meshes from CUBIT/SCULPT.
+
+`pyzag` is installed automatically by `pip install graintrace` (it is pure-Python and on PyPI). The
+**NEML2 (Python)** column is the `neml2` package built by PUMA (see [Install](#install)); **PUMA
+`puma-opt`** is the compiled solver binary, built with MOOSE + libtorch. **CUBIT/SCULPT** is
+proprietary (Coreform license); **NEPER** is a separate tool graintrace drives. graintrace does not
+install NEML2 from PyPI: PUMA builds NEML2 from its pinned submodule so `puma-opt`'s C++ library and
+the Python `neml2` stay ABI-matched.
 
 ## Requirements
 
 - python **>= 3.10**, conda with pip
-- gmsh (installed automatically with graintrace via pip)
+- gmsh and pyzag 2.0.0 (both installed automatically with graintrace via pip)
 - NEPER (bring your own; install from <https://neper.info> and point graintrace at it)
 - CUBIT/SCULPT (Coreform license required)
-- MOOSE with the PUMA app, linked with NEML2 (v3) + libtorch
-- NEML2 (v3) and pyzag
+- NEML2 v3 (Python) — built by PUMA
+- MOOSE + PUMA (`puma-opt`), linked with NEML2 v3 + libtorch — for CPFE
 
 ## Install
 
-There are two tiers, depending on whether you need the NEML2/CPFE features.
+Three tiers by capability (see the table above). Each higher tier adds the PUMA-built native
+stack on top of the pip install.
 
-**1. Python-only** (post-processing, REI, stitching, rei_comparison, similarity metrics). No
-conda, NEML2, or native build needed:
+### 1. Python-only
+
+Post-processing, REI, REI comparison, stitching, similarity metrics. No conda or native build
+needed:
 
 ```bash
 pip install graintrace            # once published to PyPI
@@ -69,34 +79,61 @@ pip install "graintrace[examples]"  # deps used by examples/ (meshio)
 pip install "graintrace[dev]"       # test/lint/build tooling (pytest, black, isort, build, twine)
 ```
 
-`import graintrace` works with no NEML2 present (the compiled stack is lazy-imported).
+`import graintrace` works with no NEML2 present (the compiled stack is lazy-imported). This tier
+also installs `pyzag`.
 
-**2. NEML2 / CPFE features** (material calibration, pole figures, reconstruction, CPFE). These
-need the native stack, which is provided entirely by **PUMA**. Build PUMA first; it creates the
-shared conda env `graintrace_env`, builds MOOSE + libtorch + the repo-pinned NEML2 v3, and installs
-the ABI-matched NEML2/pyzag Python packages into that env. Then install graintrace on top:
+### 2. NEML2 features without CPFE
+
+Material calibration and pole figures need the NEML2 **Python** package but **not** the full
+MOOSE/`puma-opt` solver. Build only NEML2 from PUMA's submodule — the lightweight "NEML2-only" PUMA
+path (no PETSc/libMesh/MOOSE build):
 
 ```bash
 git clone https://github.com/applied-material-modeling/graintrace.git
 cd graintrace
-git submodule update --init --recursive external/puma   # pulls puma -> moose + neml2
+git submodule update --init external/puma        # pulls puma -> moose + neml2
 
-# Build the native stack via PUMA (see external/puma/README.md for prerequisites):
+# Create the PUMA Python environment (see external/puma/README.md "Python environment"):
+conda create -n puma python=3.13 mpich gcc_linux-64 gxx_linux-64 gfortran_linux-64 \
+  cmake make ninja hdf5 netcdf4 zlib libaec bison flex m4 pkg-config
+conda activate puma
+pip install torch nmhit scikit-build-core ninja
+
+# Build ONLY the NEML2 Python package from the submodule (skip the MOOSE/puma-opt build):
 cd external/puma
-conda env create -f environment.yml        # creates "graintrace_env" (toolchain + NEML2 v3 stack)
-conda activate graintrace_env
-scripts/get_dependencies.sh --build        # inits moose/neml2, builds NEML2 into MOOSE
-make -j                                     # builds puma-opt
+git submodule update --init neml2
+pip install ./neml2 --no-deps                      # NEML2 v3 Python + `neml2-compile`
 cd ../..
 
-# Install graintrace into the same env (does NOT reinstall neml2/pyzag):
+pip install -e .                                   # graintrace + pyzag into the same env
+```
+
+`--no-deps` on NEML2 keeps the `pyzag==2.0.0` that graintrace installs; the published NEML2 PyPI
+wheel pins an older, incompatible pyzag, which is why NEML2 comes from source here.
+
+### 3. Full CPFE
+
+Reconstruct → simulate needs the whole native stack: MOOSE + libtorch + `puma-opt` + NEML2. Build
+it via PUMA, then install graintrace into that same env:
+
+```bash
+git clone https://github.com/applied-material-modeling/graintrace.git
+cd graintrace
+git submodule update --init external/puma
+
+# Build the native stack: follow external/puma/README.md end to end (conda env, submodules,
+# PETSc/libMesh/WASP, NEML2, `make -j`, and `neml2-compile` for the material models).
+cd external/puma
+# ... PUMA build steps ...
+cd ../..
+
 pip install -e .        # or:  pip install -e ".[dev]"  to run the tests
 ```
 
-graintrace depends on PUMA (one-way): the only thing it needs at runtime is the `puma-opt` binary
-at `external/puma/puma-opt`; pass it as `moose_run_file` to `CPFESimulation` (see
-`examples/demonstrate_cpfe.py`). graintrace intentionally does **not** pin or install neml2/pyzag;
-they come from PUMA's build so `puma-opt`'s C++ library and the Python package stay in lockstep.
+graintrace depends on PUMA one-way: at runtime it needs the `puma-opt` binary at
+`external/puma/puma-opt`; pass it as `moose_run_file` to `CPFESimulation` (see
+`examples/demonstrate_cpfe.py`). NEML2 comes from PUMA's build so `puma-opt`'s C++ library and the
+Python `neml2` stay in lockstep; `pyzag` is provided by graintrace's pip install.
 
 ## External compiled stack (single PUMA submodule)
 
@@ -108,11 +145,14 @@ submodules, so graintrace pins PUMA once and gets the whole stack:
 | `external/puma` | github.com/applied-material-modeling/puma | development | `moose/` + `neml2/` (its own submodules) |
 
 ```bash
-git submodule update --init --recursive external/puma
+git submodule update --init external/puma          # graintrace -> puma
+cd external/puma && git submodule update --init    # puma -> moose/ + neml2/
 ```
 
-> Pinned to a specific PUMA commit (recursive init also pins PUMA's moose/neml2), so updates are
-> deliberate. To re-point, update `.gitmodules` and the `external/puma` gitlink, then re-init.
+The init is intentionally **not** recursive: it stops at PUMA's `moose/` and `neml2/`. MOOSE's own
+submodules (PETSc, libMesh, WASP) are initialized by MOOSE's build scripts during the PUMA build,
+not here. Each gitlink pins a specific commit, so updates are deliberate: to re-point, update
+`.gitmodules` and the `external/puma` gitlink, then re-init.
 
 ## CUBIT/SCULPT (proprietary; bring your own license)
 
@@ -139,8 +179,7 @@ Coreform CUBIT (National-Lab, commercial, or education license) provides CUBIT +
 `pip install graintrace` (or `pip install -e .`). Nothing extra to do.
 
 **NEPER** is an external tool graintrace drives (like CUBIT/SCULPT); it is **not** a pip package, so
-you install it yourself. graintrace no longer downloads or compiles NEPER on your behalf by default
-(the old behavior was Linux-only and fragile). Install NEPER once, then point graintrace at it:
+you install it yourself. Install NEPER once, then point graintrace at it:
 
 1. Install NEPER: see <https://neper.info/doc/introduction.html#installing-neper> (a distro package,
    the official tarball, or a from-source build all work).
@@ -153,9 +192,8 @@ you install it yourself. graintrace no longer downloads or compiles NEPER on you
    - or pass `neper_path=/abs/path/to/neper` (or a prepared `env=`) to `VoronoiMeshBuilder` /
      `CrystalGenerator`.
 
-If NEPER cannot be found, the builders raise a clear error with these instructions. As a last resort
-on Linux you can pass `auto_install=True` to build GSL + OpenBLAS + NEPER into `~/.local` (the legacy
-behavior, now opt-in).
+If NEPER cannot be found, the builders raise a clear error with these instructions. On Linux you can
+also pass `auto_install=True` to build GSL + OpenBLAS + NEPER into `~/.local`.
 
 ## Examples & workflow segments
 
@@ -183,7 +221,7 @@ pytest tests/
 **101 tests.** On a plain checkout without the PUMA-built NEML2, the NEML2/pyzag-dependent tests
 (orientation math, dependency checks) **skip** via `pytest.importorskip` rather than error, so the
 pure-Python subset (data classes, similarity metrics, clustering, post-processing, stitching, REI
-comparison) runs green. Run inside the PUMA-built `graintrace_env` to exercise the full suite
+comparison) runs green. Run inside the PUMA-built env to exercise the full suite
 (then **99 pass, 2 skip**; the 2 skips are the CUBIT-binary checks, which skip unless you set
 `PSCULPT` / `CUBIT_MPIEXEC` or `CUBIT_BIN_DIR`).
 

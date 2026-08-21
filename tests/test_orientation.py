@@ -30,7 +30,7 @@ import pytest
 import torch
 
 # orientation_helper's conversions delegate to neml2 (types/ops). The working
-# neml2 is the repo-pinned build supplied by PUMA into graintrace_env; on a plain
+# neml2 is the repo-pinned build supplied by PUMA into the PUMA env; on a plain
 # checkout without it, skip this module rather than erroring.
 pytest.importorskip("neml2")
 

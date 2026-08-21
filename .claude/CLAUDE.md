@@ -838,8 +838,8 @@ if __name__ == "__main__":
 
 ### Pole figures use neml2.texture (v3)
 `plot_pole_figure` uses `neml2.texture` (`polefigure`, `odf`, IPF helpers). If the
-import fails the bindings are outdated; reinstall neml2 v3 from `moose_neml2_v3/neml2`
-(`pip install . -v`) into `graintrace_env`.
+import fails the bindings are outdated; reinstall neml2 v3 from the PUMA neml2 submodule
+(`external/puma/neml2`, `pip install . --no-deps`) into the `moose-src` env.
 
 ### GPU: if available, always use it
 The GPU-accelerated steps are **CPFE** and **material calibration** (and pole
@@ -955,7 +955,8 @@ graintrace/
 
 Each workflow segment has a runnable example (`examples/demonstrate_*.py`, flat top-level
 `## INPUT` style) and an invocable Skill (`/<name>`, in `.claude/skills/<name>/SKILL.md`) that
-distills the recipe. Run examples from `graintrace_env` (`conda activate graintrace_env`).
+distills the recipe. Run examples from the `moose-src` env (`conda activate moose-src`), the
+standard graintrace env (graintrace pip-installed editable; neml2 v3.0.7 + pyzag 2.0.0).
 
 | `/skill` | Segment | Example | Self-contained data |
 |---|---|---|---|

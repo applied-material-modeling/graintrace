@@ -9,7 +9,7 @@ description: >
 
 # FF (far-field) Voronoi reconstruction
 
-Uses `VoronoiMeshBuilder` (NEPER). Env: `conda activate graintrace_env`. External tool:
+Uses `VoronoiMeshBuilder` (NEPER). Env: `conda activate moose-src`. External tool:
 **NEPER** (+ GMSH if `generate_mesh=True`).
 
 ## Inputs

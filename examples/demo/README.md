@@ -33,7 +33,7 @@ purpose; it's not something an experiment measures.
 ## Run it (script)
 
 ```bash
-conda activate graintrace_env
+conda activate moose-src
 python examples/demo/generate_experiment.py   # once: builds experiment/ (~200 grains, NEPER)
 python examples/demo/run_demo.py              # the full pipeline, CPFE runs to completion
 ```

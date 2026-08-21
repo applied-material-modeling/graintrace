@@ -10,7 +10,7 @@ description: >
 # Grain tracking across load steps
 
 Uses `VoronoiMeshBuilder.build_graph` + `grain_graph_matching.GraphGrainMatcher`. Env:
-`conda activate graintrace_env`. External tool: **NEPER** (tessellation for the graph).
+`conda activate moose-src`. External tool: **NEPER** (tessellation for the graph).
 
 ## Inputs
 Two FF grain CSVs (same sample, two load steps) with `X,Y,Z,Eul0/1/2,eKen11..33`.
