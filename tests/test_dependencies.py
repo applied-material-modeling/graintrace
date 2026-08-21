@@ -71,8 +71,11 @@ def test_pyzag_backend_available():
     """The NEML2 v3 pyzag adapter + pyzag must be importable for calibration."""
     pytest.importorskip("neml2")
     pytest.importorskip("pyzag")
-    from neml2.pyzag import NEML2PyzagFactory  # noqa: F401
+    import neml2
+    from neml2.pyzag import NEML2PyzagModel  # noqa: F401
     from pyzag import nonlinear, chunktime, reparametrization  # noqa: F401
+
+    assert hasattr(neml2, "compile")
 
 
 def test_cubit_psculpt_exists():
