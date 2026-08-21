@@ -22,7 +22,8 @@ is the heaviest step: runs on GPU, minutes to hours. It always runs as a
 background job.
 
 ## Minimum you must supply
-- `mesh_file`: `.msh` (FF) or `.e` (NF) mesh.
+- `mesh_file`: a SCULPT/voxel hex `.e` (the default for FF and NF) or a GMSH tet `.msh`
+  (FF fallback). CPFE runs on either; hex is the recommended path (see the `meshing` recipe).
 - `save_simulation_folder`: output dir.
 - `ori_file`: per-grain/element orientations, **NEML2 v3 MRP** (convert FF
   `orientations.dat` with `orientation_helper.euler_to_mrp` first).

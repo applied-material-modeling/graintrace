@@ -34,7 +34,7 @@ builder = VoronoiMeshBuilder(
     strain_unit="microstrain", unit="rad",              # unit of the Euler angles
 )
 builder.build_voronoi(
-    generate_mesh=True,          # True -> also GMSH .msh (slow); False = tess only
+    generate_mesh=False,         # default. True -> NEPER/GMSH tet .msh (slow), a FALLBACK only
     option="centroid",           # "voronoi" | "centroid" | "centroidsize"
     CVT_iter=1000, morphoalgo="subplex",
     mesh_quality_min=0.7, relative_el_size=2.0,
@@ -46,10 +46,12 @@ builder.build_voronoi(
   out-of-box points (`remove_points` for production).
 - `unit` (`"rad"`/`"deg"`) must match the actual Euler units; `strain_unit` for the ee columns.
 - `option`/`CVT_iter`/`morphoalgo`: tessellation morphology + CVT optimization.
-- `generate_mesh`: GMSH mesh (needed for CPFE); `relative_el_size` ~ elements per grain.
+- `generate_mesh`: keep `False`. The default CPFE mesh is SCULPT hex from
+  `reconstruction_reformatted.csv` via `VoxelMeshBuilder` (see `/meshing`); the NEPER/GMSH tet
+  `.msh` (`generate_mesh=True`, `relative_el_size` ~ elements per grain) is a fallback only.
 
 ## Outputs (in `output_dir`)
-- `reconstruction.tess` / `reconstruction.msh` (mesh) / `reconstruction.ori` (9-col rotmat)
+- `reconstruction.tess` / `reconstruction.ori` (9-col rotmat) / `reconstruction.msh` (GMSH tet, fallback; only if `generate_mesh=True`)
 - `orientations.dat`: per-grain Euler, **always degrees after FF build** (convert with
   `orientation_helper.euler_to_mrp` before CPFE)
 - `reconstruction_cpfe_ee.csv`: per-grain initial elastic strain (12 cols: x,y,z + 9)

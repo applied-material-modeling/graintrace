@@ -12,7 +12,7 @@ This file is for Claude's use when helping write or debug experiment scripts. It
 
 | Dependency | Role |
 |---|---|
-| **NEPER** | Voronoi/CVT tessellation from FF centroids; produces `.tess` and `.msh` files |
+| **NEPER** | Voronoi/CVT tessellation from FF centroids; produces `.tess` (and an optional `.msh` tet mesh — a fallback; the default FF mesh is SCULPT hex) |
 | **CUBIT/SCULPT** (`psculpt`) | Hexahedral mesh generation from voxel `.spn` files (NF/EBSD meshes) |
 | **MOOSE/PUMA** (`puma-opt`) | Runs CPFE simulations; outputs CSV field data at grid points |
 | **neml2** | Crystal plasticity material model (Taylor model, CPFE model); Python bindings used for orientation math and calibration |
@@ -139,7 +139,7 @@ benchmark that shows tessellation does **not** reliably beat the sphere. For tru
 morphology use NF-HEDM, not an FF tessellation. Generate anisotropic test microstructures with
 `CrystalGenerator` via the `raw` morpho type: `morpho_str="diameq:lognormal(130,5),aspratio(1,1,3)"`.
 
-### Step 2: Build Voronoi reconstruction (NEPER/GMSH)
+### Step 2: Build Voronoi reconstruction (NEPER)
 ```python
 from graintrace.construct_voronoi_mesh import VoronoiMeshBuilder
 
@@ -166,7 +166,7 @@ builder_ff = VoronoiMeshBuilder(
 )
 
 builder_ff.build_voronoi(
-    generate_mesh=False,             # True = also generate .msh via GMSH (slow)
+    generate_mesh=False,             # keep False (default). True = NEPER/GMSH tet .msh — a FALLBACK only, see note below
     option="centroid",               # "voronoi" | "centroid" | "centroidsize"
     CVT_iter=1000,                   # CVT optimization iterations
     morphoalgo="subplex",            # "subplex" | "lloyd" | "praxis"
@@ -177,10 +177,16 @@ builder_ff.build_voronoi(
 ```
 
 Key outputs in `output_dir`:
-- `reconstruction.msh`: GMSH mesh (if `generate_mesh=True`)
-- `reconstruction_reformatted.csv`: per-voxel grain IDs and orientations
+- `reconstruction_reformatted.csv`: per-voxel grain IDs and orientations (input to the default hex mesher)
 - `reconstruction_cpfe_ee.csv`: per-grain elastic strain for CPFE initial conditions
 - `orientations.dat`: Euler angles for each grain (always degrees after FF build)
+- `reconstruction.msh`: NEPER/GMSH tet mesh — **fallback only**, written only if `generate_mesh=True`
+
+**Default FF meshing = SCULPT hex, not GMSH.** The recommended CPFE mesh is a conformal hex
+built from `reconstruction_reformatted.csv` via `VoxelMeshBuilder` (`mesher="sculpt"` default,
+§5), or `mesher="voxel"` for a no-CUBIT one-cube-per-voxel hex dump. Hex elements behave better
+for crystal plasticity and the rest of the pipeline is built around them. The NEPER/GMSH tet
+`.msh` (`generate_mesh=True`) is a **fallback** for when CUBIT/SCULPT is unavailable.
 
 ### Step 3 (optional): Build graph from tessellation
 ```python
@@ -207,9 +213,9 @@ neml2 MRP, which is what the CPFE model's `orientation` IC and `ori_rodrigues` o
 from graintrace.run_cpfe_simulation import CPFESimulation
 
 sim = CPFESimulation(
-    mesh_file="out/FF/reconstruction.msh",
+    mesh_file="out/FF/mesh.e",       # default: SCULPT hex from VoxelMeshBuilder (§5). Fallback: "out/FF/reconstruction.msh" (GMSH tet)
     save_simulation_folder="out/simulation",
-    element_order="SECOND",          # "FIRST" or "SECOND"
+    element_order="FIRST",           # FIRST for SCULPT/voxel hex; SECOND for a GMSH tet .msh
     eeres_file="out/FF/reconstruction_cpfe_ee.csv",
     ori_file="out/FF/orientations_MRP.dat",
     dim=3,

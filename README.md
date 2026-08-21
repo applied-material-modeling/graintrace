@@ -1,21 +1,23 @@
-# graintrace
+# graintrace — Grain Texture and Response Analysis for Crystal Exploration
 
-Crystal plasticity finite element (CPFE) pipeline for APS HEDM experiments.
+An end-to-end crystal-plasticity toolkit for grain-scale materials experiments: reconstruct or
+generate 3D microstructures from HEDM/EBSD, calibrate the material model, run GPU CPFE, track
+grains across load steps, and identify rare events for targeted measurement.
 
-graintrace is a Python toolkit that links experimental grain scale characterization (far field and near field high energy diffraction microscopy, HEDM, plus EBSD) to CPFE simulation. It ingests raw scan data, reconstructs a 3D microstructure mesh, calibrates a crystal plasticity material model, runs the CPFE simulation, and analyzes the results to pinpoint the grains and regions worth measuring in more detail.
+graintrace works with far-field and near-field high-energy diffraction microscopy (HEDM) and EBSD, closing the loop from raw grain-scale measurements to a calibrated crystal-plasticity prediction — and back to which grains and regions are worth measuring in more detail.
 
 **Architecture.** graintrace is the Python orchestration layer over a compiled scientific stack:
 
 - **MOOSE / PUMA**: finite element framework and solver.
 - **NEML2 v3**: GPU accelerated crystal plasticity constitutive models, AOTI compiled.
 - **pyzag**: analytic adjoint gradients for material calibration.
-- **NEPER**: Voronoi/CVT tessellation; **Coreform CUBIT/SCULPT** (or gmsh): meshing.
+- **NEPER**: Voronoi/CVT tessellation for FF; **Coreform CUBIT/SCULPT**: conformal hex meshing (FF/NF/EBSD), with a NEPER/gmsh tet mesh as a fallback.
 
 The pipeline runs reconstruct, calibrate, simulate (CPFE), then analyze and identify rare events.
 
 **Features**
 
-- **Experiment data handling**: ingest and register real FF/NF HEDM and EBSD scans, and reconstruct a 3D microstructure. FF grain centroids become a Voronoi/CVT tessellation (NEPER); NF and EBSD voxel fields are segmented into grains (flood fill or graph/Leiden clustering) and meshed to conformal hex with CUBIT/SCULPT; multiple FF scan layers are stitched into one grain set by region matching. *See `examples/demonstrate_farfield.py`, `examples/demonstrate_cpfe_nfff.py`, `examples/demonstrate_grid_segmentation_mesh.py`.*
+- **Experiment data handling**: ingest and register real FF/NF HEDM and EBSD scans, and reconstruct a 3D microstructure. FF grain centroids become a Voronoi/CVT tessellation (NEPER); NF and EBSD voxel fields are segmented into grains (flood fill or graph/Leiden clustering); all three reconstructions are meshed to conformal hex with CUBIT/SCULPT (a NEPER/gmsh tet mesh is a fallback); multiple FF scan layers are stitched into one grain set by region matching. *See `examples/demonstrate_farfield.py`, `examples/demonstrate_cpfe_nfff.py`, `examples/demonstrate_grid_segmentation_mesh.py`.*
 - **Virtual microstructure generation**: synthesize microstructures faithful to input grain size and orientation distributions via NEPER morphology control, accounting for HEDM scanning strategies. *See `examples/demonstrate_hedm_study.py`.*
 - **GPU CPFE and fast calibration**: run CPFE with NEML2 AOTI compiled crystal plasticity models on GPU; calibrate the material to a macroscopic stress vs strain curve with a pyzag analytic adjoint Taylor model, in under 30 minutes for 100+ grains. *See `examples/demonstrate_cpfe.py`, `examples/demonstrate_material_calibration.py`.*
 - **Grain tracking**: match grains across load steps by building a grain graph from each reconstruction and matching via message passing. *See `examples/demonstrate_graintracking.py`.*
@@ -41,7 +43,9 @@ a feature raises a clear error only when a tool it needs is missing.
 | Pole figures / orientation math | ✅ | ✅ | | | |
 | CPFE simulation | ✅ | ✅ | ✅ | ✅¹ | ✅¹ |
 
-¹ CPFE needs a mesh: FF meshes come from NEPER, NF/EBSD meshes from CUBIT/SCULPT.
+¹ CPFE needs a mesh: by default all of FF/NF/EBSD are meshed to hex with CUBIT/SCULPT (FF also
+uses NEPER for the tessellation). A no-CUBIT voxel-hex dump and a NEPER/gmsh tet mesh (which CPFE
+also runs on) are fallbacks.
 
 `pyzag` is installed automatically by `pip install graintrace` (it is pure-Python and on PyPI). The
 **NEML2 (Python)** column is the `neml2` package built by PUMA (see [Install](#install)); **PUMA
@@ -70,7 +74,7 @@ Post-processing, REI, REI comparison, stitching, similarity metrics. No conda or
 needed:
 
 ```bash
-pip install graintrace            # once published to PyPI
+pip install graintrace
 # from a source checkout instead:  pip install -e .
 # optional extras:
 pip install "graintrace[gnn]"       # grain-graph / GNN utilities (torch-geometric)
@@ -81,6 +85,16 @@ pip install "graintrace[dev]"       # test/lint/build tooling (pytest, black, is
 
 `import graintrace` works with no NEML2 present (the compiled stack is lazy-imported). This tier
 also installs `pyzag`.
+
+**To run the examples or benchmarks**, clone the repo and install from the checkout — the PyPI
+package ships only the `graintrace` library, not `examples/`, `benchmark/`, or the `mwe_data/`
+sample datasets:
+
+```bash
+git clone https://github.com/applied-material-modeling/graintrace.git
+cd graintrace
+pip install -e ".[examples]"   # editable install; examples/, benchmark/, mwe_data/ are now local
+```
 
 ### 2. NEML2 features without CPFE
 
@@ -197,19 +211,35 @@ also pass `auto_install=True` to build GSL + OpenBLAS + NEPER into `~/.local`.
 
 ## Examples & workflow segments
 
-Runnable examples live in `examples/demonstrate_*.py` (flat top-level `## INPUT` style). Many
-use the small self-contained datasets shipped under `mwe_data/`. Each workflow segment also has
-a `/skill` guide (`.claude/skills/…`); `.claude/CLAUDE.md` §12 maps segment → example → skill.
+`examples/demonstrate_*.py` are runnable, self-contained tutorials (flat top-level `## INPUT`
+style), mostly backed by the small datasets under `mwe_data/`. Each maps to a `/skill` guide
+(`.claude/skills/…`). The **Needs** column: *pip only* runs from `pip install graintrace` alone;
+the rest need the external tool(s) shown (see the [capabilities table](#capabilities-and-what-each-one-needs)).
 
-Minimum end-to-end check (needs the full external stack): `examples/demonstrate_cpfe_nfff.py`.
-Before running, edit the `sculpt_config`, `moose_run_file`, `ncore`, and `device` at the top of
-the script to match your machine.
+| Example | What it shows | Needs |
+|---|---|---|
+| `demonstrate_hedm_study.py` | synthetic crystal → overlapping HEDM z-scans → stitch → compare to truth | NEPER |
+| `demonstrate_hedm_anisotropic.py` | anisotropic (`aspratio`) microstructure generation benchmark | NEPER |
+| `demonstrate_farfield.py` | FF Voronoi reconstruction: orientations, initial elastic strain, `.tess` | NEPER |
+| `demonstrate_grid_segmentation_mesh.py` | EBSD/gridded-NF voxel graph-segmentation + SCULPT hex mesh | CUBIT/SCULPT |
+| `demonstrate_synthetic_cpfe.py` | meshing options — SCULPT flags and the no-CUBIT voxel-hex dump | NEPER, CUBIT/SCULPT |
+| `demonstrate_material_calibration.py` | pyzag-adjoint Taylor calibration of 6 crystal-plasticity params | NEML2 |
+| `demonstrate_cpfe.py` | FF CPFE via NEML2 AOTI + `puma-opt` (ships a 10-grain mesh) | NEML2, puma-opt |
+| `demonstrate_cpfe_nfff.py` | end-to-end: NF geometry + FF initial strain CPFE | full stack |
+| `demonstrate_postprocess.py` | field distributions / macroscopic stress–strain / IPF | pip only |
+| `demonstrate_rei_pipeline.py` | rare-event ID: graph cluster → hierarchical merge → rare VTK | pip only |
+| `demonstrate_rei_example_2D.py`, `..._3D.py` | REI on 2D / 3D synthetic fields | pip only |
+| `demonstrate_rei_comparison.py` | compare two REI point clouds → overlap metrics + classified VTK | pip only |
+| `demonstrate_graintracking.py` | match grains across load steps via a grain graph | NEPER |
 
-Python-only checks (no MOOSE/CUBIT/NEPER needed):
+*full stack* = NEML2 + `puma-opt` + NEPER + CUBIT/SCULPT. The minimum end-to-end check is
+`demonstrate_cpfe_nfff.py`; before running, edit the `sculpt_config`, `moose_run_file`, `ncore`,
+and `device` at the top of the script to match your machine.
 
-- `examples/demonstrate_postprocess.py`
-- `examples/demonstrate_rei_pipeline.py`, `examples/demonstrate_rei_example_2D.py`, `..._3D.py`
-- `examples/demonstrate_graintracking.py` (needs NEPER)
+`examples/run_experiment_*.py` are **real-experiment driver templates** (FF-only, NF+FF, the AFRL
+dataset, stitching comparison, crystal reconstruction) that read your own scan data — copy and
+adapt one rather than running it as-is. `.claude/CLAUDE.md` §12 maps each workflow segment →
+example → skill.
 
 ## Running the test suite
 
