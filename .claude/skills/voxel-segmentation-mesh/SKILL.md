@@ -9,7 +9,7 @@ description: >
 
 # Voxel / grid segmentation + meshing
 
-Uses `VoxelMeshBuilder`. Env: `conda activate graintrace_env`. External tool:
+Uses `VoxelMeshBuilder`. Env: `conda activate moose-src`. External tool:
 **CUBIT/SCULPT** via `sculpt_config`. Graph segmentation uses networkit (Leiden).
 Wrap driver in `if __name__ == "__main__": main()`.
 

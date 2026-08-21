@@ -17,7 +17,7 @@ microstructures (equiaxed, lamellar, columnar and elongated) and grain size
 distributions (lognormal, normal and bi-modal). For meshing the generated grid,
 see the `/meshing` skill.
 
-Env: `conda activate graintrace_env`. External tool: **NEPER**.
+Env: `conda activate moose-src`. External tool: **NEPER**.
 Example: `examples/demonstrate_hedm_anisotropic.py` (12-case anisotropic study);
 `examples/demonstrate_synthetic_cpfe.py` also generates then meshes + runs CPFE.
 

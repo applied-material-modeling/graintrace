@@ -9,7 +9,7 @@ description: >
 
 # Material calibration (pyzag-adjoint Taylor model)
 
-Uses `MaterialCalibration` + `TaylorModel`. Env: `conda activate graintrace_env`.
+Uses `MaterialCalibration` + `TaylorModel`. Env: `conda activate moose-src`.
 External tool: **NEML2 v3** only (no MOOSE). CUDA optional.
 
 ## Inputs

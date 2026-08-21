@@ -29,8 +29,9 @@ import os
 import pytest
 
 
-# The working neml2/pyzag is the repo-pinned build PUMA installs into
-# graintrace_env; on a plain checkout without it these skip (not error).
+# The working neml2 is the repo-pinned build PUMA installs into the PUMA env
+# (pyzag comes from graintrace's pip deps); on a plain checkout without neml2
+# these skip (not error).
 
 
 def test_neml2_importable():

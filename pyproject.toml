@@ -35,12 +35,14 @@ classifiers = [
     "Operating System :: POSIX :: Linux",
 ]
 
-# Pure-Python runtime deps only. The compiled/licensed stack (neml2, pyzag,
-# MOOSE/PUMA, CUBIT, NEPER, libtorch) is NOT declared here: neml2/pyzag come from
-# PUMA's repo-pinned build into `graintrace_env` (ABI-matched to `puma-opt`), not
-# a PyPI wheel. `__init__` lazy-imports it, so bare `pip install graintrace` runs
-# the pure-Python features (REI, stitching); neml2-using features (calibration,
-# CPFE) need the PUMA-built stack. See README.
+# Runtime deps. The compiled/licensed native stack (NEML2, MOOSE/PUMA, CUBIT,
+# NEPER, libtorch) is provided by the PUMA build, not by pip: PUMA builds NEML2
+# from its pinned submodule (ABI-matched to `puma-opt`), so a PyPI NEML2 wheel is
+# not used. `__init__` lazy-imports NEML2, so bare `pip install graintrace` runs
+# the pure-Python features (post-processing, REI, stitching); NEML2-using features
+# (calibration, pole figures, CPFE) need the PUMA-built NEML2. See README.
+# pyzag IS a pip dependency: it is pure-Python, ships on PyPI, and is the
+# applied-material-modeling 2.0.0 build that NEML2 v3 requires.
 dependencies = [
     "numpy>=1.26",
     "pandas>=2.0",
@@ -56,6 +58,7 @@ dependencies = [
     "numba>=0.59",
     "gmsh>=4.12",
     "multiprocess",
+    "pyzag==2.0.0",
 ]
 
 [project.optional-dependencies]

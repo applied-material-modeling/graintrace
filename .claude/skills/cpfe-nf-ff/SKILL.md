@@ -9,7 +9,7 @@ description: >
 
 # CPFE (NF geometry + FF initial strain)
 
-Mirrors `examples/demonstrate_cpfe_nfff.py`. Env: `conda activate graintrace_env`.
+Mirrors `examples/demonstrate_cpfe_nfff.py`. Env: `conda activate moose-src`.
 External tools: **NEPER** (FF/synthetic), **CUBIT/SCULPT** (`sculpt_config`, NF mesh),
 **MOOSE `puma-opt` + `neml2-compile`**. Wrap driver in `if __name__ == "__main__":`.
 

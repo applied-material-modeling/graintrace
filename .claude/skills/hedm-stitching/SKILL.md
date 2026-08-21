@@ -9,7 +9,7 @@ description: >
 
 # HEDM scan simulation + stitching
 
-Mirrors `examples/demonstrate_hedm_study.py`. Env: `conda activate graintrace_env`.
+Mirrors `examples/demonstrate_hedm_study.py`. Env: `conda activate moose-src`.
 External tool: **NEPER** (crystal generation + z-scan). No MOOSE/CUBIT.
 
 ## Inputs

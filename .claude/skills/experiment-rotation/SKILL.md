@@ -9,7 +9,7 @@ description: >
 
 # Experiment rotation (register FF data to sim frame)
 
-Uses `graintrace.experiment_rotation_helper`. Env: `conda activate graintrace_env`.
+Uses `graintrace.experiment_rotation_helper`. Env: `conda activate moose-src`.
 External tool: **NEPER** (a Voronoi build per file supplies the rotated `O`).
 
 ## Inputs

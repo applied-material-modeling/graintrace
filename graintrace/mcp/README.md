@@ -96,7 +96,7 @@ config (Claude Desktop: `claude_desktop_config.json`; Claude Code:
 ```
 
 Use the conda env's interpreter if `graintrace-mcp` isn't on the default PATH,
-e.g. `"command": "/home/you/miniconda3/envs/graintrace_env/bin/graintrace-mcp"`.
+e.g. `"command": "/home/you/miniconda3/envs/<your-puma-env>/bin/graintrace-mcp"`.
 Make sure `PATH` in `env` includes NEPER and any built binaries, since the client
 launches the server as a subprocess.
 

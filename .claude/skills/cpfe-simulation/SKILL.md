@@ -9,7 +9,7 @@ description: >
 
 # CPFE simulation (FF, NEML2 v3 / AOTI)
 
-Uses `CPFESimulation`. Env: `conda activate graintrace_env`. External tools:
+Uses `CPFESimulation`. Env: `conda activate moose-src`. External tools:
 **MOOSE `puma-opt` + `neml2-compile`** (AOTI). CUDA recommended.
 
 ## Inputs

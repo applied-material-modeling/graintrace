@@ -17,7 +17,7 @@ Two hex-meshing paths, both via `VoxelMeshBuilder.mesh()`:
 voxel-to-Exodus, no external tools). Recommendations below are from 12 studied
 microstructure cases. For generating the grid, see `/microstructure-generation`.
 
-Env: `conda activate graintrace_env`. External tool for SCULPT path:
+Env: `conda activate moose-src`. External tool for SCULPT path:
 **CUBIT/SCULPT** (the voxel path needs none).
 Example: `examples/demonstrate_synthetic_cpfe.py` (generates, meshes both ways,
 then runs CPFE).

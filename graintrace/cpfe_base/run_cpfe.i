@@ -63,7 +63,6 @@
     input = '${neml2_stub}'
     [all]
         model = 'model'
-        verbose = true
         device = '${device_neml2}'
         # per-device batch chunk (0 = whole local batch; finite caps GPU memory)
         device_batch = '${device_neml2_batch}'
@@ -104,6 +103,14 @@
         custom_cauchy_stress = 'neml2_stress'
         custom_cauchy_jacobian = 'dneml2_stress/dspatial_deformation_gradient_increment'
         large_kinematics = true
+    []
+    [dcauchy_stress_d_eigenstrain]
+        # residual_strain is a prescribed eigenstrain (initial condition), so its
+        # stress coupling derivative is identically zero. ComputeLagrangianCauchyCustomStress
+        # does not publish this property, so provide it explicitly for the
+        # LagrangianStressDivergence eigenstrain Jacobian term.
+        type = GenericConstantRankFourTensor
+        tensor_name = 'dcauchy_stress_d_eigenstrain'
     []
     [nye_tensor]
         type = CurlR2Material

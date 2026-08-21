@@ -205,8 +205,9 @@ def _check_neml2() -> DepStatus:
     st = _check_python_pkg(
         "neml2",
         "NEML2 v3 is provided by the PUMA build (it builds the repo-pinned NEML2 "
-        "source and installs the python bindings into `graintrace_env`). Build "
-        "PUMA (external/puma; see its README / scripts/get_dependencies.sh).",
+        "source and pip-installs the python bindings --no-deps into the PUMA env). "
+        "Build NEML2 from external/puma/neml2 (see the graintrace README "
+        "'NEML2-only PUMA path', or external/puma/README.md for the full stack).",
     )
     if not st.ok:
         return st
@@ -273,8 +274,8 @@ _PROBES: Dict[str, Callable[[], DepStatus]] = {
     "neml2-aoti": _check_neml2_aoti,
     "pyzag": lambda: _check_python_pkg(
         "pyzag",
-        "pyzag is installed alongside NEML2 by the PUMA build into "
-        "`graintrace_env` (neml2 depends on pyzag). Build PUMA (external/puma).",
+        "pyzag (==2.0.0) is a graintrace pip dependency: `pip install graintrace` "
+        "installs it. If missing, reinstall graintrace into this env.",
     ),
     "gmsh": lambda: _check_python_pkg("gmsh", "`pip install gmsh`."),
     "torch_geometric": lambda: _check_python_pkg(

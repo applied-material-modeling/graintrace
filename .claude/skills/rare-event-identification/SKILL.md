@@ -10,7 +10,7 @@ description: >
 # Rare-event identification (REI)
 
 Uses `rare_cluster_indicator.IdentifyRareClusters` (+ `GraphSpatialCluster`,
-`ClusterAnalysisIndicator`, `SimilarityMetricLibrary`). Env: `conda activate graintrace_env`.
+`ClusterAnalysisIndicator`, `SimilarityMetricLibrary`). Env: `conda activate moose-src`.
 Pure Python (networkit Leiden + scipy hierarchical + PyVista/VTK). No MOOSE/NEPER/CUBIT.
 The clustering pipeline no longer needs an `if __name__ == "__main__"` guard.
 

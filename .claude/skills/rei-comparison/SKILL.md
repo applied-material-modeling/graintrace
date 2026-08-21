@@ -10,7 +10,7 @@ description: >
 
 # REI comparison
 
-Uses `rei_comparison.REIComparison`. Env: `conda activate graintrace_env`.
+Uses `rei_comparison.REIComparison`. Env: `conda activate moose-src`.
 Pure Python (numpy + scipy). No MOOSE/NEPER/CUBIT. Analogous to `ScanStitchingComparison`
 but for rare-region point clouds instead of grain sets.
 
