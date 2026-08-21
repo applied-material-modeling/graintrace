@@ -27,8 +27,10 @@
 from __future__ import annotations
 
 import copy
+import importlib
 import os
 import re
+import shlex
 import shutil
 import subprocess
 from pathlib import Path
@@ -71,6 +73,8 @@ class CPFESimulation:
             "recompile": True,
             # Extra dirs for LD_LIBRARY_PATH. None -> auto-derive from moose_run_file.
             "extra_ld_library_paths": None,
+            # MPI launcher for puma-opt: "mpiexec" (default) or "srun" (Cray/Slurm).
+            "launcher": "mpiexec",
         },
         "material": {
             "slip_constant_strength": 130.0,
@@ -614,11 +618,31 @@ class CPFESimulation:
             raise RuntimeError(f"neml2-compile produced no stub at {stub}; see {log}")
         return stub
 
+    @staticmethod
+    def _package_lib_dirs():
+        """Lib dirs of the installed neml2 + torch packages.
+
+        These hold ``libneml2_eager.so`` / ``libtorch`` that ``puma-opt`` links, so
+        adding them lets the binary resolve them regardless of the build layout.
+        """
+        dirs = []
+        for mod in ("neml2", "torch"):
+            try:
+                pkg = importlib.import_module(mod)
+            except ImportError:
+                continue
+            lib = Path(pkg.__file__).parent / "lib"
+            if lib.is_dir():
+                dirs.append(str(lib))
+        return dirs
+
     def _runtime_env(self):
         """Env for the puma-opt run: add libtorch + PETSc lib dirs to LD_LIBRARY_PATH.
 
         Auto-derives from the moose_run_file repo layout, or override via
-        simulation_parameters['extra_ld_library_paths'].
+        simulation_parameters['extra_ld_library_paths']. The installed neml2 + torch
+        package lib dirs are always added so puma-opt resolves libneml2_eager.so /
+        libtorch regardless of the build layout.
         """
         env = os.environ.copy()
         sim = self.params["simulation_parameters"]
@@ -634,6 +658,7 @@ class CPFESimulation:
             ):
                 if cand.is_dir():
                     paths.append(str(cand))
+        paths.extend(self._package_lib_dirs())
         if paths:
             existing = env.get("LD_LIBRARY_PATH", "")
             env["LD_LIBRARY_PATH"] = os.pathsep.join(
@@ -721,9 +746,12 @@ class CPFESimulation:
         vol_correction_cond = "true" if self.element_order == "FIRST" else "false"
 
         log_path = self.save_simulation_folder / "cpfe_run.log"
+        launcher = shlex.split(
+            str(self.params["simulation_parameters"].get("launcher", "mpiexec"))
+        )
         argv = [
             "nohup",
-            "mpiexec",
+            *launcher,
             "-n",
             str(ncore),
             str(self.moose_run_file),

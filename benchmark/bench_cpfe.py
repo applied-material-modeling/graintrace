@@ -48,6 +48,7 @@ from __future__ import annotations
 
 import argparse
 import re
+import shlex
 import shutil
 import time
 from pathlib import Path
@@ -245,8 +246,9 @@ def bench(args) -> None:
     puma = Path(args.puma_bin).expanduser()
     if not puma.exists():
         skip(f"puma-opt not found at {puma} (pass --puma-bin)")
-    if not shutil.which("mpiexec"):
-        skip("mpiexec not on PATH")
+    launcher_bin = shlex.split(args.launcher)[0]
+    if not shutil.which(launcher_bin):
+        skip(f"{launcher_bin} (launcher) not on PATH")
     if not _cuda_available():
         skip("no CUDA GPU available (CPFE benchmark targets the GPU)")
 
@@ -310,6 +312,7 @@ def bench(args) -> None:
             number_of_elements=[ngrid, ngrid, ngrid],
             bounding_box=grid_bb,
         )
+        sim.set_parameters("simulation_parameters", launcher=args.launcher)
 
         if args.neml2_load_file:
             sim.set_parameters(
@@ -373,7 +376,12 @@ def main() -> None:
     )
     p.add_argument("--device-batch", default="5000,20000,50000", dest="device_batch")
     p.add_argument("--device", default="cuda:0")
-    p.add_argument("--ncore", type=int, default=1, help="MPI ranks (mpiexec -n)")
+    p.add_argument("--ncore", type=int, default=1, help="MPI ranks (launcher -n)")
+    p.add_argument(
+        "--launcher",
+        default="mpiexec",
+        help='MPI launcher for puma-opt: "mpiexec" (default) or "srun" (Cray/Slurm)',
+    )
     p.add_argument("--n-grains", type=int, default=50, dest="n_grains")
     p.add_argument("--spacing", type=float, default=5.0, help="voxel size (um)")
     p.add_argument("--total-strain", type=float, default=0.005, dest="total_strain")
