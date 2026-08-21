@@ -13,9 +13,11 @@ Uses `CPFESimulation`. Env: `conda activate moose-src`. External tools:
 **MOOSE `puma-opt` + `neml2-compile`** (AOTI). CUDA recommended.
 
 ## Inputs
-A GMSH/Exodus mesh + per-grain orientations. Self-contained: `mwe_data/cpfe_ff/`
-(`reconstruction.msh` + `orientations.dat`, 10 grains). Orientations must be **neml2 MRP**;
-convert FF Euler `orientations.dat` (degrees) with `orientation_helper.euler_to_mrp`.
+A hex (`.e`) or tet (`.msh`) mesh + per-grain orientations; CPFE runs on either. Self-contained:
+`mwe_data/cpfe_ff/` (`reconstruction.msh` + `orientations.dat`, 10 grains) — this sample ships a
+GMSH tet mesh, but the default/recommended FF route is SCULPT hex (see `/meshing`). Orientations
+must be **neml2 MRP**; convert FF Euler `orientations.dat` (degrees) with
+`orientation_helper.euler_to_mrp`.
 
 ## Recipe (mirrors demonstrate_cpfe.py)
 ```python
