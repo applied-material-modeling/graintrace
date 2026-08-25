@@ -88,6 +88,18 @@ class GridResampler:
         extra_ld_library_paths=None,
         ncore=1,
     ):
+        """Configure an offline grid resample of a saved CPFE Exodus.
+
+        Args:
+            cpfe_exodus: Path to the native-mesh CPFE Exodus (sim_output.e) containing the fields to resample. Must exist.
+            save_dir: Output directory; grid CSVs are written under save_dir/grid_out/. Created if needed.
+            number_of_elements: Regular-grid resolution [nx, ny, nz] (must have length 3).
+            bounding_box: Grid extent [xlo, xhi, ylo, yhi, zlo, zhi]; use the same inset grid box as the original run.
+            moose_run_file: Path to the built PUMA binary (puma-opt) that drives the resample. Must exist.
+            launcher: MPI launcher command, "mpiexec" (default) or "srun" on Cray/Slurm.
+            extra_ld_library_paths: Optional list of extra directories to prepend to LD_LIBRARY_PATH; if None, libtorch/PETSc dirs are auto-derived from moose_run_file's repo layout.
+            ncore: Number of MPI ranks for the resample (passed as -n to the launcher). Default 1.
+        """
         self.cpfe_exodus = Path(cpfe_exodus).resolve()
         if not self.cpfe_exodus.exists():
             raise FileNotFoundError(f"CPFE Exodus not found: {self.cpfe_exodus}")
@@ -147,11 +159,17 @@ class GridResampler:
         return env
 
     def resample(self, timesteps="all"):
-        """Resample the requested Exodus timesteps to grid CSVs; return their paths.
+        """Resample the requested Exodus timesteps to regular-grid CSVs.
 
-        timesteps: "all" (every stored step) or a list of 1-based Exodus timestep
-        indices (MOOSE ``initial_from_file_timestep`` convention). Output CSVs are
-        numbered 0-based under ``save_dir/grid_out/``.
+        Runs the resample_grid.i + resample_source.i templates once per requested timestep,
+        writing save_dir/grid_out/out_element_centroid_<idx4>.csv (0-based indices matching
+        FieldFileNaming) with the schema consumed by SimulationResults / IdentifyRareClusters.
+
+        Args:
+            timesteps: "all" to resample every stored step, or a list of 1-based Exodus timestep indices (MOOSE initial_from_file_timestep convention). Default "all".
+
+        Returns:
+            List of Path objects for the written grid CSVs, in output order.
         """
         if timesteps == "all":
             n = self.num_timesteps()

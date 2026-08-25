@@ -69,6 +69,17 @@ gnn = ["torch-geometric>=2.3"]
 mcp = ["mcp[cli]>=1.2"]
 # Extra deps used by the example scripts under examples/.
 examples = ["meshio>=5.0"]
+# Documentation build (Sphinx). Mirrors the pyzag project's docs toolchain.
+# The compiled stack is mocked at build time (see docs/conf.py autodoc_mock_imports),
+# so the docs build needs none of NEML2/MOOSE/NEPER/CUBIT.
+docs = [
+    "sphinx>=7.0",
+    "sphinx-rtd-theme>=2.0",
+    "nbsphinx>=0.9",
+    "ipython",
+    "sphinx-copybutton>=0.5",
+    "sphinx-design>=0.5",
+]
 dev = ["pytest", "pytest-cov", "black==24.3.0", "isort", "pylint", "build", "twine"]
 
 [project.scripts]

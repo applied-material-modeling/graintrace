@@ -45,6 +45,13 @@ class IdentifyRareClusters:
         id_col: str = "id",
         coord_cols: Tuple[str, str, str] = ("x", "y", "z"),
     ) -> None:
+        """Configure the REI pipeline over a CPFE field CSV.
+
+        Args:
+            input_csv_path: Path to the field CSV (e.g. a grid_out/ or mesh_out/ file) with an id column, coordinate columns, and per-point feature columns.
+            id_col: Name of the per-point id column in the input CSV. Default "id".
+            coord_cols: Names of the (x, y, z) coordinate columns. Default ("x", "y", "z").
+        """
         self.input_csv_path = input_csv_path
         self.id_col = id_col
         self.coord_cols = coord_cols
@@ -60,7 +67,22 @@ class IdentifyRareClusters:
         indicator_run_kwargs: Dict[str, Any],
         reduced_csv_path: str,
     ) -> Dict[str, Any]:
-        """Run graph spatial clustering then the merge indicator; return a result bundle."""
+        """Run graph spatial clustering then the hierarchical merge indicator.
+
+        Stage 1 runs the GraphSpatialCluster to produce per-point labels and a reduced
+        per-cluster CSV; stage 2 runs the ClusterAnalysisIndicator to merge those clusters.
+        Saves the stage-1 labels alongside reduced_csv_path as ``<base>_gsc_labels.npy``.
+
+        Args:
+            gsc: A configured GraphSpatialCluster stage object (from make_stage_objects).
+            indicator: A configured ClusterAnalysisIndicator stage object (from make_stage_objects).
+            gsc_run_kwargs: Keyword arguments for gsc.run (e.g. spec, graph_mode, manhattan_radius, n_jobs, segmenter, seed, weight_cfg, networkit_kwargs, checkpoint options).
+            indicator_run_kwargs: Keyword arguments for indicator.run (e.g. method_type, spec, threshold, method, criterion, dendrogram_path).
+            reduced_csv_path: Path for the reduced per-cluster CSV written by the graph stage; the labels .npy is derived from it.
+
+        Returns:
+            A result bundle dict with keys: input_df, gsc_labels, reduced_csv_path, gsc_extras, indicator_points_df, indicator_clusters_df, indicator_extras. Pass it to run_get_rare_cluster.
+        """
         print("Running clustering analysis...")
 
         input_df = self._load_input_df()
@@ -132,7 +154,27 @@ class IdentifyRareClusters:
         rare_points_csv_path: Optional[str] = None,
         use_sample_std: bool = False,  # pylint: disable=unused-argument  # public API kwarg
     ) -> Dict[str, Any]:
-        """Select rare clusters from the bundle and export them to VTK (and optional CSVs)."""
+        """Select rare clusters from a bundle and export them to VTK (and optional CSVs).
+
+        Maps stage-1 labels to the merged super-labels, applies the rarity criteria to pick
+        rare clusters, assigns block ids (background then one per rare cluster), and writes the
+        result as a STRUCTURED_GRID or POLYDATA VTK depending on export_control.
+
+        Args:
+            bundle: The result dict returned by run_clustering.
+            criteria: A RareCriteria selecting which clusters count as rare (custom selector, or default size-quantile selection using its min_size / size_quantile / max_rare fields).
+            output_vtk_path: Path for the exported VTK file.
+            export_control: "auto" (grid if the points form a full regular grid, else points), "grid", or "points". Default "auto".
+            background_block_id: Block id assigned to non-rare (background) points. Default 1.
+            first_rare_block_id: Block id assigned to the first rare cluster; subsequent rare clusters increment from here. Default 2.
+            also_write_final_label: If True, also write the per-point merged "final_label" array into the VTK. Default True.
+            rare_reduced_stats_csv_path: Optional path to write a per-rare-cluster statistics CSV (mean/var/std per feature, plus min/max when available). Default None.
+            rare_points_csv_path: Optional path to write an (x, y, z, rare_cluster_id) point cloud of the rare points (input to REIComparison). Default None.
+            use_sample_std: Accepted for API compatibility; currently unused. Default False.
+
+        Returns:
+            Dict with keys: output_vtk_path, export_mode, n_points, n_rare_clusters, rare_super_labels, label_to_block, rare_reduced_stats_csv_path, rare_points_csv_path.
+        """
         input_df: pd.DataFrame = bundle["input_df"]
         gsc_labels: np.ndarray = bundle["gsc_labels"]
         indicator_points_df: pd.DataFrame = bundle["indicator_points_df"]
@@ -312,7 +354,14 @@ class IdentifyRareClusters:
         *,
         graph_cluster_out: str,
     ) -> Tuple[GraphSpatialCluster, ClusterAnalysisIndicator]:
-        """Construct the GraphSpatialCluster and ClusterAnalysisIndicator stage objects."""
+        """Construct the GraphSpatialCluster and ClusterAnalysisIndicator stage objects.
+
+        Args:
+            graph_cluster_out: Path to the reduced per-cluster CSV that the graph stage writes and the indicator stage reads (its "cluster_id" column keys the merge).
+
+        Returns:
+            A (GraphSpatialCluster, ClusterAnalysisIndicator) tuple ready to pass to run_clustering.
+        """
         gsc = GraphSpatialCluster(
             csv_path=self.input_csv_path,
             id_col=self.id_col,
