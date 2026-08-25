@@ -4,7 +4,7 @@
         input_files = 'grid_file.i'
         cli_args = 'base_folder=${base_folder};grid_nx=${grid_nx};grid_ny=${grid_ny};grid_nz=${grid_nz};grid_min_x=${grid_xmin};grid_max_x=${grid_xmax};grid_min_y=${grid_ymin};grid_max_y=${grid_ymax};grid_min_z=${grid_zmin};grid_max_z=${grid_zmax}'
         catch_up = false
-        execute_on = 'INITIAL TIMESTEP_END'
+        execute_on = '${grid_transfer_execute_on}'
     []
 []
 

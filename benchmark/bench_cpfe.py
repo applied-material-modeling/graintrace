@@ -312,7 +312,13 @@ def bench(args) -> None:
             number_of_elements=[ngrid, ngrid, ngrid],
             bounding_box=grid_bb,
         )
-        sim.set_parameters("simulation_parameters", launcher=args.launcher)
+        sim.set_parameters(
+            "simulation_parameters",
+            launcher=args.launcher,
+            grid_transfer=args.grid_transfer,
+            exodus_output=args.exodus_output,
+            mesh_csv=args.mesh_csv,
+        )
 
         if args.neml2_load_file:
             sim.set_parameters(
@@ -381,6 +387,27 @@ def main() -> None:
         "--launcher",
         default="mpiexec",
         help='MPI launcher for puma-opt: "mpiexec" (default) or "srun" (Cray/Slurm)',
+    )
+    p.add_argument(
+        "--grid-transfer",
+        default="final",
+        choices=("final", "per_step", "off"),
+        dest="grid_transfer",
+        help="regular-grid MultiApp transfer frequency (default: final)",
+    )
+    p.add_argument(
+        "--exodus-output",
+        default="sync",
+        choices=("sync", "per_step"),
+        dest="exodus_output",
+        help="native-mesh Exodus write frequency (default: sync)",
+    )
+    p.add_argument(
+        "--mesh-csv",
+        default="sync",
+        choices=("sync", "per_step", "off"),
+        dest="mesh_csv",
+        help="CPFE-mesh element-centroid CSV frequency (default: sync)",
     )
     p.add_argument("--n-grains", type=int, default=50, dest="n_grains")
     p.add_argument("--spacing", type=float, default=5.0, help="voxel size (um)")
