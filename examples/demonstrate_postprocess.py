@@ -33,6 +33,10 @@ from graintrace import plot_postprocessing as postprocess
 # Input simulation
 block_csv = "mwe_data/out.csv"
 field_dir = "mwe_data/grid_out"
+# For a real run, point field_dir at the CPFE output. Three sources (same schema):
+#   - "<sim>/mesh_out"  : crisp per-element fields on the true mesh (mesh_csv="sync" default) -- best for REI
+#   - "<sim>/grid_out"  : regular grid, if grid_transfer="per_step" during the run
+#   - regenerate grid_out offline: graintrace.grid_resampling.GridResampler(sim_output.e, ...).resample()
 
 field_naming = FieldFileNaming(
     prefix="out_element_centroid",  # must match your field filenames

@@ -75,6 +75,19 @@ class CPFESimulation:
             "extra_ld_library_paths": None,
             # MPI launcher for puma-opt: "mpiexec" (default) or "srun" (Cray/Slurm).
             "launcher": "mpiexec",
+            # Regular-grid MultiApp transfer frequency:
+            #   "final" (default) -> transfer/grid-output only at the last step;
+            #   "per_step" -> every step (needed for on-the-fly REI at each step);
+            #   "off" -> never (pure solve; resample offline with GridResampler).
+            "grid_transfer": "final",
+            # Native-mesh Exodus write frequency:
+            #   "sync" (default) -> only at sync_times; "per_step" -> every step.
+            "exodus_output": "sync",
+            # CPFE-mesh element-centroid CSV (mesh_out/out_element_centroid_*.csv):
+            #   "sync" (default) -> only at sync_times; "per_step" -> every step;
+            #   "off" -> not written. Crisp true-mesh fields (no transfer/resampling)
+            #   for full-mesh REI.
+            "mesh_csv": "sync",
         },
         "material": {
             "slip_constant_strength": 130.0,
@@ -745,6 +758,31 @@ class CPFESimulation:
 
         vol_correction_cond = "true" if self.element_order == "FIRST" else "false"
 
+        sim_p = self.params["simulation_parameters"]
+        grid_transfer = str(sim_p.get("grid_transfer", "final")).lower()
+        grid_exec = {
+            "final": "FINAL",
+            "per_step": "INITIAL TIMESTEP_END",
+            "off": "NONE",
+        }.get(grid_transfer)
+        if grid_exec is None:
+            raise ValueError(
+                f"Invalid grid_transfer {grid_transfer!r}. Must be 'final', 'per_step', or 'off'."
+            )
+        exodus_output = str(sim_p.get("exodus_output", "sync")).lower()
+        if exodus_output not in ("sync", "per_step"):
+            raise ValueError(
+                f"Invalid exodus_output {exodus_output!r}. Must be 'sync' or 'per_step'."
+            )
+        exodus_sync_only = "true" if exodus_output == "sync" else "false"
+        mesh_csv = str(sim_p.get("mesh_csv", "sync")).lower()
+        if mesh_csv not in ("sync", "per_step", "off"):
+            raise ValueError(
+                f"Invalid mesh_csv {mesh_csv!r}. Must be 'sync', 'per_step', or 'off'."
+            )
+        mesh_sampler_execute_on = "NONE" if mesh_csv == "off" else "TIMESTEP_END"
+        mesh_csv_sync_only = "true" if mesh_csv == "sync" else "false"
+
         log_path = self.save_simulation_folder / "cpfe_run.log"
         launcher = shlex.split(
             str(self.params["simulation_parameters"].get("launcher", "mpiexec"))
@@ -781,6 +819,10 @@ class CPFESimulation:
             f"yroll_y={yroll_y:.12g}",
             f"yroll_z={yroll_z:.12g}",
             f"vol_lock_correction_cond={vol_correction_cond}",
+            f"grid_transfer_execute_on={grid_exec}",
+            f"exodus_sync_only={exodus_sync_only}",
+            f"mesh_sampler_execute_on={mesh_sampler_execute_on}",
+            f"mesh_csv_sync_only={mesh_csv_sync_only}",
             f"grid_nx={ncell_x:.12g}",
             f"grid_ny={ncell_y:.12g}",
             f"grid_nz={ncell_z:.12g}",

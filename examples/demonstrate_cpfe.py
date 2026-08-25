@@ -129,6 +129,13 @@ sim.set_parameters(
     total_time=total_time,
     initialize_time=initialize_time,
     sync_times=sync_times,
+    # Output-frequency knobs (defaults shown). mesh_csv -> crisp per-element fields in
+    # mesh_out/ for full-mesh REI; grid_transfer/exodus_output default to cheap (final/sync).
+    # For a regular grid without per-step transfers, keep grid_transfer="final" and resample
+    # sim_output.e offline with graintrace.grid_resampling.GridResampler.
+    mesh_csv="sync",
+    grid_transfer="final",
+    exodus_output="sync",
 )
 
 displace = total_strain * (bbox[5] - bbox[4])

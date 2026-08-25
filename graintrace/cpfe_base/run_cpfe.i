@@ -180,6 +180,7 @@
         type = Exodus
         file_base = '${base_folder}/sim_output'
         execute_postprocessors_on = 'NONE'
+        sync_only = ${exodus_sync_only}
     []
     [console]
         type = Console
@@ -189,7 +190,34 @@
         type = CSV
         file_base = '${base_folder}/out'
     []
+    [mesh_csv]
+        type = CSV
+        file_base = '${base_folder}/mesh_out/out'
+        execute_on = '${mesh_sampler_execute_on}'
+        sync_only = ${mesh_csv_sync_only}
+        execute_postprocessors_on = 'NONE'
+    []
     print_linear_residuals = false
+[]
+
+# True-mesh element-centroid sampler (crisp, no transfer/resampling). Emits
+# mesh_out/out_element_centroid_<step>.csv (id,x,y,z,<fields>) for full-mesh REI.
+[VectorPostprocessors]
+    [element_centroid]
+        type = ElementValueSampler
+        sort_by = id
+        execute_on = '${mesh_sampler_execute_on}'
+        outputs = 'mesh_csv'
+        variable = 'ee_xx ee_yy ee_zz ee_yz ee_xz ee_xy
+                    ori_rodrigues_x ori_rodrigues_y ori_rodrigues_z
+                    strain_xx strain_yy strain_zz strain_yz strain_xz strain_xy
+                    Fe_11 Fe_12 Fe_13 Fe_21 Fe_22 Fe_23 Fe_31 Fe_32 Fe_33
+                    nye_tensor_11 nye_tensor_12 nye_tensor_13
+                    nye_tensor_21 nye_tensor_22 nye_tensor_23
+                    nye_tensor_31 nye_tensor_32 nye_tensor_33
+                    cauchy_stress_xx cauchy_stress_yy cauchy_stress_zz
+                    cauchy_stress_yz cauchy_stress_xz cauchy_stress_xy'
+    []
 []
 
 [AuxVariables]

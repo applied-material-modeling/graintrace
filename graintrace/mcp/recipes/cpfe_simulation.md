@@ -43,7 +43,23 @@ returns `needs_input` (otherwise CPFE would silently use a unit-cube domain).
 
 **simulation_parameters**: `dt`, `total_time`, `initialize_time` (load ramps
 from `initialize_time`→`total_time`), `device` (`"cpu"`, `"cuda:0"`, or a
-space-separated list for multi-GPU = MPI ranks), `device_batch`, `sync_times`.
+space-separated list for multi-GPU = MPI ranks), `device_batch`, `sync_times`,
+`grid_transfer`, `exodus_output`, `mesh_csv`. Pass any of these via
+`parameters={"simulation_parameters": {...}}`.
+
+> **Output-frequency knobs (default to cheap).** `mesh_csv` — CPFE-mesh
+> element-centroid CSV → `mesh_out/`: `"sync"` (default) | `"per_step"` | `"off"`.
+> **Crisp** per-element fields (no transfer, no smoothing); the preferred REI input
+> (`SimulationResults(field_dir=".../mesh_out")`, kNN path). `grid_transfer` —
+> regular-grid MultiApp transfer: `"final"` (default, only at the last step) |
+> `"per_step"` (crisp grid every step, but pays the per-step transfer) | `"off"`.
+> `exodus_output` — native-mesh Exodus writes: `"sync"` (default, only at
+> `sync_times`) | `"per_step"`. The per-step grid transfer dominates wall time, so
+> leave the defaults; for a regular GRID you can also **regenerate `grid_out/`
+> offline** from `sim_output.e` with `graintrace.grid_resampling.GridResampler`
+> (needs `puma-opt`, no NEML2/AOTI) — but that resample is a **smoothed
+> approximation** (FIRST-MONOMIAL fields stored nodally in the Exodus), so for
+> fidelity prefer `mesh_out/` or `grid_transfer="per_step"`.
 
 > **GPU policy: if a GPU is available, always use it.** Set `device="cuda:0"`
 > (or `"cuda:0 cuda:1"` for multi-GPU). CPFE is neml2-dominated and far slower on

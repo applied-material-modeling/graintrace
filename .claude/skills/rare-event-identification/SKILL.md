@@ -4,7 +4,8 @@ description: >
   Rare-event identification (REI): find spatially coherent rare regions in a CPFE
   field (e.g. high Nye-tensor / von-Mises) via graph spatial clustering + hierarchical
   merge + rare-cluster selection, exporting VTK (IdentifyRareClusters, GraphSpatialCluster,
-  ClusterAnalysisIndicator). Use to locate hotspots in grid_out results.
+  ClusterAnalysisIndicator). Use to locate hotspots in CPFE field results (true-mesh
+  mesh_out/ or resampled grid_out/).
 ---
 
 # Rare-event identification (REI)
@@ -15,9 +16,16 @@ Pure Python (networkit Leiden + scipy hierarchical + PyVista/VTK). No MOOSE/NEPE
 The clustering pipeline no longer needs an `if __name__ == "__main__"` guard.
 
 ## Inputs
-A point-cloud CSV with an `id` column, `x,y,z` coords, and field columns (e.g. the last
-`grid_out/out_element_centroid_*.csv` from a CPFE run). Demo data: `mwe_data/synthetic_vms.csv`
-(the REI example scripts regenerate it with `generate_synthetic=True`).
+A point-cloud CSV with an `id` column, `x,y,z` coords, and field columns — **grid or
+scattered**; REI is not grid-locked (a regular grid uses the fast grid graph, arbitrary
+points fall back to the kNN graph via `graph_mode="knn"/"auto"`). Two CPFE sources, same
+schema:
+- **`mesh_out/out_element_centroid_*.csv`** — crisp per-element fields on the true mesh
+  (`mesh_csv="sync"` default); full-fidelity, one row per element (kNN path). **Preferred.**
+- **`grid_out/out_element_centroid_*.csv`** — regular grid (from `grid_transfer="per_step"`
+  or offline `GridResampler`; the resampled grid is smoothed — see `/post-processing`).
+Demo data: `mwe_data/synthetic_vms.csv` (the REI example scripts regenerate it with
+`generate_synthetic=True`).
 
 ## Recipe (full pipeline)
 ```python

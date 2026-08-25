@@ -46,7 +46,10 @@ sim.set_parameters("material", slip_constant_strength=130.0,
     power_slip_n=20, power_slip_g0=1e-4, elastic_E=209016.0, elastic_nu=0.307,
     elastic_G=60355.0, burger_scale=2.22)
 sim.set_parameters("simulation_parameters", device="cuda:0", device_batch=20000,
-    dt=0.5, total_time=2.0, initialize_time=1.0, sync_times="2.0")
+    dt=0.5, total_time=2.0, initialize_time=1.0, sync_times="2.0",
+    grid_transfer="final", exodus_output="sync")   # defaults; cheap. "per_step" for every-step
+    # grid REI output / Exodus. With grid_transfer!="per_step", regenerate grid CSVs offline
+    # via graintrace.grid_resampling.GridResampler (see /post-processing).
 
 disp = 0.002 * (bbox[5] - bbox[4])
 sim.set_parameters("boundary", bounding_box=bbox, bc={

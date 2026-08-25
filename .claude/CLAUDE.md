@@ -242,10 +242,25 @@ sim.set_parameters("simulation_parameters",
     device="cuda:0",                 # "cpu", "cuda:N", or space-sep list "cuda:0 cuda:1"
     device_batch=20000,              # per-device NEML2 chunk (quad pts/call); 0 = whole batch
     sync_times="2.0 3.0 4.0 5.0",    # space-separated string of MOOSE grid-output times
+    grid_transfer="final",           # regular-grid MultiApp transfer: "final" (default) |
+                                     # "per_step" (REI at every step) | "off" (resample offline)
+    exodus_output="sync",            # native-mesh Exodus writes: "sync" (default, only at
+                                     # sync_times) | "per_step"
+    mesh_csv="sync",                 # CPFE-mesh element CSV -> mesh_out/: "sync" (default) |
+                                     # "per_step" | "off". Crisp full-mesh REI (no smoothing)
     # AOTI (v3): material params are BAKED into the model .i and neml2-compile'd on run().
     # recompile=True (default) rebuilds the .pt2 when params change; compile_devices/
     # neml2_load_files/extra_ld_library_paths auto-derive from moose_run_file's repo layout.
 )
+# grid_transfer/exodus_output default to the CHEAP settings (transfer only at the last step,
+# Exodus only at sync_times) — the per-step grid MultiApp transfer dominates wall time.
+# Three ways to get REI field data:
+#   1. mesh_csv (default "sync") -> mesh_out/out_element_centroid_*.csv on the TRUE mesh:
+#      crisp (samples aux vars directly, no transfer/no smoothing), full-fidelity; REI runs
+#      on it via the kNN path (one row per element). Best default for REI.
+#   2. grid_transfer="per_step" -> grid_out/ crisp regular grid every step (fast grid path,
+#      but pays the per-step transfer cost).
+#   3. GridResampler (§7) -> regenerate grid_out/ offline from the Exodus (cheap but smoothed).
 # v3 has no runtime [NEML2] cli_args or [Schedulers]: no scheduler_name/hybrid_batch_sizes.
 # Multi-GPU = MPI ranks over a device list (ncore == mpiexec -n); fewer ranks (~#GPUs) give
 # bigger per-rank NEML2 batches + better GPU utilization for neml2-dominated CPFE.
@@ -431,6 +446,44 @@ bounding_box_nf = [x_min, x_max, y_min, y_max, z_min, z_max]
 ---
 
 ## 7. Post-CPFE Analysis Workflow
+
+### Where REI field data comes from (three sources)
+- **`mesh_out/out_element_centroid_*.csv`** — the DEFAULT (`mesh_csv="sync"`). Crisp
+  per-element fields sampled on the true CPFE mesh (no transfer, no smoothing). Point REI /
+  `SimulationResults(field_dir=".../mesh_out")` here for full-fidelity full-mesh REI (kNN
+  path; one row per element).
+- **`grid_out/…`** — a regular grid; written during the run only if `grid_transfer="per_step"`
+  (crisp, fast grid path, but pays the per-step transfer), or regenerated offline (below).
+- **GridResampler** — regenerate `grid_out/` from the Exodus after a cheap run.
+
+### (If you want a grid) regenerate grid CSVs offline: GridResampler
+With `grid_transfer="final"`/`"off"`, regenerate the regular-grid CSVs afterward from the
+native-mesh Exodus via MOOSE's shape-evaluation transfer — a **cheap approximation**, not a
+bit-exact copy of the online per-step grid (see caveat below). For full fidelity prefer
+`mesh_out/` above.
+```python
+from graintrace.grid_resampling import GridResampler
+gr = GridResampler(
+    cpfe_exodus="out/simulation/simulation_out/sim_output.e",
+    save_dir="out/simulation/simulation_out",   # writes grid_out/out_element_centroid_<idx4>.csv
+    number_of_elements=[100, 100, 100],
+    bounding_box=grid_bb,                        # same inset grid box used for the run
+    moose_run_file="external/puma/puma-opt",
+    launcher="mpiexec",                          # or "srun" on Cray/Slurm
+)
+gr.resample(timesteps="all")   # or a list of 1-based Exodus timestep indices
+```
+Then point `SimulationResults(field_dir=".../grid_out", ...)` at the output as usual. The
+resampler needs no NEML2/AOTI (no `[NEML2]` block) and no device; `sim_output.e` must
+contain the fields (so pair it with `exodus_output="sync"`/`"per_step"`).
+
+**Fidelity caveat.** The CPFE fields are order-FIRST `MONOMIAL`, which MOOSE stores in the
+Exodus as *nodal projections* (element→node averaging). Resampling from that Exodus is
+therefore **smoothed** — grain-boundary extremes are compressed vs the online per-step grid
+at the *same* resolution (e.g. cauchy_stress range shrank ~2-3x in an 8³ check). A denser
+resample grid recovers spatial detail but NOT the extremes lost to the nodal projection. For
+extreme-sensitive REI use `grid_transfer="per_step"` (crisp online grid) or run REI on the
+true mesh; use the resampler for cheap/approximate grids.
 
 ### Load simulation results
 ```python
@@ -928,6 +981,7 @@ graintrace/
   construct_voxel_mesh.py      VoxelMeshBuilder      : EBSD/NF voxel meshing (SCULPT)
   nf_grid_conversion.py        NFGridConversion      : Pre-gridded NF data to CSV
   run_cpfe_simulation.py       CPFESimulation        : MOOSE/PUMA CPFE runner
+  grid_resampling.py           GridResampler         : offline resample of a CPFE Exodus -> grid CSV
   simulation_postprocessing.py SimulationResults     : Load/query CPFE output CSVs
   experiment_postprocessing.py ExperimentResults     : Load experimental data
   plot_postprocessing.py       plot_*                : Distribution/stress-strain/pole figures
@@ -949,10 +1003,12 @@ graintrace/
     neml2_cpfe.i               : CPFE material model definition
     neml2_cpfe_calibration.i   : Taylor model for calibration
     run_cpfe.i                 : Main MOOSE simulation input
-    grid_file.i                : Grid output configuration
+    grid_file.i                : Grid output configuration (online regular-grid sub-app)
+    resample_grid.i            : GridResampler main app (grid + shape-eval transfer)
+    resample_source.i          : GridResampler sub-app (loads CPFE Exodus at one timestep)
     initial_conditions.i       : Initial condition setup (NF orientation)
     initial_conditions_ff.i    : Initial condition setup (FF-registered)
-    transfer.i                 : Variable transfer between meshes
+    transfer.i                 : Variable transfer between meshes (grid_transfer_execute_on)
 ```
 
 ---

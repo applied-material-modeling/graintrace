@@ -18,6 +18,23 @@ A CPFE block CSV + a directory of per-time grid field CSVs. Self-contained:
 `mwe_data/out.csv` + `mwe_data/grid_out/` (`out_element_centroid_0000.csv`…). Experiment
 half: `mwe_data/synthetic_load_exp/` (`expsyn_<t>time.csv`).
 
+**No `grid_out/` CSVs?** They are only written during the run when
+`grid_transfer="per_step"`. With the CPFE defaults (`grid_transfer="final"`/`"off"`),
+regenerate them offline from the native Exodus (`sim_output.e`) via MOOSE shape-eval
+transfer — needs `puma-opt`, not pure Python:
+```python
+from graintrace.grid_resampling import GridResampler
+GridResampler(cpfe_exodus="cpfe_out/simulation_out/sim_output.e",
+              save_dir="cpfe_out/simulation_out",
+              number_of_elements=[nx, ny, nz], bounding_box=grid_bb,
+              moose_run_file="external/puma/puma-opt").resample(timesteps="all")
+```
+This writes `grid_out/out_element_centroid_<idx4>.csv` in the schema below. It is a **cheap
+approximation** (smoothed: the FIRST-MONOMIAL fields are stored nodally in the Exodus, so
+grain-boundary extremes are compressed vs the online per-step grid). For extreme-sensitive
+REI use `grid_transfer="per_step"` or run REI on the true mesh; a denser grid recovers
+spatial detail but not the extremes.
+
 ## Recipe
 ```python
 from graintrace.simulation_postprocessing import SimulationResults, FieldFileNaming
