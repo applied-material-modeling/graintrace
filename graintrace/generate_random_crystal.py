@@ -343,14 +343,17 @@ class CrystalGenerator:
         mimicking HEDM APS output (columns X, Y, Z, GrainRadius, Eul0, Eul1, Eul2).
 
         Measurement error is injected per property, each applied only when its value
-        is > 0 (all-zero -> noiseless):
-          - position_noise_std: additive absolute Gaussian on X, Y, Z, in the data's
-            physical length units (micrometers), isotropic and origin-independent.
-          - orientation_noise_std: proper random misorientation of this angular std
-            (degrees), applied via orientation_helper.perturb_orientation.
-          - radius_noise: relative (fractional) Gaussian std on GrainRadius.
-        noise_seed makes the noise reproducible (None -> global np.random);
-        remove_minimum_volume drops grains below min_vol."""
+        is > 0 (all-zero gives a noiseless result):
+
+        - ``position_noise_std``: additive absolute Gaussian on X, Y, Z, in the
+          data's physical length units (micrometers), isotropic and origin-independent.
+        - ``orientation_noise_std``: proper random misorientation of this angular
+          std (degrees), applied via ``orientation_helper.perturb_orientation``.
+        - ``radius_noise``: relative (fractional) Gaussian std on GrainRadius.
+
+        ``noise_seed`` makes the noise reproducible (None uses global np.random);
+        ``remove_minimum_volume`` drops grains below ``min_vol``.
+        """
 
         if not os.path.exists(stat_file):
             raise FileNotFoundError(f"Missing .stcell file: {stat_file}")

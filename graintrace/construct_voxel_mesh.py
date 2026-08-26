@@ -123,6 +123,22 @@ class VoxelMeshBuilder:
         default_mesh_filename: str = "mesh.e",
         default_mapped_orientations_filename: str = "orientations",
     ) -> None:
+        """Configure a voxel/grid segmentation and hex-meshing job.
+
+        Args:
+            file_path: Path to the gridded Euler-angle CSV (columns x, y[, z] and the three Euler columns; optionally a pre-existing grain-id column).
+            save_dir: Output directory for intermediate grids, segmentation results, the mesh, and mapped orientations; created if missing.
+            euler_cols: The three column names holding the per-voxel Euler angles.
+            cell_id_col: Optional column holding pre-existing grain ids; if present, segmentation is skipped and these ids are used directly.
+            angle_convention: Euler angle convention, e.g. "bunge".
+            angle_type: Euler angle unit, "radians" or "degrees".
+            symmetry: Crystal symmetry group used for misorientation, e.g. "432".
+            prefix: Filename prefix for the .spn and .orientations intermediate files.
+            write_intermediate: If True, write intermediate .npy grid checkpoints to save_dir.
+            write_vtk: If True, write .vtk renderings of the grids to save_dir.
+            default_mesh_filename: Default output mesh filename in save_dir (e.g. "mesh.e").
+            default_mapped_orientations_filename: Default basename for the per-element mapped orientation output (".csv" is appended by mesh()).
+        """
         self.file_path = Path(file_path)
         self.save_dir = Path(save_dir)
         self.save_dir.mkdir(parents=True, exist_ok=True)
@@ -546,7 +562,15 @@ class VoxelMeshBuilder:
     ) -> Path:
         """Segment the grid CSV and write grid .npy/.vtk outputs to save_dir.
 
-        Returns the path to merged_segmented_fixed_grid.npy.
+        Loads the CSV onto a dense voxel grid, optionally smooths it, segments it into grains (flood-fill or graph/Leiden), removes small segments, infills, and
+        relabels grain ids to be contiguous. If cell_id_col was set, the provided ids are used and segmentation is skipped.
+
+        Args:
+            segmentation: Segmentation config dict with "method" ("flood" or "graph"), "params", and optional "graph_params"; None uses the class defaults.
+            apply_smoothing: If True, run an orientation-aware smoothing pass over the grid before segmentation.
+
+        Returns:
+            Path to the written merged_segmented_fixed_grid.npy.
         """
 
         fixed_grid_npy = self.save_dir / "fixed_grid.npy"
@@ -708,6 +732,20 @@ class VoxelMeshBuilder:
         elements) at the cost of stair-stepped grain boundaries. Both write the
         mesh to mesh_path and per-block MRP orientations to
         mapped_orientations_path + ".csv".
+
+        Args:
+            sculpt_config: SCULPT configuration dict (required keys psculpt, epu, nprocs; optional launcher, environment); required when mesher="sculpt", ignored for "voxel".
+            sculpt_options: SCULPT CLI flags as a sequence of strings; None uses DEFAULT_SCULPT_OPTIONS.
+            merged_grid: Path to the merged segmented grid .npy; None uses save_dir/merged_segmented_fixed_grid.npy.
+            spn_path: Override for the SCULPT .spn voxel input path (sculpt path only).
+            orientations_path: Override for the SCULPT per-voxel orientations input path (sculpt path only).
+            mesh_path: Override for the output Exodus mesh path; None uses the configured default.
+            mapped_orientations_path: Override for the mapped per-element orientation output basename (".csv" is appended).
+            mesher: Meshing backend, "sculpt" (CUBIT/SCULPT conformal hex) or "voxel" (one cube hex per voxel, no external tools).
+            background_id: Grain/phase id treated as background/void in the voxel dump (mesher="voxel").
+
+        Returns:
+            Path to the written Exodus mesh.
         """
         if mesher not in ("sculpt", "voxel"):
             raise ValueError(f"Invalid mesher {mesher!r}. Must be 'sculpt' or 'voxel'.")

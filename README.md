@@ -25,6 +25,22 @@ The pipeline runs reconstruct, calibrate, simulate (CPFE), then analyze and iden
 
 Analysis (field distributions, macroscopic stress vs strain, pole figures, IPF coloring) rounds out the pipeline. *See `examples/demonstrate_postprocess.py`.*
 
+## Documentation
+
+**Documentation: <https://applied-material-modeling.github.io/graintrace/>**
+
+Full documentation (installation tiers, per-stage tutorials, configuration
+reference, the MCP server, and the API reference) is built with Sphinx under
+`docs/`. Build it locally with:
+
+```bash
+pip install -e ".[docs]"
+cd docs && make html      # open docs/_build/html/index.html
+```
+
+See `docs/development.rst` for the strict build, `doctest`, and `linkcheck`
+targets, and the definition-of-done checklist for new code.
+
 ## Capabilities and what each one needs
 
 `graintrace` is the **Python** layer. Some features are pure-Python and run straight from

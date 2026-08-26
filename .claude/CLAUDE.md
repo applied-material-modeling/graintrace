@@ -1067,3 +1067,32 @@ Follows the pyzag project's conventions: **black** + **pylint** (not ruff/pyrigh
   checks for gradients. NEML2/pyzag-dependent tests `pytest.importorskip` so a plain checkout skips
   them. `pylint` gate is on `graintrace/` only; `black --check` on `graintrace` + `tests`.
 - Keep comments succinct.
+
+---
+
+## 14. Definition of Done (adding or changing code)
+
+Any new feature or code change is **not complete** until all five of these are
+done in the same change. Treat it as the checklist for every PR.
+
+1. **Tests pass.** Add or extend tests under `tests/` for the new behavior, and
+   keep the suite green: `pytest`, `black --check graintrace tests`, and
+   `pylint --rcfile=.pylintrc graintrace` (0 messages). Tests that need the
+   external stack must self-skip via `pytest.importorskip`/`skipif`.
+2. **Docstrings updated.** Every new/changed public class, method, and function
+   has a docstring (Google or NumPy style; napoleon renders both). Document new
+   constructor kwargs — they surface directly in the API reference.
+3. **Docs updated.** Update `docs/` for the change: the relevant tutorial under
+   `docs/tutorials/`, `docs/configuration.rst` for new options, and add an
+   `automodule` page under `docs/api/` (+ `docs/api/api.rst`) for a new public
+   module. The strict build must pass: `sphinx-build -W --keep-going -b html
+   docs docs/_build/html`, plus `make -C docs doctest`.
+4. **CLAUDE.md updated.** Reflect the change in this file — the relevant workflow
+   section (§3–§9), the option tables (§9), the Module Map (§11), the
+   examples/skills table (§12), or the pitfalls (§10) — so this reference stays
+   the source of truth.
+5. **MCP updated.** If the change is a workflow segment or adds/changes
+   user-facing parameters, update the MCP layer: the tool in
+   `graintrace/mcp/tools/*.py`, the vetted recipe in `graintrace/mcp/recipes/*.md`,
+   and the tool table in `graintrace/mcp/README.md`. New external-tool
+   dependencies must be reported by `dependency_status`.

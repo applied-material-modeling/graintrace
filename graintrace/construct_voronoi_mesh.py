@@ -69,6 +69,31 @@ class VoronoiMeshBuilder:
         neper_path=None,
         auto_install=False,
     ):
+        """Configure an FF-HEDM Voronoi reconstruction from a per-grain CSV.
+
+        Args:
+            input_csv: Path to the FF grain CSV (columns X, Y[, Z], optional GrainRadius, plus the angle and elastic-strain columns named below).
+            output_dir: Directory where NEPER inputs, the tessellation, orientation/strain files, and the voxel reconstruction are written.
+            bounding_box: Reconstruction domain as [xlo, xhi, ylo, yhi] (2D) or [xlo, xhi, ylo, yhi, zlo, zhi] (3D) in micrometers.
+            dim: Spatial dimension, 2 or 3.
+            weighted: If True, use a Laguerre (weighted) tessellation with per-grain weights from GrainRadius (requires a GrainRadius column).
+            auto_fix_bbox: If True, reconcile the data with bounding_box using bbox_fix_mode before tessellating.
+            bbox_fix_mode: How to reconcile when auto_fix_bbox is True: "remove_points" (drop out-of-box points, production) or "extend_bounding_box" (grow the box, debug).
+            bbox_tolerance: Percentage tolerance used by the bbox fix (e.g. 5.0 = 5%).
+            auto_rotate: If True, align the point cloud to its PCA principal axes instead of applying rotate_angles.
+            rotate_angles: Explicit sample-tilt correction as xyz Euler angles applied in order X -> Y -> Z; units set by unit.
+            rotate_convention: Euler rotation convention for rotate_angles; only "xyz" is supported.
+            angle_identifier: The 3 column names holding the per-grain Euler angles, or None to skip orientation parsing.
+            orientation_descriptor: NEPER orientation descriptor for the input angles (e.g. "euler-bunge").
+            orientation_active_convention: If True, treat orientations as the active convention when applying the rotation matrix.
+            unit: Angle/rotation unit, "deg" or "rad"; must match the actual data units.
+            elastic_strain_identifier: The 9 column names (row-major) of the per-grain elastic strain tensor, or None to skip strain.
+            ori_rotmat_identifier: The 9 column names for the rotated orientation matrix written into self.data; defaults to O11..O33.
+            strain_unit: Unit of the elastic strain columns, "microstrain" or "strain".
+            env: Pre-built subprocess environment for NEPER; if None it is resolved automatically via check_dependencies.
+            neper_path: Explicit path to the NEPER binary; if None it is resolved from the NEPER env var, tools.json, or PATH.
+            auto_install: If True, attempt an opt-in local ~/.local NEPER source build when NEPER cannot be found.
+        """
         self.input_csv = input_csv
         self.output_dir = output_dir
         self.bounding_box = bounding_box
@@ -679,7 +704,20 @@ class VoronoiMeshBuilder:
         tesr_size: list = None,
         CVT_iter: int = 1000,
     ):
-        """Build a Voronoi (or Laguerre) tessellation using Neper."""
+        """Build a Voronoi (or Laguerre) tessellation using Neper.
+
+        Reads the input CSV (if not already loaded), validates/fixes the bounding box, runs NEPER to produce the tessellation, applies the rotation to the cell
+        orientations and strains, evaluates the output, optionally meshes it, and writes the reformatted voxel reconstruction CSV/VTK plus the CPFE strain files.
+
+        Args:
+            option: Tessellation seeding mode: "voronoi" (Poisson-Voronoi), "centroid"/"centroidal" (fit cell centroids to the input coordinates), or "centroidsize" (fit centroid and size, requires GrainRadius).
+            generate_mesh: If True, also generate a NEPER/GMSH tet (or tri) .msh mesh; this is a fallback only, the default CPFE mesh is SCULPT hex.
+            relative_el_size: Mesh element size relative to grain size, passed to generate_mesh; defaults to 1.0 when None.
+            morphoalgo: NEPER morphology optimization algorithm, e.g. "praxis", "subplex", or "lloyd".
+            mesh_quality_min: Minimum acceptable mesh element quality, passed to generate_mesh.
+            tesr_size: Voxel raster resolution [nx, ny, nz] for the .tesr output; defaults to [20, 20, 20] when None.
+            CVT_iter: Number of CVT/morphology optimization iterations.
+        """
 
         if tesr_size is None:
             tesr_size = [20, 20, 20]
@@ -892,7 +930,21 @@ class VoronoiMeshBuilder:
         visualize2D: bool = False,
         visualize3D: bool = False,
     ):
-        """Build a Voronoi tessellation and convert it to a graph representation."""
+        """Build a Voronoi tessellation and convert it to a graph representation.
+
+        Runs build_voronoi (no mesh) then parses the resulting .tess into a per-cell graph via NeperTessToGraphNN, registering the loaded dataframe features on it.
+
+        Args:
+            device: Torch device for the graph tensors, e.g. "cpu" or "cuda".
+            option: Tessellation seeding mode passed to build_voronoi: "voronoi", "centroid", or "centroidsize".
+            CVT_iter: Number of CVT/morphology optimization iterations passed to build_voronoi.
+            morphoalgo: NEPER morphology optimization algorithm passed to build_voronoi.
+            visualize2D: If True, save a 2D rendering of the graph under output_dir/figures/gnn.
+            visualize3D: If True, save a 3D rendering of the graph under output_dir/figures/gnn.
+
+        Returns:
+            The per-cell graph object produced by NeperTessToGraphNN.build_cell_graph.
+        """
         self.build_voronoi(
             generate_mesh=False,
             option=option,

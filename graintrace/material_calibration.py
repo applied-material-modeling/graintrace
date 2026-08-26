@@ -64,8 +64,21 @@ class MaterialCalibration:
         strain_window=None,
         save_dir="calibration_results",
     ):
-        """Build the model from ``model_class``/``model_args`` and load
-        experimental data via ``data_args``."""
+        """Build the calibration model and load experimental data.
+
+        Instantiates ``model_class(**model_args)`` (typically TaylorModel) and loads the
+        experimental macroscopic stress-strain curve and per-grain elastic strains via
+        ``model.load_experiment_data(**data_args)``.
+
+        Args:
+            model_class: The calibration model class to instantiate (e.g. TaylorModel).
+            model_args: Dict of keyword arguments forwarded to model_class (e.g. neml2_path, npoints, nchunk, device, compile).
+            data_args: Dict of keyword arguments forwarded to model.load_experiment_data (e.g. data_dir, strain_stress_file, npoints, full_field_strain_units, straintype, max_strain, n_grains, seed).
+            apply_elastic_correction: If True, scale the macroscopic strain so its elastic slope matches the experimental average-grain slope; requires strain_window. Default False.
+            correction_method: Elastic-slope correction method; only "with_experiment_average" is supported. Default "with_experiment_average".
+            strain_window: (lo, hi) axial-strain range used to fit the elastic slope; required when apply_elastic_correction is True. Default None.
+            save_dir: Directory for calibration outputs (figures, saved parameter JSONs). Created if needed. Default "calibration_results".
+        """
         self.model = model_class(**model_args)
         self.experiment_data = self.model.load_experiment_data(**data_args)
 
@@ -315,12 +328,12 @@ class MaterialCalibration:
         ``method`` is accepted for backward compatibility only.
 
         ``full_field_weight`` (default 0.0) adds a distribution-matched per-grain
-        elastic-strain term to the macroscopic-stress loss:
-        ``loss = mean((sigma_model - sigma_exp)^2)
-                 + full_field_weight * fullfield_strain_loss``.
+        elastic-strain term to the macroscopic-stress loss, i.e.
+        ``loss = mean((sigma_model - sigma_exp)^2) + full_field_weight * fullfield_strain_loss``.
         When 0.0 the objective is macroscopic-stress-only (unchanged behavior).
         ``full_field_components`` selects strain tensor components (default all 6);
-        ``n_quantiles`` sets the quantile resolution of the distribution match."""
+        ``n_quantiles`` sets the quantile resolution of the distribution match.
+        """
         model = self.model
 
         self._apply_reparametrization(param_ranges)

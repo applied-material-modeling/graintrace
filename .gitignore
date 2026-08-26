@@ -84,3 +84,6 @@ deploy/tools.json
 # Generated on demand by examples/demonstrate_rei_comparison.py
 mwe_data/rei_comparison/
 rei_comparison_out/
+
+# Sphinx documentation build output
+docs/_build/

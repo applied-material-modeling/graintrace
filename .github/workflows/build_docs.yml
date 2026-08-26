@@ -1,0 +1,65 @@
+# Build the Sphinx documentation and (on push to main) deploy to GitHub Pages.
+# Mirrors the pyzag project's build_docs workflow, with the neml2 project's
+# strict build (-W) plus doctest and linkcheck. The docs build needs NONE of the
+# compiled stack: docs/conf.py mocks NEML2/MOOSE/NEPER/CUBIT via
+# autodoc_mock_imports, so this runs on a plain ubuntu runner.
+name: Documentation
+
+on:
+  push:
+    branches: [main, documentation]
+  pull_request:
+    branches: [main, documentation]
+    types: [opened, reopened, synchronize, closed]
+  workflow_dispatch:
+
+# Newer commits should cancel old runs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      # pandoc + TeX: nbsphinx notebook conversion and imgmath equation rendering.
+      - run: sudo apt-get update && sudo apt-get install -y pandoc texlive-latex-recommended texlive-latex-extra dvipng
+      - run: pip install ".[docs]"
+      # Strict HTML build: warnings are errors (catches broken refs / import failures).
+      - run: sphinx-build -W --keep-going -b html docs docs/_build/html
+      # Doc tests: runnable snippets (sphinx.ext.doctest) gate the build.
+      - run: make -C docs doctest
+      # Link checking is informational: external links flake / rate-limit, so it
+      # must not fail the docs deploy.
+      - run: make -C docs linkcheck
+        continue-on-error: true
+      - run: touch docs/_build/html/.nojekyll
+      # Upload the built site so it can be viewed (downloaded) from any run,
+      # including on the documentation branch, without deploying to Pages.
+      - name: Upload built HTML
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-html
+          path: docs/_build/html
+      - name: Preview GitHub Pages
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: rossjrw/pr-preview-action@v1
+        with:
+          source-dir: docs/_build/html
+      # Deploy only from main, never from the documentation test branch.
+      - name: Deploy to GitHub Pages
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          branch: gh-pages
+          folder: docs/_build/html
+          clean-exclude: pr-preview/
+          force: false

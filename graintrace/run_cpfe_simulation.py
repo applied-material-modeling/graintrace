@@ -134,7 +134,18 @@ class CPFESimulation:
         use_ff_initial_field=False,
         dim=3,
     ):
+        """Configure a CPFE run from a mesh, orientations, and optional initial strain.
 
+        Args:
+            mesh_file: Path to the FE mesh. Default is a SCULPT/voxel hex Exodus (.e) from VoxelMeshBuilder; a GMSH tet .msh is the fallback. Must exist.
+            save_simulation_folder: Output directory for the generated input decks, AOTI package, and results. Created if needed; may not be named 'cpfe_base'.
+            moose_run_file: Path to the built PUMA binary (puma-opt) used to launch the simulation. Must exist.
+            element_order: FE shape-function order, "FIRST" or "SECOND". Use "FIRST" for SCULPT/voxel hex meshes and "SECOND" for a GMSH tet .msh. Default "SECOND".
+            eeres_file: Optional per-grain initial elastic-strain CSV (residual strain). If None, a zero 12-column strain file is written (no residual strain).
+            ori_file: Path to per-grain orientations, either 3-column neml2 MRP or 9-column rotation matrix. Required for a real run.
+            use_ff_initial_field: True when the mesh and eeres_file are co-registered FF data (uses initial_conditions_ff.i); False when eeres_file comes from a different mesh.
+            dim: Spatial dimension, 2 or 3. Only dim=3 is currently supported by run(). Default 3.
+        """
         self.mesh_file = Path(mesh_file)
         if not self.mesh_file.exists():
             raise FileNotFoundError(f"Mesh file not found: {self.mesh_file}")
@@ -171,7 +182,26 @@ class CPFESimulation:
         self.use_ff_initial_field = use_ff_initial_field
 
     def set_parameters(self, section, **kwargs):
-        """Update the given parameter section with keyword overrides."""
+        """Update one parameter section in place with keyword overrides.
+
+        Recognized sections and their common keys:
+
+        "material": slip_constant_strength, voce_hardening_initial_slope, voce_hardening_saturation, power_slip_n, power_slip_g0, elastic_E, elastic_nu, elastic_G, burger_scale (MPa/micrometer conventions per the model).
+
+        "simulation_parameters": dt, total_time, initialize_time (load ramps from initialize_time to total_time),
+        device ("cpu"/"cuda:N"/space-separated list), device_batch (per-device NEML2 chunk size; 0 = whole batch),
+        sync_times (space-separated string of MOOSE grid-output times), grid_transfer ("final"|"per_step"|"off"),
+        exodus_output ("sync"|"per_step"), mesh_csv ("sync"|"per_step"|"off"), launcher ("mpiexec"|"srun"),
+        recompile, compile_devices, neml2_load_files, extra_ld_library_paths, base_folder, strain_unit_conversion.
+
+        "boundary": bounding_box ([xlo,xhi,ylo,yhi,zlo,zhi]), bc (per-axis dict of "negative"/"positive" values, each "stress_free" or a numeric displacement), fix_tolerance, bounding_box_buffer.
+
+        "grid_properties": number_of_elements ([nx,ny,nz]) and bounding_box (the inset regular-grid box, typically the BC box shrunk by 0.0001 per face).
+
+        Args:
+            section: One of "material", "simulation_parameters", "boundary", "grid_properties".
+            **kwargs: Keys to override within that section; unknown keys are added as-is.
+        """
         if section not in self.params:
             raise KeyError(f"Unknown parameter section: {section}")
         self.params[section].update(kwargs)
@@ -680,7 +710,16 @@ class CPFESimulation:
         return env
 
     def run(self, ncore=8):
-        """Prepare and run the CPFE simulation."""
+        """Prepare the input decks, AOTI-compile the NEML2 model, and launch puma-opt.
+
+        Copies the cpfe_base templates into save_simulation_folder, writes the run-specific
+        boundary/orientation/postprocessor decks, bakes the material parameters into the NEML2
+        model and neml2-compiles it (unless a cached AOTI package exists and recompile is False),
+        then starts puma-opt as a detached background process. Only dim=3 is supported.
+
+        Args:
+            ncore: Number of MPI ranks to launch (passed as -n to the launcher). For multi-GPU runs set this to the number of GPUs in the device list. Default 8.
+        """
 
         self.validate_geometry_and_bcs()
 

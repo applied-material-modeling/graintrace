@@ -87,6 +87,21 @@ class NearFieldMeshBuilder:
         default_mesh_filename: str = "mesh.e",
         default_mapped_orientations_filename: str = "orientations",
     ) -> None:
+        """Configure an NF-HEDM reconstruction from a folder of layer files.
+
+        Args:
+            input_folder: Folder containing the per-layer NF orientation maps (.mic files).
+            save_dir: Output directory for the pointcloud, grids, mesh, and mapped orientations; created if missing.
+            exp_file_token: Filename token used to select the layer files within input_folder.
+            angle_convention: Euler angle convention of the input maps, e.g. "bunge".
+            angle_type: Euler angle unit, "radians" or "degrees".
+            symmetry: Crystal symmetry group used for misorientation, e.g. "432".
+            prefix: Filename prefix for the .spn and .orientations intermediate files.
+            write_intermediate: If True, write intermediate .npy/.csv checkpoints to save_dir.
+            write_vtk: If True, write .vtk renderings of the grids to save_dir.
+            default_mesh_filename: Default output mesh filename in save_dir (e.g. "mesh.e").
+            default_mapped_orientations_filename: Default basename for the per-element mapped orientation output (".csv" is appended by mesh()).
+        """
 
         self.input_folder = Path(input_folder)
         self.save_dir = Path(save_dir)
@@ -203,7 +218,16 @@ class NearFieldMeshBuilder:
     ) -> Path:
         """Reconstruct a segmented NF voxel grid from .mic/.csv layers.
 
-        Returns the path to merged_segmented_fixed_grid.npy.
+        Converts the layer files to a pointcloud, rasterizes it onto a fixed voxel grid, segments it into grains via flood-fill, infills, and removes small segments.
+
+        Args:
+            dz: Layer thickness in micrometers (z spacing between stacked layers).
+            nx: In-plane grid resolution along x.
+            ny: In-plane grid resolution along y.
+            segmentation: Flat segmentation config dict (misorientation_tol in radians, connectivity, batch_norm, grain_threshold, stop_count, grain_threshold_final); None uses the class defaults.
+
+        Returns:
+            Path to the written merged_segmented_fixed_grid.npy.
         """
         seg = self._normalize_segmentation(segmentation)
 
@@ -278,8 +302,19 @@ class NearFieldMeshBuilder:
     ) -> Path:
         """Generate an Exodus mesh via SCULPT from the merged voxel grid.
 
-        Uses merged_grid if given, else save_dir/merged_segmented_fixed_grid.npy.
-        Returns the path to the Exodus mesh.
+        Uses merged_grid if given, else save_dir/merged_segmented_fixed_grid.npy. Writes the SCULPT .spn/orientations inputs, runs SCULPT, and maps per-element MRP orientations.
+
+        Args:
+            sculpt_config: SCULPT configuration dict (required keys psculpt, epu, nprocs; optional launcher, environment).
+            sculpt_options: SCULPT CLI flags as a sequence of strings; None uses DEFAULT_SCULPT_OPTIONS.
+            merged_grid: Path to the merged segmented grid .npy; None uses save_dir/merged_segmented_fixed_grid.npy.
+            spn_path: Override for the SCULPT .spn voxel input path.
+            orientations_path: Override for the SCULPT per-voxel orientations input path.
+            mesh_path: Override for the output Exodus mesh path; None uses the configured default.
+            mapped_orientations_path: Override for the mapped per-element orientation output basename (".csv" is appended).
+
+        Returns:
+            Path to the written Exodus mesh.
         """
         cfg = self._validate_sculpt_config(sculpt_config)
         options = (
