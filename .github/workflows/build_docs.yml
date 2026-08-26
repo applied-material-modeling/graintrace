@@ -1,8 +1,13 @@
-# Build the Sphinx documentation and (on push to main) deploy to GitHub Pages.
-# Mirrors the pyzag project's build_docs workflow, with the neml2 project's
-# strict build (-W) plus doctest and linkcheck. The docs build needs NONE of the
-# compiled stack: docs/conf.py mocks NEML2/MOOSE/NEPER/CUBIT via
-# autodoc_mock_imports, so this runs on a plain ubuntu runner.
+# Build the Sphinx documentation and deploy it to GitHub Pages using GitHub's
+# official Pages deployment (actions/deploy-pages). This uses only GitHub-authored
+# actions and needs only `pages: write` + `id-token: write` (OIDC) — not
+# `contents: write` — so it works under org policies that restrict third-party
+# actions or lock the default workflow-token permission to read-only.
+#
+# Pages source must be set to "GitHub Actions" (Settings -> Pages -> Source).
+#
+# The docs build needs NONE of the compiled stack: docs/conf.py mocks
+# NEML2/MOOSE/NEPER/CUBIT via autodoc_mock_imports.
 name: Documentation
 
 on:
@@ -10,17 +15,18 @@ on:
     branches: [main, documentation]
   pull_request:
     branches: [main, documentation]
-    types: [opened, reopened, synchronize, closed]
   workflow_dispatch:
 
-# Newer commits should cancel old runs.
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
-
+# OIDC-based Pages deploy: no contents:write needed.
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
+  pages: write
+  id-token: write
+
+# Serialize Pages deploys; don't cancel an in-progress production deploy.
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -37,29 +43,32 @@ jobs:
       - run: sphinx-build -W --keep-going -b html docs docs/_build/html
       # Doc tests: runnable snippets (sphinx.ext.doctest) gate the build.
       - run: make -C docs doctest
-      # Link checking is informational: external links flake / rate-limit, so it
-      # must not fail the docs deploy.
+      # Link checking is informational: external links flake / rate-limit.
       - run: make -C docs linkcheck
         continue-on-error: true
-      - run: touch docs/_build/html/.nojekyll
-      # Upload the built site so it can be viewed (downloaded) from any run,
-      # including on the documentation branch, without deploying to Pages.
-      - name: Upload built HTML
+      # Downloadable on every run (any branch/PR), so the site can be reviewed
+      # without deploying to Pages.
+      - name: Upload built HTML artifact
         uses: actions/upload-artifact@v4
         with:
           name: docs-html
           path: docs/_build/html
-      - name: Preview GitHub Pages
-        if: ${{ github.event_name == 'pull_request' }}
-        uses: rossjrw/pr-preview-action@v1
+      # Pages artifact, consumed by the deploy job (main only).
+      - name: Upload Pages artifact
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v3
         with:
-          source-dir: docs/_build/html
-      # Deploy only from main, never from the documentation test branch.
+          path: docs/_build/html
+
+  # Deploy to GitHub Pages, only from main.
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - name: Deploy to GitHub Pages
-        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-        uses: JamesIves/github-pages-deploy-action@v4
-        with:
-          branch: gh-pages
-          folder: docs/_build/html
-          clean-exclude: pr-preview/
-          force: false
+        id: deployment
+        uses: actions/deploy-pages@v4
