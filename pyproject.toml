@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "graintrace"
-version = "0.1.2"
+version = "0.1.3"
 description = "Crystal plasticity FE pipeline for APS HEDM experiments"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -74,9 +74,10 @@ examples = ["meshio>=5.0"]
 # so the docs build needs none of NEML2/MOOSE/NEPER/CUBIT.
 docs = [
     "sphinx>=7.0",
-    "sphinx-rtd-theme>=2.0",
+    "pydata-sphinx-theme>=0.15",
     "nbsphinx>=0.9",
     "ipython",
+    "ipykernel",
     "sphinx-copybutton>=0.5",
     "sphinx-design>=0.5",
 ]

@@ -2,7 +2,7 @@ Building & testing the docs
 ===========================
 
 The documentation is built with Sphinx. The build needs none of the compiled
-stack (NEML2, MOOSE/PUMA, NEPER, CUBIT) — ``docs/conf.py`` mocks those imports —
+stack (NEML2, MOOSE/PUMA, NEPER, CUBIT); ``docs/conf.py`` mocks those imports,
 so it runs from a plain checkout.
 
 Install the docs toolchain
@@ -22,7 +22,7 @@ Build the HTML
    # open docs/_build/html/index.html
 
 For a strict build that treats warnings (broken cross-references, import
-failures) as errors — the same check CI runs:
+failures) as errors, the same check CI runs:
 
 .. code-block:: bash
 
@@ -80,13 +80,13 @@ the same change:
    self-skip via ``pytest.importorskip``/``skipif``.
 2. **Docstrings updated.** Every new or changed public class, method, and
    function has a docstring (Google or NumPy style). Document new constructor
-   keyword arguments — they surface directly in the API reference.
+   keyword arguments; they surface directly in the API reference.
 3. **Docs updated.** Update the relevant tutorial under ``docs/tutorials/``,
    :doc:`configuration` for new options, and add an ``automodule`` page under
    ``docs/api/`` for a new public module. The strict build and ``doctest`` must
    pass (see above).
-4. **CLAUDE.md updated.** Update ``.claude/CLAUDE.md`` — the working reference for
-   the codebase — so it stays the source of truth.
+4. **CLAUDE.md updated.** Update ``.claude/CLAUDE.md`` (the working reference for
+   the codebase) so it stays the source of truth.
 5. **MCP updated.** If the change is a workflow segment or adds/changes
    user-facing parameters, update the MCP tool in ``graintrace/mcp/tools/``, its
    recipe in ``graintrace/mcp/recipes/``, and the tool table in

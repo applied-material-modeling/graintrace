@@ -15,8 +15,8 @@ graintrace runs the grain-scale workflow in four stages:
 2. **Calibrate** the crystal-plasticity material model to a macroscopic
    stress-strain curve with a pyzag analytic-adjoint Taylor model.
 3. **Simulate** with MOOSE/PUMA CPFE using NEML2 v3 AOTI-compiled models.
-4. **Analyze** the fields — distributions, macroscopic response, pole figures,
-   IPF coloring — and identify rare events for targeted measurement.
+4. **Analyze** the fields (distributions, macroscopic response, pole figures,
+   IPF coloring) and identify rare events for targeted measurement.
 
 Data types
 ----------
@@ -76,10 +76,10 @@ Orientations
 
 Orientations are interchanged as NEML2 v3 MRP (``tan(θ/4)·axis``), the canonical
 on-disk format. FF ``orientations.dat`` is Euler-Bunge in degrees; convert it
-with ``graintrace.orientation_helper`` (which delegates to NEML2). Note that
-graintrace's ``"mrp"`` label elsewhere means Gibbs/Rodrigues (``tan θ/2``), which
-is not the same as NEML2 v3 MRP — use ``euler_to_mrp`` to get the NEML2 form that
-the CPFE model expects.
+with ``graintrace.orientation_helper`` (which delegates to NEML2). graintrace's
+``"mrp"`` label elsewhere means Gibbs/Rodrigues (``tan θ/2``), which is not the
+same as NEML2 v3 MRP. Use ``euler_to_mrp`` to get the NEML2 form the CPFE model
+expects.
 
 Meshing
 -------

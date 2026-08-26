@@ -33,13 +33,16 @@ python benchmark/bench_cpfe.py \
     --resolution 16,24,32 --device-batch 5000,20000,50000
 
 # CPFE output-frequency knobs (default cheap): --grid-transfer final|per_step|off,
-# --exodus-output sync|per_step, --mesh-csv sync|per_step|off. Defaults avoid the
+# --exodus-output sync|per_step, --mesh-csv sync|per_step|off. The defaults avoid the
 # per-step grid transfer, so a run-to-completion is much cheaper than the old default.
+# NOTE: keep --grid-transfer final (not off) for the benchmark harness -- wait_for_cpfe
+# detects completion via a grid CSV, so "off" (no grid CSV) would hang until --timeout.
+# "off" is only for a direct CPFESimulation run where you resample offline afterward.
 
-# One large run (e.g. 1M elements, ~3 loading steps, large batch), cheap output:
+# One large run (e.g. 1M elements, 3 loading steps, large batch), cheap output:
 python benchmark/bench_cpfe.py --puma-bin /path/to/puma-opt \
     --resolution 100 --ncore 4 --device "cuda:0 cuda:1 cuda:2 cuda:3" \
-    --device-batch 200000 --grid-transfer off --mesh-csv sync --exodus-output sync \
+    --device-batch 200000 --grid-transfer final --mesh-csv sync --exodus-output sync \
     --total-strain 0.03 --initialize-time 0.1 --dt 0.1 --total-time 0.4
 
 # Aggregate a sweep's per-combo cpfe.csv (one dir per ncore/device_batch) into one table:
