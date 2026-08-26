@@ -197,8 +197,10 @@ def wait_for_cpfe(save_folder, total_time, timeout):
         time.sleep(5)
         logtxt = log.read_text(errors="replace") if log.exists() else ""
         if re.search(
-            r"terminate called|Segmentation fault|MPI_ABORT|Fatal error in|Command not found",
+            r"terminate called|Segmentation fault|MPI_ABORT|MPI_Abort|Fatal error in|"
+            r"Command not found|CUDA error|out of memory",
             logtxt,
+            re.IGNORECASE,
         ):
             raise RuntimeError(
                 "CPFE crashed. Last log lines:\n" + "\n".join(logtxt.splitlines()[-30:])
@@ -346,8 +348,12 @@ def bench(args) -> None:
                     "resolution": res,
                     "n_elements": n_vox,
                     "n_grains": min(args.n_grains, n_vox),
+                    "ncore": args.ncore,
                     "device": args.device,
                     "device_batch": db,
+                    "grid_transfer": args.grid_transfer,
+                    "exodus_output": args.exodus_output,
+                    "mesh_csv": args.mesh_csv,
                     "recompile": i == 0,
                     "setup_s": round(setup_s, 2),
                     "solve_s": round(solve_s, 2),
@@ -358,11 +364,57 @@ def bench(args) -> None:
     write_results("cpfe", rows, out_dir, sysinfo)
 
 
+def summarize_sweep(root) -> None:
+    """Aggregate every ``cpfe.csv`` under ``root`` into ``root/cpfe_summary.csv``.
+
+    Recovers ``ncore`` from the ``ncore<N>_db<...>`` dir name for older runs whose
+    row lacked it. Prints a compact resolution/ncore/device_batch vs timing table.
+    """
+    # pylint: disable=import-outside-toplevel
+    import glob
+    import re
+
+    import pandas as pd
+
+    root = Path(root).expanduser()
+    files = sorted(glob.glob(str(root / "**" / "cpfe.csv"), recursive=True))
+    if not files:
+        print(f"no cpfe.csv found under {root}")
+        return
+    frames = []
+    for f in files:
+        d = pd.read_csv(f)
+        if "ncore" not in d.columns:  # older runs: recover ncore from the dir name
+            m = re.search(r"ncore(\d+)", f)
+            d["ncore"] = int(m.group(1)) if m else -1
+        frames.append(d)
+    summary = pd.concat(frames, ignore_index=True)
+    sort_cols = [
+        c for c in ("resolution", "ncore", "device_batch") if c in summary.columns
+    ]
+    if sort_cols:
+        summary = summary.sort_values(sort_cols).reset_index(drop=True)
+    out = root / "cpfe_summary.csv"
+    summary.to_csv(out, index=False)
+    cols = [
+        c
+        for c in ("resolution", "ncore", "device_batch", "setup_s", "solve_s")
+        if c in summary.columns
+    ]
+    print(
+        summary[cols].to_string(index=False) if cols else summary.to_string(index=False)
+    )
+    print(f"\nwrote {out} ({len(summary)} rows)")
+
+
 def main() -> None:
     """CLI entry point."""
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument(
-        "--puma-bin", required=True, dest="puma_bin", help="path to puma-opt"
+        "--puma-bin",
+        default=None,
+        dest="puma_bin",
+        help="path to puma-opt (required to run; omit with --summarize)",
     )
     p.add_argument(
         "--neml2-load-file",
@@ -418,7 +470,19 @@ def main() -> None:
     p.add_argument("--timeout", type=float, default=14400, help="per-run wait cap (s)")
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--out", default=None)
-    bench(p.parse_args())
+    p.add_argument(
+        "--summarize",
+        default=None,
+        help="aggregate every cpfe.csv under this dir into <dir>/cpfe_summary.csv "
+        "(no run); pairs with a sweep's --out root",
+    )
+    args = p.parse_args()
+    if args.summarize:
+        summarize_sweep(args.summarize)
+        return
+    if not args.puma_bin:
+        p.error("--puma-bin is required to run (or pass --summarize to aggregate)")
+    bench(args)
 
 
 if __name__ == "__main__":
