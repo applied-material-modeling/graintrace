@@ -27,6 +27,8 @@ Analysis (field distributions, macroscopic stress vs strain, pole figures, IPF c
 
 ## Documentation
 
+**Documentation: <https://applied-material-modeling.github.io/graintrace/>**
+
 Full documentation (installation tiers, per-stage tutorials, configuration
 reference, the MCP server, and the API reference) is built with Sphinx under
 `docs/`. Build it locally with:
