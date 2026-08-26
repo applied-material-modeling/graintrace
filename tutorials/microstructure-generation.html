@@ -1,0 +1,461 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Microstructure generation &mdash; graintrace 0.1.2</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=92734c54"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=96c007af"></script>
+      <script src="../_static/design-tabs.js?v=f930bc37"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="FF Voronoi reconstruction" href="ff-reconstruction.html" />
+    <link rel="prev" title="HEDM scan simulation and stitching" href="hedm-stitching.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            graintrace
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts.html">Concepts &amp; data formats</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../configuration.html">Configuration reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../mcp.html">MCP server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../benchmarks.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pitfalls.html">Common pitfalls</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Tutorials &amp; examples</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="tutorials.html">Tutorials</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="hedm-stitching.html">HEDM scan simulation and stitching</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Microstructure generation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#inputs">Inputs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#recipe">Recipe</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#key-parameters">Key parameters</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#known-limitations-neper-4-10-2-45">Known limitations (NEPER 4.10.2-45)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#outputs-in-output-dir">Outputs (in <code class="docutils literal notranslate"><span class="pre">output_dir</span></code>)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#gotchas">Gotchas</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#full-example">Full example</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="ff-reconstruction.html">FF Voronoi reconstruction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="nf-reconstruction.html">NF mesh reconstruction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="voxel-segmentation-mesh.html">Voxel segmentation and meshing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="meshing.html">Meshing a grain grid into hex</a></li>
+<li class="toctree-l2"><a class="reference internal" href="experiment-rotation.html">Registering FF data to the sim frame</a></li>
+<li class="toctree-l2"><a class="reference internal" href="material-calibration.html">Material calibration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cpfe-simulation.html">CPFE simulation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cpfe-nf-ff.html">CPFE (NF geometry + FF initial strain)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="post-processing.html">Post-CPFE analysis &amp; plotting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rare-event-identification.html">Rare-event identification (REI)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rei-comparison.html">REI comparison</a></li>
+<li class="toctree-l2"><a class="reference internal" href="grain-tracking.html">Grain tracking across load steps</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../api/api.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../development.html">Building &amp; testing the docs</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">graintrace</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="tutorials.html">Tutorials</a></li>
+      <li class="breadcrumb-item active">Microstructure generation</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/tutorials/microstructure-generation.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="microstructure-generation">
+<h1>Microstructure generation<a class="headerlink" href="#microstructure-generation" title="Link to this heading"></a></h1>
+<p>Generate synthetic grain structures with NEPER via
+<code class="xref py py-class docutils literal notranslate"><span class="pre">CrystalGenerator</span></code>. This page collects vetted morpho-string and
+iteration-budget recipes distilled from 12 studied cases spanning equiaxed,
+lamellar, columnar, and elongated grains and lognormal, normal, and bimodal size
+distributions. For meshing the generated grid, see <a class="reference internal" href="meshing.html"><span class="doc">Meshing a grain grid into hex</span></a>.</p>
+<p><strong>Needs:</strong> NEPER.</p>
+<section id="inputs">
+<h2>Inputs<a class="headerlink" href="#inputs" title="Link to this heading"></a></h2>
+<p>None. Generation is driven entirely by a morpho string and a bounding box. The
+<code class="docutils literal notranslate"><span class="pre">examples/demonstrate_hedm_anisotropic.py</span></code> example runs the 12-case anisotropic
+study; <code class="docutils literal notranslate"><span class="pre">examples/demonstrate_synthetic_cpfe.py</span></code> generates, meshes, and runs CPFE.</p>
+</section>
+<section id="recipe">
+<h2>Recipe<a class="headerlink" href="#recipe" title="Link to this heading"></a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">graintrace.generate_random_crystal</span><span class="w"> </span><span class="kn">import</span> <span class="n">CrystalGenerator</span>
+
+<span class="n">cg</span> <span class="o">=</span> <span class="n">CrystalGenerator</span><span class="p">(</span>
+    <span class="n">output_dir</span><span class="o">=</span><span class="s2">"out"</span><span class="p">,</span>
+    <span class="n">bounding_box</span><span class="o">=</span><span class="p">[</span><span class="o">-</span><span class="mi">500</span><span class="p">,</span> <span class="mi">500</span><span class="p">,</span> <span class="o">-</span><span class="mi">500</span><span class="p">,</span> <span class="mi">500</span><span class="p">,</span> <span class="o">-</span><span class="mi">500</span><span class="p">,</span> <span class="mi">500</span><span class="p">],</span>   <span class="c1"># 1 mm cube</span>
+    <span class="n">dim</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+    <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Equiaxed, normal size distribution</span>
+<span class="n">cg</span><span class="o">.</span><span class="n">generate_tessellation</span><span class="p">(</span>
+    <span class="n">morpho_args</span><span class="o">=</span><span class="p">{</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"raw"</span><span class="p">,</span> <span class="s2">"morpho_str"</span><span class="p">:</span> <span class="s2">"diameq:normal(100, 20)"</span><span class="p">},</span>
+    <span class="n">iterations</span><span class="o">=</span><span class="mi">5000</span><span class="p">,</span>
+    <span class="n">extra_neper_args</span><span class="o">=</span><span class="p">[</span><span class="s2">"-reg"</span><span class="p">,</span> <span class="s2">"1"</span><span class="p">],</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>For elongated or anisotropic grains, append <code class="docutils literal notranslate"><span class="pre">aspratio(x,</span> <span class="pre">y,</span> <span class="pre">z)</span></code> to the morpho
+string. The following elongates roughly 3x along z, matching
+<code class="docutils literal notranslate"><span class="pre">examples/demonstrate_hedm_anisotropic.py</span></code>. Use the higher iteration budget and
+keep <code class="docutils literal notranslate"><span class="pre">-reg</span> <span class="pre">1</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">z_aspect</span> <span class="o">=</span> <span class="mf">3.0</span>
+<span class="n">cg</span><span class="o">.</span><span class="n">generate_tessellation</span><span class="p">(</span>
+    <span class="n">morpho_args</span><span class="o">=</span><span class="p">{</span>
+        <span class="s2">"type"</span><span class="p">:</span> <span class="s2">"raw"</span><span class="p">,</span>
+        <span class="s2">"morpho_str"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"diameq:lognormal(130, 5),aspratio(1, 1, </span><span class="si">{</span><span class="n">z_aspect</span><span class="si">}</span><span class="s2">)"</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="n">iterations</span><span class="o">=</span><span class="mi">20000</span><span class="p">,</span>            <span class="c1"># elongated -&gt; use the 20k budget</span>
+    <span class="n">extra_neper_args</span><span class="o">=</span><span class="p">[</span><span class="s2">"-reg"</span><span class="p">,</span> <span class="s2">"1"</span><span class="p">],</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">aspratio</span></code> sets grain shape only. Far-field HEDM cannot recover true grain
+morphology from centroids; NF-HEDM is the genuine source of grain morphology. Use
+the elongated generator for benchmarks or ground truth, not to infer shape from FF.
+See <a class="reference internal" href="../pitfalls.html"><span class="doc">Common pitfalls</span></a>.</p>
+</section>
+<section id="key-parameters">
+<h2>Key parameters<a class="headerlink" href="#key-parameters" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">seed</span></code> — a fixed integer gives a bit-identical <code class="docutils literal notranslate"><span class="pre">.tess</span></code> across runs.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">morpho_args={&quot;type&quot;:</span> <span class="pre">&quot;raw&quot;,</span> <span class="pre">...}</span></code> — pass <code class="docutils literal notranslate"><span class="pre">morpho_str</span></code> directly. This is the
+only path that exposes NEPER’s full recipe grammar (mixtures, coupled
+constraints, columnar, lamellar, <code class="docutils literal notranslate"><span class="pre">aspratio</span></code>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">extra_neper_args=[&quot;-reg&quot;,</span> <span class="pre">&quot;1&quot;]</span></code> — removes sub-resolution artifact cells; use
+for equiaxed, columnar, and elongated, skip for lamellar.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">iterations</span></code> — 5000 for normal, 15000 for bimodal, 20000 for lognormal-tail or
+elongated. More iterations reduce the loss and improve agreement with the
+prescribed distribution; beyond about 50,000 the loss decreases very slowly.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">n</span></code> — the grain count is derived automatically (<code class="docutils literal notranslate"><span class="pre">-n</span> <span class="pre">from_morpho</span></code>) when the
+morpho string carries a size scale (<code class="docutils literal notranslate"><span class="pre">diameq:...</span></code>); otherwise pass <code class="docutils literal notranslate"><span class="pre">n=&lt;int&gt;</span></code>.</p></li>
+</ul>
+<p>The API applies the <code class="docutils literal notranslate"><span class="pre">-reg</span> <span class="pre">1</span></code> cleanup plus an optional post-hoc <code class="docutils literal notranslate"><span class="pre">r</span> <span class="pre">&gt;=</span> <span class="pre">5</span> <span class="pre">um</span></code>
+filter, then writes the canonical outputs (<code class="docutils literal notranslate"><span class="pre">voronoi.tess</span></code>, <code class="docutils literal notranslate"><span class="pre">.geo</span></code>, <code class="docutils literal notranslate"><span class="pre">.ori</span></code>,
+<code class="docutils literal notranslate"><span class="pre">.stcell</span></code>, <code class="docutils literal notranslate"><span class="pre">.csv</span></code>).</p>
+</section>
+<section id="known-limitations-neper-4-10-2-45">
+<h2>Known limitations (NEPER 4.10.2-45)<a class="headerlink" href="#known-limitations-neper-4-10-2-45" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><strong>Lamellar takes a single scalar width only.</strong> <code class="docutils literal notranslate"><span class="pre">lamellar(w=&lt;distribution&gt;)</span></code>
+inline aborts; <code class="docutils literal notranslate"><span class="pre">lamellar(w=file(...))</span></code> reads per-grain values from a file.
+Varying-width lamellar requires multiple steps.</p></li>
+<li><p><strong>Columnar takes a single axis letter only.</strong> <code class="docutils literal notranslate"><span class="pre">columnar(v=&lt;axis_letter&gt;)</span></code> (e.g.
+<code class="docutils literal notranslate"><span class="pre">v=z</span></code>) is the only working form; the vector form <code class="docutils literal notranslate"><span class="pre">columnar(v=(0,0,1))</span></code> hangs
+NEPER indefinitely.</p></li>
+<li><p><strong>Columnar cross-section sigma has a Poisson floor.</strong> For single-mode columnar
+recipes NEPER hits the mean but delivers a coefficient of variation near 0.36
+regardless of the target sigma. Bimodal columnar fits well because the mixture
+gives the optimizer more variance.</p></li>
+<li><p><strong>Bimodal mixture weights are by count, not volume.</strong> Two peaks at 40 and 100 um
+with 50/50 weights means 50/50 grain counts, not equal volume fractions.</p></li>
+</ul>
+</section>
+<section id="outputs-in-output-dir">
+<h2>Outputs (in <code class="docutils literal notranslate"><span class="pre">output_dir</span></code>)<a class="headerlink" href="#outputs-in-output-dir" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">voronoi.tess</span></code> — the tessellation.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">voronoi.csv</span></code> — per-grain centroids, sizes, and orientations.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">voronoi.stcell</span></code> — per-cell statistics used for the distribution check.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">.geo</span></code> / <code class="docutils literal notranslate"><span class="pre">.ori</span></code> — geometry and orientation files.</p></li>
+</ul>
+</section>
+<section id="gotchas">
+<h2>Gotchas<a class="headerlink" href="#gotchas" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>After generation, confirm that the achieved grain-size distribution matches the
+prescribed one: plot the histogram from <code class="docutils literal notranslate"><span class="pre">voronoi.stcell</span></code> against the target PDF.
+Non-agreement means too few iterations or one of the NEPER limitations above.</p></li>
+<li><p>Use the minimum number of grains that faithfully represents the target
+distribution. Fewer grains means fewer mesh elements and shorter CPFE wall-clock;
+add grains only when the histogram or the CPFE quantity of interest fails to
+converge.</p></li>
+</ul>
+</section>
+<section id="full-example">
+<h2>Full example<a class="headerlink" href="#full-example" title="Link to this heading"></a></h2>
+<div class="literal-block-wrapper docutils container" id="id1">
+<div class="code-block-caption"><span class="caption-text">examples/demonstrate_hedm_anisotropic.py</span><a class="headerlink" href="#id1" title="Link to this code"></a></div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Copyright 2026, UChicago Argonne, LLC</span>
+<span class="c1"># All Rights Reserved</span>
+<span class="c1"># Software Name: graintrace</span>
+<span class="c1"># By: Argonne National Laboratory</span>
+<span class="c1"># OPEN SOURCE LICENSE (MIT)</span>
+<span class="c1">#</span>
+<span class="c1"># Permission is hereby granted, free of charge, to any person obtaining a copy</span>
+<span class="c1"># of this software and associated documentation files (the "Software"), to deal</span>
+<span class="c1"># in the Software without restriction, including without limitation the rights</span>
+<span class="c1"># to use, copy, modify, merge, publish, distribute, sublicense, and/or sell</span>
+<span class="c1"># copies of the Software, and to permit persons to whom the Software is</span>
+<span class="c1"># furnished to do so, subject to the following conditions:</span>
+<span class="c1">#</span>
+<span class="c1"># The above copyright notice and this permission notice shall be included in</span>
+<span class="c1"># all copies or substantial portions of the Software.</span>
+<span class="c1">#</span>
+<span class="c1"># THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR</span>
+<span class="c1"># IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,</span>
+<span class="c1"># FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE</span>
+<span class="c1"># AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER</span>
+<span class="c1"># LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,</span>
+<span class="c1"># OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN</span>
+<span class="c1"># THE SOFTWARE.</span>
+
+<span class="sd">"""Anisotropic (elongated) HEDM stitching study: spherical vs tessellation extents.</span>
+
+<span class="sd">RegionBaseStitching classifies each grain into a region from its z-extent relative</span>
+<span class="sd">to the scan overlap band. By default that extent is the equivalent-sphere `z +/- r`,</span>
+<span class="sd">which badly under-estimates the true z-reach of *elongated* grains. This script</span>
+<span class="sd">generates a z-elongated microstructure (NEPER `aspratio`), simulates overlapping FF</span>
+<span class="sd">z-scans, and stitches it twice: with the spherical extent and with the opt-in</span>
+<span class="sd">NEPER-tessellation extent (`refine_extents=True`), then scores both against the</span>
+<span class="sd">ground truth to show where the tessellation refinement actually helps.</span>
+
+<span class="sd">This is a BENCHMARK HARNESS, not a demonstration of a guaranteed win. Whether the</span>
+<span class="sd">tessellation helps is empirical, and in this elongated regime it often does NOT beat</span>
+<span class="sd">the sphere, for two reasons worth understanding:</span>
+
+<span class="sd">  1. Per-scan clipping: the stitcher tessellates each scan/accumulator over that scan's</span>
+<span class="sd">     z-FOV, so an elongated grain's cell is clipped at the FOV boundary; the</span>
+<span class="sd">     tessellation cannot see the grain's full z-extent either (it only flags that the</span>
+<span class="sd">     grain reaches the boundary). It recovers the true extent only for grains that fit</span>
+<span class="sd">     entirely inside one scan, and those are interior (CORE) grains whose region never</span>
+<span class="sd">     mattered.</span>
+<span class="sd">  2. Partial-view centroids: an elongated grain seen in two scans yields two different</span>
+<span class="sd">     partial-volume centroids, which dominates the matching/merge error for both extent</span>
+<span class="sd">     models (note the large mean_pos / mean_rad below).</span>
+
+<span class="sd">So this script is here to *measure* the effect honestly. See CLAUDE.md "Region</span>
+<span class="sd">classification" for the extent-model caveats (tessellation-from-centroids is a</span>
+<span class="sd">~1/3-radius-noisy proxy; NF-HEDM is the real source of grain morphology).</span>
+<span class="sd">"""</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">graintrace.generate_random_crystal</span><span class="w"> </span><span class="kn">import</span> <span class="n">CrystalGenerator</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">graintrace.scan_stitching_comparison</span><span class="w"> </span><span class="kn">import</span> <span class="n">ScanStitchingComparison</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">graintrace.hedm_stitching_techniques.region_base_stitching</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">RegionBaseStitching</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+
+<span class="c1"># INPUT -------------------------------------------------------</span>
+<span class="n">output_dir</span> <span class="o">=</span> <span class="s2">"hedm_anisotropic"</span>
+
+<span class="c1"># True crystal structure: elongated ~3x along z via NEPER aspratio (use the 'raw'</span>
+<span class="c1"># morpho type to pass any NEPER -morpho string verbatim).</span>
+<span class="n">bounding_box</span> <span class="o">=</span> <span class="p">[</span><span class="o">-</span><span class="mi">500</span><span class="p">,</span> <span class="mi">500</span><span class="p">,</span> <span class="o">-</span><span class="mi">500</span><span class="p">,</span> <span class="mi">500</span><span class="p">,</span> <span class="o">-</span><span class="mi">1000</span><span class="p">,</span> <span class="mi">500</span><span class="p">]</span>
+<span class="n">z_aspect</span> <span class="o">=</span> <span class="mf">3.0</span>
+<span class="n">crystal_morpho_args</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"type"</span><span class="p">:</span> <span class="s2">"raw"</span><span class="p">,</span>
+    <span class="s2">"morpho_str"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"diameq:lognormal(130,5),aspratio(1,1,</span><span class="si">{</span><span class="n">z_aspect</span><span class="si">}</span><span class="s2">)"</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="c1"># HEDM scan parameters</span>
+<span class="n">nscan</span> <span class="o">=</span> <span class="mi">4</span>
+<span class="n">overlap_percentage</span> <span class="o">=</span> <span class="mi">25</span>  <span class="c1"># percentage units (0-100)</span>
+
+<span class="c1"># Noise off so the spherical-vs-tessellation difference is purely the extent model.</span>
+<span class="c1"># (each knob applied only when &gt; 0: position in length units, orientation in degrees,</span>
+<span class="c1">#  radius as a relative fraction)</span>
+<span class="n">position_noise_std</span> <span class="o">=</span> <span class="mf">0.0</span>
+<span class="n">orientation_noise_std</span> <span class="o">=</span> <span class="mf">0.0</span>
+<span class="n">radius_noise</span> <span class="o">=</span> <span class="mf">0.0</span>
+<span class="n">noise_seed</span> <span class="o">=</span> <span class="mi">42</span>
+<span class="n">remove_minimum_volume</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="n">min_vol</span> <span class="o">=</span> <span class="mf">0.0</span>
+
+<span class="c1"># Tolerances / weights</span>
+<span class="n">position_tolerance</span> <span class="o">=</span> <span class="mi">20</span>  <span class="c1"># length units</span>
+<span class="n">orientation_tolerance</span> <span class="o">=</span> <span class="mi">1</span>  <span class="c1"># degrees</span>
+<span class="n">radius_tolerance</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>  <span class="c1"># -1 disables the radius gate</span>
+<span class="n">weights</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"pos"</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">,</span> <span class="s2">"ori"</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span> <span class="s2">"rad"</span><span class="p">:</span> <span class="mi">0</span><span class="p">}</span>
+<span class="n">min_neighbors</span> <span class="o">=</span> <span class="mi">5</span>
+
+<span class="n">compare_position_tolerance</span> <span class="o">=</span> <span class="mi">20</span>
+<span class="n">compare_orientation_tolerance</span> <span class="o">=</span> <span class="mf">5.0</span>
+
+<span class="n">seed_number</span> <span class="o">=</span> <span class="mi">42</span>
+
+<span class="c1"># MAIN ----------------------------------------------------------</span>
+<span class="n">output_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">output_dir</span><span class="p">)</span>
+
+<span class="c1"># 1) Generate the elongated ground-truth microstructure</span>
+<span class="n">cg</span> <span class="o">=</span> <span class="n">CrystalGenerator</span><span class="p">(</span>
+    <span class="n">output_dir</span><span class="o">=</span><span class="n">output_dir</span><span class="p">,</span>
+    <span class="n">bounding_box</span><span class="o">=</span><span class="n">bounding_box</span><span class="p">,</span>
+    <span class="n">seed</span><span class="o">=</span><span class="n">seed_number</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">cg</span><span class="o">.</span><span class="n">generate_tessellation</span><span class="p">(</span><span class="n">morpho_args</span><span class="o">=</span><span class="n">crystal_morpho_args</span><span class="p">)</span>
+
+<span class="c1"># 2) Simulate overlapping FF z-scans</span>
+<span class="n">cg</span><span class="o">.</span><span class="n">hedm_zscan</span><span class="p">(</span>
+    <span class="n">tess_file</span><span class="o">=</span><span class="n">output_dir</span> <span class="o">+</span> <span class="s2">"/voronoi.tess"</span><span class="p">,</span>
+    <span class="n">nstep</span><span class="o">=</span><span class="n">nscan</span><span class="p">,</span>
+    <span class="n">overlap_percentage</span><span class="o">=</span><span class="n">overlap_percentage</span><span class="p">,</span>
+    <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">position_noise_std</span><span class="o">=</span><span class="n">position_noise_std</span><span class="p">,</span>
+    <span class="n">orientation_noise_std</span><span class="o">=</span><span class="n">orientation_noise_std</span><span class="p">,</span>
+    <span class="n">radius_noise</span><span class="o">=</span><span class="n">radius_noise</span><span class="p">,</span>
+    <span class="n">noise_seed</span><span class="o">=</span><span class="n">noise_seed</span><span class="p">,</span>
+    <span class="n">remove_minimum_volume</span><span class="o">=</span><span class="n">remove_minimum_volume</span><span class="p">,</span>
+    <span class="n">min_vol</span><span class="o">=</span><span class="n">min_vol</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">scan_files</span> <span class="o">=</span> <span class="p">[</span><span class="n">output_dir</span> <span class="o">+</span> <span class="sa">f</span><span class="s2">"/hedm_scan/scan_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">.csv"</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nscan</span><span class="p">)]</span>
+<span class="n">zlo</span><span class="p">,</span> <span class="n">zhi</span> <span class="o">=</span> <span class="n">bounding_box</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span> <span class="n">bounding_box</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span>
+<span class="n">overlap_fraction</span> <span class="o">=</span> <span class="n">overlap_percentage</span> <span class="o">/</span> <span class="mf">100.0</span>
+<span class="n">true_csv</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">+</span> <span class="s2">"/voronoi.csv"</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">stitch_and_score</span><span class="p">(</span><span class="n">tag</span><span class="p">,</span> <span class="n">refine_extents</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Stitch with the chosen extent model and score against ground truth."""</span>
+    <span class="n">stitch_csv</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">output_dir</span><span class="si">}</span><span class="s2">/stitched_</span><span class="si">{</span><span class="n">tag</span><span class="si">}</span><span class="s2">.csv"</span>
+    <span class="n">stitcher</span> <span class="o">=</span> <span class="n">RegionBaseStitching</span><span class="p">(</span>
+        <span class="n">scan_files</span><span class="o">=</span><span class="n">scan_files</span><span class="p">,</span>
+        <span class="n">output_csv</span><span class="o">=</span><span class="n">stitch_csv</span><span class="p">,</span>
+        <span class="n">position_tolerance</span><span class="o">=</span><span class="n">position_tolerance</span><span class="p">,</span>
+        <span class="n">orientation_tolerance</span><span class="o">=</span><span class="n">orientation_tolerance</span><span class="p">,</span>
+        <span class="n">radius_tolerance</span><span class="o">=</span><span class="n">radius_tolerance</span><span class="p">,</span>
+        <span class="n">weights</span><span class="o">=</span><span class="n">weights</span><span class="p">,</span>
+        <span class="n">min_neighbors</span><span class="o">=</span><span class="n">min_neighbors</span><span class="p">,</span>
+        <span class="n">refine_extents</span><span class="o">=</span><span class="n">refine_extents</span><span class="p">,</span>  <span class="c1"># False -&gt; spherical z +/- r; True -&gt; NEPER tessellation</span>
+        <span class="n">tess_weighted</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">update_centroid</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>  <span class="c1"># keep FF centroids (see docs: cell centroid hurts matching)</span>
+        <span class="n">neper_env</span><span class="o">=</span><span class="n">cg</span><span class="o">.</span><span class="n">env</span><span class="p">,</span>  <span class="c1"># reuse the working NEPER env</span>
+    <span class="p">)</span>
+    <span class="n">stitcher</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">zlo</span><span class="o">=</span><span class="n">zlo</span><span class="p">,</span> <span class="n">zhi</span><span class="o">=</span><span class="n">zhi</span><span class="p">,</span> <span class="n">overlap_fraction</span><span class="o">=</span><span class="n">overlap_fraction</span><span class="p">)</span>
+
+    <span class="n">cmp</span> <span class="o">=</span> <span class="n">ScanStitchingComparison</span><span class="p">(</span>
+        <span class="n">output_dir</span><span class="o">=</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">output_dir</span><span class="si">}</span><span class="s2">/comparison_</span><span class="si">{</span><span class="n">tag</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+        <span class="n">true_csv</span><span class="o">=</span><span class="n">true_csv</span><span class="p">,</span>
+        <span class="n">stitch_csv</span><span class="o">=</span><span class="n">stitch_csv</span><span class="p">,</span>
+        <span class="n">position_tolerance</span><span class="o">=</span><span class="n">compare_position_tolerance</span><span class="p">,</span>
+        <span class="n">orientation_tolerance</span><span class="o">=</span><span class="n">compare_orientation_tolerance</span><span class="p">,</span>
+        <span class="n">radius_tolerance</span><span class="o">=</span><span class="n">radius_tolerance</span><span class="p">,</span>
+        <span class="n">weights</span><span class="o">=</span><span class="n">weights</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">cmp</span><span class="o">.</span><span class="n">run_comparison</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">cmp</span><span class="o">.</span><span class="n">metrics</span>
+
+
+<span class="c1"># 3) Stitch both ways and compare</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">=== Stitching elongated grains: spherical vs tessellation extents ===</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+<span class="n">metrics</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"spherical"</span><span class="p">:</span> <span class="n">stitch_and_score</span><span class="p">(</span><span class="s2">"spherical"</span><span class="p">,</span> <span class="n">refine_extents</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+    <span class="s2">"tessellation"</span><span class="p">:</span> <span class="n">stitch_and_score</span><span class="p">(</span><span class="s2">"tessellation"</span><span class="p">,</span> <span class="n">refine_extents</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+<span class="p">}</span>
+
+<span class="c1"># 4) Report</span>
+<span class="n">hdr</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="s1">'mode'</span><span class="si">:</span><span class="s2">&lt;14</span><span class="si">}{</span><span class="s1">'matched'</span><span class="si">:</span><span class="s2">&gt;9</span><span class="si">}{</span><span class="s1">'splits'</span><span class="si">:</span><span class="s2">&gt;8</span><span class="si">}{</span><span class="s1">'merges'</span><span class="si">:</span><span class="s2">&gt;8</span><span class="si">}{</span><span class="s1">'mean_pos'</span><span class="si">:</span><span class="s2">&gt;10</span><span class="si">}{</span><span class="s1">'mean_ori'</span><span class="si">:</span><span class="s2">&gt;11</span><span class="si">}</span><span class="s2">"</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">"</span> <span class="o">+</span> <span class="n">hdr</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"-"</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">hdr</span><span class="p">))</span>
+<span class="k">for</span> <span class="n">tag</span><span class="p">,</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">metrics</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="nb">print</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">tag</span><span class="si">:</span><span class="s2">&lt;14</span><span class="si">}{</span><span class="n">m</span><span class="p">[</span><span class="s1">'n_matched'</span><span class="p">]</span><span class="si">:</span><span class="s2">&gt;9</span><span class="si">}{</span><span class="n">m</span><span class="p">[</span><span class="s1">'n_splits'</span><span class="p">]</span><span class="si">:</span><span class="s2">&gt;8</span><span class="si">}{</span><span class="n">m</span><span class="p">[</span><span class="s1">'n_merges'</span><span class="p">]</span><span class="si">:</span><span class="s2">&gt;8</span><span class="si">}</span><span class="s2">"</span>
+        <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">m</span><span class="p">[</span><span class="s1">'mean_pos_abs_error'</span><span class="p">]</span><span class="si">:</span><span class="s2">&gt;10.3f</span><span class="si">}{</span><span class="n">m</span><span class="p">[</span><span class="s1">'mean_ori_error'</span><span class="p">]</span><span class="si">:</span><span class="s2">&gt;11.2e</span><span class="si">}</span><span class="s2">"</span>
+    <span class="p">)</span>
+
+<span class="n">d_matched</span> <span class="o">=</span> <span class="n">metrics</span><span class="p">[</span><span class="s2">"tessellation"</span><span class="p">][</span><span class="s2">"n_matched"</span><span class="p">]</span> <span class="o">-</span> <span class="n">metrics</span><span class="p">[</span><span class="s2">"spherical"</span><span class="p">][</span><span class="s2">"n_matched"</span><span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span>
+    <span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">Tessellation vs spherical: </span><span class="si">{</span><span class="n">d_matched</span><span class="si">:</span><span class="s2">+d</span><span class="si">}</span><span class="s2"> matched grains (elongation ~</span><span class="si">{</span><span class="n">z_aspect</span><span class="si">:</span><span class="s2">g</span><span class="si">}</span><span class="s2">x in z).</span><span class="se">\n</span><span class="s2">"</span>
+    <span class="s2">"This is a measurement, not a guaranteed win. In practice the tessellation rarely beats</span><span class="se">\n</span><span class="s2">"</span>
+    <span class="s2">"the sphere here: per-scan tessellation clips an elongated grain's cell at the scan FOV</span><span class="se">\n</span><span class="s2">"</span>
+    <span class="s2">"(so it cannot recover the full z-extent either), and the partial-view centroids of</span><span class="se">\n</span><span class="s2">"</span>
+    <span class="s2">"elongated grains dominate the matching error (note the large mean_pos / mean_rad).</span><span class="se">\n</span><span class="s2">"</span>
+    <span class="s2">"The genuine source of anisotropic grain morphology is NF-HEDM, not an FF tessellation."</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="hedm-stitching.html" class="btn btn-neutral float-left" title="HEDM scan simulation and stitching" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="ff-reconstruction.html" class="btn btn-neutral float-right" title="FF Voronoi reconstruction" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Argonne National Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

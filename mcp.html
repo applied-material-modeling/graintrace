@@ -1,0 +1,289 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MCP server &mdash; graintrace 0.1.2</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=92734c54"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="_static/copybutton.js?v=96c007af"></script>
+      <script src="_static/design-tabs.js?v=f930bc37"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Benchmarks" href="benchmarks.html" />
+    <link rel="prev" title="Configuration reference" href="configuration.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            graintrace
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concepts.html">Concepts &amp; data formats</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration reference</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">MCP server</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#what-it-exposes">What it exposes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#two-safety-behaviors">Two safety behaviors</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#recommendation-recipes">Recommendation recipes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#install">Install</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#connect-a-client">Connect a client</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#notes">Notes</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="benchmarks.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pitfalls.html">Common pitfalls</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Tutorials &amp; examples</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/tutorials.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api/api.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="development.html">Building &amp; testing the docs</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">graintrace</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">MCP server</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/mcp.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="mcp-server">
+<h1>MCP server<a class="headerlink" href="#mcp-server" title="Link to this heading"></a></h1>
+<p>graintrace ships a <a class="reference external" href="https://modelcontextprotocol.io">Model Context Protocol</a>
+(MCP) server that exposes each workflow segment as a tool, so the whole
+HEDM → CPFE → rare-event workflow can be driven from a chat client. The server
+contains no LLM: the client you connect (Claude Desktop, Claude Code, or any
+MCP-capable client) supplies the model and your API key.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>your chat client (brings the LLM + key)
+        |  MCP
+        v
+  graintrace-mcp  --&gt;  graintrace public API  --&gt;  NEPER / MOOSE-PUMA / CUBIT / NEML2
+</pre></div>
+</div>
+<section id="what-it-exposes">
+<h2>What it exposes<a class="headerlink" href="#what-it-exposes" title="Link to this heading"></a></h2>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 40.0%" />
+<col style="width: 30.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Tool</p></th>
+<th class="head"><p>Segment</p></th>
+<th class="head"><p>External tools it needs</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">generate_synthetic_hedm</span></code></p></td>
+<td><p>synthetic FF+NF test data</p></td>
+<td><p>NEPER</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">stitch_scans</span></code></p></td>
+<td><p>merge FF z-scan layers</p></td>
+<td><p>NEPER if <code class="docutils literal notranslate"><span class="pre">refine_extents</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">compare_stitching</span></code></p></td>
+<td><p>validate a stitch vs. truth</p></td>
+<td><p>none</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ff_reconstruct</span></code></p></td>
+<td><p>FF Voronoi reconstruction</p></td>
+<td><p>NEPER (GMSH if meshing)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">nf_reconstruct</span></code></p></td>
+<td><p>NF voxel reconstruction + mesh</p></td>
+<td><p>CUBIT/SCULPT (mesh only)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">voxel_mesh</span></code></p></td>
+<td><p>EBSD/gridded segmentation + mesh</p></td>
+<td><p>CUBIT/SCULPT (mesh only)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">calibrate_material</span></code></p></td>
+<td><p>Taylor-model parameter fit</p></td>
+<td><p>NEML2 v3 + pyzag</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">run_cpfe</span></code></p></td>
+<td><p>MOOSE/PUMA CPFE run</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">puma-opt</span></code> + NEML2 AOTI</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">postprocess</span></code></p></td>
+<td><p>distributions / stress-strain / pole figure</p></td>
+<td><p>NEML2 for pole figure</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">identify_rare_events</span></code></p></td>
+<td><p>REI graph clustering → VTK</p></td>
+<td><p>none</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">track_grains</span></code></p></td>
+<td><p>grain matching across load steps</p></td>
+<td><p>NEPER + torch-geometric</p></td>
+</tr>
+</tbody>
+</table>
+<p>Introspection and job tools (<code class="docutils literal notranslate"><span class="pre">dependency_status</span></code>,
+<code class="docutils literal notranslate"><span class="pre">list_recommended_recipes</span></code>, <code class="docutils literal notranslate"><span class="pre">get_recommended_parameters</span></code>, <code class="docutils literal notranslate"><span class="pre">job_status</span></code>,
+<code class="docutils literal notranslate"><span class="pre">list_jobs</span></code>, <code class="docutils literal notranslate"><span class="pre">job_log</span></code>, <code class="docutils literal notranslate"><span class="pre">list_outputs</span></code>) need no external tools.</p>
+</section>
+<section id="two-safety-behaviors">
+<h2>Two safety behaviors<a class="headerlink" href="#two-safety-behaviors" title="Link to this heading"></a></h2>
+<ol class="arabic simple">
+<li><p><strong>Nothing runs without confirmation.</strong> Every computing tool takes a
+<code class="docutils literal notranslate"><span class="pre">confirm</span></code> flag. With <code class="docutils literal notranslate"><span class="pre">confirm=false</span></code> (the default) it returns a preview
+(resolved parameters, which external tools it needs, whether they are present,
+and what it will write) and runs nothing. Only <code class="docutils literal notranslate"><span class="pre">confirm=true</span></code> executes.</p></li>
+<li><p><strong>Missing external tools fail gracefully.</strong> If a required tool is not built,
+the tool reports exactly what is missing and how to build it, with no
+traceback. Check the whole stack with <code class="docutils literal notranslate"><span class="pre">dependency_status</span></code>.</p></li>
+</ol>
+<p>Heavy runs execute as background jobs: the tool returns a <code class="docutils literal notranslate"><span class="pre">job_id</span></code>; poll
+<code class="docutils literal notranslate"><span class="pre">job_status(job_id)</span></code> for progress.</p>
+</section>
+<section id="recommendation-recipes">
+<h2>Recommendation recipes<a class="headerlink" href="#recommendation-recipes" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">graintrace/mcp/recipes/*.md</span></code> hold vetted parameter presets and prose guidance
+per setup. The model reads them (via <code class="docutils literal notranslate"><span class="pre">get_recommended_parameters</span></code> or the
+<code class="docutils literal notranslate"><span class="pre">recipe://&lt;name&gt;</span></code> resources) before proposing parameters. They are plain
+Markdown; edit or extend them to encode your lab’s conventions without touching
+code.</p>
+</section>
+<section id="install">
+<h2>Install<a class="headerlink" href="#install" title="Link to this heading"></a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"graintrace[mcp]"</span><span class="w">      </span><span class="c1"># or: pip install -e ".[mcp]" from a checkout</span>
+</pre></div>
+</div>
+<p>The compiled stack is not on PyPI; build it separately (see <a class="reference internal" href="install.html"><span class="doc">Installation</span></a>). The
+MCP server runs without it; tools that need a missing piece just report so. Run
+it standalone to sanity-check:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>graintrace-mcp<span class="w">            </span><span class="c1"># stdio transport (Claude Desktop / Code use this)</span>
+graintrace-mcp<span class="w"> </span>--http<span class="w">     </span><span class="c1"># streamable-http on 127.0.0.1:8000</span>
+</pre></div>
+</div>
+<p>Outputs land under <code class="docutils literal notranslate"><span class="pre">$GRAINTRACE_MCP_WORKDIR</span></code> (default <code class="docutils literal notranslate"><span class="pre">./graintrace_mcp_out</span></code>).</p>
+</section>
+<section id="connect-a-client">
+<h2>Connect a client<a class="headerlink" href="#connect-a-client" title="Link to this heading"></a></h2>
+<p>For Claude Desktop / Claude Code, add to your MCP config (Claude Desktop:
+<code class="docutils literal notranslate"><span class="pre">claude_desktop_config.json</span></code>; Claude Code: <code class="docutils literal notranslate"><span class="pre">claude</span> <span class="pre">mcp</span> <span class="pre">add</span></code>):</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">  </span><span class="nt">"mcpServers"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"graintrace"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">"command"</span><span class="p">:</span><span class="w"> </span><span class="s2">"graintrace-mcp"</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"env"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"GRAINTRACE_MCP_WORKDIR"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/abs/path/to/where/outputs/go"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"PATH"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/home/you/.local/bin:/usr/bin:/bin"</span>
+<span class="w">      </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Use the conda env’s interpreter if <code class="docutils literal notranslate"><span class="pre">graintrace-mcp</span></code> is not on the default PATH,
+e.g. <code class="docutils literal notranslate"><span class="pre">&quot;command&quot;:</span> <span class="pre">&quot;/home/you/miniconda3/envs/&lt;puma-env&gt;/bin/graintrace-mcp&quot;</span></code>.
+Make sure <code class="docutils literal notranslate"><span class="pre">PATH</span></code> in <code class="docutils literal notranslate"><span class="pre">env</span></code> includes NEPER and any built binaries, since the
+client launches the server as a subprocess.</p>
+<p>Any other MCP-capable client can connect over the stdio or streamable-http
+transport; point it at the <code class="docutils literal notranslate"><span class="pre">graintrace-mcp</span></code> command (stdio) or
+<code class="docutils literal notranslate"><span class="pre">http://127.0.0.1:8000</span></code> (<code class="docutils literal notranslate"><span class="pre">--http</span></code>).</p>
+</section>
+<section id="notes">
+<h2>Notes<a class="headerlink" href="#notes" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>The job registry is in-memory and lives with the server process — fine for a
+single-user session driving one machine; it is not a distributed queue.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">run_cpfe</span></code> distinguishes <code class="docutils literal notranslate"><span class="pre">neml2</span></code> (importable) from <code class="docutils literal notranslate"><span class="pre">neml2-aoti</span></code> (the
+compiled runtime CPFE needs to load <code class="docutils literal notranslate"><span class="pre">.pt2</span></code> models); calibration only needs
+the former.</p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="configuration.html" class="btn btn-neutral float-left" title="Configuration reference" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="benchmarks.html" class="btn btn-neutral float-right" title="Benchmarks" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Argonne National Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

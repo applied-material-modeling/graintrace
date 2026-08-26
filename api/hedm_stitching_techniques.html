@@ -1,0 +1,279 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>graintrace.hedm_stitching_techniques &mdash; graintrace 0.1.2</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=92734c54"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=96c007af"></script>
+      <script src="../_static/design-tabs.js?v=f930bc37"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="graintrace.run_cpfe_simulation" href="run_cpfe_simulation.html" />
+    <link rel="prev" title="graintrace.scan_stitching_comparison" href="scan_stitching_comparison.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            graintrace
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts.html">Concepts &amp; data formats</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../configuration.html">Configuration reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../mcp.html">MCP server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../benchmarks.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pitfalls.html">Common pitfalls</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Tutorials &amp; examples</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/tutorials.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="api.html">API reference</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="construct_voronoi_mesh.html">graintrace.construct_voronoi_mesh</a></li>
+<li class="toctree-l2"><a class="reference internal" href="construct_nf_mesh.html">graintrace.construct_nf_mesh</a></li>
+<li class="toctree-l2"><a class="reference internal" href="construct_voxel_mesh.html">graintrace.construct_voxel_mesh</a></li>
+<li class="toctree-l2"><a class="reference internal" href="nf_grid_conversion.html">graintrace.nf_grid_conversion</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generate_random_crystal.html">graintrace.generate_random_crystal</a></li>
+<li class="toctree-l2"><a class="reference internal" href="synthetic_hedm_generator.html">graintrace.synthetic_hedm_generator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="neper_env.html">graintrace.neper_env</a></li>
+<li class="toctree-l2"><a class="reference internal" href="scan_stitching_comparison.html">graintrace.scan_stitching_comparison</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">graintrace.hedm_stitching_techniques</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#graintrace.hedm_stitching_techniques.region_base_stitching.RegionBaseStitching"><code class="docutils literal notranslate"><span class="pre">RegionBaseStitching</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#graintrace.hedm_stitching_techniques.region_base_stitching.RegionBaseStitching.run"><code class="docutils literal notranslate"><span class="pre">RegionBaseStitching.run()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#graintrace.hedm_stitching_techniques.scan_tessellation.default_neper_env"><code class="docutils literal notranslate"><span class="pre">default_neper_env()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#graintrace.hedm_stitching_techniques.scan_tessellation.compute_cell_geometry"><code class="docutils literal notranslate"><span class="pre">compute_cell_geometry()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="run_cpfe_simulation.html">graintrace.run_cpfe_simulation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="grid_resampling.html">graintrace.grid_resampling</a></li>
+<li class="toctree-l2"><a class="reference internal" href="material_calibration.html">graintrace.material_calibration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="taylor.html">graintrace.taylor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="base_material_approximation.html">graintrace.base_material_approximation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="experiment_rotation_helper.html">graintrace.experiment_rotation_helper</a></li>
+<li class="toctree-l2"><a class="reference internal" href="orientation_helper.html">graintrace.orientation_helper</a></li>
+<li class="toctree-l2"><a class="reference internal" href="simulation_postprocessing.html">graintrace.simulation_postprocessing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="experiment_postprocessing.html">graintrace.experiment_postprocessing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="plot_postprocessing.html">graintrace.plot_postprocessing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ipf_postprocess.html">graintrace.ipf_postprocess</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rare_cluster_indicator.html">graintrace.rare_cluster_indicator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="graph_spatial_cluster.html">graintrace.graph_spatial_cluster</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cluster_indicator.html">graintrace.cluster_indicator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="similarity_metric_library.html">graintrace.similarity_metric_library</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rare_criteria_selection_library.html">graintrace.rare_criteria_selection_library</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rei_comparison.html">graintrace.rei_comparison</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user_data_class.html">graintrace.user_data_class</a></li>
+<li class="toctree-l2"><a class="reference internal" href="grain_graph_matching.html">graintrace.grain_graph_matching</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tess_to_gnn.html">graintrace.tess_to_gnn</a></li>
+<li class="toctree-l2"><a class="reference internal" href="nf.html">graintrace.nf</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../development.html">Building &amp; testing the docs</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">graintrace</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="api.html">API reference</a></li>
+      <li class="breadcrumb-item active">graintrace.hedm_stitching_techniques</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api/hedm_stitching_techniques.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-graintrace.hedm_stitching_techniques">
+<span id="graintrace-hedm-stitching-techniques"></span><h1>graintrace.hedm_stitching_techniques<a class="headerlink" href="#module-graintrace.hedm_stitching_techniques" title="Link to this heading"></a></h1>
+<p>HEDM scan-stitching techniques (region-based, naive) and support utilities.</p>
+<p id="module-graintrace.hedm_stitching_techniques.region_base_stitching">Region-based multi-scan HEDM z-stitching (RegionBaseStitching).</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="graintrace.hedm_stitching_techniques.region_base_stitching.RegionBaseStitching">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">graintrace.hedm_stitching_techniques.region_base_stitching.</span></span><span class="sig-name descname"><span class="pre">RegionBaseStitching</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">scan_files</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_csv</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">position_tolerance</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">orientation_tolerance</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">radius_tolerance</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weights</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_neighbors</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">orientation_convention</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'bunge'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">orientation_units</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'degrees'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">symmetry</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'432'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">refine_extents</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tess_weighted</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">update_centroid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tess_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">neper_env</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xy_bounding_box</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/graintrace/hedm_stitching_techniques/region_base_stitching.html#RegionBaseStitching"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#graintrace.hedm_stitching_techniques.region_base_stitching.RegionBaseStitching" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Iteratively stitch overlapping HEDM scan layers into one grain set.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>scan_files</strong> (<em>List</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>]</em>)</p></li>
+<li><p><strong>output_csv</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+<li><p><strong>position_tolerance</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>orientation_tolerance</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>radius_tolerance</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>weights</strong> (<em>Dict</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>]</em>)</p></li>
+<li><p><strong>min_neighbors</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>)</p></li>
+<li><p><strong>orientation_convention</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+<li><p><strong>orientation_units</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+<li><p><strong>symmetry</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+<li><p><strong>output_column</strong> (<em>Optional</em><em>[</em><em>List</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>]</em><em>]</em>)</p></li>
+<li><p><strong>refine_extents</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>)</p></li>
+<li><p><strong>tess_weighted</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>)</p></li>
+<li><p><strong>update_centroid</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>)</p></li>
+<li><p><strong>tess_dir</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>]</em>)</p></li>
+<li><p><strong>neper_env</strong> (<em>Optional</em><em>[</em><em>Dict</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>]</em><em>]</em>)</p></li>
+<li><p><strong>xy_bounding_box</strong> (<em>Optional</em><em>[</em><em>List</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>]</em><em>]</em>)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="graintrace.hedm_stitching_techniques.region_base_stitching.RegionBaseStitching.run">
+<span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">zlo</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zhi</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overlap_fraction</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/graintrace/hedm_stitching_techniques/region_base_stitching.html#RegionBaseStitching.run"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#graintrace.hedm_stitching_techniques.region_base_stitching.RegionBaseStitching.run" title="Link to this definition"></a></dt>
+<dd><p>Entry point: load and sort scans, then iteratively stitch S0 → S01 → S012 → …
+and write the final output.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>zlo</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>zhi</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>overlap_fraction</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>GrainSet</em></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<p id="module-graintrace.hedm_stitching_techniques.scan_tessellation">Per-grain cell geometry from a Neper tessellation, for HEDM stitching.</p>
+<p>Given a set of grain centroids (one scan or a stitched accumulator), build a
+(Laguerre / power) Voronoi tessellation <em>at the measured centroids</em>, with no CVT
+relaxation, and read back each grain’s true polyhedral z-extent <code class="docutils literal notranslate"><span class="pre">[Zmin,</span> <span class="pre">Zmax]</span></code>
+and volume centroid. This replaces the equivalent-sphere <code class="docutils literal notranslate"><span class="pre">z</span> <span class="pre">+/-</span> <span class="pre">GrainRadius</span></code>
+approximation used by the region classifier for elongated / anisotropic grains.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="graintrace.hedm_stitching_techniques.scan_tessellation.default_neper_env">
+<span class="sig-prename descclassname"><span class="pre">graintrace.hedm_stitching_techniques.scan_tessellation.</span></span><span class="sig-name descname"><span class="pre">default_neper_env</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/graintrace/hedm_stitching_techniques/scan_tessellation.html#default_neper_env"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#graintrace.hedm_stitching_techniques.scan_tessellation.default_neper_env" title="Link to this definition"></a></dt>
+<dd><p>Subprocess environment for a user-installed NEPER.</p>
+<p>Resolves the <code class="docutils literal notranslate"><span class="pre">neper</span></code> binary via <code class="docutils literal notranslate"><span class="pre">graintrace.neper_env</span></code> (NEPER env var -&gt;
+tools.json -&gt; PATH) and puts its bin/lib directories on <code class="docutils literal notranslate"><span class="pre">PATH</span></code> /
+<code class="docutils literal notranslate"><span class="pre">LD_LIBRARY_PATH</span></code> so a self-built NEPER finds its GSL/OpenBLAS libs. Falls
+back to a plain <code class="docutils literal notranslate"><span class="pre">os.environ</span></code> copy when NEPER cannot be located.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="graintrace.hedm_stitching_techniques.scan_tessellation.compute_cell_geometry">
+<span class="sig-prename descclassname"><span class="pre">graintrace.hedm_stitching_techniques.scan_tessellation.</span></span><span class="sig-name descname"><span class="pre">compute_cell_geometry</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bbox</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weighted</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coord_cols</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">('X',</span> <span class="pre">'Y',</span> <span class="pre">'Z')</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">radius_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'GrainRadius'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">work_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">env</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">neper_bin</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'neper'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keep_files</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/graintrace/hedm_stitching_techniques/scan_tessellation.html#compute_cell_geometry"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#graintrace.hedm_stitching_techniques.scan_tessellation.compute_cell_geometry" title="Link to this definition"></a></dt>
+<dd><p>Tessellate <code class="docutils literal notranslate"><span class="pre">df</span></code>’s grains inside <code class="docutils literal notranslate"><span class="pre">bbox</span></code> and return per-grain cell geometry.</p>
+<p>The tessellation is a (Laguerre when <code class="docutils literal notranslate"><span class="pre">weighted</span></code>) Voronoi diagram of the exact
+measured centroids; <code class="docutils literal notranslate"><span class="pre">-morphooptistop</span> <span class="pre">iter=0</span></code> disables CVT relaxation so cells
+stay anchored at the grains. Cell <em>i</em> corresponds to input row <em>i</em> (the same
+seed-order assumption <code class="docutils literal notranslate"><span class="pre">VoronoiMeshBuilder</span></code> relies on for orientation mapping).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>df</strong> (<a class="reference external" href="https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.html#pandas.DataFrame" title="(in pandas v3.0.5)"><em>DataFrame</em></a>) – grain table with <code class="docutils literal notranslate"><span class="pre">coord_cols</span></code> (and <code class="docutils literal notranslate"><span class="pre">radius_col</span></code> when <code class="docutils literal notranslate"><span class="pre">weighted</span></code>).</p></li>
+<li><p><strong>bbox</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Sequence" title="(in Python v3.14)"><em>Sequence</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>]</em>) – domain <code class="docutils literal notranslate"><span class="pre">[xlo,</span> <span class="pre">xhi,</span> <span class="pre">ylo,</span> <span class="pre">yhi,</span> <span class="pre">zlo,</span> <span class="pre">zhi]</span></code>. z should be the scan FOV
+window so that a cell touching the z-limit means the grain is truncated.</p></li>
+<li><p><strong>weighted</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Laguerre weight = effective grain volume <code class="docutils literal notranslate"><span class="pre">(4/3)*pi*r**3</span></code>.</p></li>
+<li><p><strong>work_dir</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – scratch dir for Neper I/O (a temp dir is used and removed if None).</p></li>
+<li><p><strong>env</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em> | </em><em>None</em>) – subprocess env (defaults to <a class="reference internal" href="#graintrace.hedm_stitching_techniques.scan_tessellation.default_neper_env" title="graintrace.hedm_stitching_techniques.scan_tessellation.default_neper_env"><code class="xref py py-func docutils literal notranslate"><span class="pre">default_neper_env()</span></code></a>).</p></li>
+<li><p><strong>coord_cols</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Sequence" title="(in Python v3.14)"><em>Sequence</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>]</em>)</p></li>
+<li><p><strong>radius_col</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+<li><p><strong>neper_bin</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+<li><p><strong>keep_files</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>DataFrame indexed like <code class="docutils literal notranslate"><span class="pre">df</span></code> with columns <code class="docutils literal notranslate"><span class="pre">Zmin,</span> <span class="pre">Zmax,</span> <span class="pre">Xc,</span> <span class="pre">Yc,</span> <span class="pre">Zc,</span> <span class="pre">Vol</span></code>.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.html#pandas.DataFrame" title="(in pandas v3.0.5)"><em>DataFrame</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="scan_stitching_comparison.html" class="btn btn-neutral float-left" title="graintrace.scan_stitching_comparison" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="run_cpfe_simulation.html" class="btn btn-neutral float-right" title="graintrace.run_cpfe_simulation" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Argonne National Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

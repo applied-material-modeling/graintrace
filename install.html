@@ -1,0 +1,274 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Installation &mdash; graintrace 0.1.2</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=92734c54"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="_static/copybutton.js?v=96c007af"></script>
+      <script src="_static/design-tabs.js?v=f930bc37"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Quickstart" href="quickstart.html" />
+    <link rel="prev" title="graintrace" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            graintrace
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Installation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#requirements">Requirements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#tier-1-python-only">Tier 1: Python only</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#tier-2-neml2-features-without-cpfe">Tier 2: NEML2 features without CPFE</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#tier-3-full-cpfe">Tier 3: Full CPFE</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#external-compiled-stack-single-puma-submodule">External compiled stack (single PUMA submodule)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#cubit-sculpt-proprietary-bring-your-own-license">CUBIT/SCULPT (proprietary; bring your own license)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#neper-and-gmsh">NEPER and gmsh</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concepts.html">Concepts &amp; data formats</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mcp.html">MCP server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="benchmarks.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pitfalls.html">Common pitfalls</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Tutorials &amp; examples</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/tutorials.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api/api.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="development.html">Building &amp; testing the docs</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">graintrace</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Installation</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/install.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="installation">
+<h1>Installation<a class="headerlink" href="#installation" title="Link to this heading"></a></h1>
+<section id="requirements">
+<h2>Requirements<a class="headerlink" href="#requirements" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>Python <strong>&gt;= 3.10</strong>, with pip (conda recommended for the native stack).</p></li>
+<li><p>gmsh and pyzag 2.0.0 — installed automatically with graintrace via pip.</p></li>
+<li><p>NEPER — bring your own; install from <a class="reference external" href="https://neper.info">https://neper.info</a> and point graintrace
+at it (see <a class="reference internal" href="#neper-gmsh"><span class="std std-ref">NEPER and gmsh</span></a>).</p></li>
+<li><p>CUBIT/SCULPT — Coreform license required, for hex meshing.</p></li>
+<li><p>NEML2 v3 (Python) — built by PUMA, for calibration and pole figures.</p></li>
+<li><p>MOOSE + PUMA (<code class="docutils literal notranslate"><span class="pre">puma-opt</span></code>), linked with NEML2 v3 + libtorch — for CPFE.</p></li>
+</ul>
+<p>Installation is organized in three tiers by capability. Each higher tier adds
+the PUMA-built native stack on top of the pip install.</p>
+</section>
+<section id="tier-1-python-only">
+<h2>Tier 1: Python only<a class="headerlink" href="#tier-1-python-only" title="Link to this heading"></a></h2>
+<p>Post-processing, rare-event identification, REI comparison, stitching, and
+similarity metrics. No conda or native build needed:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>graintrace
+<span class="c1"># from a source checkout instead:</span>
+pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.
+
+<span class="c1"># optional extras:</span>
+pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"graintrace[gnn]"</span><span class="w">       </span><span class="c1"># grain-graph / GNN utilities (torch-geometric)</span>
+pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"graintrace[mcp]"</span><span class="w">       </span><span class="c1"># MCP server</span>
+pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"graintrace[examples]"</span><span class="w">  </span><span class="c1"># deps used by examples/ (meshio)</span>
+pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"graintrace[dev]"</span><span class="w">       </span><span class="c1"># test/lint/build tooling</span>
+pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"graintrace[docs]"</span><span class="w">      </span><span class="c1"># documentation build (Sphinx)</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">import</span> <span class="pre">graintrace</span></code> works with no NEML2 present — the compiled stack is
+lazy-imported. This tier also installs <code class="docutils literal notranslate"><span class="pre">pyzag</span></code>.</p>
+<p>To run the examples or benchmarks, clone the repo and install from the checkout.
+The PyPI package ships only the <code class="docutils literal notranslate"><span class="pre">graintrace</span></code> library, not <code class="docutils literal notranslate"><span class="pre">examples/</span></code>,
+<code class="docutils literal notranslate"><span class="pre">benchmark/</span></code>, or the <code class="docutils literal notranslate"><span class="pre">mwe_data/</span></code> sample datasets:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/applied-material-modeling/graintrace.git
+<span class="nb">cd</span><span class="w"> </span>graintrace
+pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">".[examples]"</span>
+</pre></div>
+</div>
+</section>
+<section id="tier-2-neml2-features-without-cpfe">
+<h2>Tier 2: NEML2 features without CPFE<a class="headerlink" href="#tier-2-neml2-features-without-cpfe" title="Link to this heading"></a></h2>
+<p>Material calibration and pole figures need the NEML2 <strong>Python</strong> package but not
+the full MOOSE/<code class="docutils literal notranslate"><span class="pre">puma-opt</span></code> solver. Build only NEML2 from PUMA’s submodule:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/applied-material-modeling/graintrace.git
+<span class="nb">cd</span><span class="w"> </span>graintrace
+git<span class="w"> </span>submodule<span class="w"> </span>update<span class="w"> </span>--init<span class="w"> </span>external/puma<span class="w">        </span><span class="c1"># pulls puma -&gt; moose + neml2</span>
+
+<span class="c1"># Create the PUMA Python environment (see external/puma/README.md):</span>
+conda<span class="w"> </span>create<span class="w"> </span>-n<span class="w"> </span>puma<span class="w"> </span><span class="nv">python</span><span class="o">=</span><span class="m">3</span>.13<span class="w"> </span>mpich<span class="w"> </span>gcc_linux-64<span class="w"> </span>gxx_linux-64<span class="w"> </span>gfortran_linux-64<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>cmake<span class="w"> </span>make<span class="w"> </span>ninja<span class="w"> </span>hdf5<span class="w"> </span>netcdf4<span class="w"> </span>zlib<span class="w"> </span>libaec<span class="w"> </span>bison<span class="w"> </span>flex<span class="w"> </span>m4<span class="w"> </span>pkg-config
+conda<span class="w"> </span>activate<span class="w"> </span>puma
+pip<span class="w"> </span>install<span class="w"> </span>torch<span class="w"> </span>nmhit<span class="w"> </span>scikit-build-core<span class="w"> </span>ninja
+
+<span class="c1"># Build ONLY the NEML2 Python package (skip the MOOSE/puma-opt build):</span>
+<span class="nb">cd</span><span class="w"> </span>external/puma
+git<span class="w"> </span>submodule<span class="w"> </span>update<span class="w"> </span>--init<span class="w"> </span>neml2
+pip<span class="w"> </span>install<span class="w"> </span>./neml2<span class="w"> </span>--no-deps<span class="w">                     </span><span class="c1"># NEML2 v3 Python + neml2-compile</span>
+<span class="nb">cd</span><span class="w"> </span>../..
+
+pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.<span class="w">                                  </span><span class="c1"># graintrace + pyzag into the same env</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">--no-deps</span></code> on NEML2 keeps the <code class="docutils literal notranslate"><span class="pre">pyzag==2.0.0</span></code> that graintrace installs; the
+published NEML2 PyPI wheel pins an older, incompatible pyzag, which is why NEML2
+is built from source here.</p>
+</section>
+<section id="tier-3-full-cpfe">
+<h2>Tier 3: Full CPFE<a class="headerlink" href="#tier-3-full-cpfe" title="Link to this heading"></a></h2>
+<p>Reconstruct then simulate needs the whole native stack: MOOSE + libtorch +
+<code class="docutils literal notranslate"><span class="pre">puma-opt</span></code> + NEML2. Build it via PUMA, then install graintrace into that env:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/applied-material-modeling/graintrace.git
+<span class="nb">cd</span><span class="w"> </span>graintrace
+git<span class="w"> </span>submodule<span class="w"> </span>update<span class="w"> </span>--init<span class="w"> </span>external/puma
+
+<span class="c1"># Build the native stack: follow external/puma/README.md end to end</span>
+<span class="c1"># (conda env, submodules, PETSc/libMesh/WASP, NEML2, `make -j`, and</span>
+<span class="c1"># `neml2-compile` for the material models).</span>
+<span class="nb">cd</span><span class="w"> </span>external/puma
+<span class="c1"># ... PUMA build steps ...</span>
+<span class="nb">cd</span><span class="w"> </span>../..
+
+pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.<span class="w">        </span><span class="c1"># or: pip install -e ".[dev]" to run the tests</span>
+</pre></div>
+</div>
+<p>At runtime graintrace needs the <code class="docutils literal notranslate"><span class="pre">puma-opt</span></code> binary at <code class="docutils literal notranslate"><span class="pre">external/puma/puma-opt</span></code>;
+pass it as <code class="docutils literal notranslate"><span class="pre">moose_run_file</span></code> to <code class="xref py py-class docutils literal notranslate"><span class="pre">CPFESimulation</span></code> (see
+<code class="docutils literal notranslate"><span class="pre">examples/demonstrate_cpfe.py</span></code>). NEML2 comes from PUMA’s build so <code class="docutils literal notranslate"><span class="pre">puma-opt</span></code>’s
+C++ library and the Python <code class="docutils literal notranslate"><span class="pre">neml2</span></code> stay in lockstep; <code class="docutils literal notranslate"><span class="pre">pyzag</span></code> is provided by
+graintrace’s pip install.</p>
+</section>
+<section id="external-compiled-stack-single-puma-submodule">
+<h2>External compiled stack (single PUMA submodule)<a class="headerlink" href="#external-compiled-stack-single-puma-submodule" title="Link to this heading"></a></h2>
+<p>The native stack is pinned via one submodule. PUMA carries MOOSE and NEML2 as
+its own submodules, so graintrace pins PUMA once and gets the whole stack:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>submodule<span class="w"> </span>update<span class="w"> </span>--init<span class="w"> </span>external/puma<span class="w">          </span><span class="c1"># graintrace -&gt; puma</span>
+<span class="nb">cd</span><span class="w"> </span>external/puma<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>git<span class="w"> </span>submodule<span class="w"> </span>update<span class="w"> </span>--init<span class="w">    </span><span class="c1"># puma -&gt; moose/ + neml2/</span>
+</pre></div>
+</div>
+<p>The init is intentionally not recursive: it stops at PUMA’s <code class="docutils literal notranslate"><span class="pre">moose/</span></code> and
+<code class="docutils literal notranslate"><span class="pre">neml2/</span></code>. MOOSE’s own submodules (PETSc, libMesh, WASP) are initialized by
+MOOSE’s build scripts during the PUMA build.</p>
+</section>
+<section id="cubit-sculpt-proprietary-bring-your-own-license">
+<h2>CUBIT/SCULPT (proprietary; bring your own license)<a class="headerlink" href="#cubit-sculpt-proprietary-bring-your-own-license" title="Link to this heading"></a></h2>
+<p>Coreform CUBIT provides CUBIT + SCULPT: <a class="reference external" href="https://coreform.com/">https://coreform.com/</a>. Obtain and
+install it under your own account.</p>
+<p>Never commit CUBIT license material (<code class="docutils literal notranslate"><span class="pre">*.lic</span></code>, license servers, keys) to any
+repo. <code class="docutils literal notranslate"><span class="pre">sculpt_config</span></code> in the examples takes only executable paths, no license
+tokens. See <a class="reference internal" href="configuration.html#config-sculpt"><span class="std std-ref">sculpt_config</span></a> for the <code class="docutils literal notranslate"><span class="pre">sculpt_config</span></code> layout.</p>
+</section>
+<section id="neper-and-gmsh">
+<span id="neper-gmsh"></span><h2>NEPER and gmsh<a class="headerlink" href="#neper-and-gmsh" title="Link to this heading"></a></h2>
+<p><strong>gmsh</strong> is a pip dependency, installed automatically with graintrace.</p>
+<p><strong>NEPER</strong> is an external tool graintrace drives; it is not a pip package. Install
+it yourself, then let graintrace find it, in this precedence order:</p>
+<ol class="arabic simple">
+<li><p>the <code class="docutils literal notranslate"><span class="pre">NEPER</span></code> environment variable set to the absolute path of the <code class="docutils literal notranslate"><span class="pre">neper</span></code>
+binary (<code class="docutils literal notranslate"><span class="pre">export</span> <span class="pre">NEPER=/abs/path/to/neper</span></code>);</p></li>
+<li><p>a <code class="docutils literal notranslate"><span class="pre">graintrace_tools.json</span></code> with a <code class="docutils literal notranslate"><span class="pre">&quot;neper&quot;</span></code> key (search order
+<code class="docutils literal notranslate"><span class="pre">$GRAINTRACE_TOOLS_JSON</span></code> → <code class="docutils literal notranslate"><span class="pre">./graintrace_tools.json</span></code> →
+<code class="docutils literal notranslate"><span class="pre">~/.config/graintrace/tools.json</span></code>);</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">neper</span></code> on your <code class="docutils literal notranslate"><span class="pre">PATH</span></code>;</p></li>
+<li><p>or pass <code class="docutils literal notranslate"><span class="pre">neper_path=/abs/path/to/neper</span></code> (or a prepared <code class="docutils literal notranslate"><span class="pre">env=</span></code>) to
+<code class="xref py py-class docutils literal notranslate"><span class="pre">VoronoiMeshBuilder</span></code> / <code class="xref py py-class docutils literal notranslate"><span class="pre">CrystalGenerator</span></code>.</p></li>
+</ol>
+<p>If NEPER cannot be found, the builders raise a clear error with these
+instructions. On Linux you can pass <code class="docutils literal notranslate"><span class="pre">auto_install=True</span></code> to build GSL +
+OpenBLAS + NEPER into <code class="docutils literal notranslate"><span class="pre">~/.local</span></code>.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="index.html" class="btn btn-neutral float-left" title="graintrace" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="quickstart.html" class="btn btn-neutral float-right" title="Quickstart" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Argonne National Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

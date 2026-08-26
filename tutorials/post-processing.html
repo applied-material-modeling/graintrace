@@ -1,0 +1,234 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Post-CPFE analysis &amp; plotting &mdash; graintrace 0.1.2</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+      <link rel="stylesheet" type="text/css" href="../_static/nbsphinx-code-cells.css?v=2aa19091" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=92734c54"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=96c007af"></script>
+      <script src="../_static/design-tabs.js?v=f930bc37"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Rare-event identification (REI)" href="rare-event-identification.html" />
+    <link rel="prev" title="CPFE (NF geometry + FF initial strain)" href="cpfe-nf-ff.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            graintrace
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts.html">Concepts &amp; data formats</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../configuration.html">Configuration reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../mcp.html">MCP server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../benchmarks.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pitfalls.html">Common pitfalls</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Tutorials &amp; examples</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="tutorials.html">Tutorials</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="hedm-stitching.html">HEDM scan simulation and stitching</a></li>
+<li class="toctree-l2"><a class="reference internal" href="microstructure-generation.html">Microstructure generation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ff-reconstruction.html">FF Voronoi reconstruction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="nf-reconstruction.html">NF mesh reconstruction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="voxel-segmentation-mesh.html">Voxel segmentation and meshing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="meshing.html">Meshing a grain grid into hex</a></li>
+<li class="toctree-l2"><a class="reference internal" href="experiment-rotation.html">Registering FF data to the sim frame</a></li>
+<li class="toctree-l2"><a class="reference internal" href="material-calibration.html">Material calibration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cpfe-simulation.html">CPFE simulation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cpfe-nf-ff.html">CPFE (NF geometry + FF initial strain)</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Post-CPFE analysis &amp; plotting</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#Inputs">Inputs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#Load-results">Load results</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#Plot-distributions-and-macroscopic-response">Plot distributions and macroscopic response</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#Optional:-pole-figure-and-IPF-coloring">Optional: pole figure and IPF coloring</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#Gotchas">Gotchas</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="rare-event-identification.html">Rare-event identification (REI)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rei-comparison.html">REI comparison</a></li>
+<li class="toctree-l2"><a class="reference internal" href="grain-tracking.html">Grain tracking across load steps</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../api/api.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../development.html">Building &amp; testing the docs</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">graintrace</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="tutorials.html">Tutorials</a></li>
+      <li class="breadcrumb-item active">Post-CPFE analysis &amp; plotting</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/tutorials/post-processing.ipynb.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="Post-CPFE-analysis-&amp;-plotting">
+<h1>Post-CPFE analysis &amp; plotting<a class="headerlink" href="#Post-CPFE-analysis-&-plotting" title="Link to this heading"></a></h1>
+<p>Load CPFE field outputs and plot field distributions, macroscopic stress-strain, and per-block time series. This tutorial is pure Python (no MOOSE/NEPER) and runs on the sample data under <code class="docutils literal notranslate"><span class="pre">mwe_data/</span></code>.</p>
+<p><strong>Needs:</strong> pip install only (a pole figure additionally needs NEML2).</p>
+<p>The full script is <code class="docutils literal notranslate"><span class="pre">examples/demonstrate_postprocess.py</span></code>.</p>
+<section id="Inputs">
+<h2>Inputs<a class="headerlink" href="#Inputs" title="Link to this heading"></a></h2>
+<p>A CPFE block CSV plus a directory of per-time grid field CSVs. The repo ships <code class="docutils literal notranslate"><span class="pre">mwe_data/out.csv</span></code> and <code class="docutils literal notranslate"><span class="pre">mwe_data/grid_out/</span></code>. If a run produced no <code class="docutils literal notranslate"><span class="pre">grid_out/</span></code> CSVs (the CPFE defaults write them only with <code class="docutils literal notranslate"><span class="pre">grid_transfer=&quot;per_step&quot;</span></code>), regenerate them offline from the native Exodus with <code class="docutils literal notranslate"><span class="pre">graintrace.grid_resampling.GridResampler</span></code> (needs <code class="docutils literal notranslate"><span class="pre">puma-opt</span></code>).</p>
+</section>
+<section id="Load-results">
+<h2>Load results<a class="headerlink" href="#Load-results" title="Link to this heading"></a></h2>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+</pre></div>
+</div>
+<div class="input_area highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">graintrace.simulation_postprocessing</span><span class="w"> </span><span class="kn">import</span> <span class="n">SimulationResults</span><span class="p">,</span> <span class="n">FieldFileNaming</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">graintrace</span><span class="w"> </span><span class="kn">import</span> <span class="n">plot_postprocessing</span> <span class="k">as</span> <span class="n">postprocess</span>
+
+<span class="n">res</span> <span class="o">=</span> <span class="n">SimulationResults</span><span class="p">(</span>
+    <span class="n">block_csv</span><span class="o">=</span><span class="s2">"../../mwe_data/out.csv"</span><span class="p">,</span>
+    <span class="n">field_dir</span><span class="o">=</span><span class="s2">"../../mwe_data/grid_out"</span><span class="p">,</span>
+    <span class="n">field_naming</span><span class="o">=</span><span class="n">FieldFileNaming</span><span class="p">(</span>
+        <span class="n">prefix</span><span class="o">=</span><span class="s2">"out_element_centroid"</span><span class="p">,</span> <span class="n">index_width</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s2">"_"</span><span class="p">,</span> <span class="n">suffix</span><span class="o">=</span><span class="s2">".csv"</span>
+    <span class="p">),</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</section>
+<section id="Plot-distributions-and-macroscopic-response">
+<h2>Plot distributions and macroscopic response<a class="headerlink" href="#Plot-distributions-and-macroscopic-response" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">tensor_prefix</span></code> selects the field (<code class="docutils literal notranslate"><span class="pre">ee</span></code>, <code class="docutils literal notranslate"><span class="pre">cauchy_stress</span></code>, <code class="docutils literal notranslate"><span class="pre">nye_tensor</span></code>, <code class="docutils literal notranslate"><span class="pre">ori_rodrigues</span></code>, <code class="docutils literal notranslate"><span class="pre">strain</span></code>); <code class="docutils literal notranslate"><span class="pre">order</span></code> is the tensor rank.</p>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+</pre></div>
+</div>
+<div class="input_area highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">postprocess</span><span class="o">.</span><span class="n">plot_block_properties_distribution</span><span class="p">(</span>
+    <span class="n">res</span><span class="p">,</span> <span class="n">time</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">tensor_prefix</span><span class="o">=</span><span class="s2">"ee"</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">output_folder</span><span class="o">=</span><span class="s2">"out/post"</span>
+<span class="p">)</span>
+<span class="n">postprocess</span><span class="o">.</span><span class="n">plot_macroscopic_stress_strain</span><span class="p">(</span>
+    <span class="n">res</span><span class="p">,</span>
+    <span class="n">stress_tensor_prefix</span><span class="o">=</span><span class="s2">"cauchy_stress"</span><span class="p">,</span>
+    <span class="n">strain_tensor_prefix</span><span class="o">=</span><span class="s2">"strain"</span><span class="p">,</span>
+    <span class="n">volume_prefix</span><span class="o">=</span><span class="s2">"volume"</span><span class="p">,</span>
+    <span class="n">output_folder</span><span class="o">=</span><span class="s2">"out/post"</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">postprocess</span><span class="o">.</span><span class="n">plot_block_properties_over_time</span><span class="p">(</span>
+    <span class="n">res</span><span class="p">,</span> <span class="n">tensor_prefix</span><span class="o">=</span><span class="s2">"cauchy_stress"</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">output_folder</span><span class="o">=</span><span class="s2">"out/post"</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</section>
+<section id="Optional:-pole-figure-and-IPF-coloring">
+<h2>Optional: pole figure and IPF coloring<a class="headerlink" href="#Optional:-pole-figure-and-IPF-coloring" title="Link to this heading"></a></h2>
+<p>A pole figure uses <code class="docutils literal notranslate"><span class="pre">neml2.texture</span></code> (NEML2 v3). IPF coloring writes RGB fields onto an Exodus or VTK mesh via <code class="docutils literal notranslate"><span class="pre">graintrace.ipf_postprocess.IPFProcessor</span></code>.</p>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+</pre></div>
+</div>
+<div class="input_area highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Requires NEML2 v3 (neml2.texture):</span>
+<span class="c1"># postprocess.plot_pole_figure(</span>
+<span class="c1">#     res, tensor_prefix="ori_rodrigues", time=1.0, direction=[0, 0, 1],</span>
+<span class="c1">#     crystal_symmetry="432", device="cpu", output_folder="out/post",</span>
+<span class="c1"># )</span>
+</pre></div>
+</div>
+</div>
+</section>
+<section id="Gotchas">
+<h2>Gotchas<a class="headerlink" href="#Gotchas" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>Pre-load steps (t &lt;= <code class="docutils literal notranslate"><span class="pre">initialize_time</span></code>) have near-zero stress/ee; that is expected.</p></li>
+<li><p>Pole figures require NEML2 v3; reinstall it if the <code class="docutils literal notranslate"><span class="pre">neml2.texture</span></code> import fails.</p></li>
+<li><p>The experiment half uses <code class="docutils literal notranslate"><span class="pre">experiment_postprocessing.ExperimentResults</span></code> with its own <code class="docutils literal notranslate"><span class="pre">FieldFileNaming</span></code> (e.g. prefix <code class="docutils literal notranslate"><span class="pre">expsyn_</span></code>, suffix <code class="docutils literal notranslate"><span class="pre">time.csv</span></code>).</p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="cpfe-nf-ff.html" class="btn btn-neutral float-left" title="CPFE (NF geometry + FF initial strain)" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="rare-event-identification.html" class="btn btn-neutral float-right" title="Rare-event identification (REI)" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Argonne National Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

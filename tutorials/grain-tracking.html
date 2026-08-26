@@ -1,0 +1,332 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Grain tracking across load steps &mdash; graintrace 0.1.2</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=92734c54"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=96c007af"></script>
+      <script src="../_static/design-tabs.js?v=f930bc37"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Examples" href="../examples.html" />
+    <link rel="prev" title="REI comparison" href="rei-comparison.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            graintrace
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts.html">Concepts &amp; data formats</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../configuration.html">Configuration reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../mcp.html">MCP server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../benchmarks.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pitfalls.html">Common pitfalls</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Tutorials &amp; examples</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="tutorials.html">Tutorials</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="hedm-stitching.html">HEDM scan simulation and stitching</a></li>
+<li class="toctree-l2"><a class="reference internal" href="microstructure-generation.html">Microstructure generation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ff-reconstruction.html">FF Voronoi reconstruction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="nf-reconstruction.html">NF mesh reconstruction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="voxel-segmentation-mesh.html">Voxel segmentation and meshing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="meshing.html">Meshing a grain grid into hex</a></li>
+<li class="toctree-l2"><a class="reference internal" href="experiment-rotation.html">Registering FF data to the sim frame</a></li>
+<li class="toctree-l2"><a class="reference internal" href="material-calibration.html">Material calibration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cpfe-simulation.html">CPFE simulation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cpfe-nf-ff.html">CPFE (NF geometry + FF initial strain)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="post-processing.html">Post-CPFE analysis &amp; plotting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rare-event-identification.html">Rare-event identification (REI)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rei-comparison.html">REI comparison</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Grain tracking across load steps</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#inputs">Inputs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#recipe">Recipe</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#key-parameters">Key parameters</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#outputs">Outputs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#gotchas">Gotchas</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#full-example">Full example</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../api/api.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../development.html">Building &amp; testing the docs</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">graintrace</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="tutorials.html">Tutorials</a></li>
+      <li class="breadcrumb-item active">Grain tracking across load steps</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/tutorials/grain-tracking.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="grain-tracking-across-load-steps">
+<h1>Grain tracking across load steps<a class="headerlink" href="#grain-tracking-across-load-steps" title="Link to this heading"></a></h1>
+<p>Track and match grains across two load steps by building a grain graph from each
+FF reconstruction and matching them via message passing, using
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">build_graph()</span></code> and
+<code class="xref py py-class docutils literal notranslate"><span class="pre">GraphGrainMatcher</span></code>. Use this when you have two FF grain CSVs
+of the same sample at different loads or times and want a grain correspondence.</p>
+<p><strong>Needs:</strong> NEPER (tessellation for the graph).</p>
+<section id="inputs">
+<h2>Inputs<a class="headerlink" href="#inputs" title="Link to this heading"></a></h2>
+<p>Two FF grain CSVs of the same sample at two load steps, each with <code class="docutils literal notranslate"><span class="pre">X,</span> <span class="pre">Y,</span> <span class="pre">Z</span></code>,
+Euler columns (<code class="docutils literal notranslate"><span class="pre">Eul0/1/2</span></code>), and a 9-component elastic strain
+(<code class="docutils literal notranslate"><span class="pre">eKen11..eKen33</span></code>). The repo ships
+<code class="docutils literal notranslate"><span class="pre">mwe_data/synthetic_load_exp/expsyn_146time.csv</span></code> and <code class="docutils literal notranslate"><span class="pre">expsyn_160time.csv</span></code>.
+See <a class="reference internal" href="../concepts.html"><span class="doc">Concepts &amp; data formats</span></a> for the raw FF format.</p>
+</section>
+<section id="recipe">
+<h2>Recipe<a class="headerlink" href="#recipe" title="Link to this heading"></a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">graintrace.construct_voronoi_mesh</span><span class="w"> </span><span class="kn">import</span> <span class="n">VoronoiMeshBuilder</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">graintrace.grain_graph_matching</span><span class="w"> </span><span class="kn">import</span> <span class="n">GraphGrainMatcher</span>
+
+<span class="n">eKen</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">"eKen</span><span class="si">{</span><span class="n">i</span><span class="si">}{</span><span class="n">j</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">)]</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">make</span><span class="p">(</span><span class="n">csv</span><span class="p">,</span> <span class="n">out</span><span class="p">,</span> <span class="n">bbox</span><span class="p">):</span>
+    <span class="n">b</span> <span class="o">=</span> <span class="n">VoronoiMeshBuilder</span><span class="p">(</span>
+        <span class="n">input_csv</span><span class="o">=</span><span class="n">csv</span><span class="p">,</span> <span class="n">output_dir</span><span class="o">=</span><span class="n">out</span><span class="p">,</span> <span class="n">bounding_box</span><span class="o">=</span><span class="n">bbox</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">weighted</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">auto_fix_bbox</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">auto_rotate</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">angle_identifier</span><span class="o">=</span><span class="p">[</span><span class="s2">"Eul0"</span><span class="p">,</span> <span class="s2">"Eul1"</span><span class="p">,</span> <span class="s2">"Eul2"</span><span class="p">],</span> <span class="n">orientation_descriptor</span><span class="o">=</span><span class="s2">"euler-bunge"</span><span class="p">,</span>
+        <span class="n">orientation_active_convention</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">elastic_strain_identifier</span><span class="o">=</span><span class="n">eKen</span><span class="p">,</span>
+        <span class="n">strain_unit</span><span class="o">=</span><span class="s2">"microstrain"</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">b</span><span class="o">.</span><span class="n">build_graph</span><span class="p">(</span><span class="n">CVT_iter</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+
+<span class="n">ga</span> <span class="o">=</span> <span class="n">make</span><span class="p">(</span><span class="s2">"mwe_data/synthetic_load_exp/expsyn_146time.csv"</span><span class="p">,</span> <span class="s2">"out/track_a"</span><span class="p">,</span>
+          <span class="p">[</span><span class="o">-</span><span class="mi">200</span><span class="p">,</span> <span class="mi">200</span><span class="p">,</span> <span class="o">-</span><span class="mf">173.205</span><span class="p">,</span> <span class="mf">173.205</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">650</span><span class="p">])</span>
+<span class="n">gb</span> <span class="o">=</span> <span class="n">make</span><span class="p">(</span><span class="s2">"mwe_data/synthetic_load_exp/expsyn_160time.csv"</span><span class="p">,</span> <span class="s2">"out/track_b"</span><span class="p">,</span>
+          <span class="p">[</span><span class="o">-</span><span class="mi">200</span><span class="p">,</span> <span class="mi">200</span><span class="p">,</span> <span class="o">-</span><span class="mf">173.205</span><span class="p">,</span> <span class="mf">173.205</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">680</span><span class="p">])</span>
+
+<span class="n">GraphGrainMatcher</span><span class="p">(</span><span class="n">graph_a</span><span class="o">=</span><span class="n">ga</span><span class="p">,</span> <span class="n">graph_b</span><span class="o">=</span><span class="n">gb</span><span class="p">,</span> <span class="n">output_dir</span><span class="o">=</span><span class="s2">"out/grain_tracking"</span><span class="p">)</span><span class="o">.</span><span class="n">match_grains</span><span class="p">(</span>
+    <span class="n">message_passing_iter</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+    <span class="n">neighbor_selection_param</span><span class="o">=</span><span class="p">{</span><span class="s2">"lambda"</span><span class="p">:</span> <span class="mf">0.00125</span><span class="p">,</span> <span class="s2">"iterations"</span><span class="p">:</span> <span class="mi">100</span><span class="p">,</span> <span class="s2">"tolerance"</span><span class="p">:</span> <span class="mf">1e-6</span><span class="p">},</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="key-parameters">
+<h2>Key parameters<a class="headerlink" href="#key-parameters" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">bounding_box</span></code> — per load step; each step can have a different z-extent.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">build_graph(CVT_iter=...)</span></code> — CVT iterations for the tessellation the graph is
+built on.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">match_grains(message_passing_iter,</span> <span class="pre">neighbor_selection_param)</span></code> — the
+message-passing depth and the neighbor-selection optimization (<code class="docutils literal notranslate"><span class="pre">lambda</span></code>,
+<code class="docutils literal notranslate"><span class="pre">iterations</span></code>, <code class="docutils literal notranslate"><span class="pre">tolerance</span></code>).</p></li>
+</ul>
+</section>
+<section id="outputs">
+<h2>Outputs<a class="headerlink" href="#outputs" title="Link to this heading"></a></h2>
+<p>The grain correspondence between the two graphs (matched IDs and mapping, plus
+diagnostics) is written to <code class="docutils literal notranslate"><span class="pre">output_dir</span></code>.</p>
+</section>
+<section id="gotchas">
+<h2>Gotchas<a class="headerlink" href="#gotchas" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>Orientations are read as Euler-Bunge; keep <code class="docutils literal notranslate"><span class="pre">angle_identifier</span></code> and
+<code class="docutils literal notranslate"><span class="pre">orientation_descriptor</span></code> consistent with the data.</p></li>
+<li><p>This uses <code class="docutils literal notranslate"><span class="pre">build_graph</span></code> rather than a full mesh, so no GMSH or CUBIT is
+needed. NEPER must be resolvable (see <a class="reference internal" href="../install.html"><span class="doc">Installation</span></a>).</p></li>
+</ul>
+</section>
+<section id="full-example">
+<h2>Full example<a class="headerlink" href="#full-example" title="Link to this heading"></a></h2>
+<div class="literal-block-wrapper docutils container" id="id1">
+<div class="code-block-caption"><span class="caption-text">examples/demonstrate_graintracking.py</span><a class="headerlink" href="#id1" title="Link to this code"></a></div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Copyright 2026, UChicago Argonne, LLC</span>
+<span class="c1"># All Rights Reserved</span>
+<span class="c1"># Software Name: graintrace</span>
+<span class="c1"># By: Argonne National Laboratory</span>
+<span class="c1"># OPEN SOURCE LICENSE (MIT)</span>
+<span class="c1">#</span>
+<span class="c1"># Permission is hereby granted, free of charge, to any person obtaining a copy</span>
+<span class="c1"># of this software and associated documentation files (the "Software"), to deal</span>
+<span class="c1"># in the Software without restriction, including without limitation the rights</span>
+<span class="c1"># to use, copy, modify, merge, publish, distribute, sublicense, and/or sell</span>
+<span class="c1"># copies of the Software, and to permit persons to whom the Software is</span>
+<span class="c1"># furnished to do so, subject to the following conditions:</span>
+<span class="c1">#</span>
+<span class="c1"># The above copyright notice and this permission notice shall be included in</span>
+<span class="c1"># all copies or substantial portions of the Software.</span>
+<span class="c1">#</span>
+<span class="c1"># THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR</span>
+<span class="c1"># IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,</span>
+<span class="c1"># FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE</span>
+<span class="c1"># AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER</span>
+<span class="c1"># LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,</span>
+<span class="c1"># OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN</span>
+<span class="c1"># THE SOFTWARE.</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">graintrace.construct_voronoi_mesh</span><span class="w"> </span><span class="kn">import</span> <span class="n">VoronoiMeshBuilder</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">graintrace.grain_graph_matching</span><span class="w"> </span><span class="kn">import</span> <span class="n">GraphGrainMatcher</span>
+
+
+<span class="n">ff_bounding_box_1</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="o">-</span><span class="mi">200</span><span class="p">,</span>
+    <span class="mi">200</span><span class="p">,</span>
+    <span class="o">-</span><span class="mf">173.205</span><span class="p">,</span>
+    <span class="mf">173.205</span><span class="p">,</span>
+    <span class="mi">0</span><span class="p">,</span>
+    <span class="mi">650</span><span class="p">,</span>
+<span class="p">]</span>
+<span class="n">ff_bounding_box_2</span> <span class="o">=</span> <span class="p">[</span><span class="o">-</span><span class="mi">200</span><span class="p">,</span> <span class="mi">200</span><span class="p">,</span> <span class="o">-</span><span class="mf">173.205</span><span class="p">,</span> <span class="mf">173.205</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">680</span><span class="p">]</span>
+
+<span class="n">grain_file1</span> <span class="o">=</span> <span class="s2">"mwe_data/synthetic_load_exp/expsyn_146time.csv"</span>
+<span class="n">grain_file2</span> <span class="o">=</span> <span class="s2">"mwe_data/synthetic_load_exp/expsyn_160time.csv"</span>
+
+<span class="n">elastic_strain_identifier</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s2">"eKen11"</span><span class="p">,</span>
+    <span class="s2">"eKen12"</span><span class="p">,</span>
+    <span class="s2">"eKen13"</span><span class="p">,</span>
+    <span class="s2">"eKen21"</span><span class="p">,</span>
+    <span class="s2">"eKen22"</span><span class="p">,</span>
+    <span class="s2">"eKen23"</span><span class="p">,</span>
+    <span class="s2">"eKen31"</span><span class="p">,</span>
+    <span class="s2">"eKen32"</span><span class="p">,</span>
+    <span class="s2">"eKen33"</span><span class="p">,</span>
+<span class="p">]</span>
+
+<span class="n">builder_ff1</span> <span class="o">=</span> <span class="n">VoronoiMeshBuilder</span><span class="p">(</span>
+    <span class="n">input_csv</span><span class="o">=</span><span class="n">grain_file1</span><span class="p">,</span>
+    <span class="n">output_dir</span><span class="o">=</span><span class="s2">"test2"</span><span class="p">,</span>
+    <span class="n">bounding_box</span><span class="o">=</span><span class="n">ff_bounding_box_1</span><span class="p">,</span>
+    <span class="n">dim</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+    <span class="n">weighted</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">auto_fix_bbox</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">auto_rotate</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">angle_identifier</span><span class="o">=</span><span class="p">[</span><span class="s2">"Eul0"</span><span class="p">,</span> <span class="s2">"Eul1"</span><span class="p">,</span> <span class="s2">"Eul2"</span><span class="p">],</span>
+    <span class="n">orientation_descriptor</span><span class="o">=</span><span class="s2">"euler-bunge"</span><span class="p">,</span>
+    <span class="n">orientation_active_convention</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">elastic_strain_identifier</span><span class="o">=</span><span class="n">elastic_strain_identifier</span><span class="p">,</span>
+    <span class="n">strain_unit</span><span class="o">=</span><span class="s2">"microstrain"</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">grapha</span> <span class="o">=</span> <span class="n">builder_ff1</span><span class="o">.</span><span class="n">build_graph</span><span class="p">(</span><span class="n">CVT_iter</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+
+<span class="n">builder_ff2</span> <span class="o">=</span> <span class="n">VoronoiMeshBuilder</span><span class="p">(</span>
+    <span class="n">input_csv</span><span class="o">=</span><span class="n">grain_file2</span><span class="p">,</span>
+    <span class="n">output_dir</span><span class="o">=</span><span class="s2">"test3"</span><span class="p">,</span>
+    <span class="n">bounding_box</span><span class="o">=</span><span class="n">ff_bounding_box_2</span><span class="p">,</span>
+    <span class="n">dim</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+    <span class="n">weighted</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">auto_fix_bbox</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">auto_rotate</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">angle_identifier</span><span class="o">=</span><span class="p">[</span><span class="s2">"Eul0"</span><span class="p">,</span> <span class="s2">"Eul1"</span><span class="p">,</span> <span class="s2">"Eul2"</span><span class="p">],</span>
+    <span class="n">orientation_descriptor</span><span class="o">=</span><span class="s2">"euler-bunge"</span><span class="p">,</span>
+    <span class="n">orientation_active_convention</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">elastic_strain_identifier</span><span class="o">=</span><span class="n">elastic_strain_identifier</span><span class="p">,</span>
+    <span class="n">strain_unit</span><span class="o">=</span><span class="s2">"microstrain"</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">graphb</span> <span class="o">=</span> <span class="n">builder_ff2</span><span class="o">.</span><span class="n">build_graph</span><span class="p">(</span><span class="n">CVT_iter</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+
+<span class="n">grain_track</span> <span class="o">=</span> <span class="n">GraphGrainMatcher</span><span class="p">(</span>
+    <span class="n">graph_a</span><span class="o">=</span><span class="n">grapha</span><span class="p">,</span>
+    <span class="n">graph_b</span><span class="o">=</span><span class="n">graphb</span><span class="p">,</span>
+    <span class="n">output_dir</span><span class="o">=</span><span class="s2">"grain_tracking_output"</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">grain_track</span><span class="o">.</span><span class="n">match_grains</span><span class="p">(</span>
+    <span class="n">message_passing_iter</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+    <span class="n">neighbor_selection_param</span><span class="o">=</span><span class="p">{</span><span class="s2">"lambda"</span><span class="p">:</span> <span class="mf">0.00125</span><span class="p">,</span> <span class="s2">"iterations"</span><span class="p">:</span> <span class="mi">100</span><span class="p">,</span> <span class="s2">"tolerance"</span><span class="p">:</span> <span class="mf">1e-6</span><span class="p">},</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="rei-comparison.html" class="btn btn-neutral float-left" title="REI comparison" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../examples.html" class="btn btn-neutral float-right" title="Examples" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Argonne National Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

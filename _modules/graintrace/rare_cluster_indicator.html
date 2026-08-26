@@ -1,0 +1,639 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>graintrace.rare_cluster_indicator &mdash; graintrace 0.1.2</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="../../_static/sphinx-design.min.css?v=95c83b7e" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=92734c54"></script>
+      <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../../_static/copybutton.js?v=96c007af"></script>
+      <script src="../../_static/design-tabs.js?v=f930bc37"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            graintrace
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../concepts.html">Concepts &amp; data formats</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../configuration.html">Configuration reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../mcp.html">MCP server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../benchmarks.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../pitfalls.html">Common pitfalls</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Tutorials &amp; examples</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/tutorials.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api/api.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../development.html">Building &amp; testing the docs</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">graintrace</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">graintrace.rare_cluster_indicator</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for graintrace.rare_cluster_indicator</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright 2026, UChicago Argonne, LLC</span>
+<span class="c1"># All Rights Reserved</span>
+<span class="c1"># Software Name: graintrace</span>
+<span class="c1"># By: Argonne National Laboratory</span>
+<span class="c1"># OPEN SOURCE LICENSE (MIT)</span>
+<span class="c1">#</span>
+<span class="c1"># Permission is hereby granted, free of charge, to any person obtaining a copy</span>
+<span class="c1"># of this software and associated documentation files (the "Software"), to deal</span>
+<span class="c1"># in the Software without restriction, including without limitation the rights</span>
+<span class="c1"># to use, copy, modify, merge, publish, distribute, sublicense, and/or sell</span>
+<span class="c1"># copies of the Software, and to permit persons to whom the Software is</span>
+<span class="c1"># furnished to do so, subject to the following conditions:</span>
+<span class="c1">#</span>
+<span class="c1"># The above copyright notice and this permission notice shall be included in</span>
+<span class="c1"># all copies or substantial portions of the Software.</span>
+<span class="c1">#</span>
+<span class="c1"># THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR</span>
+<span class="c1"># IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,</span>
+<span class="c1"># FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE</span>
+<span class="c1"># AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER</span>
+<span class="c1"># LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,</span>
+<span class="c1"># OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN</span>
+<span class="c1"># THE SOFTWARE.</span>
+
+<span class="sd">"""Identify and export spatially coherent rare clusters from CPFE field data."""</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.user_data_class</span><span class="w"> </span><span class="kn">import</span> <span class="n">RareCriteria</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.graph_spatial_cluster</span><span class="w"> </span><span class="kn">import</span> <span class="n">GraphSpatialCluster</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.cluster_indicator</span><span class="w"> </span><span class="kn">import</span> <span class="n">ClusterAnalysisIndicator</span>
+
+
+<div class="viewcode-block" id="IdentifyRareClusters">
+<a class="viewcode-back" href="../../api/rare_cluster_indicator.html#graintrace.rare_cluster_indicator.IdentifyRareClusters">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">IdentifyRareClusters</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Graph cluster -&gt; merge via indicator -&gt; select rare clusters and export VTK."""</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">input_csv_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">id_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"id"</span><span class="p">,</span>
+        <span class="n">coord_cols</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"x"</span><span class="p">,</span> <span class="s2">"y"</span><span class="p">,</span> <span class="s2">"z"</span><span class="p">),</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Configure the REI pipeline over a CPFE field CSV.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            input_csv_path: Path to the field CSV (e.g. a grid_out/ or mesh_out/ file) with an id column, coordinate columns, and per-point feature columns.</span>
+<span class="sd">            id_col: Name of the per-point id column in the input CSV. Default "id".</span>
+<span class="sd">            coord_cols: Names of the (x, y, z) coordinate columns. Default ("x", "y", "z").</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">input_csv_path</span> <span class="o">=</span> <span class="n">input_csv_path</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">id_col</span> <span class="o">=</span> <span class="n">id_col</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">coord_cols</span> <span class="o">=</span> <span class="n">coord_cols</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_input_df</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="IdentifyRareClusters.run_clustering">
+<a class="viewcode-back" href="../../api/rare_cluster_indicator.html#graintrace.rare_cluster_indicator.IdentifyRareClusters.run_clustering">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">run_clustering</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">gsc</span><span class="p">,</span>
+        <span class="n">indicator</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">gsc_run_kwargs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+        <span class="n">indicator_run_kwargs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+        <span class="n">reduced_csv_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Run graph spatial clustering then the hierarchical merge indicator.</span>
+
+<span class="sd">        Stage 1 runs the GraphSpatialCluster to produce per-point labels and a reduced</span>
+<span class="sd">        per-cluster CSV; stage 2 runs the ClusterAnalysisIndicator to merge those clusters.</span>
+<span class="sd">        Saves the stage-1 labels alongside reduced_csv_path as ``&lt;base&gt;_gsc_labels.npy``.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            gsc: A configured GraphSpatialCluster stage object (from make_stage_objects).</span>
+<span class="sd">            indicator: A configured ClusterAnalysisIndicator stage object (from make_stage_objects).</span>
+<span class="sd">            gsc_run_kwargs: Keyword arguments for gsc.run (e.g. spec, graph_mode, manhattan_radius, n_jobs, segmenter, seed, weight_cfg, networkit_kwargs, checkpoint options).</span>
+<span class="sd">            indicator_run_kwargs: Keyword arguments for indicator.run (e.g. method_type, spec, threshold, method, criterion, dendrogram_path).</span>
+<span class="sd">            reduced_csv_path: Path for the reduced per-cluster CSV written by the graph stage; the labels .npy is derived from it.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A result bundle dict with keys: input_df, gsc_labels, reduced_csv_path, gsc_extras, indicator_points_df, indicator_clusters_df, indicator_extras. Pass it to run_get_rare_cluster.</span>
+<span class="sd">        """</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">"Running clustering analysis..."</span><span class="p">)</span>
+
+        <span class="n">input_df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_input_df</span><span class="p">()</span>
+
+        <span class="n">gsc_out</span> <span class="o">=</span> <span class="n">gsc</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+            <span class="n">output_csv_path</span><span class="o">=</span><span class="n">reduced_csv_path</span><span class="p">,</span>
+            <span class="n">return_labels</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">gsc_run_kwargs</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="s2">"extras"</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">gsc_out</span> <span class="ow">or</span> <span class="s2">"labels"</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">gsc_out</span><span class="p">[</span><span class="s2">"extras"</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"GraphSpatialCluster must be run with return_labels=True to obtain per-point labels."</span>
+            <span class="p">)</span>
+
+        <span class="n">gsc_labels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">gsc_out</span><span class="p">[</span><span class="s2">"extras"</span><span class="p">][</span><span class="s2">"labels"</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+
+        <span class="n">labels_path</span> <span class="o">=</span> <span class="n">reduced_csv_path</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span><span class="s2">"."</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="s2">"_gsc_labels.npy"</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">labels_path</span><span class="p">,</span> <span class="n">gsc_labels</span><span class="p">,</span> <span class="n">allow_pickle</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">"Saved GSC labels:"</span><span class="p">,</span> <span class="n">labels_path</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">gsc_labels</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">input_df</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"Length mismatch: per-point labels must align with input rows."</span>
+            <span class="p">)</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="s2">"Reduced CSV saved:"</span><span class="p">,</span> <span class="n">gsc_out</span><span class="p">[</span><span class="s2">"csv_path"</span><span class="p">])</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">Running cluster indicator</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+        <span class="n">ind_out</span> <span class="o">=</span> <span class="n">indicator</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">minimal_return</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">indicator_run_kwargs</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="s2">"points"</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">ind_out</span> <span class="ow">or</span> <span class="n">ind_out</span><span class="p">[</span><span class="s2">"points"</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"ClusterAnalysisIndicator must return 'points' (minimal_return=False) to build mapping."</span>
+            <span class="p">)</span>
+
+        <span class="n">indicator_points_df</span> <span class="o">=</span> <span class="n">ind_out</span><span class="p">[</span><span class="s2">"points"</span><span class="p">]</span>
+        <span class="n">indicator_clusters_df</span> <span class="o">=</span> <span class="n">ind_out</span><span class="p">[</span><span class="s2">"clusters"</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="s2">"cluster_id"</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">indicator_points_df</span><span class="o">.</span><span class="n">columns</span>
+            <span class="ow">or</span> <span class="s2">"cluster_label"</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">indicator_points_df</span><span class="o">.</span><span class="n">columns</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"indicator 'points' must include columns: 'cluster_id' and 'cluster_label'."</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">"input_df"</span><span class="p">:</span> <span class="n">input_df</span><span class="p">,</span>
+            <span class="s2">"gsc_labels"</span><span class="p">:</span> <span class="n">gsc_labels</span><span class="p">,</span>
+            <span class="s2">"reduced_csv_path"</span><span class="p">:</span> <span class="n">gsc_out</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"csv_path"</span><span class="p">,</span> <span class="n">reduced_csv_path</span><span class="p">),</span>
+            <span class="s2">"gsc_extras"</span><span class="p">:</span> <span class="n">gsc_out</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"extras"</span><span class="p">,</span> <span class="p">{}),</span>
+            <span class="s2">"indicator_points_df"</span><span class="p">:</span> <span class="n">indicator_points_df</span><span class="p">,</span>
+            <span class="s2">"indicator_clusters_df"</span><span class="p">:</span> <span class="n">indicator_clusters_df</span><span class="p">,</span>
+            <span class="s2">"indicator_extras"</span><span class="p">:</span> <span class="n">ind_out</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"extras"</span><span class="p">,</span> <span class="p">{}),</span>
+        <span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="IdentifyRareClusters.run_get_rare_cluster">
+<a class="viewcode-back" href="../../api/rare_cluster_indicator.html#graintrace.rare_cluster_indicator.IdentifyRareClusters.run_get_rare_cluster">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">run_get_rare_cluster</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">bundle</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">criteria</span><span class="p">:</span> <span class="n">RareCriteria</span><span class="p">,</span>
+        <span class="n">output_vtk_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">export_control</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"auto"</span><span class="p">,</span>  <span class="c1"># "auto" | "grid" | "points"</span>
+        <span class="n">background_block_id</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="n">first_rare_block_id</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+        <span class="n">also_write_final_label</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">rare_reduced_stats_csv_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">rare_points_csv_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">use_sample_std</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>  <span class="c1"># pylint: disable=unused-argument  # public API kwarg</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Select rare clusters from a bundle and export them to VTK (and optional CSVs).</span>
+
+<span class="sd">        Maps stage-1 labels to the merged super-labels, applies the rarity criteria to pick</span>
+<span class="sd">        rare clusters, assigns block ids (background then one per rare cluster), and writes the</span>
+<span class="sd">        result as a STRUCTURED_GRID or POLYDATA VTK depending on export_control.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            bundle: The result dict returned by run_clustering.</span>
+<span class="sd">            criteria: A RareCriteria selecting which clusters count as rare (custom selector, or default size-quantile selection using its min_size / size_quantile / max_rare fields).</span>
+<span class="sd">            output_vtk_path: Path for the exported VTK file.</span>
+<span class="sd">            export_control: "auto" (grid if the points form a full regular grid, else points), "grid", or "points". Default "auto".</span>
+<span class="sd">            background_block_id: Block id assigned to non-rare (background) points. Default 1.</span>
+<span class="sd">            first_rare_block_id: Block id assigned to the first rare cluster; subsequent rare clusters increment from here. Default 2.</span>
+<span class="sd">            also_write_final_label: If True, also write the per-point merged "final_label" array into the VTK. Default True.</span>
+<span class="sd">            rare_reduced_stats_csv_path: Optional path to write a per-rare-cluster statistics CSV (mean/var/std per feature, plus min/max when available). Default None.</span>
+<span class="sd">            rare_points_csv_path: Optional path to write an (x, y, z, rare_cluster_id) point cloud of the rare points (input to REIComparison). Default None.</span>
+<span class="sd">            use_sample_std: Accepted for API compatibility; currently unused. Default False.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Dict with keys: output_vtk_path, export_mode, n_points, n_rare_clusters, rare_super_labels, label_to_block, rare_reduced_stats_csv_path, rare_points_csv_path.</span>
+<span class="sd">        """</span>
+        <span class="n">input_df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span> <span class="o">=</span> <span class="n">bundle</span><span class="p">[</span><span class="s2">"input_df"</span><span class="p">]</span>
+        <span class="n">gsc_labels</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">bundle</span><span class="p">[</span><span class="s2">"gsc_labels"</span><span class="p">]</span>
+        <span class="n">indicator_points_df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span> <span class="o">=</span> <span class="n">bundle</span><span class="p">[</span><span class="s2">"indicator_points_df"</span><span class="p">]</span>
+        <span class="n">indicator_clusters_df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span> <span class="o">=</span> <span class="n">bundle</span><span class="p">[</span><span class="s2">"indicator_clusters_df"</span><span class="p">]</span>
+
+        <span class="n">super_label_map</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_super_label_map</span><span class="p">(</span><span class="n">indicator_points_df</span><span class="p">)</span>
+
+        <span class="n">final_label</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vectorize</span><span class="p">(</span><span class="n">super_label_map</span><span class="o">.</span><span class="n">get</span><span class="p">,</span> <span class="n">otypes</span><span class="o">=</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">])(</span><span class="n">gsc_labels</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">isna</span><span class="p">(</span><span class="n">final_label</span><span class="p">)):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"Some stage-1 cluster_ids were not found in indicator mapping (cluster_id -&gt; cluster_label)."</span>
+            <span class="p">)</span>
+
+        <span class="n">rare_super_labels</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_select_rare_super_labels</span><span class="p">(</span>
+            <span class="n">indicator_clusters_df</span><span class="p">,</span> <span class="n">criteria</span>
+        <span class="p">)</span>
+
+        <span class="n">block_id</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">input_df</span><span class="p">),</span> <span class="n">background_block_id</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+        <span class="n">rare_super_labels_sorted</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">rare_super_labels</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="s2">"n"</span> <span class="ow">in</span> <span class="n">indicator_clusters_df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="n">n_map</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
+                <span class="nb">zip</span><span class="p">(</span><span class="n">indicator_clusters_df</span><span class="p">[</span><span class="s2">"cluster_label"</span><span class="p">],</span> <span class="n">indicator_clusters_df</span><span class="p">[</span><span class="s2">"n"</span><span class="p">])</span>
+            <span class="p">)</span>
+            <span class="n">rare_super_labels_sorted</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">lab</span><span class="p">:</span> <span class="n">n_map</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">lab</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="p">))</span>
+
+        <span class="n">label_to_block</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">next_block</span> <span class="o">=</span> <span class="n">first_rare_block_id</span>
+        <span class="k">for</span> <span class="n">lab</span> <span class="ow">in</span> <span class="n">rare_super_labels_sorted</span><span class="p">:</span>
+            <span class="n">label_to_block</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">lab</span><span class="p">)]</span> <span class="o">=</span> <span class="n">next_block</span>
+            <span class="n">next_block</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="k">if</span> <span class="n">rare_reduced_stats_csv_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">cdf</span> <span class="o">=</span> <span class="n">indicator_clusters_df</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+            <span class="k">if</span> <span class="s2">"cluster_label"</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">cdf</span><span class="o">.</span><span class="n">columns</span> <span class="ow">or</span> <span class="s2">"n"</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">cdf</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">"indicator_clusters_df must contain 'cluster_label' and 'n'."</span>
+                <span class="p">)</span>
+
+            <span class="n">cdf</span> <span class="o">=</span> <span class="n">cdf</span><span class="p">[</span><span class="n">cdf</span><span class="p">[</span><span class="s2">"cluster_label"</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">rare_super_labels_sorted</span><span class="p">)]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="n">cdf</span><span class="p">[</span><span class="s2">"rare_cluster_id"</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">cdf</span><span class="p">[</span><span class="s2">"cluster_label"</span><span class="p">]</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">label_to_block</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">"Int64"</span><span class="p">)</span>
+            <span class="p">)</span>
+
+            <span class="n">sum_cols</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">cdf</span><span class="o">.</span><span class="n">columns</span> <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">"_sum"</span><span class="p">)]</span>
+            <span class="n">bases</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span><span class="p">[:</span><span class="o">-</span><span class="mi">4</span><span class="p">]</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">sum_cols</span> <span class="k">if</span> <span class="n">c</span><span class="p">[:</span><span class="o">-</span><span class="mi">4</span><span class="p">]</span> <span class="o">+</span> <span class="s2">"_sumsq"</span> <span class="ow">in</span> <span class="n">cdf</span><span class="o">.</span><span class="n">columns</span><span class="p">]</span>
+
+            <span class="n">new_cols</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="n">n</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_numeric</span><span class="p">(</span><span class="n">cdf</span><span class="p">[</span><span class="s2">"n"</span><span class="p">],</span> <span class="n">errors</span><span class="o">=</span><span class="s2">"coerce"</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+
+            <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">bases</span><span class="p">:</span>
+                <span class="n">s</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_numeric</span><span class="p">(</span><span class="n">cdf</span><span class="p">[</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">b</span><span class="si">}</span><span class="s2">_sum"</span><span class="p">],</span> <span class="n">errors</span><span class="o">=</span><span class="s2">"coerce"</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+                <span class="n">ss</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_numeric</span><span class="p">(</span><span class="n">cdf</span><span class="p">[</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">b</span><span class="si">}</span><span class="s2">_sumsq"</span><span class="p">],</span> <span class="n">errors</span><span class="o">=</span><span class="s2">"coerce"</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+
+                <span class="n">mean</span> <span class="o">=</span> <span class="n">s</span> <span class="o">/</span> <span class="n">n</span>
+                <span class="n">var_pop</span> <span class="o">=</span> <span class="p">(</span><span class="n">ss</span> <span class="o">/</span> <span class="n">n</span><span class="p">)</span> <span class="o">-</span> <span class="p">(</span><span class="n">mean</span> <span class="o">*</span> <span class="n">mean</span><span class="p">)</span>
+                <span class="n">var_pop</span> <span class="o">=</span> <span class="n">var_pop</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">lower</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>
+
+                <span class="n">new_cols</span><span class="p">[</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">b</span><span class="si">}</span><span class="s2">_mean"</span><span class="p">]</span> <span class="o">=</span> <span class="n">mean</span>
+                <span class="n">new_cols</span><span class="p">[</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">b</span><span class="si">}</span><span class="s2">_var"</span><span class="p">]</span> <span class="o">=</span> <span class="n">var_pop</span>
+                <span class="n">new_cols</span><span class="p">[</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">b</span><span class="si">}</span><span class="s2">_std"</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">var_pop</span><span class="p">)</span>
+
+            <span class="n">cdf</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">cdf</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">new_cols</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">cdf</span><span class="o">.</span><span class="n">index</span><span class="p">)],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+            <span class="n">keep</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"cluster_label"</span><span class="p">,</span> <span class="s2">"rare_cluster_id"</span><span class="p">,</span> <span class="s2">"n"</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">bases</span><span class="p">:</span>
+                <span class="n">keep</span> <span class="o">+=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">b</span><span class="si">}</span><span class="s2">_mean"</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">b</span><span class="si">}</span><span class="s2">_var"</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">b</span><span class="si">}</span><span class="s2">_std"</span><span class="p">]</span>
+                <span class="k">for</span> <span class="n">extra</span> <span class="ow">in</span> <span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">b</span><span class="si">}</span><span class="s2">_min"</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">b</span><span class="si">}</span><span class="s2">_max"</span><span class="p">):</span>
+                    <span class="k">if</span> <span class="n">extra</span> <span class="ow">in</span> <span class="n">cdf</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+                        <span class="n">keep</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">extra</span><span class="p">)</span>
+
+            <span class="n">out_df</span> <span class="o">=</span> <span class="n">cdf</span><span class="p">[</span><span class="n">keep</span><span class="p">]</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span>
+                <span class="p">[</span><span class="s2">"n"</span><span class="p">,</span> <span class="s2">"cluster_label"</span><span class="p">],</span> <span class="n">ascending</span><span class="o">=</span><span class="p">[</span><span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">]</span>
+            <span class="p">)</span>
+            <span class="n">out_df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">rare_reduced_stats_csv_path</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+            <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">Saved rare cluster stats CSV:"</span><span class="p">,</span> <span class="n">rare_reduced_stats_csv_path</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">lab</span><span class="p">,</span> <span class="n">bid</span> <span class="ow">in</span> <span class="n">label_to_block</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">block_id</span><span class="p">[</span><span class="n">final_label</span> <span class="o">==</span> <span class="n">lab</span><span class="p">]</span> <span class="o">=</span> <span class="n">bid</span>
+
+        <span class="n">coords</span> <span class="o">=</span> <span class="n">input_df</span><span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">coord_cols</span><span class="p">)]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">rare_points_csv_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">rare_mask</span> <span class="o">=</span> <span class="n">block_id</span> <span class="o">&gt;=</span> <span class="n">first_rare_block_id</span>
+            <span class="n">rare_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">coords</span><span class="p">[</span><span class="n">rare_mask</span><span class="p">],</span> <span class="n">columns</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">coord_cols</span><span class="p">))</span>
+            <span class="n">rare_df</span><span class="p">[</span><span class="s2">"rare_cluster_id"</span><span class="p">]</span> <span class="o">=</span> <span class="n">block_id</span><span class="p">[</span><span class="n">rare_mask</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+            <span class="n">rare_df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">rare_points_csv_path</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">Saved rare point cloud CSV (</span><span class="si">{</span><span class="nb">int</span><span class="p">(</span><span class="n">rare_mask</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span><span class="si">}</span><span class="s2"> points): "</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">rare_points_csv_path</span><span class="si">}</span><span class="s2">"</span>
+            <span class="p">)</span>
+
+        <span class="n">mode</span> <span class="o">=</span> <span class="n">export_control</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">"auto"</span><span class="p">:</span>
+            <span class="n">mode</span> <span class="o">=</span> <span class="s2">"grid"</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_detect_full_grid</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">)</span> <span class="k">else</span> <span class="s2">"points"</span>
+        <span class="k">elif</span> <span class="n">mode</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"grid"</span><span class="p">,</span> <span class="s2">"points"</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"export_control must be one of {'auto','grid','points'}"</span><span class="p">)</span>
+
+        <span class="n">point_data</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">"rare_cluster_id"</span><span class="p">:</span> <span class="n">block_id</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">),</span>
+        <span class="p">}</span>
+        <span class="k">if</span> <span class="n">also_write_final_label</span><span class="p">:</span>
+            <span class="n">point_data</span><span class="p">[</span><span class="s2">"final_label"</span><span class="p">]</span> <span class="o">=</span> <span class="n">final_label</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+
+        <span class="n">feature_cols</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">c</span>
+            <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">input_df</span><span class="o">.</span><span class="n">columns</span>
+            <span class="k">if</span> <span class="n">c</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">id_col</span><span class="p">]</span> <span class="o">+</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">coord_cols</span><span class="p">))</span>
+        <span class="p">]</span>
+        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">feature_cols</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_numeric</span><span class="p">(</span><span class="n">input_df</span><span class="p">[</span><span class="n">c</span><span class="p">],</span> <span class="n">errors</span><span class="o">=</span><span class="s2">"coerce"</span><span class="p">)</span>
+            <span class="n">point_data</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">"grid"</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_write_structured_grid_vtk</span><span class="p">(</span><span class="n">output_vtk_path</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">point_data</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_write_polydata_points_vtk</span><span class="p">(</span><span class="n">output_vtk_path</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">point_data</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">"output_vtk_path"</span><span class="p">:</span> <span class="n">output_vtk_path</span><span class="p">,</span>
+            <span class="s2">"export_mode"</span><span class="p">:</span> <span class="n">mode</span><span class="p">,</span>
+            <span class="s2">"n_points"</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">coords</span><span class="p">)),</span>
+            <span class="s2">"n_rare_clusters"</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">rare_super_labels_sorted</span><span class="p">)),</span>
+            <span class="s2">"rare_super_labels"</span><span class="p">:</span> <span class="n">rare_super_labels_sorted</span><span class="p">,</span>
+            <span class="s2">"label_to_block"</span><span class="p">:</span> <span class="n">label_to_block</span><span class="p">,</span>
+            <span class="s2">"rare_reduced_stats_csv_path"</span><span class="p">:</span> <span class="n">rare_reduced_stats_csv_path</span><span class="p">,</span>
+            <span class="s2">"rare_points_csv_path"</span><span class="p">:</span> <span class="n">rare_points_csv_path</span><span class="p">,</span>
+        <span class="p">}</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_build_super_label_map</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">indicator_points_df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+        <span class="n">cluster_id</span> <span class="o">=</span> <span class="n">indicator_points_df</span><span class="p">[</span><span class="s2">"cluster_id"</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+        <span class="n">cluster_label</span> <span class="o">=</span> <span class="n">indicator_points_df</span><span class="p">[</span><span class="s2">"cluster_label"</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+        <span class="k">return</span> <span class="p">{</span><span class="nb">int</span><span class="p">(</span><span class="n">cid</span><span class="p">):</span> <span class="nb">int</span><span class="p">(</span><span class="n">clab</span><span class="p">)</span> <span class="k">for</span> <span class="n">cid</span><span class="p">,</span> <span class="n">clab</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">cluster_id</span><span class="p">,</span> <span class="n">cluster_label</span><span class="p">)}</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_select_rare_super_labels</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">indicator_clusters_df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">criteria</span><span class="p">:</span> <span class="n">RareCriteria</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="n">criteria</span><span class="o">.</span><span class="n">selector</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">out</span> <span class="o">=</span> <span class="n">criteria</span><span class="o">.</span><span class="n">selector</span><span class="p">(</span><span class="n">indicator_clusters_df</span><span class="p">)</span>
+            <span class="n">labs</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">out</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+            <span class="k">return</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">labs</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="s2">"cluster_label"</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">indicator_clusters_df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"indicator_clusters_df must contain 'cluster_label' to select rare clusters."</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="s2">"n"</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">indicator_clusters_df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"Default rarity selection requires 'n' column in indicator_clusters_df. Provide criteria.selector."</span>
+            <span class="p">)</span>
+
+        <span class="n">df</span> <span class="o">=</span> <span class="n">indicator_clusters_df</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">df</span><span class="p">[</span><span class="s2">"n"</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_numeric</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">"n"</span><span class="p">],</span> <span class="n">errors</span><span class="o">=</span><span class="s2">"coerce"</span><span class="p">)</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">dropna</span><span class="p">(</span><span class="n">subset</span><span class="o">=</span><span class="p">[</span><span class="s2">"n"</span><span class="p">])</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s2">"n"</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">criteria</span><span class="o">.</span><span class="n">min_size</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">df</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">[]</span>
+
+        <span class="n">q</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">criteria</span><span class="o">.</span><span class="n">size_quantile</span><span class="p">)</span>
+        <span class="n">q</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span> <span class="mf">1.0</span><span class="p">)</span>
+        <span class="n">thresh</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">"n"</span><span class="p">]</span><span class="o">.</span><span class="n">quantile</span><span class="p">(</span><span class="n">q</span><span class="p">))</span>
+        <span class="n">rare_df</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s2">"n"</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">thresh</span><span class="p">]</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s2">"n"</span><span class="p">,</span> <span class="n">ascending</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">criteria</span><span class="o">.</span><span class="n">max_rare</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">rare_df</span> <span class="o">=</span> <span class="n">rare_df</span><span class="o">.</span><span class="n">head</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">criteria</span><span class="o">.</span><span class="n">max_rare</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">rare_df</span><span class="p">[</span><span class="s2">"cluster_label"</span><span class="p">]</span><span class="o">.</span><span class="n">to_list</span><span class="p">()]</span>
+
+<div class="viewcode-block" id="IdentifyRareClusters.make_stage_objects">
+<a class="viewcode-back" href="../../api/rare_cluster_indicator.html#graintrace.rare_cluster_indicator.IdentifyRareClusters.make_stage_objects">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">make_stage_objects</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">graph_cluster_out</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">GraphSpatialCluster</span><span class="p">,</span> <span class="n">ClusterAnalysisIndicator</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Construct the GraphSpatialCluster and ClusterAnalysisIndicator stage objects.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            graph_cluster_out: Path to the reduced per-cluster CSV that the graph stage writes and the indicator stage reads (its "cluster_id" column keys the merge).</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A (GraphSpatialCluster, ClusterAnalysisIndicator) tuple ready to pass to run_clustering.</span>
+<span class="sd">        """</span>
+        <span class="n">gsc</span> <span class="o">=</span> <span class="n">GraphSpatialCluster</span><span class="p">(</span>
+            <span class="n">csv_path</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">input_csv_path</span><span class="p">,</span>
+            <span class="n">id_col</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">id_col</span><span class="p">,</span>
+            <span class="n">coord_cols</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">coord_cols</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">indicator</span> <span class="o">=</span> <span class="n">ClusterAnalysisIndicator</span><span class="p">(</span>
+            <span class="n">csv_path</span><span class="o">=</span><span class="n">graph_cluster_out</span><span class="p">,</span>
+            <span class="n">id_col</span><span class="o">=</span><span class="s2">"cluster_id"</span><span class="p">,</span>
+            <span class="n">coord_cols</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">coord_cols</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">gsc</span><span class="p">,</span> <span class="n">indicator</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_load_input_df</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_input_df</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_input_df</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_csv_path</span><span class="p">)</span>
+        <span class="n">required</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">id_col</span><span class="p">,</span> <span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">coord_cols</span><span class="p">]</span>
+        <span class="n">missing</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">required</span> <span class="k">if</span> <span class="n">c</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">missing</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Input CSV missing required columns: </span><span class="si">{</span><span class="n">missing</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_input_df</span> <span class="o">=</span> <span class="n">df</span>
+        <span class="k">return</span> <span class="n">df</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_is_regular_1d_grid</span><span class="p">(</span><span class="n">vals</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">tol</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="n">u</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">vals</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">u</span><span class="o">.</span><span class="n">size</span> <span class="o">&lt;</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="n">du</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
+        <span class="n">step</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">du</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">step</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">du</span> <span class="o">-</span> <span class="n">step</span><span class="p">))</span> <span class="o">&lt;=</span> <span class="n">tol</span> <span class="o">*</span> <span class="nb">max</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="nb">abs</span><span class="p">(</span><span class="n">step</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_detect_full_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">coords</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-6</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span> <span class="o">=</span> <span class="n">coords</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">coords</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">coords</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">]</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_is_regular_1d_grid</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">tol</span><span class="p">)</span>
+            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_regular_1d_grid</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">tol</span><span class="p">)</span>
+            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_regular_1d_grid</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">tol</span><span class="p">)</span>
+        <span class="p">):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="n">ux</span><span class="p">,</span> <span class="n">uy</span><span class="p">,</span> <span class="n">uz</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">y</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">ux</span><span class="o">.</span><span class="n">size</span> <span class="o">*</span> <span class="n">uy</span><span class="o">.</span><span class="n">size</span> <span class="o">*</span> <span class="n">uz</span><span class="o">.</span><span class="n">size</span><span class="p">)</span> <span class="o">==</span> <span class="n">coords</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_write_polydata_points_vtk</span><span class="p">(</span>
+        <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">coords</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">point_data</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">n</span> <span class="o">=</span> <span class="n">coords</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s2">"w"</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"# vtk DataFile Version 3.0</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"Rare clusters (points)</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"ASCII</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"DATASET POLYDATA</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"POINTS </span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2"> float</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span> <span class="ow">in</span> <span class="n">coords</span><span class="p">:</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">x</span><span class="si">:</span><span class="s2">.9g</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">y</span><span class="si">:</span><span class="s2">.9g</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">z</span><span class="si">:</span><span class="s2">.9g</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"VERTICES </span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="mi">2</span><span class="o">*</span><span class="n">n</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"1 </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"POINT_DATA </span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">arr</span> <span class="ow">in</span> <span class="n">point_data</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">IdentifyRareClusters</span><span class="o">.</span><span class="n">_write_vtk_scalar_array</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">arr</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_write_structured_grid_vtk</span><span class="p">(</span>
+        <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">coords</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">point_data</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
+        <span class="n">tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-6</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">xs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">coords</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">])</span>
+        <span class="n">ys</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">coords</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">])</span>
+        <span class="n">zs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">coords</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">])</span>
+        <span class="n">nx</span><span class="p">,</span> <span class="n">ny</span><span class="p">,</span> <span class="n">nz</span> <span class="o">=</span> <span class="n">xs</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="n">ys</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="n">zs</span><span class="o">.</span><span class="n">size</span>
+        <span class="n">n</span> <span class="o">=</span> <span class="n">coords</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">nx</span> <span class="o">*</span> <span class="n">ny</span> <span class="o">*</span> <span class="n">nz</span> <span class="o">!=</span> <span class="n">n</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Not a full grid; cannot export STRUCTURED_GRID."</span><span class="p">)</span>
+
+        <span class="c1"># map each point to (ix,iy,iz) by nearest bin</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">map_to_bins</span><span class="p">(</span><span class="n">vals</span><span class="p">,</span> <span class="n">uniques</span><span class="p">):</span>
+            <span class="n">pos</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="n">uniques</span><span class="p">,</span> <span class="n">vals</span><span class="p">)</span>
+            <span class="n">pos</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">uniques</span><span class="o">.</span><span class="n">size</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">left</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">pos</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="n">choose_left</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">vals</span> <span class="o">-</span> <span class="n">uniques</span><span class="p">[</span><span class="n">left</span><span class="p">])</span> <span class="o">&lt;=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">vals</span> <span class="o">-</span> <span class="n">uniques</span><span class="p">[</span><span class="n">pos</span><span class="p">])</span> <span class="o">+</span> <span class="n">tol</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">choose_left</span><span class="p">,</span> <span class="n">left</span><span class="p">,</span> <span class="n">pos</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+
+        <span class="n">ix</span> <span class="o">=</span> <span class="n">map_to_bins</span><span class="p">(</span><span class="n">coords</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">xs</span><span class="p">)</span>
+        <span class="n">iy</span> <span class="o">=</span> <span class="n">map_to_bins</span><span class="p">(</span><span class="n">coords</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">ys</span><span class="p">)</span>
+        <span class="n">iz</span> <span class="o">=</span> <span class="n">map_to_bins</span><span class="p">(</span><span class="n">coords</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">zs</span><span class="p">)</span>
+
+        <span class="n">lin</span> <span class="o">=</span> <span class="n">ix</span> <span class="o">+</span> <span class="n">nx</span> <span class="o">*</span> <span class="p">(</span><span class="n">iy</span> <span class="o">+</span> <span class="n">ny</span> <span class="o">*</span> <span class="n">iz</span><span class="p">)</span>  <span class="c1"># x-fastest</span>
+        <span class="n">order</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">lin</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="s2">"mergesort"</span><span class="p">)</span>
+
+        <span class="n">coords_ord</span> <span class="o">=</span> <span class="n">coords</span><span class="p">[</span><span class="n">order</span><span class="p">]</span>
+        <span class="n">point_data_ord</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">v</span><span class="p">)[</span><span class="n">order</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">point_data</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s2">"w"</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"# vtk DataFile Version 3.0</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"Rare clusters (structured grid)</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"ASCII</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"DATASET STRUCTURED_GRID</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"DIMENSIONS </span><span class="si">{</span><span class="n">nx</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">ny</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">nz</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"POINTS </span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2"> float</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span> <span class="ow">in</span> <span class="n">coords_ord</span><span class="p">:</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">x</span><span class="si">:</span><span class="s2">.9g</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">y</span><span class="si">:</span><span class="s2">.9g</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">z</span><span class="si">:</span><span class="s2">.9g</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"POINT_DATA </span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">arr</span> <span class="ow">in</span> <span class="n">point_data_ord</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">IdentifyRareClusters</span><span class="o">.</span><span class="n">_write_vtk_scalar_array</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">arr</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_write_vtk_scalar_array</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">arr</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">arr</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">arr</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"VTK writer supports 1D scalar arrays only; got </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> with shape </span><span class="si">{</span><span class="n">arr</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">"</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">arr</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">integer</span><span class="p">):</span>
+            <span class="n">vtk_type</span> <span class="o">=</span> <span class="s2">"int"</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">vtk_type</span> <span class="o">=</span> <span class="s2">"float"</span>
+
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"SCALARS </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">vtk_type</span><span class="si">}</span><span class="s2"> 1</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"LOOKUP_TABLE default</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">arr</span><span class="p">:</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Argonne National Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

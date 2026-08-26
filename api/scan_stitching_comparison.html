@@ -1,0 +1,221 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>graintrace.scan_stitching_comparison &mdash; graintrace 0.1.2</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=92734c54"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=96c007af"></script>
+      <script src="../_static/design-tabs.js?v=f930bc37"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="graintrace.hedm_stitching_techniques" href="hedm_stitching_techniques.html" />
+    <link rel="prev" title="graintrace.neper_env" href="neper_env.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            graintrace
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts.html">Concepts &amp; data formats</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../configuration.html">Configuration reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../mcp.html">MCP server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../benchmarks.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pitfalls.html">Common pitfalls</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Tutorials &amp; examples</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/tutorials.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="api.html">API reference</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="construct_voronoi_mesh.html">graintrace.construct_voronoi_mesh</a></li>
+<li class="toctree-l2"><a class="reference internal" href="construct_nf_mesh.html">graintrace.construct_nf_mesh</a></li>
+<li class="toctree-l2"><a class="reference internal" href="construct_voxel_mesh.html">graintrace.construct_voxel_mesh</a></li>
+<li class="toctree-l2"><a class="reference internal" href="nf_grid_conversion.html">graintrace.nf_grid_conversion</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generate_random_crystal.html">graintrace.generate_random_crystal</a></li>
+<li class="toctree-l2"><a class="reference internal" href="synthetic_hedm_generator.html">graintrace.synthetic_hedm_generator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="neper_env.html">graintrace.neper_env</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">graintrace.scan_stitching_comparison</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#graintrace.scan_stitching_comparison.ScanStitchingComparison"><code class="docutils literal notranslate"><span class="pre">ScanStitchingComparison</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#graintrace.scan_stitching_comparison.ScanStitchingComparison.run_comparison"><code class="docutils literal notranslate"><span class="pre">ScanStitchingComparison.run_comparison()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#graintrace.scan_stitching_comparison.ScanStitchingComparison.load_data"><code class="docutils literal notranslate"><span class="pre">ScanStitchingComparison.load_data()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="hedm_stitching_techniques.html">graintrace.hedm_stitching_techniques</a></li>
+<li class="toctree-l2"><a class="reference internal" href="run_cpfe_simulation.html">graintrace.run_cpfe_simulation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="grid_resampling.html">graintrace.grid_resampling</a></li>
+<li class="toctree-l2"><a class="reference internal" href="material_calibration.html">graintrace.material_calibration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="taylor.html">graintrace.taylor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="base_material_approximation.html">graintrace.base_material_approximation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="experiment_rotation_helper.html">graintrace.experiment_rotation_helper</a></li>
+<li class="toctree-l2"><a class="reference internal" href="orientation_helper.html">graintrace.orientation_helper</a></li>
+<li class="toctree-l2"><a class="reference internal" href="simulation_postprocessing.html">graintrace.simulation_postprocessing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="experiment_postprocessing.html">graintrace.experiment_postprocessing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="plot_postprocessing.html">graintrace.plot_postprocessing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ipf_postprocess.html">graintrace.ipf_postprocess</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rare_cluster_indicator.html">graintrace.rare_cluster_indicator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="graph_spatial_cluster.html">graintrace.graph_spatial_cluster</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cluster_indicator.html">graintrace.cluster_indicator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="similarity_metric_library.html">graintrace.similarity_metric_library</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rare_criteria_selection_library.html">graintrace.rare_criteria_selection_library</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rei_comparison.html">graintrace.rei_comparison</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user_data_class.html">graintrace.user_data_class</a></li>
+<li class="toctree-l2"><a class="reference internal" href="grain_graph_matching.html">graintrace.grain_graph_matching</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tess_to_gnn.html">graintrace.tess_to_gnn</a></li>
+<li class="toctree-l2"><a class="reference internal" href="nf.html">graintrace.nf</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../development.html">Building &amp; testing the docs</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">graintrace</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="api.html">API reference</a></li>
+      <li class="breadcrumb-item active">graintrace.scan_stitching_comparison</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api/scan_stitching_comparison.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-graintrace.scan_stitching_comparison">
+<span id="graintrace-scan-stitching-comparison"></span><h1>graintrace.scan_stitching_comparison<a class="headerlink" href="#module-graintrace.scan_stitching_comparison" title="Link to this heading"></a></h1>
+<p>Compare stitched HEDM grain data against ground truth (ScanStitchingComparison).</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="graintrace.scan_stitching_comparison.ScanStitchingComparison">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">graintrace.scan_stitching_comparison.</span></span><span class="sig-name descname"><span class="pre">ScanStitchingComparison</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">output_dir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">true_csv</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stitch_csv</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">position_tolerance</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">orientation_tolerance</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">radius_tolerance</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">orientation_units</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'degrees'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">orientation_convention</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'bunge'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">symmetry</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'432'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weights</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{'ori':</span> <span class="pre">0.0,</span> <span class="pre">'pos':</span> <span class="pre">1.0,</span> <span class="pre">'rad':</span> <span class="pre">0.0}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_neighbors</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/graintrace/scan_stitching_comparison.html#ScanStitchingComparison"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#graintrace.scan_stitching_comparison.ScanStitchingComparison" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Match stitched vs. true grains and report position/orientation error metrics.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>output_dir</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+<li><p><strong>true_csv</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+<li><p><strong>stitch_csv</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+<li><p><strong>position_tolerance</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>orientation_tolerance</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>radius_tolerance</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>orientation_units</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+<li><p><strong>orientation_convention</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+<li><p><strong>symmetry</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+<li><p><strong>weights</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a>)</p></li>
+<li><p><strong>min_neighbors</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="graintrace.scan_stitching_comparison.ScanStitchingComparison.run_comparison">
+<span class="sig-name descname"><span class="pre">run_comparison</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/graintrace/scan_stitching_comparison.html#ScanStitchingComparison.run_comparison"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#graintrace.scan_stitching_comparison.ScanStitchingComparison.run_comparison" title="Link to this definition"></a></dt>
+<dd><p>Run the full compare pipeline and return the metrics dict.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><em>Dict</em></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)">str</a>, <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><em>Any</em></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="graintrace.scan_stitching_comparison.ScanStitchingComparison.load_data">
+<span class="sig-name descname"><span class="pre">load_data</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/graintrace/scan_stitching_comparison.html#ScanStitchingComparison.load_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#graintrace.scan_stitching_comparison.ScanStitchingComparison.load_data" title="Link to this definition"></a></dt>
+<dd><p>Load and preprocess true and stitched grain data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="neper_env.html" class="btn btn-neutral float-left" title="graintrace.neper_env" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="hedm_stitching_techniques.html" class="btn btn-neutral float-right" title="graintrace.hedm_stitching_techniques" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Argonne National Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,656 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>graintrace.hedm_stitching_techniques.region_base_stitching &mdash; graintrace 0.1.2</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-design.min.css?v=95c83b7e" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=92734c54"></script>
+      <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../../../_static/copybutton.js?v=96c007af"></script>
+      <script src="../../../_static/design-tabs.js?v=f930bc37"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            graintrace
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../concepts.html">Concepts &amp; data formats</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../configuration.html">Configuration reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../mcp.html">MCP server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../benchmarks.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../pitfalls.html">Common pitfalls</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Tutorials &amp; examples</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/tutorials.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/api.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../development.html">Building &amp; testing the docs</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">graintrace</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">graintrace.hedm_stitching_techniques.region_base_stitching</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for graintrace.hedm_stitching_techniques.region_base_stitching</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright 2026, UChicago Argonne, LLC</span>
+<span class="c1"># All Rights Reserved</span>
+<span class="c1"># Software Name: graintrace</span>
+<span class="c1"># By: Argonne National Laboratory</span>
+<span class="c1"># OPEN SOURCE LICENSE (MIT)</span>
+<span class="c1">#</span>
+<span class="c1"># Permission is hereby granted, free of charge, to any person obtaining a copy</span>
+<span class="c1"># of this software and associated documentation files (the "Software"), to deal</span>
+<span class="c1"># in the Software without restriction, including without limitation the rights</span>
+<span class="c1"># to use, copy, modify, merge, publish, distribute, sublicense, and/or sell</span>
+<span class="c1"># copies of the Software, and to permit persons to whom the Software is</span>
+<span class="c1"># furnished to do so, subject to the following conditions:</span>
+<span class="c1">#</span>
+<span class="c1"># The above copyright notice and this permission notice shall be included in</span>
+<span class="c1"># all copies or substantial portions of the Software.</span>
+<span class="c1">#</span>
+<span class="c1"># THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR</span>
+<span class="c1"># IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,</span>
+<span class="c1"># FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE</span>
+<span class="c1"># AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER</span>
+<span class="c1"># LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,</span>
+<span class="c1"># OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN</span>
+<span class="c1"># THE SOFTWARE.</span>
+
+<span class="sd">"""Region-based multi-scan HEDM z-stitching (RegionBaseStitching)."""</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scipy.optimize</span><span class="w"> </span><span class="kn">import</span> <span class="n">linear_sum_assignment</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scipy.spatial</span><span class="w"> </span><span class="kn">import</span> <span class="n">cKDTree</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">graintrace.orientation_helper</span><span class="w"> </span><span class="kn">import</span> <span class="n">misorientation</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.pair_stitching_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">PairwiseStitcher</span><span class="p">,</span> <span class="n">merge_properties</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.dataclass_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">ScanMetadata</span><span class="p">,</span> <span class="n">GrainSet</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.scan_tessellation</span><span class="w"> </span><span class="kn">import</span> <span class="n">compute_cell_geometry</span><span class="p">,</span> <span class="n">default_neper_env</span>
+
+
+<div class="viewcode-block" id="RegionBaseStitching">
+<a class="viewcode-back" href="../../../api/hedm_stitching_techniques.html#graintrace.hedm_stitching_techniques.region_base_stitching.RegionBaseStitching">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">RegionBaseStitching</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Iteratively stitch overlapping HEDM scan layers into one grain set."""</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">scan_files</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+        <span class="n">output_csv</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">position_tolerance</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">orientation_tolerance</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">radius_tolerance</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">weights</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span>
+        <span class="n">min_neighbors</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
+        <span class="n">orientation_convention</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"bunge"</span><span class="p">,</span>
+        <span class="n">orientation_units</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"degrees"</span><span class="p">,</span>
+        <span class="n">symmetry</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"432"</span><span class="p">,</span>
+        <span class="n">output_column</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">refine_extents</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">tess_weighted</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">update_centroid</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">tess_dir</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">neper_env</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">xy_bounding_box</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scan_files</span> <span class="o">=</span> <span class="n">scan_files</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">output_csv</span> <span class="o">=</span> <span class="n">output_csv</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">position_tolerance</span> <span class="o">=</span> <span class="n">position_tolerance</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">orientation_tolerance</span> <span class="o">=</span> <span class="n">orientation_tolerance</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">radius_tolerance</span> <span class="o">=</span> <span class="n">radius_tolerance</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">weights</span> <span class="o">=</span> <span class="n">weights</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">min_neighbors</span> <span class="o">=</span> <span class="n">min_neighbors</span>
+
+        <span class="c1"># Opt-in tessellation-based z-extents (Section: refine_extents).</span>
+        <span class="c1"># refine_extents=False -&gt; spherical z +/- GrainRadius (unchanged default).</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">refine_extents</span> <span class="o">=</span> <span class="n">refine_extents</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tess_weighted</span> <span class="o">=</span> <span class="n">tess_weighted</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">update_centroid</span> <span class="o">=</span> <span class="n">update_centroid</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tess_dir</span> <span class="o">=</span> <span class="n">tess_dir</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">neper_env</span> <span class="o">=</span> <span class="n">neper_env</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">xy_bounding_box</span> <span class="o">=</span> <span class="n">xy_bounding_box</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_xy_bounds</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># (xlo, xhi, ylo, yhi), set in run()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">global_zlo</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># set in run()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">global_zhi</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># set in run()</span>
+        <span class="c1"># Avoid a mutable default argument shared across instances/calls.</span>
+        <span class="k">if</span> <span class="n">output_column</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">output_column</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="s2">"X"</span><span class="p">,</span>
+                <span class="s2">"Y"</span><span class="p">,</span>
+                <span class="s2">"Z"</span><span class="p">,</span>
+                <span class="s2">"GrainRadius"</span><span class="p">,</span>
+                <span class="s2">"Eul0"</span><span class="p">,</span>
+                <span class="s2">"Eul1"</span><span class="p">,</span>
+                <span class="s2">"Eul2"</span><span class="p">,</span>
+                <span class="s2">"ScanID"</span><span class="p">,</span>
+            <span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">output_column</span> <span class="o">=</span> <span class="n">output_column</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">angle_convention</span> <span class="o">=</span> <span class="n">orientation_convention</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">angle_type</span> <span class="o">=</span> <span class="n">orientation_units</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">symmetry</span> <span class="o">=</span> <span class="n">symmetry</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">scans</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">GrainSet</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stitched</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">GrainSet</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="RegionBaseStitching.run">
+<a class="viewcode-back" href="../../../api/hedm_stitching_techniques.html#graintrace.hedm_stitching_techniques.region_base_stitching.RegionBaseStitching.run">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">zlo</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">zhi</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">overlap_fraction</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GrainSet</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Entry point: load and sort scans, then iteratively stitch S0 → S01 → S012 → ...</span>
+<span class="sd">        and write the final output.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">zhi</span> <span class="o">&lt;=</span> <span class="n">zlo</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Invalid z-window: zhi (</span><span class="si">{</span><span class="n">zhi</span><span class="si">}</span><span class="s2">) must be &gt; zlo (</span><span class="si">{</span><span class="n">zlo</span><span class="si">}</span><span class="s2">)."</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">global_zlo</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">zlo</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">global_zhi</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">zhi</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_load_and_sort_scans</span><span class="p">()</span>
+
+        <span class="n">_all_zmin</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">gs</span><span class="o">.</span><span class="n">meta</span><span class="o">.</span><span class="n">zmin</span> <span class="k">for</span> <span class="n">gs</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">scans</span><span class="p">)</span>
+        <span class="n">_all_zmax</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">gs</span><span class="o">.</span><span class="n">meta</span><span class="o">.</span><span class="n">zmax</span> <span class="k">for</span> <span class="n">gs</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">scans</span><span class="p">)</span>
+
+        <span class="c1"># no overlap</span>
+        <span class="k">if</span> <span class="n">overlap_fraction</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">refine_extents</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span>
+                    <span class="s2">"Note: refine_extents is only applied on the overlap path; "</span>
+                    <span class="s2">"the non-overlap (overlap_fraction=0) path uses spherical extents."</span>
+                <span class="p">)</span>
+            <span class="n">current</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">scans</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">scans</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+                <span class="n">current</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_nonoverlap_stitch_pair</span><span class="p">(</span>
+                    <span class="n">current</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">scans</span><span class="p">[</span><span class="n">k</span> <span class="o">+</span> <span class="mi">1</span><span class="p">],</span> <span class="n">pair_id</span><span class="o">=</span><span class="n">k</span>
+                <span class="p">)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">stitched</span> <span class="o">=</span> <span class="n">current</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_write_output</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">stitched</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_column</span><span class="p">)</span>
+
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">stitched</span>
+
+        <span class="c1"># with overlap</span>
+        <span class="n">nscan</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">scans</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">nscan</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">"No scans available."</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">nscan</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">stitched</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">scans</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_write_output</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">stitched</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_column</span><span class="p">)</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">stitched</span>
+
+        <span class="n">H</span> <span class="o">=</span> <span class="n">zhi</span> <span class="o">-</span> <span class="n">zlo</span>
+        <span class="n">denom</span> <span class="o">=</span> <span class="n">nscan</span> <span class="o">-</span> <span class="p">(</span><span class="n">nscan</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">overlap_fraction</span>
+        <span class="k">if</span> <span class="n">denom</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"Inconsistent configuration. Check overlap_fraction value."</span>
+            <span class="p">)</span>
+
+        <span class="n">z_scan_height</span> <span class="o">=</span> <span class="n">H</span> <span class="o">/</span> <span class="n">denom</span>
+        <span class="n">z_step</span> <span class="o">=</span> <span class="n">z_scan_height</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">overlap_fraction</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">refine_extents</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_setup_tessellation</span><span class="p">()</span>
+
+        <span class="n">current</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">scans</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nscan</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="n">A</span> <span class="o">=</span> <span class="n">current</span>
+            <span class="n">B</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">scans</span><span class="p">[</span><span class="n">k</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+
+            <span class="c1"># overlap region between theoretical scan k and k+1:</span>
+            <span class="c1"># [zlo + (k+1)*z_step, zlo + k*z_step + z_scan_height]</span>
+            <span class="n">zol</span> <span class="o">=</span> <span class="n">zlo</span> <span class="o">+</span> <span class="p">(</span><span class="n">k</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">z_step</span>
+            <span class="n">zoh</span> <span class="o">=</span> <span class="n">zlo</span> <span class="o">+</span> <span class="n">k</span> <span class="o">*</span> <span class="n">z_step</span> <span class="o">+</span> <span class="n">z_scan_height</span>
+
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">refine_extents</span><span class="p">:</span>
+                <span class="c1"># Re-tessellate each pair (Section: decision c). The accumulator A</span>
+                <span class="c1"># spans scans 0..k so its FOV top is this pair's zoh; scan B (k+1)</span>
+                <span class="c1"># occupies [zol, zol + z_scan_height]. Clipping at the FOV top is</span>
+                <span class="c1"># what flags a truncated (boundary) grain.</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_annotate_extents</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">z_window</span><span class="o">=</span><span class="p">(</span><span class="n">zlo</span><span class="p">,</span> <span class="n">zoh</span><span class="p">))</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_annotate_extents</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">z_window</span><span class="o">=</span><span class="p">(</span><span class="n">zol</span><span class="p">,</span> <span class="n">zol</span> <span class="o">+</span> <span class="n">z_scan_height</span><span class="p">))</span>
+
+            <span class="n">current</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_overlap_stitch_pair</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">zol</span><span class="p">,</span> <span class="n">zoh</span><span class="p">,</span> <span class="n">pair_id</span><span class="o">=</span><span class="n">k</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">stitched</span> <span class="o">=</span> <span class="n">current</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_write_output</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">stitched</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_column</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">stitched</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_setup_tessellation</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Resolve the Neper env and the (shared) x/y domain bounds for refine_extents."""</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">neper_env</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">neper_env</span> <span class="o">=</span> <span class="n">default_neper_env</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">xy_bounding_box</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">xlo</span><span class="p">,</span> <span class="n">xhi</span><span class="p">,</span> <span class="n">ylo</span><span class="p">,</span> <span class="n">yhi</span> <span class="o">=</span> <span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">xy_bounding_box</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Union of all scans' X/Y, padded so every seed sits strictly inside.</span>
+            <span class="n">xs</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">gs</span><span class="o">.</span><span class="n">df</span><span class="p">[</span><span class="s2">"X"</span><span class="p">]</span> <span class="k">for</span> <span class="n">gs</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">scans</span><span class="p">])</span>
+            <span class="n">ys</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">gs</span><span class="o">.</span><span class="n">df</span><span class="p">[</span><span class="s2">"Y"</span><span class="p">]</span> <span class="k">for</span> <span class="n">gs</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">scans</span><span class="p">])</span>
+            <span class="n">xlo</span><span class="p">,</span> <span class="n">xhi</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">xs</span><span class="o">.</span><span class="n">min</span><span class="p">()),</span> <span class="nb">float</span><span class="p">(</span><span class="n">xs</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
+            <span class="n">ylo</span><span class="p">,</span> <span class="n">yhi</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">ys</span><span class="o">.</span><span class="n">min</span><span class="p">()),</span> <span class="nb">float</span><span class="p">(</span><span class="n">ys</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
+            <span class="n">mx</span> <span class="o">=</span> <span class="mf">0.02</span> <span class="o">*</span> <span class="p">(</span><span class="n">xhi</span> <span class="o">-</span> <span class="n">xlo</span><span class="p">)</span> <span class="o">+</span> <span class="mf">1e-6</span>
+            <span class="n">my</span> <span class="o">=</span> <span class="mf">0.02</span> <span class="o">*</span> <span class="p">(</span><span class="n">yhi</span> <span class="o">-</span> <span class="n">ylo</span><span class="p">)</span> <span class="o">+</span> <span class="mf">1e-6</span>
+            <span class="n">xlo</span><span class="p">,</span> <span class="n">xhi</span><span class="p">,</span> <span class="n">ylo</span><span class="p">,</span> <span class="n">yhi</span> <span class="o">=</span> <span class="n">xlo</span> <span class="o">-</span> <span class="n">mx</span><span class="p">,</span> <span class="n">xhi</span> <span class="o">+</span> <span class="n">mx</span><span class="p">,</span> <span class="n">ylo</span> <span class="o">-</span> <span class="n">my</span><span class="p">,</span> <span class="n">yhi</span> <span class="o">+</span> <span class="n">my</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_xy_bounds</span> <span class="o">=</span> <span class="p">(</span><span class="n">xlo</span><span class="p">,</span> <span class="n">xhi</span><span class="p">,</span> <span class="n">ylo</span><span class="p">,</span> <span class="n">yhi</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_annotate_extents</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gs</span><span class="p">:</span> <span class="n">GrainSet</span><span class="p">,</span> <span class="n">z_window</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Write Zmin/Zmax (and, if update_centroid, X/Y/Z) onto gs.df from a Neper</span>
+<span class="sd">        tessellation of gs over the x/y domain and the given scan-FOV z-window."""</span>
+        <span class="n">xlo</span><span class="p">,</span> <span class="n">xhi</span><span class="p">,</span> <span class="n">ylo</span><span class="p">,</span> <span class="n">yhi</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_xy_bounds</span>
+        <span class="n">zlo</span><span class="p">,</span> <span class="n">zhi</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">z_window</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">float</span><span class="p">(</span><span class="n">z_window</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+        <span class="n">geom</span> <span class="o">=</span> <span class="n">compute_cell_geometry</span><span class="p">(</span>
+            <span class="n">gs</span><span class="o">.</span><span class="n">df</span><span class="p">,</span>
+            <span class="n">bbox</span><span class="o">=</span><span class="p">[</span><span class="n">xlo</span><span class="p">,</span> <span class="n">xhi</span><span class="p">,</span> <span class="n">ylo</span><span class="p">,</span> <span class="n">yhi</span><span class="p">,</span> <span class="n">zlo</span><span class="p">,</span> <span class="n">zhi</span><span class="p">],</span>
+            <span class="n">weighted</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">tess_weighted</span><span class="p">,</span>
+            <span class="n">work_dir</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">tess_dir</span><span class="p">,</span>
+            <span class="n">env</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">neper_env</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">gs</span><span class="o">.</span><span class="n">df</span><span class="p">[</span><span class="s2">"Zmin"</span><span class="p">]</span> <span class="o">=</span> <span class="n">geom</span><span class="p">[</span><span class="s2">"Zmin"</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+        <span class="n">gs</span><span class="o">.</span><span class="n">df</span><span class="p">[</span><span class="s2">"Zmax"</span><span class="p">]</span> <span class="o">=</span> <span class="n">geom</span><span class="p">[</span><span class="s2">"Zmax"</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">update_centroid</span><span class="p">:</span>
+            <span class="n">gs</span><span class="o">.</span><span class="n">df</span><span class="p">[</span><span class="s2">"X"</span><span class="p">]</span> <span class="o">=</span> <span class="n">geom</span><span class="p">[</span><span class="s2">"Xc"</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+            <span class="n">gs</span><span class="o">.</span><span class="n">df</span><span class="p">[</span><span class="s2">"Y"</span><span class="p">]</span> <span class="o">=</span> <span class="n">geom</span><span class="p">[</span><span class="s2">"Yc"</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+            <span class="n">gs</span><span class="o">.</span><span class="n">df</span><span class="p">[</span><span class="s2">"Z"</span><span class="p">]</span> <span class="o">=</span> <span class="n">geom</span><span class="p">[</span><span class="s2">"Zc"</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_load_and_sort_scans</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Load all scan CSVs into GrainSet objects and sort by zmin (bottom -&gt; top)."""</span>
+        <span class="n">scans</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">GrainSet</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="n">required_cols</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"X"</span><span class="p">,</span> <span class="s2">"Y"</span><span class="p">,</span> <span class="s2">"Z"</span><span class="p">,</span> <span class="s2">"GrainRadius"</span><span class="p">,</span> <span class="s2">"Eul0"</span><span class="p">,</span> <span class="s2">"Eul1"</span><span class="p">,</span> <span class="s2">"Eul2"</span><span class="p">]</span>
+
+        <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">path</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">scan_files</span><span class="p">):</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Scan file not found: </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+            <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+
+            <span class="n">missing</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">required_cols</span> <span class="k">if</span> <span class="n">c</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">missing</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"Scan file '</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">' is missing required columns: </span><span class="si">{</span><span class="n">missing</span><span class="si">}</span><span class="s2">. "</span>
+                    <span class="sa">f</span><span class="s2">"Each scan CSV must contain at least: </span><span class="si">{</span><span class="n">required_cols</span><span class="si">}</span><span class="s2">."</span>
+                <span class="p">)</span>
+
+            <span class="n">df</span><span class="p">[</span><span class="s2">"ScanID"</span><span class="p">]</span> <span class="o">=</span> <span class="n">idx</span>
+
+            <span class="n">base</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+            <span class="n">name</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">base</span><span class="p">)</span>
+
+            <span class="n">zmin</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">"Z"</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">())</span>
+            <span class="n">zmax</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">"Z"</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
+
+            <span class="n">meta</span> <span class="o">=</span> <span class="n">ScanMetadata</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span> <span class="n">scan_id</span><span class="o">=</span><span class="n">idx</span><span class="p">,</span> <span class="n">zmin</span><span class="o">=</span><span class="n">zmin</span><span class="p">,</span> <span class="n">zmax</span><span class="o">=</span><span class="n">zmax</span><span class="p">)</span>
+
+            <span class="n">scans</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">GrainSet</span><span class="p">(</span><span class="n">df</span><span class="o">=</span><span class="n">df</span><span class="p">,</span> <span class="n">meta</span><span class="o">=</span><span class="n">meta</span><span class="p">))</span>
+
+        <span class="n">scans</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">gs</span><span class="p">:</span> <span class="n">gs</span><span class="o">.</span><span class="n">meta</span><span class="o">.</span><span class="n">zmin</span><span class="p">)</span>  <span class="c1"># bottom (smallest zmin) to top</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">scans</span> <span class="o">=</span> <span class="n">scans</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_overlap_stitch_pair</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">A</span><span class="p">:</span> <span class="n">GrainSet</span><span class="p">,</span> <span class="n">B</span><span class="p">:</span> <span class="n">GrainSet</span><span class="p">,</span> <span class="n">zol</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">zoh</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">pair_id</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GrainSet</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Apply the pairwise stiching algorithm to GrainSets A and B</span>
+<span class="sd">        over the overlap region [zol, zoh].</span>
+<span class="sd">        """</span>
+
+        <span class="n">out_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_csv</span><span class="p">)</span>
+        <span class="n">stem</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_csv</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="n">debug_folder</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">out_dir</span><span class="p">,</span> <span class="s2">"debug_logs"</span><span class="p">)</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">debug_folder</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="n">debug_log_csv</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="n">debug_folder</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">stem</span><span class="si">}</span><span class="s2">_pair</span><span class="si">{</span><span class="n">pair_id</span><span class="si">}</span><span class="s2">_decision_log.csv"</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="s2">"Debug log for this pairwise stitching step will be saved to:"</span><span class="p">,</span>
+            <span class="n">debug_log_csv</span><span class="p">,</span>
+            <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">stitcher</span> <span class="o">=</span> <span class="n">PairwiseStitcher</span><span class="p">(</span>
+            <span class="n">A</span><span class="o">=</span><span class="n">A</span><span class="p">,</span>
+            <span class="n">B</span><span class="o">=</span><span class="n">B</span><span class="p">,</span>
+            <span class="n">zol</span><span class="o">=</span><span class="n">zol</span><span class="p">,</span>
+            <span class="n">zoh</span><span class="o">=</span><span class="n">zoh</span><span class="p">,</span>
+            <span class="n">position_tolerance</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">position_tolerance</span><span class="p">,</span>
+            <span class="n">orientation_tolerance</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">orientation_tolerance</span><span class="p">,</span>
+            <span class="n">radius_tolerance</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">radius_tolerance</span><span class="p">,</span>
+            <span class="n">weights</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">weights</span><span class="p">,</span>
+            <span class="n">min_neighbors</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">min_neighbors</span><span class="p">,</span>
+            <span class="n">angle_convention</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">angle_convention</span><span class="p">,</span>
+            <span class="n">angle_type</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">angle_type</span><span class="p">,</span>
+            <span class="n">symmetry</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">symmetry</span><span class="p">,</span>
+            <span class="n">debug_log_csv</span><span class="o">=</span><span class="n">debug_log_csv</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">stitcher</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_nonoverlap_stitch_pair</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">A</span><span class="p">:</span> <span class="n">GrainSet</span><span class="p">,</span> <span class="n">B</span><span class="p">:</span> <span class="n">GrainSet</span><span class="p">,</span> <span class="n">pair_id</span><span class="p">:</span> <span class="nb">int</span>  <span class="c1"># pylint: disable=unused-argument</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GrainSet</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Non-overlap stitching: for each A grain in the top slab, find k nearest B</span>
+<span class="sd">        candidates, keep the smallest-misorientation match within tolerance and slab</span>
+<span class="sd">        distance, resolved via Hungarian assignment.</span>
+
+<span class="sd">        ``pair_id`` is accepted for a uniform call signature with the overlap path.</span>
+<span class="sd">        """</span>
+        <span class="n">dfA</span><span class="p">,</span> <span class="n">dfB</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">df</span><span class="p">,</span> <span class="n">B</span><span class="o">.</span><span class="n">df</span>
+        <span class="n">rA_all</span> <span class="o">=</span> <span class="n">dfA</span><span class="p">[</span><span class="s2">"GrainRadius"</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+        <span class="n">rB_all</span> <span class="o">=</span> <span class="n">dfB</span><span class="p">[</span><span class="s2">"GrainRadius"</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+
+        <span class="c1"># slab thickness scale</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">rA_all</span><span class="p">,</span> <span class="n">rB_all</span><span class="p">])))</span>
+
+        <span class="n">zA_max</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">dfA</span><span class="p">[</span><span class="s2">"Z"</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
+        <span class="n">zB_min</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">dfB</span><span class="p">[</span><span class="s2">"Z"</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">())</span>
+
+        <span class="n">A_slab</span> <span class="o">=</span> <span class="n">dfA</span><span class="p">[</span><span class="n">dfA</span><span class="p">[</span><span class="s2">"Z"</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="p">(</span><span class="n">zA_max</span> <span class="o">-</span> <span class="n">t</span><span class="p">)]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">B_slab</span> <span class="o">=</span> <span class="n">dfB</span><span class="p">[</span><span class="n">dfB</span><span class="p">[</span><span class="s2">"Z"</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="p">(</span><span class="n">zB_min</span> <span class="o">+</span> <span class="n">t</span><span class="p">)]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">A_slab</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">B_slab</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">out</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">dfA</span><span class="p">,</span> <span class="n">dfB</span><span class="p">],</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">meta</span> <span class="o">=</span> <span class="n">ScanMetadata</span><span class="p">(</span>
+                <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">A</span><span class="o">.</span><span class="n">meta</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">B</span><span class="o">.</span><span class="n">meta</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                <span class="n">scan_id</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span>
+                <span class="n">zmin</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="n">out</span><span class="p">[</span><span class="s2">"Z"</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">()),</span>
+                <span class="n">zmax</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="n">out</span><span class="p">[</span><span class="s2">"Z"</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">()),</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="n">GrainSet</span><span class="p">(</span><span class="n">df</span><span class="o">=</span><span class="n">out</span><span class="p">,</span> <span class="n">meta</span><span class="o">=</span><span class="n">meta</span><span class="p">)</span>
+
+        <span class="n">coords_A</span> <span class="o">=</span> <span class="n">A_slab</span><span class="p">[[</span><span class="s2">"X"</span><span class="p">,</span> <span class="s2">"Y"</span><span class="p">,</span> <span class="s2">"Z"</span><span class="p">]]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+        <span class="n">coords_B</span> <span class="o">=</span> <span class="n">B_slab</span><span class="p">[[</span><span class="s2">"X"</span><span class="p">,</span> <span class="s2">"Y"</span><span class="p">,</span> <span class="s2">"Z"</span><span class="p">]]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+
+        <span class="n">tree_B</span> <span class="o">=</span> <span class="n">cKDTree</span><span class="p">(</span><span class="n">coords_B</span><span class="p">)</span>
+
+        <span class="n">k_query</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">min_neighbors</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">coords_B</span><span class="p">))</span>
+        <span class="n">dist</span><span class="p">,</span> <span class="n">idxB</span> <span class="o">=</span> <span class="n">tree_B</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">coords_A</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="n">k_query</span><span class="p">,</span> <span class="n">workers</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">k_query</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">dist</span> <span class="o">=</span> <span class="n">dist</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span>
+            <span class="n">idxB</span> <span class="o">=</span> <span class="n">idxB</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span>
+
+        <span class="n">nA</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">A_slab</span><span class="p">)</span>
+        <span class="n">nB</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">B_slab</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">nA</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">nB</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">out</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">dfA</span><span class="p">,</span> <span class="n">dfB</span><span class="p">],</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">meta</span> <span class="o">=</span> <span class="n">ScanMetadata</span><span class="p">(</span>
+                <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">A</span><span class="o">.</span><span class="n">meta</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">B</span><span class="o">.</span><span class="n">meta</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                <span class="n">scan_id</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span>
+                <span class="n">zmin</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="n">out</span><span class="p">[</span><span class="s2">"Z"</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">()),</span>
+                <span class="n">zmax</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="n">out</span><span class="p">[</span><span class="s2">"Z"</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">()),</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="n">GrainSet</span><span class="p">(</span><span class="n">df</span><span class="o">=</span><span class="n">out</span><span class="p">,</span> <span class="n">meta</span><span class="o">=</span><span class="n">meta</span><span class="p">)</span>
+
+        <span class="n">a_idx</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">indices</span><span class="p">(</span><span class="n">dist</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="n">a_idx</span> <span class="o">=</span> <span class="n">a_idx</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+        <span class="n">b_idx</span> <span class="o">=</span> <span class="n">idxB</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+        <span class="n">dpos</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+
+        <span class="n">oriA</span> <span class="o">=</span> <span class="n">A_slab</span><span class="p">[[</span><span class="s2">"Eul0"</span><span class="p">,</span> <span class="s2">"Eul1"</span><span class="p">,</span> <span class="s2">"Eul2"</span><span class="p">]]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+        <span class="n">oriB</span> <span class="o">=</span> <span class="n">B_slab</span><span class="p">[[</span><span class="s2">"Eul0"</span><span class="p">,</span> <span class="s2">"Eul1"</span><span class="p">,</span> <span class="s2">"Eul2"</span><span class="p">]]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+        <span class="n">radA</span> <span class="o">=</span> <span class="n">A_slab</span><span class="p">[</span><span class="s2">"GrainRadius"</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+        <span class="n">radB</span> <span class="o">=</span> <span class="n">B_slab</span><span class="p">[</span><span class="s2">"GrainRadius"</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+
+        <span class="n">eA</span> <span class="o">=</span> <span class="n">oriA</span><span class="p">[</span><span class="n">a_idx</span><span class="p">]</span>
+        <span class="n">eB</span> <span class="o">=</span> <span class="n">oriB</span><span class="p">[</span><span class="n">b_idx</span><span class="p">]</span>
+
+        <span class="c1"># misorientation for each candidate edge</span>
+        <span class="n">dori_t</span> <span class="o">=</span> <span class="n">misorientation</span><span class="p">(</span>
+            <span class="n">eA</span><span class="p">,</span>
+            <span class="n">eB</span><span class="p">,</span>
+            <span class="n">angle_convention</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">angle_convention</span><span class="p">,</span>
+            <span class="n">angle_type</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">angle_type</span><span class="p">,</span>
+            <span class="n">symmetry</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">symmetry</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">dori</span> <span class="o">=</span> <span class="n">dori_t</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+        <span class="n">drad</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">radB</span><span class="p">[</span><span class="n">b_idx</span><span class="p">]</span> <span class="o">-</span> <span class="n">radA</span><span class="p">[</span><span class="n">a_idx</span><span class="p">])</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">radA</span><span class="p">[</span><span class="n">a_idx</span><span class="p">],</span> <span class="mf">1e-14</span><span class="p">)</span>
+
+        <span class="c1"># Gating is independent of cost weighting: a tolerance of -1 disables the</span>
+        <span class="c1"># gate for that dimension. The slab thickness t is always applied as a</span>
+        <span class="c1"># geometric locality guard.</span>
+        <span class="n">ok</span> <span class="o">=</span> <span class="n">dpos</span> <span class="o">&lt;=</span> <span class="n">t</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">orientation_tolerance</span> <span class="o">!=</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">:</span>
+            <span class="n">ok</span> <span class="o">&amp;=</span> <span class="n">dori</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">orientation_tolerance</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">radius_tolerance</span> <span class="o">!=</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">:</span>
+            <span class="n">ok</span> <span class="o">&amp;=</span> <span class="n">drad</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">radius_tolerance</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">position_tolerance</span> <span class="o">!=</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">:</span>
+            <span class="n">ok</span> <span class="o">&amp;=</span> <span class="n">dpos</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">position_tolerance</span>
+
+        <span class="n">a_idx2</span> <span class="o">=</span> <span class="n">a_idx</span><span class="p">[</span><span class="n">ok</span><span class="p">]</span>
+        <span class="n">b_idx2</span> <span class="o">=</span> <span class="n">b_idx</span><span class="p">[</span><span class="n">ok</span><span class="p">]</span>
+        <span class="n">dpos2</span> <span class="o">=</span> <span class="n">dpos</span><span class="p">[</span><span class="n">ok</span><span class="p">]</span>
+        <span class="n">dori2</span> <span class="o">=</span> <span class="n">dori</span><span class="p">[</span><span class="n">ok</span><span class="p">]</span>
+
+        <span class="c1"># Hungarian assignment with unmatched allowed (slab-local indices)</span>
+        <span class="n">nA</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">A_slab</span><span class="p">)</span>
+        <span class="n">nB</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">B_slab</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">a_idx2</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>  <span class="c1"># nothing feasible</span>
+            <span class="n">out</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">dfA</span><span class="p">,</span> <span class="n">dfB</span><span class="p">],</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">meta</span> <span class="o">=</span> <span class="n">ScanMetadata</span><span class="p">(</span>
+                <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">A</span><span class="o">.</span><span class="n">meta</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">B</span><span class="o">.</span><span class="n">meta</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                <span class="n">scan_id</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span>
+                <span class="n">zmin</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="n">out</span><span class="p">[</span><span class="s2">"Z"</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">()),</span>
+                <span class="n">zmax</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="n">out</span><span class="p">[</span><span class="s2">"Z"</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">()),</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="n">GrainSet</span><span class="p">(</span><span class="n">df</span><span class="o">=</span><span class="n">out</span><span class="p">,</span> <span class="n">meta</span><span class="o">=</span><span class="n">meta</span><span class="p">)</span>
+
+        <span class="c1"># Cost uses the user-supplied weights (same convention as the overlap path).</span>
+        <span class="n">drad2</span> <span class="o">=</span> <span class="n">drad</span><span class="p">[</span><span class="n">ok</span><span class="p">]</span>
+        <span class="n">w_pos</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">weights</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"pos"</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>
+        <span class="n">w_ori</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">weights</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"ori"</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>
+        <span class="n">w_rad</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">weights</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"rad"</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span>
+
+        <span class="c1"># scale terms so each is ~O(1); fall back to the slab scale / unit tol</span>
+        <span class="n">ptol</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">position_tolerance</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">position_tolerance</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">t</span>
+        <span class="n">otol</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">orientation_tolerance</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">orientation_tolerance</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">1.0</span>
+        <span class="n">rtol</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">radius_tolerance</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">radius_tolerance</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">1.0</span>
+
+        <span class="n">edge_cost</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">w_pos</span> <span class="o">*</span> <span class="p">(</span><span class="n">dpos2</span> <span class="o">/</span> <span class="n">ptol</span><span class="p">)</span> <span class="o">+</span> <span class="n">w_ori</span> <span class="o">*</span> <span class="p">(</span><span class="n">dori2</span> <span class="o">/</span> <span class="n">otol</span><span class="p">)</span> <span class="o">+</span> <span class="n">w_rad</span> <span class="o">*</span> <span class="p">(</span><span class="n">drad2</span> <span class="o">/</span> <span class="n">rtol</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="c1"># unmatch cost just above max feasible cost</span>
+        <span class="n">max_real</span> <span class="o">=</span> <span class="n">w_pos</span> <span class="o">+</span> <span class="n">w_ori</span> <span class="o">+</span> <span class="n">w_rad</span>
+        <span class="n">UNMATCH_COST</span> <span class="o">=</span> <span class="n">max_real</span> <span class="o">+</span> <span class="mf">1e-6</span>
+        <span class="n">BIG</span> <span class="o">=</span> <span class="mf">1e9</span>
+
+        <span class="c1"># best edge per (a, b)</span>
+        <span class="n">pair</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">dp</span><span class="p">,</span> <span class="n">do</span><span class="p">,</span> <span class="n">cc</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">a_idx2</span><span class="p">,</span> <span class="n">b_idx2</span><span class="p">,</span> <span class="n">dpos2</span><span class="p">,</span> <span class="n">dori2</span><span class="p">,</span> <span class="n">edge_cost</span><span class="p">):</span>
+            <span class="n">key</span> <span class="o">=</span> <span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">a</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">b</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">pair</span> <span class="ow">or</span> <span class="n">cc</span> <span class="o">&lt;</span> <span class="n">pair</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="mi">4</span><span class="p">]:</span>
+                <span class="n">pair</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">dp</span><span class="p">),</span> <span class="nb">float</span><span class="p">(</span><span class="n">do</span><span class="p">),</span> <span class="nb">float</span><span class="p">(</span><span class="n">cc</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">a</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">b</span><span class="p">))</span>
+
+        <span class="c1"># Augmented square matrix: rows A + dummy rows for B, cols B + dummy cols for A</span>
+        <span class="n">N</span> <span class="o">=</span> <span class="n">nA</span> <span class="o">+</span> <span class="n">nB</span>
+        <span class="n">C</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">),</span> <span class="n">BIG</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">),</span> <span class="p">(</span><span class="n">dp</span><span class="p">,</span> <span class="n">do</span><span class="p">,</span> <span class="n">cc</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">)</span> <span class="ow">in</span> <span class="n">pair</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">C</span><span class="p">[</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">]</span> <span class="o">=</span> <span class="n">cc</span>
+
+        <span class="n">C</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="n">nA</span><span class="p">,</span> <span class="n">nB</span> <span class="p">:</span> <span class="n">nB</span> <span class="o">+</span> <span class="n">nA</span><span class="p">]</span> <span class="o">=</span> <span class="n">UNMATCH_COST</span>  <span class="c1"># Real A -&gt; dummy cols (unmatch A)</span>
+        <span class="n">C</span><span class="p">[</span><span class="n">nA</span> <span class="p">:</span> <span class="n">nA</span> <span class="o">+</span> <span class="n">nB</span><span class="p">,</span> <span class="mi">0</span><span class="p">:</span><span class="n">nB</span><span class="p">]</span> <span class="o">=</span> <span class="n">UNMATCH_COST</span>  <span class="c1"># Dummy rows -&gt; real B (unmatch B)</span>
+        <span class="n">C</span><span class="p">[</span><span class="n">nA</span> <span class="p">:</span> <span class="n">nA</span> <span class="o">+</span> <span class="n">nB</span><span class="p">,</span> <span class="n">nB</span> <span class="p">:</span> <span class="n">nB</span> <span class="o">+</span> <span class="n">nA</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>  <span class="c1"># Dummy -&gt; dummy</span>
+
+        <span class="n">row_ind</span><span class="p">,</span> <span class="n">col_ind</span> <span class="o">=</span> <span class="n">linear_sum_assignment</span><span class="p">(</span><span class="n">C</span><span class="p">)</span>
+
+        <span class="n">keep_pairs_local</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">r</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">row_ind</span><span class="p">,</span> <span class="n">col_ind</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">r</span> <span class="o">&gt;=</span> <span class="n">nA</span><span class="p">:</span>
+                <span class="k">continue</span>  <span class="c1"># dummy row</span>
+            <span class="k">if</span> <span class="n">c</span> <span class="o">&lt;</span> <span class="n">nB</span> <span class="ow">and</span> <span class="n">C</span><span class="p">[</span><span class="n">r</span><span class="p">,</span> <span class="n">c</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">UNMATCH_COST</span> <span class="ow">and</span> <span class="n">C</span><span class="p">[</span><span class="n">r</span><span class="p">,</span> <span class="n">c</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">BIG</span> <span class="o">*</span> <span class="mf">0.5</span><span class="p">:</span>
+                <span class="n">keep_pairs_local</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="nb">int</span><span class="p">(</span><span class="n">r</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">c</span><span class="p">)))</span>
+
+        <span class="n">A_slab_idx</span> <span class="o">=</span> <span class="n">A_slab</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+        <span class="n">B_slab_idx</span> <span class="o">=</span> <span class="n">B_slab</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+
+        <span class="n">matched_A_global</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="n">matched_B_global</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="n">merged_rows</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">a_loc</span><span class="p">,</span> <span class="n">b_loc</span> <span class="ow">in</span> <span class="n">keep_pairs_local</span><span class="p">:</span>
+            <span class="n">idxA</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">A_slab_idx</span><span class="p">[</span><span class="n">a_loc</span><span class="p">])</span>  <span class="c1"># global index in dfA</span>
+            <span class="n">idxB</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">B_slab_idx</span><span class="p">[</span><span class="n">b_loc</span><span class="p">])</span>  <span class="c1"># global index in dfB</span>
+
+            <span class="n">matched_A_global</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">idxA</span><span class="p">)</span>
+            <span class="n">matched_B_global</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">idxB</span><span class="p">)</span>
+
+            <span class="n">rowA</span> <span class="o">=</span> <span class="n">dfA</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">idxA</span><span class="p">]</span>
+            <span class="n">rowB</span> <span class="o">=</span> <span class="n">dfB</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">idxB</span><span class="p">]</span>
+
+            <span class="n">new_row</span> <span class="o">=</span> <span class="n">rowA</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="n">new_row</span> <span class="o">=</span> <span class="n">merge_properties</span><span class="p">(</span>
+                <span class="n">new_row</span><span class="p">,</span>
+                <span class="n">rowA</span><span class="p">,</span>
+                <span class="n">rowB</span><span class="p">,</span>
+                <span class="n">angle_convention</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">angle_convention</span><span class="p">,</span>
+                <span class="n">angle_type</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">angle_type</span><span class="p">,</span>
+                <span class="n">symmetry</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">symmetry</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">merged_rows</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">new_row</span><span class="p">)</span>
+
+        <span class="n">keepA</span> <span class="o">=</span> <span class="n">dfA</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">matched_A_global</span><span class="p">),</span> <span class="n">errors</span><span class="o">=</span><span class="s2">"ignore"</span><span class="p">)</span>
+        <span class="n">keepB</span> <span class="o">=</span> <span class="n">dfB</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">matched_B_global</span><span class="p">),</span> <span class="n">errors</span><span class="o">=</span><span class="s2">"ignore"</span><span class="p">)</span>
+
+        <span class="n">out_frames</span> <span class="o">=</span> <span class="p">[</span><span class="n">keepA</span><span class="p">,</span> <span class="n">keepB</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">merged_rows</span><span class="p">:</span>
+            <span class="n">out_frames</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">merged_rows</span><span class="p">))</span>
+
+        <span class="n">out</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">out_frames</span><span class="p">,</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">meta</span> <span class="o">=</span> <span class="n">ScanMetadata</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">A</span><span class="o">.</span><span class="n">meta</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">B</span><span class="o">.</span><span class="n">meta</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="n">scan_id</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span>
+            <span class="n">zmin</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="n">out</span><span class="p">[</span><span class="s2">"Z"</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">()),</span>
+            <span class="n">zmax</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="n">out</span><span class="p">[</span><span class="s2">"Z"</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">()),</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">GrainSet</span><span class="p">(</span><span class="n">df</span><span class="o">=</span><span class="n">out</span><span class="p">,</span> <span class="n">meta</span><span class="o">=</span><span class="n">meta</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_write_output</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stitched</span><span class="p">:</span> <span class="n">GrainSet</span><span class="p">,</span> <span class="n">required</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Write the final stitched dataframe (with required columns) to self.output_csv."""</span>
+
+        <span class="n">df</span> <span class="o">=</span> <span class="n">stitched</span><span class="o">.</span><span class="n">df</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+        <span class="n">missing</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">required</span> <span class="k">if</span> <span class="n">c</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">missing</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Stitched dataframe missing required columns: </span><span class="si">{</span><span class="n">missing</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+        <span class="c1"># Copy so we never mutate the caller-provided list (e.g. self.output_column).</span>
+        <span class="n">required</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">required</span><span class="p">)</span>
+        <span class="n">debug_cols</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"Matched_when_merged"</span><span class="p">,</span> <span class="s2">"Cell"</span><span class="p">,</span> <span class="s2">"Unmatched_location"</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">debug_cols</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span> <span class="ow">and</span> <span class="n">c</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">required</span><span class="p">:</span>
+                <span class="n">required</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+
+        <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">required</span><span class="p">]</span>
+        <span class="n">df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_csv</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Argonne National Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

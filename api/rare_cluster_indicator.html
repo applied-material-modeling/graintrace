@@ -1,0 +1,266 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>graintrace.rare_cluster_indicator &mdash; graintrace 0.1.2</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=92734c54"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=96c007af"></script>
+      <script src="../_static/design-tabs.js?v=f930bc37"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="graintrace.graph_spatial_cluster" href="graph_spatial_cluster.html" />
+    <link rel="prev" title="graintrace.ipf_postprocess" href="ipf_postprocess.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            graintrace
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts.html">Concepts &amp; data formats</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../configuration.html">Configuration reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../mcp.html">MCP server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../benchmarks.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pitfalls.html">Common pitfalls</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Tutorials &amp; examples</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/tutorials.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="api.html">API reference</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="construct_voronoi_mesh.html">graintrace.construct_voronoi_mesh</a></li>
+<li class="toctree-l2"><a class="reference internal" href="construct_nf_mesh.html">graintrace.construct_nf_mesh</a></li>
+<li class="toctree-l2"><a class="reference internal" href="construct_voxel_mesh.html">graintrace.construct_voxel_mesh</a></li>
+<li class="toctree-l2"><a class="reference internal" href="nf_grid_conversion.html">graintrace.nf_grid_conversion</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generate_random_crystal.html">graintrace.generate_random_crystal</a></li>
+<li class="toctree-l2"><a class="reference internal" href="synthetic_hedm_generator.html">graintrace.synthetic_hedm_generator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="neper_env.html">graintrace.neper_env</a></li>
+<li class="toctree-l2"><a class="reference internal" href="scan_stitching_comparison.html">graintrace.scan_stitching_comparison</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hedm_stitching_techniques.html">graintrace.hedm_stitching_techniques</a></li>
+<li class="toctree-l2"><a class="reference internal" href="run_cpfe_simulation.html">graintrace.run_cpfe_simulation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="grid_resampling.html">graintrace.grid_resampling</a></li>
+<li class="toctree-l2"><a class="reference internal" href="material_calibration.html">graintrace.material_calibration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="taylor.html">graintrace.taylor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="base_material_approximation.html">graintrace.base_material_approximation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="experiment_rotation_helper.html">graintrace.experiment_rotation_helper</a></li>
+<li class="toctree-l2"><a class="reference internal" href="orientation_helper.html">graintrace.orientation_helper</a></li>
+<li class="toctree-l2"><a class="reference internal" href="simulation_postprocessing.html">graintrace.simulation_postprocessing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="experiment_postprocessing.html">graintrace.experiment_postprocessing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="plot_postprocessing.html">graintrace.plot_postprocessing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ipf_postprocess.html">graintrace.ipf_postprocess</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">graintrace.rare_cluster_indicator</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#graintrace.rare_cluster_indicator.IdentifyRareClusters"><code class="docutils literal notranslate"><span class="pre">IdentifyRareClusters</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#graintrace.rare_cluster_indicator.IdentifyRareClusters.run_clustering"><code class="docutils literal notranslate"><span class="pre">IdentifyRareClusters.run_clustering()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#graintrace.rare_cluster_indicator.IdentifyRareClusters.run_get_rare_cluster"><code class="docutils literal notranslate"><span class="pre">IdentifyRareClusters.run_get_rare_cluster()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#graintrace.rare_cluster_indicator.IdentifyRareClusters.make_stage_objects"><code class="docutils literal notranslate"><span class="pre">IdentifyRareClusters.make_stage_objects()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="graph_spatial_cluster.html">graintrace.graph_spatial_cluster</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cluster_indicator.html">graintrace.cluster_indicator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="similarity_metric_library.html">graintrace.similarity_metric_library</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rare_criteria_selection_library.html">graintrace.rare_criteria_selection_library</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rei_comparison.html">graintrace.rei_comparison</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user_data_class.html">graintrace.user_data_class</a></li>
+<li class="toctree-l2"><a class="reference internal" href="grain_graph_matching.html">graintrace.grain_graph_matching</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tess_to_gnn.html">graintrace.tess_to_gnn</a></li>
+<li class="toctree-l2"><a class="reference internal" href="nf.html">graintrace.nf</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../development.html">Building &amp; testing the docs</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">graintrace</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="api.html">API reference</a></li>
+      <li class="breadcrumb-item active">graintrace.rare_cluster_indicator</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api/rare_cluster_indicator.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-graintrace.rare_cluster_indicator">
+<span id="graintrace-rare-cluster-indicator"></span><h1>graintrace.rare_cluster_indicator<a class="headerlink" href="#module-graintrace.rare_cluster_indicator" title="Link to this heading"></a></h1>
+<p>Identify and export spatially coherent rare clusters from CPFE field data.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="graintrace.rare_cluster_indicator.IdentifyRareClusters">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">graintrace.rare_cluster_indicator.</span></span><span class="sig-name descname"><span class="pre">IdentifyRareClusters</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_csv_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">id_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'id'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coord_cols</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">('x',</span> <span class="pre">'y',</span> <span class="pre">'z')</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/graintrace/rare_cluster_indicator.html#IdentifyRareClusters"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#graintrace.rare_cluster_indicator.IdentifyRareClusters" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Graph cluster -&gt; merge via indicator -&gt; select rare clusters and export VTK.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>input_csv_path</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+<li><p><strong>id_col</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+<li><p><strong>coord_cols</strong> (<em>Tuple</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>]</em>)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="graintrace.rare_cluster_indicator.IdentifyRareClusters.run_clustering">
+<span class="sig-name descname"><span class="pre">run_clustering</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">gsc</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">indicator</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">gsc_run_kwargs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">indicator_run_kwargs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reduced_csv_path</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/graintrace/rare_cluster_indicator.html#IdentifyRareClusters.run_clustering"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#graintrace.rare_cluster_indicator.IdentifyRareClusters.run_clustering" title="Link to this definition"></a></dt>
+<dd><p>Run graph spatial clustering then the hierarchical merge indicator.</p>
+<p>Stage 1 runs the GraphSpatialCluster to produce per-point labels and a reduced
+per-cluster CSV; stage 2 runs the ClusterAnalysisIndicator to merge those clusters.
+Saves the stage-1 labels alongside reduced_csv_path as <code class="docutils literal notranslate"><span class="pre">&lt;base&gt;_gsc_labels.npy</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>gsc</strong> – A configured GraphSpatialCluster stage object (from make_stage_objects).</p></li>
+<li><p><strong>indicator</strong> – A configured ClusterAnalysisIndicator stage object (from make_stage_objects).</p></li>
+<li><p><strong>gsc_run_kwargs</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><em>Dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><em>Any</em></a><em>]</em>) – Keyword arguments for gsc.run (e.g. spec, graph_mode, manhattan_radius, n_jobs, segmenter, seed, weight_cfg, networkit_kwargs, checkpoint options).</p></li>
+<li><p><strong>indicator_run_kwargs</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><em>Dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><em>Any</em></a><em>]</em>) – Keyword arguments for indicator.run (e.g. method_type, spec, threshold, method, criterion, dendrogram_path).</p></li>
+<li><p><strong>reduced_csv_path</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Path for the reduced per-cluster CSV written by the graph stage; the labels .npy is derived from it.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>input_df, gsc_labels, reduced_csv_path, gsc_extras, indicator_points_df, indicator_clusters_df, indicator_extras. Pass it to run_get_rare_cluster.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>A result bundle dict with keys</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="graintrace.rare_cluster_indicator.IdentifyRareClusters.run_get_rare_cluster">
+<span class="sig-name descname"><span class="pre">run_get_rare_cluster</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bundle</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">criteria</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_vtk_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">export_control</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'auto'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">background_block_id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">first_rare_block_id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">also_write_final_label</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rare_reduced_stats_csv_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rare_points_csv_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_sample_std</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/graintrace/rare_cluster_indicator.html#IdentifyRareClusters.run_get_rare_cluster"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#graintrace.rare_cluster_indicator.IdentifyRareClusters.run_get_rare_cluster" title="Link to this definition"></a></dt>
+<dd><p>Select rare clusters from a bundle and export them to VTK (and optional CSVs).</p>
+<p>Maps stage-1 labels to the merged super-labels, applies the rarity criteria to pick
+rare clusters, assigns block ids (background then one per rare cluster), and writes the
+result as a STRUCTURED_GRID or POLYDATA VTK depending on export_control.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>bundle</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><em>Dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><em>Any</em></a><em>]</em>) – The result dict returned by run_clustering.</p></li>
+<li><p><strong>criteria</strong> (<a class="reference internal" href="user_data_class.html#graintrace.user_data_class.RareCriteria" title="graintrace.user_data_class.RareCriteria"><em>RareCriteria</em></a>) – A RareCriteria selecting which clusters count as rare (custom selector, or default size-quantile selection using its min_size / size_quantile / max_rare fields).</p></li>
+<li><p><strong>output_vtk_path</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Path for the exported VTK file.</p></li>
+<li><p><strong>export_control</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – “auto” (grid if the points form a full regular grid, else points), “grid”, or “points”. Default “auto”.</p></li>
+<li><p><strong>background_block_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Block id assigned to non-rare (background) points. Default 1.</p></li>
+<li><p><strong>first_rare_block_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Block id assigned to the first rare cluster; subsequent rare clusters increment from here. Default 2.</p></li>
+<li><p><strong>also_write_final_label</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – If True, also write the per-point merged “final_label” array into the VTK. Default True.</p></li>
+<li><p><strong>rare_reduced_stats_csv_path</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – Optional path to write a per-rare-cluster statistics CSV (mean/var/std per feature, plus min/max when available). Default None.</p></li>
+<li><p><strong>rare_points_csv_path</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – Optional path to write an (x, y, z, rare_cluster_id) point cloud of the rare points (input to REIComparison). Default None.</p></li>
+<li><p><strong>use_sample_std</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Accepted for API compatibility; currently unused. Default False.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>output_vtk_path, export_mode, n_points, n_rare_clusters, rare_super_labels, label_to_block, rare_reduced_stats_csv_path, rare_points_csv_path.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Dict with keys</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="graintrace.rare_cluster_indicator.IdentifyRareClusters.make_stage_objects">
+<span class="sig-name descname"><span class="pre">make_stage_objects</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">graph_cluster_out</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/graintrace/rare_cluster_indicator.html#IdentifyRareClusters.make_stage_objects"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#graintrace.rare_cluster_indicator.IdentifyRareClusters.make_stage_objects" title="Link to this definition"></a></dt>
+<dd><p>Construct the GraphSpatialCluster and ClusterAnalysisIndicator stage objects.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>graph_cluster_out</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Path to the reduced per-cluster CSV that the graph stage writes and the indicator stage reads (its “cluster_id” column keys the merge).</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A (GraphSpatialCluster, ClusterAnalysisIndicator) tuple ready to pass to run_clustering.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.14)"><em>Tuple</em></a>[<a class="reference internal" href="graph_spatial_cluster.html#graintrace.graph_spatial_cluster.GraphSpatialCluster" title="graintrace.graph_spatial_cluster.GraphSpatialCluster"><em>GraphSpatialCluster</em></a>, <a class="reference internal" href="cluster_indicator.html#graintrace.cluster_indicator.ClusterAnalysisIndicator" title="graintrace.cluster_indicator.ClusterAnalysisIndicator"><em>ClusterAnalysisIndicator</em></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="ipf_postprocess.html" class="btn btn-neutral float-left" title="graintrace.ipf_postprocess" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="graph_spatial_cluster.html" class="btn btn-neutral float-right" title="graintrace.graph_spatial_cluster" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Argonne National Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

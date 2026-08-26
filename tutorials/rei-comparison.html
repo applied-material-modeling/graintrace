@@ -1,0 +1,421 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>REI comparison &mdash; graintrace 0.1.2</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=92734c54"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=96c007af"></script>
+      <script src="../_static/design-tabs.js?v=f930bc37"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Grain tracking across load steps" href="grain-tracking.html" />
+    <link rel="prev" title="Rare-event identification (REI)" href="rare-event-identification.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            graintrace
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts.html">Concepts &amp; data formats</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../configuration.html">Configuration reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../mcp.html">MCP server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../benchmarks.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pitfalls.html">Common pitfalls</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Tutorials &amp; examples</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="tutorials.html">Tutorials</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="hedm-stitching.html">HEDM scan simulation and stitching</a></li>
+<li class="toctree-l2"><a class="reference internal" href="microstructure-generation.html">Microstructure generation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ff-reconstruction.html">FF Voronoi reconstruction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="nf-reconstruction.html">NF mesh reconstruction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="voxel-segmentation-mesh.html">Voxel segmentation and meshing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="meshing.html">Meshing a grain grid into hex</a></li>
+<li class="toctree-l2"><a class="reference internal" href="experiment-rotation.html">Registering FF data to the sim frame</a></li>
+<li class="toctree-l2"><a class="reference internal" href="material-calibration.html">Material calibration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cpfe-simulation.html">CPFE simulation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cpfe-nf-ff.html">CPFE (NF geometry + FF initial strain)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="post-processing.html">Post-CPFE analysis &amp; plotting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rare-event-identification.html">Rare-event identification (REI)</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">REI comparison</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#model">Model</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#inputs">Inputs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#recipe">Recipe</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#key-parameters">Key parameters</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#outputs-in-output-dir">Outputs (in <code class="docutils literal notranslate"><span class="pre">output_dir</span></code>)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#gotchas">Gotchas</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#full-example">Full example</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="grain-tracking.html">Grain tracking across load steps</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../api/api.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../development.html">Building &amp; testing the docs</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">graintrace</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="tutorials.html">Tutorials</a></li>
+      <li class="breadcrumb-item active">REI comparison</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/tutorials/rei-comparison.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="rei-comparison">
+<h1>REI comparison<a class="headerlink" href="#rei-comparison" title="Link to this heading"></a></h1>
+<p>Compare two rare-event-identification point clouds for spatial overlap. This
+reports IoU, Dice, and containment metrics, builds a one-to-one cluster
+correspondence (with split/merge detection), and exports a classified point
+cloud (only-1, only-2, both) to VTK, using <code class="xref py py-class docutils literal notranslate"><span class="pre">REIComparison</span></code>.
+Use it to compare two REI results — two metrics, thresholds, or methods, or a
+prediction against a reference — possibly on grids of different spacing. The
+implementation is pure Python (numpy and scipy).</p>
+<p><strong>Needs:</strong> none beyond graintrace — no MOOSE, NEPER, or CUBIT.</p>
+<section id="model">
+<h2>Model<a class="headerlink" href="#model" title="Link to this heading"></a></h2>
+<p>Each rare point is the center of its voxel cube, so an REI is a union of
+axis-aligned cubes and overlap is a boolean volume intersection. Both regions are
+resampled onto a common finer lattice (<code class="docutils literal notranslate"><span class="pre">s_ref</span> <span class="pre">=</span> <span class="pre">min(spacing_1,</span> <span class="pre">spacing_2)</span></code>);
+membership is then an integer-index hash lookup, so non-contiguous regions are
+handled without surface reconstruction. Region volume is voxel count times voxel
+volume. This avoids KD-trees, alpha shapes, and marching cubes.</p>
+</section>
+<section id="inputs">
+<h2>Inputs<a class="headerlink" href="#inputs" title="Link to this heading"></a></h2>
+<p>Two voxelized REI point-cloud CSVs, each with <code class="docutils literal notranslate"><span class="pre">x,</span> <span class="pre">y,</span> <span class="pre">z</span></code> columns and an optional
+integer <code class="docutils literal notranslate"><span class="pre">rare_cluster_id</span></code>. Produce them from the REI pipeline by passing
+<code class="docutils literal notranslate"><span class="pre">rare_points_csv_path=...</span></code> to
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">run_get_rare_cluster()</span></code>, which writes
+<code class="docutils literal notranslate"><span class="pre">x,</span> <span class="pre">y,</span> <span class="pre">z,</span> <span class="pre">rare_cluster_id</span></code> for the rare points (see
+<a class="reference internal" href="rare-event-identification.html"><span class="doc">Rare-event identification (REI)</span></a>).</p>
+<p>Each grid must be regular (constant per-axis spacing), and the two grids must
+share an origin. No rotation or translation is applied here; register the clouds
+first if they do not share an origin.</p>
+</section>
+<section id="recipe">
+<h2>Recipe<a class="headerlink" href="#recipe" title="Link to this heading"></a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">graintrace.rei_comparison</span><span class="w"> </span><span class="kn">import</span> <span class="n">REIComparison</span>
+
+<span class="n">comp</span> <span class="o">=</span> <span class="n">REIComparison</span><span class="p">(</span>
+    <span class="n">rei_csv_1</span><span class="o">=</span><span class="s2">"out/rei_A.csv"</span><span class="p">,</span> <span class="n">rei_csv_2</span><span class="o">=</span><span class="s2">"out/rei_B.csv"</span><span class="p">,</span>
+    <span class="n">output_dir</span><span class="o">=</span><span class="s2">"out/rei_comparison"</span><span class="p">,</span>
+    <span class="n">spacing_1</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">spacing_2</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span>   <span class="c1"># true grid spacing; None auto-detects (sparse-unsafe)</span>
+    <span class="n">coord_cols</span><span class="o">=</span><span class="p">(</span><span class="s2">"x"</span><span class="p">,</span> <span class="s2">"y"</span><span class="p">,</span> <span class="s2">"z"</span><span class="p">),</span>
+    <span class="n">cluster_col</span><span class="o">=</span><span class="s2">"rare_cluster_id"</span><span class="p">,</span>  <span class="c1"># None skips cluster-level matching</span>
+    <span class="n">supersample</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>                  <span class="c1"># &gt;1 for sub-voxel boundary accuracy (rarely needed)</span>
+<span class="p">)</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">comp</span><span class="o">.</span><span class="n">run_comparison</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s2">"metrics"</span><span class="p">][</span><span class="s2">"iou"</span><span class="p">],</span> <span class="n">result</span><span class="p">[</span><span class="s2">"metrics"</span><span class="p">][</span><span class="s2">"containment_1"</span><span class="p">])</span>
+</pre></div>
+</div>
+</section>
+<section id="key-parameters">
+<h2>Key parameters<a class="headerlink" href="#key-parameters" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">spacing_1</span></code> / <code class="docutils literal notranslate"><span class="pre">spacing_2</span></code> — scalar or <code class="docutils literal notranslate"><span class="pre">[dx,</span> <span class="pre">dy,</span> <span class="pre">dz]</span></code>. Pass the true
+spacing; auto-detect uses the smallest positive coordinate step and can be wrong
+for sparse clouds.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cluster_col</span></code> — enables the cluster correspondence; <code class="docutils literal notranslate"><span class="pre">None</span></code> gives global
+overlap only.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">split_merge_fraction</span></code> (default <code class="docutils literal notranslate"><span class="pre">0.2</span></code>) — the significance threshold for
+split/merge counting.</p></li>
+</ul>
+</section>
+<section id="outputs-in-output-dir">
+<h2>Outputs (in <code class="docutils literal notranslate"><span class="pre">output_dir</span></code>)<a class="headerlink" href="#outputs-in-output-dir" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">overlap_metrics.json</span></code> — IoU (Jaccard), Dice, <code class="docutils literal notranslate"><span class="pre">containment_1</span></code> /
+<code class="docutils literal notranslate"><span class="pre">containment_2</span></code> (asymmetric), voxel counts and volumes, and, with
+<code class="docutils literal notranslate"><span class="pre">cluster_col</span></code>, cluster/split/merge counts.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">overlap_cloud.vtk</span></code> — classified point cloud with scalar <code class="docutils literal notranslate"><span class="pre">membership</span></code>
+(1 = only-1, 2 = only-2, 3 = both) plus <code class="docutils literal notranslate"><span class="pre">cluster_id_1</span></code> / <code class="docutils literal notranslate"><span class="pre">cluster_id_2</span></code>.
+Color by <code class="docutils literal notranslate"><span class="pre">membership</span></code> in ParaView.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cluster_match.csv</span></code> — one-to-one cluster pairing (Hungarian by overlap
+volume, label-agnostic) with per-pair Jaccard and containment; unmatched
+clusters are flagged <code class="docutils literal notranslate"><span class="pre">-1</span></code>.</p></li>
+</ul>
+</section>
+<section id="gotchas">
+<h2>Gotchas<a class="headerlink" href="#gotchas" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>Different spacings are fine (the coarser region is upsampled to <code class="docutils literal notranslate"><span class="pre">s_ref</span></code>);
+different origins are not — align first.</p></li>
+<li><p>Boundary discretization error is about one <code class="docutils literal notranslate"><span class="pre">s_ref</span></code> voxel; raise
+<code class="docutils literal notranslate"><span class="pre">supersample</span></code> only if that matters. A coarse-versus-fine IoU below 1 for the
+same region is expected, since cube extents differ at the boundary by half the
+coarse cell.</p></li>
+</ul>
+</section>
+<section id="full-example">
+<h2>Full example<a class="headerlink" href="#full-example" title="Link to this heading"></a></h2>
+<div class="literal-block-wrapper docutils container" id="id1">
+<div class="code-block-caption"><span class="caption-text">examples/demonstrate_rei_comparison.py</span><a class="headerlink" href="#id1" title="Link to this code"></a></div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Copyright 2026, UChicago Argonne, LLC</span>
+<span class="c1"># All Rights Reserved</span>
+<span class="c1"># Software Name: graintrace</span>
+<span class="c1"># By: Argonne National Laboratory</span>
+<span class="c1"># OPEN SOURCE LICENSE (MIT)</span>
+<span class="c1">#</span>
+<span class="c1"># Permission is hereby granted, free of charge, to any person obtaining a copy</span>
+<span class="c1"># of this software and associated documentation files (the "Software"), to deal</span>
+<span class="c1"># in the Software without restriction, including without limitation the rights</span>
+<span class="c1"># to use, copy, modify, merge, publish, distribute, sublicense, and/or sell</span>
+<span class="c1"># copies of the Software, and to permit persons to whom the Software is</span>
+<span class="c1"># furnished to do so, subject to the following conditions:</span>
+<span class="c1">#</span>
+<span class="c1"># The above copyright notice and this permission notice shall be included in</span>
+<span class="c1"># all copies or substantial portions of the Software.</span>
+<span class="c1">#</span>
+<span class="c1"># THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR</span>
+<span class="c1"># IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,</span>
+<span class="c1"># FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE</span>
+<span class="c1"># AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER</span>
+<span class="c1"># LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,</span>
+<span class="c1"># OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN</span>
+<span class="c1"># THE SOFTWARE.</span>
+
+<span class="sd">"""Compare two rare-event-identification (REI) point clouds with REIComparison.</span>
+
+<span class="sd">Generates two synthetic voxelized rare regions on regular grids (of possibly</span>
+<span class="sd">different spacing) that share several spherical "hot" blobs, then compares them:</span>
+<span class="sd">overlap metrics (IoU/Dice/containment), a 1-to-1 cluster correspondence, and a</span>
+<span class="sd">classified point cloud (only-1 / only-2 / both) exported to VTK.</span>
+
+<span class="sd">Synthetic data is generated on demand under ``mwe_data/rei_comparison/`` (not</span>
+<span class="sd">committed to the repo). Set ``PROFILE = "large"`` for a performance-sized run.</span>
+<span class="sd">"""</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">graintrace.rei_comparison</span><span class="w"> </span><span class="kn">import</span> <span class="n">REIComparison</span>
+
+<span class="c1"># INPUT</span>
+<span class="n">out_data_dir</span> <span class="o">=</span> <span class="s2">"mwe_data/rei_comparison"</span>
+<span class="n">out_compare_dir</span> <span class="o">=</span> <span class="s2">"rei_comparison_out"</span>
+
+<span class="n">PROFILE</span> <span class="o">=</span> <span class="s2">"small"</span>  <span class="c1"># "small" (correctness) | "large" (performance)</span>
+
+<span class="c1"># grid geometry</span>
+<span class="k">if</span> <span class="n">PROFILE</span> <span class="o">==</span> <span class="s2">"large"</span><span class="p">:</span>
+    <span class="n">grid_n</span> <span class="o">=</span> <span class="mi">300</span>  <span class="c1"># base fine grid is grid_n^3</span>
+    <span class="n">n_blobs</span> <span class="o">=</span> <span class="mi">20</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">grid_n</span> <span class="o">=</span> <span class="mi">40</span>
+    <span class="n">n_blobs</span> <span class="o">=</span> <span class="mi">5</span>
+
+<span class="n">spacing_1</span> <span class="o">=</span> <span class="mf">1.0</span>  <span class="c1"># REI 1 (fine) grid spacing</span>
+<span class="n">spacing_2</span> <span class="o">=</span> <span class="mf">2.0</span>  <span class="c1"># REI 2 (coarse) grid spacing</span>
+<span class="n">blob_radius_range</span> <span class="o">=</span> <span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="n">grid_n</span> <span class="o">//</span> <span class="mi">25</span><span class="p">),</span> <span class="nb">max</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="n">grid_n</span> <span class="o">//</span> <span class="mi">12</span><span class="p">))</span>
+<span class="n">region2_relabel</span> <span class="o">=</span> <span class="kc">True</span>  <span class="c1"># give REI 2 different cluster ids (tests label-agnostic match)</span>
+<span class="n">seed</span> <span class="o">=</span> <span class="mi">42</span>
+
+<span class="n">generate_synthetic</span> <span class="o">=</span> <span class="kc">True</span>
+
+<span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">out_data_dir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">out_compare_dir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="n">csv_1</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">out_data_dir</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"rei_1_</span><span class="si">{</span><span class="n">PROFILE</span><span class="si">}</span><span class="s2">.csv"</span><span class="p">)</span>
+<span class="n">csv_2</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">out_data_dir</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"rei_2_</span><span class="si">{</span><span class="n">PROFILE</span><span class="si">}</span><span class="s2">.csv"</span><span class="p">)</span>
+
+
+<span class="c1"># Synthetic data generation</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">generate_rei_pair</span><span class="p">(</span>
+    <span class="n">csv_1</span><span class="p">,</span>
+    <span class="n">csv_2</span><span class="p">,</span>
+    <span class="n">grid_n</span><span class="o">=</span><span class="mi">40</span><span class="p">,</span>
+    <span class="n">n_blobs</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+    <span class="n">spacing_1</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+    <span class="n">spacing_2</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span>
+    <span class="n">radius_range</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span>
+    <span class="n">region2_relabel</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Write two voxelized rare-region CSVs sharing the same spherical blobs.</span>
+
+<span class="sd">    REI 1 samples the blobs on a fine grid (``spacing_1``); REI 2 samples the</span>
+<span class="sd">    SAME physical blobs on a coarser grid (``spacing_2``, subsampled). Each blob</span>
+<span class="sd">    is a distinct ``rare_cluster_id``. Columns: x, y, z, rare_cluster_id.</span>
+<span class="sd">    """</span>
+    <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+    <span class="n">grid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">grid_n</span><span class="p">,</span> <span class="n">grid_n</span><span class="p">,</span> <span class="n">grid_n</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+    <span class="n">zz</span><span class="p">,</span> <span class="n">yy</span><span class="p">,</span> <span class="n">xx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ogrid</span><span class="p">[:</span><span class="n">grid_n</span><span class="p">,</span> <span class="p">:</span><span class="n">grid_n</span><span class="p">,</span> <span class="p">:</span><span class="n">grid_n</span><span class="p">]</span>
+    <span class="n">pad</span> <span class="o">=</span> <span class="n">radius_range</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span>
+    <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_blobs</span><span class="p">):</span>
+        <span class="n">cx</span><span class="p">,</span> <span class="n">cy</span><span class="p">,</span> <span class="n">cz</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="n">pad</span><span class="p">,</span> <span class="n">grid_n</span> <span class="o">-</span> <span class="n">pad</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+        <span class="n">radius</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="n">radius_range</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">radius_range</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="p">(</span><span class="n">xx</span> <span class="o">-</span> <span class="n">cx</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="p">(</span><span class="n">yy</span> <span class="o">-</span> <span class="n">cy</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="p">(</span><span class="n">zz</span> <span class="o">-</span> <span class="n">cz</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">&lt;=</span> <span class="n">radius</span><span class="o">**</span><span class="mi">2</span>
+        <span class="n">grid</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span> <span class="o">=</span> <span class="n">b</span> <span class="o">+</span> <span class="mi">1</span>  <span class="c1"># cluster id (1-based)</span>
+
+    <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argwhere</span><span class="p">(</span><span class="n">grid</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="n">cid</span> <span class="o">=</span> <span class="n">grid</span><span class="p">[</span><span class="n">grid</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">]</span>
+
+    <span class="c1"># REI 1: fine grid, physical coords = index * spacing_1</span>
+    <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">"x"</span><span class="p">:</span> <span class="n">idx</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">spacing_1</span><span class="p">,</span>
+            <span class="s2">"y"</span><span class="p">:</span> <span class="n">idx</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">spacing_1</span><span class="p">,</span>
+            <span class="s2">"z"</span><span class="p">:</span> <span class="n">idx</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">*</span> <span class="n">spacing_1</span><span class="p">,</span>
+            <span class="s2">"rare_cluster_id"</span><span class="p">:</span> <span class="n">cid</span><span class="p">,</span>
+        <span class="p">}</span>
+    <span class="p">)</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">csv_1</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="c1"># REI 2: coarse grid = same physical region subsampled every (spacing_2/spacing_1)</span>
+    <span class="n">step</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">spacing_2</span> <span class="o">/</span> <span class="n">spacing_1</span><span class="p">)))</span>
+    <span class="n">sub</span> <span class="o">=</span> <span class="p">(</span><span class="n">idx</span> <span class="o">%</span> <span class="n">step</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">idx2</span> <span class="o">=</span> <span class="n">idx</span><span class="p">[</span><span class="n">sub</span><span class="p">]</span> <span class="o">//</span> <span class="n">step</span>
+    <span class="n">cid2</span> <span class="o">=</span> <span class="n">cid</span><span class="p">[</span><span class="n">sub</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">region2_relabel</span><span class="p">:</span>  <span class="c1"># different labels; matching must rely on overlap, not ids</span>
+        <span class="n">cid2</span> <span class="o">=</span> <span class="p">(</span><span class="n">cid2</span> <span class="o">*</span> <span class="mi">7</span><span class="p">)</span> <span class="o">%</span> <span class="nb">max</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">n_blobs</span> <span class="o">+</span> <span class="mi">3</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
+    <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">"x"</span><span class="p">:</span> <span class="n">idx2</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">spacing_2</span><span class="p">,</span>
+            <span class="s2">"y"</span><span class="p">:</span> <span class="n">idx2</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">spacing_2</span><span class="p">,</span>
+            <span class="s2">"z"</span><span class="p">:</span> <span class="n">idx2</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">*</span> <span class="n">spacing_2</span><span class="p">,</span>
+            <span class="s2">"rare_cluster_id"</span><span class="p">:</span> <span class="n">cid2</span><span class="p">,</span>
+        <span class="p">}</span>
+    <span class="p">)</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">csv_2</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">"Generated REI pair: </span><span class="si">{</span><span class="n">csv_1</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="p">(</span><span class="n">grid</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="si">}</span><span class="s2"> pts), "</span>
+        <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">csv_2</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="nb">int</span><span class="p">(</span><span class="n">sub</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span><span class="si">}</span><span class="s2"> pts)."</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">csv_1</span><span class="p">,</span> <span class="n">csv_2</span>
+
+
+<span class="c1"># Main</span>
+
+<span class="k">if</span> <span class="n">generate_synthetic</span><span class="p">:</span>
+    <span class="n">generate_rei_pair</span><span class="p">(</span>
+        <span class="n">csv_1</span><span class="p">,</span>
+        <span class="n">csv_2</span><span class="p">,</span>
+        <span class="n">grid_n</span><span class="o">=</span><span class="n">grid_n</span><span class="p">,</span>
+        <span class="n">n_blobs</span><span class="o">=</span><span class="n">n_blobs</span><span class="p">,</span>
+        <span class="n">spacing_1</span><span class="o">=</span><span class="n">spacing_1</span><span class="p">,</span>
+        <span class="n">spacing_2</span><span class="o">=</span><span class="n">spacing_2</span><span class="p">,</span>
+        <span class="n">radius_range</span><span class="o">=</span><span class="n">blob_radius_range</span><span class="p">,</span>
+        <span class="n">region2_relabel</span><span class="o">=</span><span class="n">region2_relabel</span><span class="p">,</span>
+        <span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">,</span>
+    <span class="p">)</span>
+
+<span class="n">comparison</span> <span class="o">=</span> <span class="n">REIComparison</span><span class="p">(</span>
+    <span class="n">rei_csv_1</span><span class="o">=</span><span class="n">csv_1</span><span class="p">,</span>
+    <span class="n">rei_csv_2</span><span class="o">=</span><span class="n">csv_2</span><span class="p">,</span>
+    <span class="n">output_dir</span><span class="o">=</span><span class="n">out_compare_dir</span><span class="p">,</span>
+    <span class="n">spacing_1</span><span class="o">=</span><span class="n">spacing_1</span><span class="p">,</span>  <span class="c1"># set None to auto-detect from the CSV</span>
+    <span class="n">spacing_2</span><span class="o">=</span><span class="n">spacing_2</span><span class="p">,</span>
+    <span class="n">coord_cols</span><span class="o">=</span><span class="p">(</span><span class="s2">"x"</span><span class="p">,</span> <span class="s2">"y"</span><span class="p">,</span> <span class="s2">"z"</span><span class="p">),</span>
+    <span class="n">cluster_col</span><span class="o">=</span><span class="s2">"rare_cluster_id"</span><span class="p">,</span>  <span class="c1"># set None to skip cluster-level matching</span>
+    <span class="n">supersample</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">t0</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">comparison</span><span class="o">.</span><span class="n">run_comparison</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">Comparison finished in </span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">t0</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">s"</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">Outputs:"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"  metrics JSON  :"</span><span class="p">,</span> <span class="n">result</span><span class="p">[</span><span class="s2">"metrics_path"</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"  overlap VTK   :"</span><span class="p">,</span> <span class="n">result</span><span class="p">[</span><span class="s2">"overlap_vtk_path"</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"  cluster match :"</span><span class="p">,</span> <span class="n">result</span><span class="p">[</span><span class="s2">"cluster_match_path"</span><span class="p">])</span>
+</pre></div>
+</div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="rare-event-identification.html" class="btn btn-neutral float-left" title="Rare-event identification (REI)" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="grain-tracking.html" class="btn btn-neutral float-right" title="Grain tracking across load steps" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Argonne National Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,506 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>graintrace.construct_nf_mesh &mdash; graintrace 0.1.2</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="../../_static/sphinx-design.min.css?v=95c83b7e" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=92734c54"></script>
+      <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../../_static/copybutton.js?v=96c007af"></script>
+      <script src="../../_static/design-tabs.js?v=f930bc37"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            graintrace
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../concepts.html">Concepts &amp; data formats</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../configuration.html">Configuration reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../mcp.html">MCP server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../benchmarks.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../pitfalls.html">Common pitfalls</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Tutorials &amp; examples</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/tutorials.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api/api.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../development.html">Building &amp; testing the docs</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">graintrace</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">graintrace.construct_nf_mesh</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for graintrace.construct_nf_mesh</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright 2026, UChicago Argonne, LLC</span>
+<span class="c1"># All Rights Reserved</span>
+<span class="c1"># Software Name: graintrace</span>
+<span class="c1"># By: Argonne National Laboratory</span>
+<span class="c1"># OPEN SOURCE LICENSE (MIT)</span>
+<span class="c1">#</span>
+<span class="c1"># Permission is hereby granted, free of charge, to any person obtaining a copy</span>
+<span class="c1"># of this software and associated documentation files (the "Software"), to deal</span>
+<span class="c1"># in the Software without restriction, including without limitation the rights</span>
+<span class="c1"># to use, copy, modify, merge, publish, distribute, sublicense, and/or sell</span>
+<span class="c1"># copies of the Software, and to permit persons to whom the Software is</span>
+<span class="c1"># furnished to do so, subject to the following conditions:</span>
+<span class="c1">#</span>
+<span class="c1"># The above copyright notice and this permission notice shall be included in</span>
+<span class="c1"># all copies or substantial portions of the Software.</span>
+<span class="c1">#</span>
+<span class="c1"># THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR</span>
+<span class="c1"># IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,</span>
+<span class="c1"># FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE</span>
+<span class="c1"># AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER</span>
+<span class="c1"># LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,</span>
+<span class="c1"># OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN</span>
+<span class="c1"># THE SOFTWARE.</span>
+
+<span class="sd">"""NF HEDM reconstruction: segment .mic layers and build a hex mesh."""</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.nf</span><span class="w"> </span><span class="kn">import</span> <span class="n">convert</span><span class="p">,</span> <span class="n">segment</span><span class="p">,</span> <span class="n">mesh</span>
+
+<span class="n">PathLike</span> <span class="o">=</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]</span>
+
+
+<div class="viewcode-block" id="NearFieldMeshBuilder">
+<a class="viewcode-back" href="../../api/construct_nf_mesh.html#graintrace.construct_nf_mesh.NearFieldMeshBuilder">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">NearFieldMeshBuilder</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Reconstruct a high-resolution 3D mesh from near-field (NF) HEDM ``.mic`` layers.</span>
+
+<span class="sd">    Reads a folder of per-layer orientation maps, segments them into grains on a voxel</span>
+<span class="sd">    grid, and generates a conformal hexahedral Exodus mesh via CUBIT/SCULPT, plus</span>
+<span class="sd">    per-element MRP orientations for CPFE. See ``examples/demonstrate_cpfe_nfff.py`` and</span>
+<span class="sd">    the ``/nf-reconstruction`` skill. (NF reconstruction uses multiprocessing, so call it</span>
+<span class="sd">    under an ``if __name__ == "__main__":`` guard.)</span>
+<span class="sd">    """</span>
+
+    <span class="n">DEFAULT_SEGMENTATION</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">"misorientation_tol"</span><span class="p">:</span> <span class="mf">5.0</span> <span class="o">/</span> <span class="mf">180.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">,</span>  <span class="c1"># radians</span>
+        <span class="s2">"connectivity"</span><span class="p">:</span> <span class="mi">26</span><span class="p">,</span>
+        <span class="s2">"batch_norm"</span><span class="p">:</span> <span class="mi">1000</span><span class="p">,</span>
+        <span class="s2">"grain_threshold"</span><span class="p">:</span> <span class="mi">100</span><span class="p">,</span>
+        <span class="s2">"stop_count"</span><span class="p">:</span> <span class="mi">500</span><span class="p">,</span>
+        <span class="s2">"grain_threshold_final"</span><span class="p">:</span> <span class="mi">1000</span><span class="p">,</span>
+    <span class="p">}</span>
+
+    <span class="n">DEFAULT_SCULPT_OPTIONS</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="s2">"--adapt"</span><span class="p">,</span>
+        <span class="s2">"-A"</span><span class="p">,</span>
+        <span class="s2">"7"</span><span class="p">,</span>
+        <span class="s2">"-df"</span><span class="p">,</span>
+        <span class="s2">"1"</span><span class="p">,</span>
+        <span class="s2">"-S"</span><span class="p">,</span>
+        <span class="s2">"2"</span><span class="p">,</span>
+        <span class="s2">"-CS"</span><span class="p">,</span>
+        <span class="s2">"4"</span><span class="p">,</span>
+        <span class="s2">"--void_mat"</span><span class="p">,</span>
+        <span class="s2">"0"</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">REQUIRED_SCULPT_KEYS</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"psculpt"</span><span class="p">,</span> <span class="s2">"epu"</span><span class="p">,</span> <span class="s2">"nprocs"</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">input_folder</span><span class="p">:</span> <span class="n">PathLike</span><span class="p">,</span>
+        <span class="n">save_dir</span><span class="p">:</span> <span class="n">PathLike</span><span class="p">,</span>
+        <span class="n">exp_file_token</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"layer"</span><span class="p">,</span>
+        <span class="n">angle_convention</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"bunge"</span><span class="p">,</span>
+        <span class="n">angle_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"radians"</span><span class="p">,</span>
+        <span class="n">symmetry</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"432"</span><span class="p">,</span>
+        <span class="n">prefix</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"reconstructed"</span><span class="p">,</span>
+        <span class="n">write_intermediate</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">write_vtk</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">default_mesh_filename</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"mesh.e"</span><span class="p">,</span>
+        <span class="n">default_mapped_orientations_filename</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"orientations"</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Configure an NF-HEDM reconstruction from a folder of layer files.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            input_folder: Folder containing the per-layer NF orientation maps (.mic files).</span>
+<span class="sd">            save_dir: Output directory for the pointcloud, grids, mesh, and mapped orientations; created if missing.</span>
+<span class="sd">            exp_file_token: Filename token used to select the layer files within input_folder.</span>
+<span class="sd">            angle_convention: Euler angle convention of the input maps, e.g. "bunge".</span>
+<span class="sd">            angle_type: Euler angle unit, "radians" or "degrees".</span>
+<span class="sd">            symmetry: Crystal symmetry group used for misorientation, e.g. "432".</span>
+<span class="sd">            prefix: Filename prefix for the .spn and .orientations intermediate files.</span>
+<span class="sd">            write_intermediate: If True, write intermediate .npy/.csv checkpoints to save_dir.</span>
+<span class="sd">            write_vtk: If True, write .vtk renderings of the grids to save_dir.</span>
+<span class="sd">            default_mesh_filename: Default output mesh filename in save_dir (e.g. "mesh.e").</span>
+<span class="sd">            default_mapped_orientations_filename: Default basename for the per-element mapped orientation output (".csv" is appended by mesh()).</span>
+<span class="sd">        """</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">input_folder</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">input_folder</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">save_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">save_dir</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">save_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">angle_convention</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">angle_convention</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">angle_type</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">angle_type</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">symmetry</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">symmetry</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">prefix</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">prefix</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">write_intermediate</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">write_intermediate</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">write_vtk</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">write_vtk</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">exp_file_token</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">exp_file_token</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">merged_grid_npy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">save_dir</span> <span class="o">/</span> <span class="s2">"merged_segmented_fixed_grid.npy"</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">spn_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">save_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">prefix</span><span class="si">}</span><span class="s2">.spn"</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">orientations_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">save_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">prefix</span><span class="si">}</span><span class="s2">.orientations"</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mesh_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">save_dir</span> <span class="o">/</span> <span class="n">default_mesh_filename</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mapped_orientations_path</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">save_dir</span> <span class="o">/</span> <span class="n">default_mapped_orientations_filename</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_normalize_segmentation</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">segmentation</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="n">cfg</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">DEFAULT_SEGMENTATION</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">segmentation</span><span class="p">:</span>
+            <span class="n">cfg</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">segmentation</span><span class="p">)</span>
+
+        <span class="n">required</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">DEFAULT_SEGMENTATION</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="n">missing</span> <span class="o">=</span> <span class="n">required</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="n">extra</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">-</span> <span class="n">required</span>
+        <span class="k">if</span> <span class="n">missing</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"Missing segmentation keys: "</span>
+                <span class="o">+</span> <span class="s2">", "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">missing</span><span class="p">))</span>
+                <span class="o">+</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">Required keys and defaults:</span><span class="se">\n</span><span class="s2">"</span>
+                <span class="o">+</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">v</span><span class="si">!r}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">DEFAULT_SEGMENTATION</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">extra</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Unknown segmentation keys: "</span> <span class="o">+</span> <span class="s2">", "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">extra</span><span class="p">)))</span>
+
+        <span class="k">if</span> <span class="n">cfg</span><span class="p">[</span><span class="s2">"connectivity"</span><span class="p">]</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">26</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"segmentation['connectivity'] must be 6 or 26"</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="p">(</span>
+            <span class="s2">"batch_norm"</span><span class="p">,</span>
+            <span class="s2">"grain_threshold"</span><span class="p">,</span>
+            <span class="s2">"stop_count"</span><span class="p">,</span>
+            <span class="s2">"grain_threshold_final"</span><span class="p">,</span>
+        <span class="p">):</span>
+            <span class="k">if</span> <span class="nb">int</span><span class="p">(</span><span class="n">cfg</span><span class="p">[</span><span class="n">k</span><span class="p">])</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"segmentation['</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">'] must be &gt; 0"</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">float</span><span class="p">(</span><span class="n">cfg</span><span class="p">[</span><span class="s2">"misorientation_tol"</span><span class="p">])</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"segmentation['misorientation_tol'] must be &gt; 0 (radians)"</span><span class="p">)</span>
+
+        <span class="n">cfg</span><span class="p">[</span><span class="s2">"misorientation_tol"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">cfg</span><span class="p">[</span><span class="s2">"misorientation_tol"</span><span class="p">])</span>
+        <span class="n">cfg</span><span class="p">[</span><span class="s2">"connectivity"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">cfg</span><span class="p">[</span><span class="s2">"connectivity"</span><span class="p">])</span>
+        <span class="n">cfg</span><span class="p">[</span><span class="s2">"batch_norm"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">cfg</span><span class="p">[</span><span class="s2">"batch_norm"</span><span class="p">])</span>
+        <span class="n">cfg</span><span class="p">[</span><span class="s2">"grain_threshold"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">cfg</span><span class="p">[</span><span class="s2">"grain_threshold"</span><span class="p">])</span>
+        <span class="n">cfg</span><span class="p">[</span><span class="s2">"stop_count"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">cfg</span><span class="p">[</span><span class="s2">"stop_count"</span><span class="p">])</span>
+        <span class="n">cfg</span><span class="p">[</span><span class="s2">"grain_threshold_final"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">cfg</span><span class="p">[</span><span class="s2">"grain_threshold_final"</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">cfg</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_sculpt_config</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sculpt_config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sculpt_config</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="s2">"mesh_config must be a dict containing sculpt configuration"</span>
+            <span class="p">)</span>
+
+        <span class="n">missing</span> <span class="o">=</span> <span class="p">[</span><span class="n">k</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">REQUIRED_SCULPT_KEYS</span> <span class="k">if</span> <span class="n">k</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">sculpt_config</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">missing</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"Missing sculpt_config keys: "</span>
+                <span class="o">+</span> <span class="s2">", "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">missing</span><span class="p">)</span>
+                <span class="o">+</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">Required keys:</span><span class="se">\n</span><span class="s2">"</span>
+                <span class="o">+</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">REQUIRED_SCULPT_KEYS</span><span class="p">)</span>
+                <span class="o">+</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">Optional keys:</span><span class="se">\n</span><span class="s2">  environment (dict)"</span>
+            <span class="p">)</span>
+
+        <span class="n">cfg</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">sculpt_config</span><span class="p">)</span>
+        <span class="n">cfg</span><span class="p">[</span><span class="s2">"nprocs"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">cfg</span><span class="p">[</span><span class="s2">"nprocs"</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">cfg</span><span class="p">[</span><span class="s2">"nprocs"</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"sculpt_config['nprocs'] must be &gt; 0"</span><span class="p">)</span>
+
+        <span class="n">env</span> <span class="o">=</span> <span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"environment"</span><span class="p">,</span> <span class="p">{})</span>
+        <span class="k">if</span> <span class="n">env</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">env</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">"sculpt_config['environment'] must be a dict if provided"</span><span class="p">)</span>
+        <span class="n">cfg</span><span class="p">[</span><span class="s2">"environment"</span><span class="p">]</span> <span class="o">=</span> <span class="n">env</span>
+
+        <span class="k">return</span> <span class="n">cfg</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_load_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+        <span class="n">arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">arr</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">4</span> <span class="ow">or</span> <span class="n">arr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">7</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Invalid grid format at </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">. Expected (nx, ny, nz, 7), got </span><span class="si">{</span><span class="n">arr</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">"</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">arr</span><span class="p">)</span>
+
+<div class="viewcode-block" id="NearFieldMeshBuilder.reconstruct">
+<a class="viewcode-back" href="../../api/construct_nf_mesh.html#graintrace.construct_nf_mesh.NearFieldMeshBuilder.reconstruct">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">reconstruct</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">dz</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">5.0</span><span class="p">,</span>
+        <span class="n">nx</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">300</span><span class="p">,</span>
+        <span class="n">ny</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">900</span><span class="p">,</span>
+        <span class="n">segmentation</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Reconstruct a segmented NF voxel grid from .mic/.csv layers.</span>
+
+<span class="sd">        Converts the layer files to a pointcloud, rasterizes it onto a fixed voxel grid, segments it into grains via flood-fill, infills, and removes small segments.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            dz: Layer thickness in micrometers (z spacing between stacked layers).</span>
+<span class="sd">            nx: In-plane grid resolution along x.</span>
+<span class="sd">            ny: In-plane grid resolution along y.</span>
+<span class="sd">            segmentation: Flat segmentation config dict (misorientation_tol in radians, connectivity, batch_norm, grain_threshold, stop_count, grain_threshold_final); None uses the class defaults.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Path to the written merged_segmented_fixed_grid.npy.</span>
+<span class="sd">        """</span>
+        <span class="n">seg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_normalize_segmentation</span><span class="p">(</span><span class="n">segmentation</span><span class="p">)</span>
+
+        <span class="n">dz</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">dz</span><span class="p">)</span>
+        <span class="n">nx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">nx</span><span class="p">)</span>
+        <span class="n">ny</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">ny</span><span class="p">)</span>
+
+        <span class="n">pointcloud_csv</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">save_dir</span> <span class="o">/</span> <span class="s2">"pointcloud.csv"</span>
+        <span class="n">fixed_grid_npy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">save_dir</span> <span class="o">/</span> <span class="s2">"fixed_grid.npy"</span>
+        <span class="n">fixed_grid_vtk</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">save_dir</span> <span class="o">/</span> <span class="s2">"fixed_grid.vtk"</span>
+        <span class="n">segmented_grid_npy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">save_dir</span> <span class="o">/</span> <span class="s2">"segmented_fixed_grid.npy"</span>
+        <span class="n">segmented_grid_vtk</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">save_dir</span> <span class="o">/</span> <span class="s2">"segmented_fixed_grid.vtk"</span>
+        <span class="n">merged_grid_vtk</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">save_dir</span> <span class="o">/</span> <span class="s2">"merged_segmented_fixed_grid.vtk"</span>
+
+        <span class="c1"># NearField -&gt; pointcloud</span>
+        <span class="n">pc</span> <span class="o">=</span> <span class="n">convert</span><span class="o">.</span><span class="n">nf_to_pointcloud</span><span class="p">(</span>
+            <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_folder</span><span class="p">),</span> <span class="n">dz</span><span class="p">,</span> <span class="n">layer_token</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">exp_file_token</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">write_intermediate</span><span class="p">:</span>
+            <span class="n">pc</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">pointcloud_csv</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="c1"># pointcloud -&gt; fixed grid</span>
+        <span class="n">fixed_grid</span> <span class="o">=</span> <span class="n">convert</span><span class="o">.</span><span class="n">pointcloud_to_fixed_grid</span><span class="p">(</span><span class="n">pc</span><span class="p">,</span> <span class="n">nx</span><span class="o">=</span><span class="n">nx</span><span class="p">,</span> <span class="n">ny</span><span class="o">=</span><span class="n">ny</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">write_intermediate</span><span class="p">:</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">fixed_grid_npy</span><span class="p">,</span> <span class="n">fixed_grid</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">write_vtk</span><span class="p">:</span>
+            <span class="n">convert</span><span class="o">.</span><span class="n">fixed_grid_to_vtk</span><span class="p">(</span><span class="n">fixed_grid</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">fixed_grid_vtk</span><span class="p">))</span>
+
+        <span class="c1"># segmentation</span>
+        <span class="n">grid_t</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">fixed_grid</span><span class="p">)</span>
+
+        <span class="n">grid_t</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">segment</span><span class="o">.</span><span class="n">flood</span><span class="p">(</span>
+            <span class="n">grid_t</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">:</span><span class="mi">4</span><span class="p">],</span>
+            <span class="n">grid_t</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+            <span class="n">seg</span><span class="p">[</span><span class="s2">"misorientation_tol"</span><span class="p">],</span>
+            <span class="n">connectivity</span><span class="o">=</span><span class="n">seg</span><span class="p">[</span><span class="s2">"connectivity"</span><span class="p">],</span>
+            <span class="n">batch_norm</span><span class="o">=</span><span class="n">seg</span><span class="p">[</span><span class="s2">"batch_norm"</span><span class="p">],</span>
+            <span class="n">grain_threshold</span><span class="o">=</span><span class="n">seg</span><span class="p">[</span><span class="s2">"grain_threshold"</span><span class="p">],</span>
+            <span class="n">stop_count</span><span class="o">=</span><span class="n">seg</span><span class="p">[</span><span class="s2">"stop_count"</span><span class="p">],</span>
+            <span class="n">angle_convention</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">angle_convention</span><span class="p">,</span>
+            <span class="n">angle_type</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">angle_type</span><span class="p">,</span>
+            <span class="n">symmetry</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">symmetry</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">write_intermediate</span><span class="p">:</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">segmented_grid_npy</span><span class="p">,</span> <span class="n">grid_t</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">())</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">write_vtk</span><span class="p">:</span>
+            <span class="n">convert</span><span class="o">.</span><span class="n">fixed_grid_to_vtk</span><span class="p">(</span><span class="n">grid_t</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">(),</span> <span class="nb">str</span><span class="p">(</span><span class="n">segmented_grid_vtk</span><span class="p">))</span>
+
+        <span class="n">grid_t</span> <span class="o">=</span> <span class="n">segment</span><span class="o">.</span><span class="n">infill_nearest_neighbor</span><span class="p">(</span><span class="n">grid_t</span><span class="p">)</span>
+        <span class="n">grid_t</span> <span class="o">=</span> <span class="n">segment</span><span class="o">.</span><span class="n">remove_small_segments</span><span class="p">(</span><span class="n">grid_t</span><span class="p">,</span> <span class="n">seg</span><span class="p">[</span><span class="s2">"grain_threshold_final"</span><span class="p">])</span>
+
+        <span class="n">np</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">merged_grid_npy</span><span class="p">,</span> <span class="n">grid_t</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">())</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">write_vtk</span><span class="p">:</span>
+            <span class="n">convert</span><span class="o">.</span><span class="n">fixed_grid_to_vtk</span><span class="p">(</span><span class="n">grid_t</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">(),</span> <span class="nb">str</span><span class="p">(</span><span class="n">merged_grid_vtk</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">merged_grid_npy</span></div>
+
+
+<div class="viewcode-block" id="NearFieldMeshBuilder.mesh">
+<a class="viewcode-back" href="../../api/construct_nf_mesh.html#graintrace.construct_nf_mesh.NearFieldMeshBuilder.mesh">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">mesh</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">sculpt_config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+        <span class="n">sculpt_options</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">merged_grid</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">PathLike</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="c1"># output overrides (optional)</span>
+        <span class="n">spn_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">PathLike</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">orientations_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">PathLike</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">mesh_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">PathLike</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">mapped_orientations_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">PathLike</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Generate an Exodus mesh via SCULPT from the merged voxel grid.</span>
+
+<span class="sd">        Uses merged_grid if given, else save_dir/merged_segmented_fixed_grid.npy. Writes the SCULPT .spn/orientations inputs, runs SCULPT, and maps per-element MRP orientations.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            sculpt_config: SCULPT configuration dict (required keys psculpt, epu, nprocs; optional launcher, environment).</span>
+<span class="sd">            sculpt_options: SCULPT CLI flags as a sequence of strings; None uses DEFAULT_SCULPT_OPTIONS.</span>
+<span class="sd">            merged_grid: Path to the merged segmented grid .npy; None uses save_dir/merged_segmented_fixed_grid.npy.</span>
+<span class="sd">            spn_path: Override for the SCULPT .spn voxel input path.</span>
+<span class="sd">            orientations_path: Override for the SCULPT per-voxel orientations input path.</span>
+<span class="sd">            mesh_path: Override for the output Exodus mesh path; None uses the configured default.</span>
+<span class="sd">            mapped_orientations_path: Override for the mapped per-element orientation output basename (".csv" is appended).</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Path to the written Exodus mesh.</span>
+<span class="sd">        """</span>
+        <span class="n">cfg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_validate_sculpt_config</span><span class="p">(</span><span class="n">sculpt_config</span><span class="p">)</span>
+        <span class="n">options</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="nb">list</span><span class="p">(</span><span class="n">sculpt_options</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">sculpt_options</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="k">else</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">DEFAULT_SCULPT_OPTIONS</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="n">grid_path</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">Path</span><span class="p">(</span><span class="n">merged_grid</span><span class="p">)</span> <span class="k">if</span> <span class="n">merged_grid</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">merged_grid_npy</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">grid_path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Required merged grid not found: </span><span class="si">{</span><span class="n">grid_path</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span>
+                <span class="s2">"Run reconstruct() first or pass merged_grid=... explicitly."</span>
+            <span class="p">)</span>
+
+        <span class="n">spn_out</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">spn_path</span><span class="p">)</span> <span class="k">if</span> <span class="n">spn_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">spn_path</span>
+        <span class="n">ori_out</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">Path</span><span class="p">(</span><span class="n">orientations_path</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">orientations_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">orientations_path</span>
+        <span class="p">)</span>
+        <span class="n">mesh_out</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">mesh_path</span><span class="p">)</span> <span class="k">if</span> <span class="n">mesh_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">mesh_path</span>
+        <span class="n">map_out</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">Path</span><span class="p">(</span><span class="n">mapped_orientations_path</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">mapped_orientations_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">mapped_orientations_path</span>
+        <span class="p">)</span>
+
+        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_grid</span><span class="p">(</span><span class="n">grid_path</span><span class="p">)</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+
+        <span class="n">mesh</span><span class="o">.</span><span class="n">write_spn</span><span class="p">(</span>
+            <span class="n">data</span><span class="p">,</span>
+            <span class="nb">str</span><span class="p">(</span><span class="n">spn_out</span><span class="p">),</span>
+            <span class="nb">str</span><span class="p">(</span><span class="n">ori_out</span><span class="p">),</span>
+            <span class="n">angle_convention</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">angle_convention</span><span class="p">,</span>
+            <span class="n">angle_type</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">angle_type</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">mesh</span><span class="o">.</span><span class="n">mesh_sculpt</span><span class="p">(</span>
+            <span class="n">cfg</span><span class="p">,</span>
+            <span class="n">options</span><span class="p">,</span>
+            <span class="nb">str</span><span class="p">(</span><span class="n">spn_out</span><span class="p">),</span>
+            <span class="n">data</span><span class="p">,</span>
+            <span class="nb">str</span><span class="p">(</span><span class="n">mesh_out</span><span class="p">),</span>
+            <span class="nb">str</span><span class="p">(</span><span class="n">map_out</span><span class="p">),</span>
+            <span class="n">angle_convention</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">angle_convention</span><span class="p">,</span>
+            <span class="n">angle_type</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">angle_type</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">mesh_out</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Argonne National Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

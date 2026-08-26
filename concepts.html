@@ -1,0 +1,238 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Concepts &amp; data formats &mdash; graintrace 0.1.2</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=92734c54"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="_static/copybutton.js?v=96c007af"></script>
+      <script src="_static/design-tabs.js?v=f930bc37"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Configuration reference" href="configuration.html" />
+    <link rel="prev" title="Quickstart" href="quickstart.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            graintrace
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quickstart</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Concepts &amp; data formats</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#the-pipeline">The pipeline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#data-types">Data types</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#ff-hedm-data">FF HEDM data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#nf-hedm-data">NF HEDM data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#ebsd-data">EBSD data</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#orientations">Orientations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#meshing">Meshing</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mcp.html">MCP server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="benchmarks.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pitfalls.html">Common pitfalls</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Tutorials &amp; examples</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/tutorials.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api/api.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="development.html">Building &amp; testing the docs</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">graintrace</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Concepts &amp; data formats</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/concepts.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="concepts-data-formats">
+<h1>Concepts &amp; data formats<a class="headerlink" href="#concepts-data-formats" title="Link to this heading"></a></h1>
+<section id="the-pipeline">
+<h2>The pipeline<a class="headerlink" href="#the-pipeline" title="Link to this heading"></a></h2>
+<p>graintrace runs the grain-scale workflow in four stages:</p>
+<ol class="arabic simple">
+<li><p><strong>Reconstruct</strong> a 3D microstructure from experimental data. Far-field (FF)
+grain centroids become a Voronoi/CVT tessellation (NEPER); near-field (NF)
+and EBSD voxel fields are segmented into grains (flood fill or graph/Leiden
+clustering). All three are meshed to conformal hex with CUBIT/SCULPT (a
+NEPER/gmsh tet mesh is a fallback). Multiple FF scan layers are stitched
+into one grain set by region matching.</p></li>
+<li><p><strong>Calibrate</strong> the crystal-plasticity material model to a macroscopic
+stress-strain curve with a pyzag analytic-adjoint Taylor model.</p></li>
+<li><p><strong>Simulate</strong> with MOOSE/PUMA CPFE using NEML2 v3 AOTI-compiled models.</p></li>
+<li><p><strong>Analyze</strong> the fields — distributions, macroscopic response, pole figures,
+IPF coloring — and identify rare events for targeted measurement.</p></li>
+</ol>
+</section>
+<section id="data-types">
+<h2>Data types<a class="headerlink" href="#data-types" title="Link to this heading"></a></h2>
+<section id="ff-hedm-data">
+<h3>FF HEDM data<a class="headerlink" href="#ff-hedm-data" title="Link to this heading"></a></h3>
+<p>Per-scan-layer CSV, whitespace-delimited with an 8-line header. Key columns:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 25.0%" />
+<col style="width: 75.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Column</p></th>
+<th class="head"><p>Meaning</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">X,</span> <span class="pre">Y,</span> <span class="pre">Z</span></code></p></td>
+<td><p>grain centroid position (micrometers)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">GrainRadius</span></code></p></td>
+<td><p>equivalent-sphere radius (micrometers)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">Eul0,</span> <span class="pre">Eul1,</span> <span class="pre">Eul2</span></code></p></td>
+<td><p>Bunge Euler angles (degrees or radians)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">Confidence</span></code></p></td>
+<td><p>fit quality (typically filter to &gt;= 0.7 or 0.9)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">eFab11..eFab33</span></code></p></td>
+<td><p>fabric/lattice strain tensor (row-major, 9 components)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">eKen11..eKen33</span></code></p></td>
+<td><p>Kenesei elastic strain tensor (row-major, 9 components), usually microstrain</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ScanID</span></code></p></td>
+<td><p>assigned during stitching</p></td>
+</tr>
+</tbody>
+</table>
+<p>Units are detected automatically: if any Euler value exceeds 2π, the file is in
+degrees, otherwise radians. Multiple scan layers are Z-shifted before stitching.</p>
+</section>
+<section id="nf-hedm-data">
+<h3>NF HEDM data<a class="headerlink" href="#nf-hedm-data" title="Link to this heading"></a></h3>
+<p>Per-layer <code class="docutils literal notranslate"><span class="pre">.mic</span></code> files in a folder, tab-delimited with <code class="docutils literal notranslate"><span class="pre">%</span></code> header lines:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>%OrientationRowNr OrientationID RunTime X Y TriEdgeSize UpDown Eul1 Eul2 Eul3 Confidence PhaseNr
+</pre></div>
+</div>
+<p><code class="xref py py-class docutils literal notranslate"><span class="pre">NearFieldMeshBuilder</span></code> reads a folder of <code class="docutils literal notranslate"><span class="pre">.mic</span></code> files; the
+<code class="docutils literal notranslate"><span class="pre">exp_file_token</span></code> parameter is the filename prefix used to find them. If the
+source is <code class="docutils literal notranslate"><span class="pre">.ang</span></code> files, convert them to <code class="docutils literal notranslate"><span class="pre">.mic</span></code> first. Pre-gridded NF data
+can instead go through <code class="xref py py-class docutils literal notranslate"><span class="pre">NFGridConversion</span></code>.</p>
+</section>
+<section id="ebsd-data">
+<h3>EBSD data<a class="headerlink" href="#ebsd-data" title="Link to this heading"></a></h3>
+<p>A flat CSV merged from per-layer <code class="docutils literal notranslate"><span class="pre">.ang</span></code> files, with columns
+<code class="docutils literal notranslate"><span class="pre">x,</span> <span class="pre">y,</span> <span class="pre">z,</span> <span class="pre">Eul0,</span> <span class="pre">Eul1,</span> <span class="pre">Eul2</span></code> where <code class="docutils literal notranslate"><span class="pre">z</span> <span class="pre">=</span> <span class="pre">file_index</span> <span class="pre">*</span> <span class="pre">zstep_ebsd</span></code> and the
+Euler columns are Bunge angles. This feeds <code class="xref py py-class docutils literal notranslate"><span class="pre">VoxelMeshBuilder</span></code>.</p>
+</section>
+</section>
+<section id="orientations">
+<h2>Orientations<a class="headerlink" href="#orientations" title="Link to this heading"></a></h2>
+<p>Orientations are interchanged as NEML2 v3 MRP (<code class="docutils literal notranslate"><span class="pre">tan(θ/4)·axis</span></code>), the canonical
+on-disk format. FF <code class="docutils literal notranslate"><span class="pre">orientations.dat</span></code> is Euler-Bunge in degrees; convert it
+with <code class="docutils literal notranslate"><span class="pre">graintrace.orientation_helper</span></code> (which delegates to NEML2). Note that
+graintrace’s <code class="docutils literal notranslate"><span class="pre">&quot;mrp&quot;</span></code> label elsewhere means Gibbs/Rodrigues (<code class="docutils literal notranslate"><span class="pre">tan</span> <span class="pre">θ/2</span></code>), which
+is not the same as NEML2 v3 MRP — use <code class="docutils literal notranslate"><span class="pre">euler_to_mrp</span></code> to get the NEML2 form that
+the CPFE model expects.</p>
+</section>
+<section id="meshing">
+<h2>Meshing<a class="headerlink" href="#meshing" title="Link to this heading"></a></h2>
+<p>The recommended CPFE mesh is a conformal hex built with
+<code class="xref py py-class docutils literal notranslate"><span class="pre">VoxelMeshBuilder</span></code> (SCULPT). Hex elements behave better for
+crystal plasticity. The NEPER/GMSH tet mesh (<code class="docutils literal notranslate"><span class="pre">generate_mesh=True</span></code> on the FF
+build) is a fallback for when CUBIT/SCULPT is unavailable.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="quickstart.html" class="btn btn-neutral float-left" title="Quickstart" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="configuration.html" class="btn btn-neutral float-right" title="Configuration reference" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Argonne National Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,739 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>graintrace.material_calibration &mdash; graintrace 0.1.2</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="../../_static/sphinx-design.min.css?v=95c83b7e" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=92734c54"></script>
+      <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../../_static/copybutton.js?v=96c007af"></script>
+      <script src="../../_static/design-tabs.js?v=f930bc37"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            graintrace
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../concepts.html">Concepts &amp; data formats</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../configuration.html">Configuration reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../mcp.html">MCP server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../benchmarks.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../pitfalls.html">Common pitfalls</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Tutorials &amp; examples</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/tutorials.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api/api.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../development.html">Building &amp; testing the docs</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">graintrace</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">graintrace.material_calibration</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for graintrace.material_calibration</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright 2026, UChicago Argonne, LLC</span>
+<span class="c1"># All Rights Reserved</span>
+<span class="c1"># Software Name: graintrace</span>
+<span class="c1"># By: Argonne National Laboratory</span>
+<span class="c1"># OPEN SOURCE LICENSE (MIT)</span>
+<span class="c1">#</span>
+<span class="c1"># Permission is hereby granted, free of charge, to any person obtaining a copy</span>
+<span class="c1"># of this software and associated documentation files (the "Software"), to deal</span>
+<span class="c1"># in the Software without restriction, including without limitation the rights</span>
+<span class="c1"># to use, copy, modify, merge, publish, distribute, sublicense, and/or sell</span>
+<span class="c1"># copies of the Software, and to permit persons to whom the Software is</span>
+<span class="c1"># furnished to do so, subject to the following conditions:</span>
+<span class="c1">#</span>
+<span class="c1"># The above copyright notice and this permission notice shall be included in</span>
+<span class="c1"># all copies or substantial portions of the Software.</span>
+<span class="c1">#</span>
+<span class="c1"># THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR</span>
+<span class="c1"># IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,</span>
+<span class="c1"># FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE</span>
+<span class="c1"># AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER</span>
+<span class="c1"># LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,</span>
+<span class="c1"># OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN</span>
+<span class="c1"># THE SOFTWARE.</span>
+
+<span class="sd">"""Crystal-plasticity material parameter calibration (NEML2 v3 + pyzag adjoint)."""</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch.nn.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">parametrize</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">tqdm</span><span class="w"> </span><span class="kn">import</span> <span class="n">tqdm</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyzag</span><span class="w"> </span><span class="kn">import</span> <span class="n">reparametrization</span>
+
+
+<div class="viewcode-block" id="MaterialCalibration">
+<a class="viewcode-back" href="../../api/material_calibration.html#graintrace.material_calibration.MaterialCalibration">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">MaterialCalibration</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Parameter calibration on the NEML2 v3 + pyzag adjoint engine (LBFGS with</span>
+<span class="sd">    analytic gradients, RangeRescale reparametrization, optional plotting)."""</span>
+
+    <span class="c1"># Physical ranges (NEML2-native units) for RangeRescale, keyed by NEML2 param name.</span>
+    <span class="n">DEFAULT_PARAM_RANGES</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">"elastic_tensor_E"</span><span class="p">:</span> <span class="p">(</span><span class="mf">10_000.0</span><span class="p">,</span> <span class="mf">500_000.0</span><span class="p">),</span>  <span class="c1"># MPa</span>
+        <span class="s2">"elastic_tensor_G"</span><span class="p">:</span> <span class="p">(</span><span class="mf">1_000.0</span><span class="p">,</span> <span class="mf">300_000.0</span><span class="p">),</span>  <span class="c1"># MPa</span>
+        <span class="s2">"elastic_tensor_nu"</span><span class="p">:</span> <span class="p">(</span><span class="o">-</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">),</span>  <span class="c1"># Poisson's ratio</span>
+        <span class="s2">"slip_strength_constant_strength"</span><span class="p">:</span> <span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">2_000.0</span><span class="p">),</span>  <span class="c1"># MPa</span>
+        <span class="s2">"voce_hardening_initial_slope"</span><span class="p">:</span> <span class="p">(</span><span class="mf">1e-3</span><span class="p">,</span> <span class="mf">50_000.0</span><span class="p">),</span>  <span class="c1"># MPa</span>
+        <span class="s2">"voce_hardening_saturated_hardening"</span><span class="p">:</span> <span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">2_000.0</span><span class="p">),</span>  <span class="c1"># MPa</span>
+    <span class="p">}</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">model_class</span><span class="p">,</span>
+        <span class="n">model_args</span><span class="p">,</span>
+        <span class="n">data_args</span><span class="p">,</span>
+        <span class="n">apply_elastic_correction</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">correction_method</span><span class="o">=</span><span class="s2">"with_experiment_average"</span><span class="p">,</span>
+        <span class="n">strain_window</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">save_dir</span><span class="o">=</span><span class="s2">"calibration_results"</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Build the calibration model and load experimental data.</span>
+
+<span class="sd">        Instantiates ``model_class(**model_args)`` (typically TaylorModel) and loads the</span>
+<span class="sd">        experimental macroscopic stress-strain curve and per-grain elastic strains via</span>
+<span class="sd">        ``model.load_experiment_data(**data_args)``.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            model_class: The calibration model class to instantiate (e.g. TaylorModel).</span>
+<span class="sd">            model_args: Dict of keyword arguments forwarded to model_class (e.g. neml2_path, npoints, nchunk, device, compile).</span>
+<span class="sd">            data_args: Dict of keyword arguments forwarded to model.load_experiment_data (e.g. data_dir, strain_stress_file, npoints, full_field_strain_units, straintype, max_strain, n_grains, seed).</span>
+<span class="sd">            apply_elastic_correction: If True, scale the macroscopic strain so its elastic slope matches the experimental average-grain slope; requires strain_window. Default False.</span>
+<span class="sd">            correction_method: Elastic-slope correction method; only "with_experiment_average" is supported. Default "with_experiment_average".</span>
+<span class="sd">            strain_window: (lo, hi) axial-strain range used to fit the elastic slope; required when apply_elastic_correction is True. Default None.</span>
+<span class="sd">            save_dir: Directory for calibration outputs (figures, saved parameter JSONs). Created if needed. Default "calibration_results".</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="n">model_class</span><span class="p">(</span><span class="o">**</span><span class="n">model_args</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">experiment_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">load_experiment_data</span><span class="p">(</span><span class="o">**</span><span class="n">data_args</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">strain_stress</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment_data</span><span class="p">[</span><span class="s2">"strain_stress"</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">axial_index</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">axial_index</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assumed_rate</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">assumed_rate</span>
+
+        <span class="c1"># deformation direction (kept for API compatibility)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">d</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">6</span><span class="p">,))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">axial_index</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span>
+
+        <span class="n">correction_method_allowed</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"with_experiment_average"</span><span class="p">]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">apply_elastic_correction</span> <span class="o">=</span> <span class="n">apply_elastic_correction</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">correction_method</span> <span class="o">=</span> <span class="n">correction_method</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">strain_window</span> <span class="o">=</span> <span class="n">strain_window</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply_elastic_correction</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">strain_window</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">"'strain_window' must be provided when "</span>
+                    <span class="s2">"apply_elastic_correction=True."</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">correction_method</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">correction_method_allowed</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unknown correction_method: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">correction_method</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">_apply_elastic_slope_correction</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">save_dir</span> <span class="o">=</span> <span class="n">save_dir</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">save_dir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_apply_elastic_slope_correction</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Scale macro strain so the elastic slope matches the experimental</span>
+<span class="sd">        average strain (needs &gt; 2 average data points)."""</span>
+
+        <span class="n">exp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment_data</span>
+        <span class="n">strain_window</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strain_window</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">correction_method</span> <span class="o">==</span> <span class="s2">"with_experiment_average"</span><span class="p">:</span>
+
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="s2">"</span><span class="se">\n</span><span class="s2">Applying elastic slope correction using experimental average strain.</span><span class="se">\n</span><span class="s2">"</span>
+            <span class="p">)</span>
+
+            <span class="k">if</span> <span class="s2">"avg_axial_strain"</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">exp</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">exp</span><span class="p">[</span><span class="s2">"avg_axial_strain"</span><span class="p">])</span> <span class="o">&lt;=</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span>
+                    <span class="s2">"</span><span class="se">\n</span><span class="s2">Not enough average experimental data points. Skipping correction.</span><span class="se">\n</span><span class="s2">"</span>
+                <span class="p">)</span>
+                <span class="k">return</span>
+
+            <span class="n">strain_avg</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="nb">float</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">exp</span><span class="p">[</span><span class="s2">"avg_axial_strain"</span><span class="p">]])</span>
+            <span class="n">stress_levels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">exp</span><span class="p">[</span><span class="s2">"stress_levels"</span><span class="p">])</span>
+            <span class="n">mask</span> <span class="o">=</span> <span class="p">(</span><span class="n">strain_avg</span> <span class="o">&gt;=</span> <span class="n">strain_window</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">strain_avg</span> <span class="o">&lt;=</span> <span class="n">strain_window</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">mask</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">Insufficient points in strain window. Skipping correction.</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                <span class="k">return</span>
+
+            <span class="n">E_exp</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">polyfit</span><span class="p">(</span><span class="n">strain_avg</span><span class="p">[</span><span class="n">mask</span><span class="p">],</span> <span class="n">stress_levels</span><span class="p">[</span><span class="n">mask</span><span class="p">],</span> <span class="mi">1</span><span class="p">)</span>
+
+            <span class="n">strain_macro</span> <span class="o">=</span> <span class="n">exp</span><span class="p">[</span><span class="s2">"strain_stress"</span><span class="p">][:,</span> <span class="mi">0</span><span class="p">]</span>
+            <span class="n">stress_macro</span> <span class="o">=</span> <span class="n">exp</span><span class="p">[</span><span class="s2">"strain_stress"</span><span class="p">][:,</span> <span class="mi">1</span><span class="p">]</span>
+            <span class="n">mask_macro</span> <span class="o">=</span> <span class="p">(</span><span class="n">strain_macro</span> <span class="o">&gt;=</span> <span class="n">strain_window</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">&amp;</span> <span class="p">(</span>
+                <span class="n">strain_macro</span> <span class="o">&lt;=</span> <span class="n">strain_window</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">mask_macro</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">Insufficient macro points in window.</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+
+            <span class="n">E_macro</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">polyfit</span><span class="p">(</span>
+                <span class="n">strain_macro</span><span class="p">[</span><span class="n">mask_macro</span><span class="p">],</span> <span class="n">stress_macro</span><span class="p">[</span><span class="n">mask_macro</span><span class="p">],</span> <span class="mi">1</span>
+            <span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">E_macro</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">E_exp</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">"Invalid slope detected. Skipping correction."</span><span class="p">)</span>
+                <span class="k">return</span>
+
+            <span class="n">scale_factor</span> <span class="o">=</span> <span class="n">E_macro</span> <span class="o">/</span> <span class="n">E_exp</span>
+            <span class="n">exp</span><span class="p">[</span><span class="s2">"strain_stress"</span><span class="p">][:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">*=</span> <span class="n">scale_factor</span>
+
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">Scaled macro strain by </span><span class="si">{</span><span class="n">scale_factor</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> "</span>
+                <span class="sa">f</span><span class="s2">"to match average experimental slope.</span><span class="se">\n</span><span class="s2">"</span>
+            <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_apply_reparametrization</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">param_ranges</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Register RangeRescale on each calibration parameter (on the factory</span>
+<span class="sd">        submodule) so the optimizer works in scaled [0, 1] space within bounds."""</span>
+        <span class="k">if</span> <span class="n">param_ranges</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">param_ranges</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">DEFAULT_PARAM_RANGES</span>
+
+        <span class="n">factory</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">factory</span>
+        <span class="n">a_param</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">factory</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">opt_vars</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">device</span><span class="p">,</span> <span class="n">dtype</span> <span class="o">=</span> <span class="n">a_param</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">a_param</span><span class="o">.</span><span class="n">dtype</span>
+
+        <span class="n">map_dict</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="sa">f</span><span class="s2">"factory.</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">"</span><span class="p">:</span> <span class="n">reparametrization</span><span class="o">.</span><span class="n">RangeRescale</span><span class="p">(</span>
+                <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">lo</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">),</span>
+                <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">hi</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">),</span>
+                <span class="n">clamp</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="p">(</span><span class="n">lo</span><span class="p">,</span> <span class="n">hi</span><span class="p">)</span> <span class="ow">in</span> <span class="n">param_ranges</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">opt_vars</span>
+        <span class="p">}</span>
+        <span class="n">reparam</span> <span class="o">=</span> <span class="n">reparametrization</span><span class="o">.</span><span class="n">Reparameterizer</span><span class="p">(</span><span class="n">map_dict</span><span class="p">,</span> <span class="n">error_not_provided</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">reparam</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">tmodel</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">reparam</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_calibration_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""The optimizer variables: the RangeRescale ``.original`` leaves after</span>
+<span class="sd">        reparametrization (or the raw parameters before it)."""</span>
+        <span class="n">factory</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">factory</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">opt_vars</span><span class="p">:</span>
+            <span class="n">parametrizations</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">factory</span><span class="p">,</span> <span class="s2">"parametrizations"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">parametrizations</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">parametrizations</span><span class="p">:</span>
+                <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">parametrizations</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">original</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">factory</span><span class="p">,</span> <span class="n">name</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">out</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_remove_reparametrization</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Bake the current (physical) values back into plain parameters."""</span>
+        <span class="n">factory</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">factory</span>
+        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">opt_vars</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">parametrize</span><span class="o">.</span><span class="n">is_parametrized</span><span class="p">(</span><span class="n">factory</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+                <span class="n">parametrize</span><span class="o">.</span><span class="n">remove_parametrizations</span><span class="p">(</span>
+                    <span class="n">factory</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">leave_parametrized</span><span class="o">=</span><span class="kc">True</span>
+                <span class="p">)</span>
+        <span class="c1"># pylint: disable-next=protected-access  # required to refresh NEML2 param values</span>
+        <span class="n">factory</span><span class="o">.</span><span class="n">_update_parameter_values</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_predict_axial</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Predicted axial stress trajectory (grad-enabled) at current params."""</span>
+        <span class="n">pred</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">simulate</span><span class="p">(</span>
+            <span class="kc">None</span><span class="p">,</span>
+            <span class="n">d</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">d</span><span class="p">,</span>
+            <span class="n">assumed_rate</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">assumed_rate</span><span class="p">,</span>
+            <span class="n">experiment_data</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">experiment_data</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">pred</span><span class="p">[:,</span> <span class="bp">self</span><span class="o">.</span><span class="n">axial_index</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_predict_axial_and_state</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">return_state</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Single differentiable solve: axial-stress trajectory and (optionally)</span>
+<span class="sd">        the per-grain elastic-strain history ``(npoints, n_grains, 6)``."""</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">simulate</span><span class="p">(</span>
+            <span class="kc">None</span><span class="p">,</span>
+            <span class="n">d</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">d</span><span class="p">,</span>
+            <span class="n">assumed_rate</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">assumed_rate</span><span class="p">,</span>
+            <span class="n">experiment_data</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">experiment_data</span><span class="p">,</span>
+            <span class="n">return_state</span><span class="o">=</span><span class="n">return_state</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">return_state</span><span class="p">:</span>
+            <span class="n">stress_hist</span><span class="p">,</span> <span class="n">state_hist</span> <span class="o">=</span> <span class="n">out</span>
+            <span class="k">return</span> <span class="n">stress_hist</span><span class="p">[:,</span> <span class="bp">self</span><span class="o">.</span><span class="n">axial_index</span><span class="p">],</span> <span class="n">state_hist</span>
+        <span class="k">return</span> <span class="n">out</span><span class="p">[:,</span> <span class="bp">self</span><span class="o">.</span><span class="n">axial_index</span><span class="p">],</span> <span class="kc">None</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_full_field_strain_loss</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">state_hist</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">sim_axial</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">components</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">n_quantiles</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">64</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Distribution-matched per-grain elastic-strain loss.</span>
+
+<span class="sd">        For each experimental stress level, take the model per-grain elastic</span>
+<span class="sd">        strain at the nearest simulated step and compare its per-component value</span>
+<span class="sd">        DISTRIBUTION to the experimental one via a quantile (sorted) L2. This is</span>
+<span class="sd">        correspondence-free (no grain tracking required) and differentiable</span>
+<span class="sd">        through ``torch.quantile``; it reduces to a per-grain L2 when the grain</span>
+<span class="sd">        sets are identically ordered and equal in size. Returns 0 if no</span>
+<span class="sd">        full-field strain data are present.</span>
+<span class="sd">        """</span>
+        <span class="n">exp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment_data</span>
+        <span class="n">exp_strains</span> <span class="o">=</span> <span class="n">exp</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"exp_strain"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">exp_levels</span> <span class="o">=</span> <span class="n">exp</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"stress_levels"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">device</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">device</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">exp_strains</span> <span class="ow">or</span> <span class="n">exp_levels</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">exp_strains</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">((),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">components</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">components</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">state_hist</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]))</span>
+
+        <span class="n">sim_axial_det</span> <span class="o">=</span> <span class="n">sim_axial</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span>
+        <span class="n">probs</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span>
+            <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">n_quantiles</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span>
+        <span class="p">)</span>
+
+        <span class="n">total</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">((),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">count</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">e_s</span><span class="p">,</span> <span class="n">level</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">exp_strains</span><span class="p">,</span> <span class="n">exp_levels</span><span class="p">):</span>
+            <span class="n">idx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">sim_axial_det</span> <span class="o">-</span> <span class="nb">float</span><span class="p">(</span><span class="n">level</span><span class="p">))))</span>
+            <span class="n">model_step</span> <span class="o">=</span> <span class="n">state_hist</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>  <span class="c1"># (n_grains, 6)</span>
+            <span class="n">e_s</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">as_tensor</span><span class="p">(</span><span class="n">e_s</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">components</span><span class="p">:</span>
+                <span class="n">mq</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">quantile</span><span class="p">(</span><span class="n">model_step</span><span class="p">[:,</span> <span class="n">c</span><span class="p">],</span> <span class="n">probs</span><span class="p">)</span>
+                <span class="n">eq</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">quantile</span><span class="p">(</span><span class="n">e_s</span><span class="p">[:,</span> <span class="n">c</span><span class="p">],</span> <span class="n">probs</span><span class="p">)</span>
+                <span class="c1"># Relative (dimensionless) quantile mismatch, so this term is</span>
+                <span class="c1"># scale-free and commensurate with the normalized macro term in</span>
+                <span class="c1"># calibrate(). Raw strain^2 ~ 1e-6 would otherwise be dwarfed by</span>
+                <span class="c1"># the stress MSE and leave the full-field term inert.</span>
+                <span class="n">num</span> <span class="o">=</span> <span class="p">((</span><span class="n">mq</span> <span class="o">-</span> <span class="n">eq</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+                <span class="n">den</span> <span class="o">=</span> <span class="p">(</span><span class="n">eq</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span> <span class="o">+</span> <span class="mf">1e-30</span>
+                <span class="n">total</span> <span class="o">=</span> <span class="n">total</span> <span class="o">+</span> <span class="n">num</span> <span class="o">/</span> <span class="n">den</span>
+                <span class="n">count</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">return</span> <span class="n">total</span> <span class="o">/</span> <span class="nb">max</span><span class="p">(</span><span class="n">count</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
+<div class="viewcode-block" id="MaterialCalibration.objective">
+<a class="viewcode-back" href="../../api/material_calibration.html#graintrace.material_calibration.MaterialCalibration.objective">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">objective</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">default_err</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e6</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""L2 norm of (model axial stress - experimental stress). If ``params``</span>
+<span class="sd">        is given, evaluate at those values; otherwise at the current factory</span>
+<span class="sd">        parameters. Kept for API compatibility / diagnostics."""</span>
+        <span class="n">target</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">strain_stress</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">device</span>
+        <span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">params</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">sim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">simulate</span><span class="p">(</span>
+                        <span class="n">torch</span><span class="o">.</span><span class="n">as_tensor</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float64</span><span class="p">),</span>
+                        <span class="n">d</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">d</span><span class="p">,</span>
+                        <span class="n">assumed_rate</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">assumed_rate</span><span class="p">,</span>
+                        <span class="n">experiment_data</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">experiment_data</span><span class="p">,</span>
+                    <span class="p">)[:,</span> <span class="bp">self</span><span class="o">.</span><span class="n">axial_index</span><span class="p">]</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">sim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_predict_axial</span><span class="p">()</span>
+        <span class="c1"># pylint: disable-next=broad-exception-caught  # diagnostic: any failure -&gt; default_err</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">default_err</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">sim</span> <span class="o">-</span> <span class="n">target</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="MaterialCalibration.calibrate">
+<a class="viewcode-back" href="../../api/material_calibration.html#graintrace.material_calibration.MaterialCalibration.calibrate">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">calibrate</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"lbfgs"</span><span class="p">,</span>
+        <span class="n">maxiter</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">50</span><span class="p">,</span>
+        <span class="n">lr</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span>
+        <span class="n">max_iter_per_step</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">20</span><span class="p">,</span>
+        <span class="n">line_search_fn</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">param_ranges</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">plateau_rtol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-3</span><span class="p">,</span>
+        <span class="n">plateau_window</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span>
+        <span class="n">autosave</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">full_field_weight</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+        <span class="n">full_field_components</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">n_quantiles</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">64</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+        <span class="c1"># pylint: disable=unused-argument  # `method` kept for backward-compat API</span>
+<span class="w">        </span><span class="sd">"""Calibrate the six parameters with analytic-adjoint gradients + LBFGS.</span>
+<span class="sd">        ``method`` is accepted for backward compatibility only.</span>
+
+<span class="sd">        ``full_field_weight`` (default 0.0) adds a distribution-matched per-grain</span>
+<span class="sd">        elastic-strain term to the macroscopic-stress loss, i.e.</span>
+<span class="sd">        ``loss = mean((sigma_model - sigma_exp)^2) + full_field_weight * fullfield_strain_loss``.</span>
+<span class="sd">        When 0.0 the objective is macroscopic-stress-only (unchanged behavior).</span>
+<span class="sd">        ``full_field_components`` selects strain tensor components (default all 6);</span>
+<span class="sd">        ``n_quantiles`` sets the quantile resolution of the distribution match.</span>
+<span class="sd">        """</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_apply_reparametrization</span><span class="p">(</span><span class="n">param_ranges</span><span class="p">)</span>
+        <span class="n">params</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_calibration_parameters</span><span class="p">()</span>
+
+        <span class="n">target</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">strain_stress</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">model</span><span class="o">.</span><span class="n">device</span>
+        <span class="p">)</span>
+
+        <span class="n">optimizer</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">LBFGS</span><span class="p">(</span>
+            <span class="n">params</span><span class="p">,</span> <span class="n">lr</span><span class="o">=</span><span class="n">lr</span><span class="p">,</span> <span class="n">max_iter</span><span class="o">=</span><span class="n">max_iter_per_step</span><span class="p">,</span> <span class="n">line_search_fn</span><span class="o">=</span><span class="n">line_search_fn</span>
+        <span class="p">)</span>
+
+        <span class="n">progress</span> <span class="o">=</span> <span class="n">tqdm</span><span class="p">(</span><span class="n">total</span><span class="o">=</span><span class="n">maxiter</span><span class="p">,</span> <span class="n">desc</span><span class="o">=</span><span class="s2">"Optimization progress"</span><span class="p">,</span> <span class="n">ncols</span><span class="o">=</span><span class="mi">80</span><span class="p">)</span>
+        <span class="n">autosave_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">save_dir</span><span class="p">,</span> <span class="s2">"autosave_material.json"</span><span class="p">)</span>
+
+        <span class="n">use_full_field</span> <span class="o">=</span> <span class="n">full_field_weight</span> <span class="o">&gt;</span> <span class="mi">0</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">closure</span><span class="p">():</span>
+            <span class="n">optimizer</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">()</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">use_full_field</span><span class="p">:</span>
+                    <span class="n">pred</span><span class="p">,</span> <span class="n">state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_predict_axial_and_state</span><span class="p">(</span><span class="n">return_state</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                    <span class="c1"># Normalize the macro term to a relative (dimensionless) MSE so</span>
+                    <span class="c1"># the O(1) relative full-field term is a clean tradeoff via</span>
+                    <span class="c1"># full_field_weight (raw stress MSE ~1e1-1e4 would dominate).</span>
+                    <span class="n">macro_scale</span> <span class="o">=</span> <span class="p">(</span><span class="n">target</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">clamp_min</span><span class="p">(</span><span class="mf">1e-30</span><span class="p">)</span>
+                    <span class="n">macro_loss</span> <span class="o">=</span> <span class="p">((</span><span class="n">pred</span> <span class="o">-</span> <span class="n">target</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span> <span class="o">/</span> <span class="n">macro_scale</span>
+                    <span class="n">ff_loss</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_full_field_strain_loss</span><span class="p">(</span>
+                        <span class="n">state</span><span class="p">,</span> <span class="n">pred</span><span class="p">,</span> <span class="n">full_field_components</span><span class="p">,</span> <span class="n">n_quantiles</span>
+                    <span class="p">)</span>
+                    <span class="n">loss</span> <span class="o">=</span> <span class="n">macro_loss</span> <span class="o">+</span> <span class="n">full_field_weight</span> <span class="o">*</span> <span class="n">ff_loss</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">pred</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_predict_axial</span><span class="p">()</span>
+                    <span class="n">loss</span> <span class="o">=</span> <span class="p">((</span><span class="n">pred</span> <span class="o">-</span> <span class="n">target</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+                <span class="n">loss</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+            <span class="c1"># pylint: disable-next=protected-access,c-extension-no-member  # torch internal LinAlg error type</span>
+            <span class="k">except</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">_C</span><span class="o">.</span><span class="n">_LinAlgError</span><span class="p">,</span> <span class="ne">RuntimeError</span><span class="p">):</span>
+                <span class="n">optimizer</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">()</span>
+                <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span>
+                    <span class="nb">float</span><span class="p">(</span><span class="s2">"inf"</span><span class="p">),</span> <span class="n">device</span><span class="o">=</span><span class="n">target</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">target</span><span class="o">.</span><span class="n">dtype</span>
+                <span class="p">)</span>
+            <span class="k">return</span> <span class="n">loss</span>
+
+        <span class="n">loss_history</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">maxiter</span><span class="p">):</span>
+            <span class="n">loss</span> <span class="o">=</span> <span class="n">optimizer</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">closure</span><span class="p">)</span>
+            <span class="n">loss_v</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">loss</span><span class="o">.</span><span class="n">detach</span><span class="p">())</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">loss</span><span class="p">,</span> <span class="s2">"detach"</span><span class="p">)</span> <span class="k">else</span> <span class="nb">float</span><span class="p">(</span><span class="n">loss</span><span class="p">)</span>
+            <span class="n">loss_history</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">loss_v</span><span class="p">)</span>
+            <span class="n">progress</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">progress</span><span class="o">.</span><span class="n">set_postfix</span><span class="p">({</span><span class="s2">"loss"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">loss_v</span><span class="si">:</span><span class="s2">.3e</span><span class="si">}</span><span class="s2">"</span><span class="p">})</span>
+
+            <span class="k">if</span> <span class="n">autosave</span><span class="p">:</span>
+                <span class="c1"># pylint: disable-next=attribute-defined-outside-init  # set on first calibrate()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">opt_params</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">get_params</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">autosave_path</span><span class="p">)</span>
+
+            <span class="c1"># Early stop on plateau</span>
+            <span class="k">if</span> <span class="n">plateau_rtol</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">loss_history</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">plateau_window</span><span class="p">:</span>
+                <span class="n">prev</span> <span class="o">=</span> <span class="n">loss_history</span><span class="p">[</span><span class="o">-</span><span class="n">plateau_window</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+                <span class="n">cur</span> <span class="o">=</span> <span class="n">loss_history</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">math</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">prev</span><span class="p">)</span> <span class="ow">and</span> <span class="n">math</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">cur</span><span class="p">):</span>
+                    <span class="k">if</span> <span class="p">(</span><span class="n">prev</span> <span class="o">-</span> <span class="n">cur</span><span class="p">)</span> <span class="o">/</span> <span class="nb">max</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">prev</span><span class="p">),</span> <span class="mf">1e-12</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">plateau_rtol</span><span class="p">:</span>
+                        <span class="k">break</span>
+
+        <span class="n">progress</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+        <span class="c1"># Bake final physical values back into plain parameters</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_remove_reparametrization</span><span class="p">()</span>
+        <span class="c1"># pylint: disable=attribute-defined-outside-init  # results set on first calibrate()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">opt_params</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">get_params</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">loss_history</span> <span class="o">=</span> <span class="n">loss_history</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Optimization finished after </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">loss_history</span><span class="p">)</span><span class="si">}</span><span class="s2"> iterations."</span><span class="p">)</span>
+
+        <span class="n">save_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">save_dir</span><span class="p">,</span> <span class="s2">"calibrated_material.json"</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">save_path</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">opt_params</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_save_figure</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">save_dir</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">filename</span><span class="si">}</span><span class="s2">.png"</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">300</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+<div class="viewcode-block" id="MaterialCalibration.plot_stress_strain">
+<a class="viewcode-back" href="../../api/material_calibration.html#graintrace.material_calibration.MaterialCalibration.plot_stress_strain">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">plot_stress_strain</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">include_model</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">optimized</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">include_experiment_overlay</span><span class="o">=</span><span class="kc">True</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Plot stress-strain data."""</span>
+
+        <span class="n">exp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment_data</span>
+        <span class="n">exp_macro_strain</span> <span class="o">=</span> <span class="n">exp</span><span class="p">[</span><span class="s2">"strain_stress"</span><span class="p">][:,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="n">exp_macro_stress</span> <span class="o">=</span> <span class="n">exp</span><span class="p">[</span><span class="s2">"strain_stress"</span><span class="p">][:,</span> <span class="mi">1</span><span class="p">]</span>
+        <span class="n">exp_avg_strain</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="nb">float</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">exp</span><span class="p">[</span><span class="s2">"avg_axial_strain"</span><span class="p">]])</span>
+        <span class="n">exp_stress_levels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">exp</span><span class="p">[</span><span class="s2">"stress_levels"</span><span class="p">])</span>
+
+        <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">()</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">exp_macro_strain</span><span class="p">,</span> <span class="n">exp_macro_stress</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">"Experiment (macro)"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">include_experiment_overlay</span><span class="p">:</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span>
+                <span class="n">exp_avg_strain</span><span class="p">,</span> <span class="n">exp_stress_levels</span><span class="p">,</span> <span class="s2">"o"</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">"Experiment (avg grains)"</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">include_model</span><span class="p">:</span>
+            <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">optimized</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">"opt_params"</span><span class="p">):</span>
+                    <span class="n">sim_stress</span> <span class="o">=</span> <span class="p">(</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">simulate</span><span class="p">(</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">opt_params</span><span class="p">,</span>
+                            <span class="n">d</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">d</span><span class="p">,</span>
+                            <span class="n">assumed_rate</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">assumed_rate</span><span class="p">,</span>
+                            <span class="n">experiment_data</span><span class="o">=</span><span class="n">exp</span><span class="p">,</span>
+                        <span class="p">)[:,</span> <span class="bp">self</span><span class="o">.</span><span class="n">axial_index</span><span class="p">]</span>
+                        <span class="o">.</span><span class="n">detach</span><span class="p">()</span>
+                        <span class="o">.</span><span class="n">cpu</span><span class="p">()</span>
+                        <span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+                    <span class="p">)</span>
+                    <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span>
+                        <span class="n">exp_macro_strain</span><span class="p">,</span> <span class="n">sim_stress</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">"Model (optimized)"</span>
+                    <span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">p0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">get_params</span><span class="p">()</span>
+                    <span class="n">sim_stress</span> <span class="o">=</span> <span class="p">(</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">simulate</span><span class="p">(</span>
+                            <span class="n">p0</span><span class="p">,</span>
+                            <span class="n">d</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">d</span><span class="p">,</span>
+                            <span class="n">assumed_rate</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">assumed_rate</span><span class="p">,</span>
+                            <span class="n">experiment_data</span><span class="o">=</span><span class="n">exp</span><span class="p">,</span>
+                        <span class="p">)[:,</span> <span class="bp">self</span><span class="o">.</span><span class="n">axial_index</span><span class="p">]</span>
+                        <span class="o">.</span><span class="n">detach</span><span class="p">()</span>
+                        <span class="o">.</span><span class="n">cpu</span><span class="p">()</span>
+                        <span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+                    <span class="p">)</span>
+                    <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span>
+                        <span class="n">exp_macro_strain</span><span class="p">,</span> <span class="n">sim_stress</span><span class="p">,</span> <span class="s2">"--"</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">"Model (initial)"</span>
+                    <span class="p">)</span>
+
+        <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s2">"Axial strain (mm/mm)"</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s2">"Stress (MPa)"</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">loc</span><span class="o">=</span><span class="s2">"best"</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+
+        <span class="n">suffix</span> <span class="o">=</span> <span class="s2">"with_model"</span> <span class="k">if</span> <span class="n">include_model</span> <span class="k">else</span> <span class="s2">"experiment_only"</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_save_figure</span><span class="p">(</span><span class="sa">f</span><span class="s2">"stress_strain_</span><span class="si">{</span><span class="n">suffix</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="MaterialCalibration.plot_texture">
+<a class="viewcode-back" href="../../api/material_calibration.html#graintrace.material_calibration.MaterialCalibration.plot_texture">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">plot_texture</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">direction</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">crystal_symmetry</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"432"</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Plot experimental pole figures (neml2.texture)."""</span>
+        <span class="c1"># pylint: disable-next=import-outside-toplevel  # neml2 is a heavy optional dep</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">neml2</span><span class="w"> </span><span class="kn">import</span> <span class="n">texture</span>
+
+        <span class="k">if</span> <span class="n">direction</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">direction</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">double</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">direction</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">direction</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">double</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">stress</span><span class="p">,</span> <span class="n">tex</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">experiment_data</span><span class="p">[</span><span class="s2">"stress_levels"</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment_data</span><span class="p">[</span><span class="s2">"exp_texture"</span><span class="p">]</span>
+        <span class="p">):</span>
+            <span class="n">texture</span><span class="o">.</span><span class="n">pretty_plot_pole_figure_points</span><span class="p">(</span>
+                <span class="n">tex</span><span class="p">,</span>
+                <span class="n">direction</span><span class="p">,</span>
+                <span class="n">crystal_symmetry</span><span class="o">=</span><span class="n">crystal_symmetry</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_save_figure</span><span class="p">(</span><span class="sa">f</span><span class="s2">"pole_figure_</span><span class="si">{</span><span class="nb">int</span><span class="p">(</span><span class="n">stress</span><span class="p">)</span><span class="si">}</span><span class="s2">MPa"</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="MaterialCalibration.plot_strain_histogram">
+<a class="viewcode-back" href="../../api/material_calibration.html#graintrace.material_calibration.MaterialCalibration.plot_strain_histogram">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">plot_strain_histogram</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">strain_index</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">include_initial_strain</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Plot elastic strain histograms (model vs experiment) at matching</span>
+<span class="sd">        stress levels."""</span>
+
+        <span class="k">if</span> <span class="n">strain_index</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">strain_index</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">axial_index</span>
+
+        <span class="n">init_strain</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">experiment_data</span><span class="p">[</span><span class="s2">"exp_strain"</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">include_initial_strain</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="p">)</span>
+
+        <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+            <span class="n">stress_hist</span><span class="p">,</span> <span class="n">state_hist</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">simulate</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">opt_params</span><span class="p">,</span>
+                <span class="n">d</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">d</span><span class="p">,</span>
+                <span class="n">assumed_rate</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">assumed_rate</span><span class="p">,</span>
+                <span class="n">experiment_data</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">experiment_data</span><span class="p">,</span>
+                <span class="n">initial_strains</span><span class="o">=</span><span class="n">init_strain</span><span class="p">,</span>
+                <span class="n">return_state</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="c1"># state_hist: (ntime, n_grains, 6) elastic strain</span>
+        <span class="n">model_strain</span> <span class="o">=</span> <span class="n">state_hist</span><span class="p">[:,</span> <span class="p">:,</span> <span class="n">strain_index</span><span class="p">]</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+        <span class="n">sim_stress</span> <span class="o">=</span> <span class="n">stress_hist</span><span class="p">[:,</span> <span class="bp">self</span><span class="o">.</span><span class="n">axial_index</span><span class="p">]</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+
+        <span class="c1"># Match experiment stress levels to nearest sim step</span>
+        <span class="n">exp_stress_levels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">experiment_data</span><span class="p">[</span><span class="s2">"stress_levels"</span><span class="p">])</span>
+        <span class="n">exp_strains</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment_data</span><span class="p">[</span><span class="s2">"exp_strain"</span><span class="p">]</span>
+
+        <span class="n">indices</span> <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">sim_stress</span> <span class="o">-</span> <span class="n">s</span><span class="p">)))</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">exp_stress_levels</span><span class="p">]</span>
+
+        <span class="k">for</span> <span class="n">exp_s</span><span class="p">,</span> <span class="n">stress</span><span class="p">,</span> <span class="n">idx</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">exp_strains</span><span class="p">,</span> <span class="n">exp_stress_levels</span><span class="p">,</span> <span class="n">indices</span><span class="p">):</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">()</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">hist</span><span class="p">(</span><span class="n">model_strain</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="p">:],</span> <span class="n">bins</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.6</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">"Model"</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">hist</span><span class="p">(</span>
+                <span class="n">exp_s</span><span class="p">[:,</span> <span class="n">strain_index</span><span class="p">]</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">(),</span>
+                <span class="n">bins</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span>
+                <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+                <span class="n">label</span><span class="o">=</span><span class="s2">"Experiment"</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s2">"Elastic strain (mm/mm)"</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s2">"Counts"</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">loc</span><span class="o">=</span><span class="s2">"best"</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+
+            <span class="n">suffix</span> <span class="o">=</span> <span class="s2">"with_initial"</span> <span class="k">if</span> <span class="n">include_initial_strain</span> <span class="k">else</span> <span class="s2">"without_initial"</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_save_figure</span><span class="p">(</span><span class="sa">f</span><span class="s2">"elastic_strain_distribution_</span><span class="si">{</span><span class="n">stress</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2">MPa_</span><span class="si">{</span><span class="n">suffix</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="MaterialCalibration.save">
+<a class="viewcode-back" href="../../api/material_calibration.html#graintrace.material_calibration.MaterialCalibration.save">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filepath</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Save the optimized material parameters to a JSON file."""</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">"opt_params"</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">"No optimized parameters found. Run calibrate() first."</span><span class="p">)</span>
+
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">filepath</span><span class="p">),</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="n">params_dict</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">k</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">opt_vars</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">opt_params</span><span class="p">)</span>
+        <span class="p">}</span>
+
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filepath</span><span class="p">,</span> <span class="s2">"w"</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">params_dict</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">filepath</span></div>
+
+
+<div class="viewcode-block" id="MaterialCalibration.load">
+<a class="viewcode-back" href="../../api/material_calibration.html#graintrace.material_calibration.MaterialCalibration.load">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filepath</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Load previously saved optimized material parameters from a JSON file."""</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">filepath</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Cannot find saved parameter file: </span><span class="si">{</span><span class="n">filepath</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filepath</span><span class="p">,</span> <span class="s2">"r"</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">params_dict</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+
+        <span class="n">opt_params</span> <span class="o">=</span> <span class="p">[</span><span class="n">params_dict</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">opt_vars</span> <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">params_dict</span><span class="p">]</span>
+        <span class="c1"># pylint: disable-next=attribute-defined-outside-init  # populated on load()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">opt_params</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">opt_params</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+
+        <span class="c1"># Push the loaded values into the model so simulate()/plots use them.</span>
+        <span class="c1"># push loaded values into the model for simulate()/plots</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">set_params</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">opt_params</span><span class="p">)</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"[MaterialCalibration] Loaded calibrated parameters from </span><span class="si">{</span><span class="n">filepath</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">opt_params</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Argonne National Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

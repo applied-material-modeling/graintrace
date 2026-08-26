@@ -1,0 +1,379 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>graintrace.grid_resampling &mdash; graintrace 0.1.2</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="../../_static/sphinx-design.min.css?v=95c83b7e" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=92734c54"></script>
+      <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../../_static/copybutton.js?v=96c007af"></script>
+      <script src="../../_static/design-tabs.js?v=f930bc37"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            graintrace
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../concepts.html">Concepts &amp; data formats</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../configuration.html">Configuration reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../mcp.html">MCP server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../benchmarks.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../pitfalls.html">Common pitfalls</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Tutorials &amp; examples</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/tutorials.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api/api.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../development.html">Building &amp; testing the docs</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">graintrace</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">graintrace.grid_resampling</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for graintrace.grid_resampling</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright 2026, UChicago Argonne, LLC</span>
+<span class="c1"># All Rights Reserved</span>
+<span class="c1"># Software Name: graintrace</span>
+<span class="c1"># By: Argonne National Laboratory</span>
+<span class="c1"># OPEN SOURCE LICENSE (MIT)</span>
+<span class="c1">#</span>
+<span class="c1"># Permission is hereby granted, free of charge, to any person obtaining a copy</span>
+<span class="c1"># of this software and associated documentation files (the "Software"), to deal</span>
+<span class="c1"># in the Software without restriction, including without limitation the rights</span>
+<span class="c1"># to use, copy, modify, merge, publish, distribute, sublicense, and/or sell</span>
+<span class="c1"># copies of the Software, and to permit persons to whom the Software is</span>
+<span class="c1"># furnished to do so, subject to the following conditions:</span>
+<span class="c1">#</span>
+<span class="c1"># The above copyright notice and this permission notice shall be included in</span>
+<span class="c1"># all copies or substantial portions of the Software.</span>
+<span class="c1">#</span>
+<span class="c1"># THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR</span>
+<span class="c1"># IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,</span>
+<span class="c1"># FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE</span>
+<span class="c1"># AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER</span>
+<span class="c1"># LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,</span>
+<span class="c1"># OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN</span>
+<span class="c1"># THE SOFTWARE.</span>
+
+<span class="sd">"""Offline resampling of a saved CPFE Exodus onto a regular grid via MOOSE.</span>
+
+<span class="sd">When a CPFE run is done with ``grid_transfer="off"`` (or ``"final"``), the per-step</span>
+<span class="sd">regular-grid field output is skipped to save the expensive MultiApp transfers. This</span>
+<span class="sd">module regenerates that gridded output afterward from the native-mesh Exodus</span>
+<span class="sd">(``sim_output.e``) using the same MOOSE shape-function-evaluation transfer: a no-solve</span>
+<span class="sd">sub-app (``resample_source.i``) loads the CPFE fields at a chosen Exodus timestep, and</span>
+<span class="sd">the main app (``resample_grid.i``) shape-evaluates them onto a ``GeneratedMesh`` grid and</span>
+<span class="sd">writes ``grid_out/out_element_centroid_&lt;idx&gt;.csv`` — the exact schema consumed by</span>
+<span class="sd">``SimulationResults`` / ``IdentifyRareClusters`` / ``GraphSpatialCluster``.</span>
+
+<span class="sd">This is a cheap, **smoothed** approximation of the online per-step grid: the CPFE fields</span>
+<span class="sd">are order-FIRST ``MONOMIAL`` and MOOSE stores them in the Exodus as nodal projections, so</span>
+<span class="sd">grain-boundary extremes are compressed. For extreme-sensitive REI use the crisp online grid</span>
+<span class="sd">(``grid_transfer="per_step"``) or run REI on the true mesh; a denser resample grid recovers</span>
+<span class="sd">spatial detail but not the extremes lost to the nodal projection.</span>
+<span class="sd">"""</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">shlex</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">subprocess</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_package_lib_dirs</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">"""Lib dirs of the installed neml2 + torch packages (libneml2_eager.so / libtorch).</span>
+
+<span class="sd">    puma-opt links these even for a solve-free resample, so they must be resolvable.</span>
+<span class="sd">    """</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">importlib</span>  <span class="c1"># pylint: disable=import-outside-toplevel</span>
+
+    <span class="n">dirs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">mod</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"neml2"</span><span class="p">,</span> <span class="s2">"torch"</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">pkg</span> <span class="o">=</span> <span class="n">importlib</span><span class="o">.</span><span class="n">import_module</span><span class="p">(</span><span class="n">mod</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">lib</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">pkg</span><span class="o">.</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="s2">"lib"</span>
+        <span class="k">if</span> <span class="n">lib</span><span class="o">.</span><span class="n">is_dir</span><span class="p">():</span>
+            <span class="n">dirs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">lib</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">dirs</span>
+
+
+<div class="viewcode-block" id="GridResampler">
+<a class="viewcode-back" href="../../api/grid_resampling.html#graintrace.grid_resampling.GridResampler">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">GridResampler</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Resample a saved CPFE Exodus onto a regular grid, offline, via ``puma-opt``.</span>
+
+<span class="sd">    Drives the ``resample_grid.i`` + ``resample_source.i`` templates once per requested</span>
+<span class="sd">    Exodus timestep, emitting ``grid_out/out_element_centroid_&lt;idx4&gt;.csv`` under</span>
+<span class="sd">    ``save_dir`` (indices 0-based, matching ``FieldFileNaming``). See</span>
+<span class="sd">    ``examples/demonstrate_postprocess.py`` and the ``/post-processing`` skill.</span>
+<span class="sd">    """</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">cpfe_exodus</span><span class="p">,</span>
+        <span class="n">save_dir</span><span class="p">,</span>
+        <span class="n">number_of_elements</span><span class="p">,</span>
+        <span class="n">bounding_box</span><span class="p">,</span>
+        <span class="n">moose_run_file</span><span class="p">,</span>
+        <span class="n">launcher</span><span class="o">=</span><span class="s2">"mpiexec"</span><span class="p">,</span>
+        <span class="n">extra_ld_library_paths</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">ncore</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Configure an offline grid resample of a saved CPFE Exodus.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            cpfe_exodus: Path to the native-mesh CPFE Exodus (sim_output.e) containing the fields to resample. Must exist.</span>
+<span class="sd">            save_dir: Output directory; grid CSVs are written under save_dir/grid_out/. Created if needed.</span>
+<span class="sd">            number_of_elements: Regular-grid resolution [nx, ny, nz] (must have length 3).</span>
+<span class="sd">            bounding_box: Grid extent [xlo, xhi, ylo, yhi, zlo, zhi]; use the same inset grid box as the original run.</span>
+<span class="sd">            moose_run_file: Path to the built PUMA binary (puma-opt) that drives the resample. Must exist.</span>
+<span class="sd">            launcher: MPI launcher command, "mpiexec" (default) or "srun" on Cray/Slurm.</span>
+<span class="sd">            extra_ld_library_paths: Optional list of extra directories to prepend to LD_LIBRARY_PATH; if None, libtorch/PETSc dirs are auto-derived from moose_run_file's repo layout.</span>
+<span class="sd">            ncore: Number of MPI ranks for the resample (passed as -n to the launcher). Default 1.</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cpfe_exodus</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">cpfe_exodus</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">cpfe_exodus</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"CPFE Exodus not found: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">cpfe_exodus</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">save_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">save_dir</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">save_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">number_of_elements</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"number_of_elements must be [nx, ny, nz]."</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">number_of_elements</span> <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">n</span><span class="p">)</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">number_of_elements</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">bounding_box</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">6</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"bounding_box must be [xlo, xhi, ylo, yhi, zlo, zhi]."</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bounding_box</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">b</span><span class="p">)</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">bounding_box</span><span class="p">]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">moose_run_file</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">moose_run_file</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">moose_run_file</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"MOOSE run file not found: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">moose_run_file</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">launcher</span> <span class="o">=</span> <span class="n">launcher</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">extra_ld_library_paths</span> <span class="o">=</span> <span class="n">extra_ld_library_paths</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ncore</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">ncore</span><span class="p">)</span>
+
+<div class="viewcode-block" id="GridResampler.num_timesteps">
+<a class="viewcode-back" href="../../api/grid_resampling.html#graintrace.grid_resampling.GridResampler.num_timesteps">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">num_timesteps</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Number of time steps stored in the CPFE Exodus (via the netCDF reader)."""</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">netcdf_file</span>  <span class="c1"># pylint: disable=import-outside-toplevel</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">with</span> <span class="n">netcdf_file</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cpfe_exodus</span><span class="p">),</span> <span class="s2">"r"</span><span class="p">,</span> <span class="n">mmap</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="k">as</span> <span class="n">ncf</span><span class="p">:</span>
+                <span class="n">tw</span> <span class="o">=</span> <span class="n">ncf</span><span class="o">.</span><span class="n">variables</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"time_whole"</span><span class="p">)</span>
+                <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">tw</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="k">if</span> <span class="n">tw</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="mi">0</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>  <span class="c1"># pylint: disable=broad-except</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Could not read timesteps from </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">cpfe_exodus</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">"</span>
+            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_runtime_env</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Env for puma-opt: neml2/torch (+ optional libtorch/PETSc) on LD_LIBRARY_PATH."""</span>
+        <span class="n">env</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">paths</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">extra_ld_library_paths</span><span class="p">:</span>
+            <span class="n">paths</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">extra_ld_library_paths</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">root</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">moose_run_file</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">parent</span>
+            <span class="k">for</span> <span class="n">cand</span> <span class="ow">in</span> <span class="p">(</span>
+                <span class="n">root</span> <span class="o">/</span> <span class="s2">"libtorch"</span> <span class="o">/</span> <span class="s2">"lib"</span><span class="p">,</span>
+                <span class="n">root</span> <span class="o">/</span> <span class="s2">"moose"</span> <span class="o">/</span> <span class="s2">"petsc"</span> <span class="o">/</span> <span class="s2">"arch-moose"</span> <span class="o">/</span> <span class="s2">"lib"</span><span class="p">,</span>
+            <span class="p">):</span>
+                <span class="k">if</span> <span class="n">cand</span><span class="o">.</span><span class="n">is_dir</span><span class="p">():</span>
+                    <span class="n">paths</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">cand</span><span class="p">))</span>
+        <span class="n">paths</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">_package_lib_dirs</span><span class="p">())</span>
+        <span class="k">if</span> <span class="n">paths</span><span class="p">:</span>
+            <span class="n">existing</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"LD_LIBRARY_PATH"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span>
+            <span class="n">env</span><span class="p">[</span><span class="s2">"LD_LIBRARY_PATH"</span><span class="p">]</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">pathsep</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                <span class="n">paths</span> <span class="o">+</span> <span class="p">([</span><span class="n">existing</span><span class="p">]</span> <span class="k">if</span> <span class="n">existing</span> <span class="k">else</span> <span class="p">[])</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">env</span>
+
+<div class="viewcode-block" id="GridResampler.resample">
+<a class="viewcode-back" href="../../api/grid_resampling.html#graintrace.grid_resampling.GridResampler.resample">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">resample</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timesteps</span><span class="o">=</span><span class="s2">"all"</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Resample the requested Exodus timesteps to regular-grid CSVs.</span>
+
+<span class="sd">        Runs the resample_grid.i + resample_source.i templates once per requested timestep,</span>
+<span class="sd">        writing save_dir/grid_out/out_element_centroid_&lt;idx4&gt;.csv (0-based indices matching</span>
+<span class="sd">        FieldFileNaming) with the schema consumed by SimulationResults / IdentifyRareClusters.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            timesteps: "all" to resample every stored step, or a list of 1-based Exodus timestep indices (MOOSE initial_from_file_timestep convention). Default "all".</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            List of Path objects for the written grid CSVs, in output order.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">timesteps</span> <span class="o">==</span> <span class="s2">"all"</span><span class="p">:</span>
+            <span class="n">n</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_timesteps</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">n</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"No timesteps found in </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">cpfe_exodus</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+            <span class="n">ts_indices</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">ts_indices</span> <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">timesteps</span><span class="p">]</span>
+
+        <span class="n">cpfe_base</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="s2">"cpfe_base"</span>
+        <span class="k">for</span> <span class="n">fname</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"resample_grid.i"</span><span class="p">,</span> <span class="s2">"resample_source.i"</span><span class="p">):</span>
+            <span class="n">shutil</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">cpfe_base</span> <span class="o">/</span> <span class="n">fname</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">save_dir</span> <span class="o">/</span> <span class="n">fname</span><span class="p">)</span>
+
+        <span class="n">grid_out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">save_dir</span> <span class="o">/</span> <span class="s2">"grid_out"</span>
+        <span class="n">grid_out</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="n">nx</span><span class="p">,</span> <span class="n">ny</span><span class="p">,</span> <span class="n">nz</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">number_of_elements</span>
+        <span class="n">xlo</span><span class="p">,</span> <span class="n">xhi</span><span class="p">,</span> <span class="n">ylo</span><span class="p">,</span> <span class="n">yhi</span><span class="p">,</span> <span class="n">zlo</span><span class="p">,</span> <span class="n">zhi</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bounding_box</span>
+        <span class="n">launcher</span> <span class="o">=</span> <span class="n">shlex</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">launcher</span><span class="p">))</span>
+        <span class="n">env</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_runtime_env</span><span class="p">()</span>
+
+        <span class="n">outputs</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">out_idx</span><span class="p">,</span> <span class="n">ts</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">ts_indices</span><span class="p">):</span>
+            <span class="n">run_base</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"resample_ts</span><span class="si">{</span><span class="n">ts</span><span class="si">:</span><span class="s2">04d</span><span class="si">}</span><span class="s2">"</span>
+            <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">save_dir</span> <span class="o">/</span> <span class="n">run_base</span><span class="p">)</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">argv</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="o">*</span><span class="n">launcher</span><span class="p">,</span>
+                <span class="s2">"-n"</span><span class="p">,</span>
+                <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ncore</span><span class="p">),</span>
+                <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">moose_run_file</span><span class="p">),</span>
+                <span class="s2">"-i"</span><span class="p">,</span>
+                <span class="s2">"resample_grid.i"</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">"cpfe_exodus=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">cpfe_exodus</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">"cpfe_timestep=</span><span class="si">{</span><span class="n">ts</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">"base_folder=</span><span class="si">{</span><span class="n">run_base</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">"grid_nx=</span><span class="si">{</span><span class="n">nx</span><span class="si">:</span><span class="s2">d</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">"grid_ny=</span><span class="si">{</span><span class="n">ny</span><span class="si">:</span><span class="s2">d</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">"grid_nz=</span><span class="si">{</span><span class="n">nz</span><span class="si">:</span><span class="s2">d</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">"grid_min_x=</span><span class="si">{</span><span class="n">xlo</span><span class="si">:</span><span class="s2">.12g</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">"grid_max_x=</span><span class="si">{</span><span class="n">xhi</span><span class="si">:</span><span class="s2">.12g</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">"grid_min_y=</span><span class="si">{</span><span class="n">ylo</span><span class="si">:</span><span class="s2">.12g</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">"grid_max_y=</span><span class="si">{</span><span class="n">yhi</span><span class="si">:</span><span class="s2">.12g</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">"grid_min_z=</span><span class="si">{</span><span class="n">zlo</span><span class="si">:</span><span class="s2">.12g</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">"grid_max_z=</span><span class="si">{</span><span class="n">zhi</span><span class="si">:</span><span class="s2">.12g</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="p">]</span>
+            <span class="n">log_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">save_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">run_base</span><span class="si">}</span><span class="s2">.log"</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">==&gt; resample timestep </span><span class="si">{</span><span class="n">ts</span><span class="si">}</span><span class="s2"> -&gt; </span><span class="si">{</span><span class="n">run_base</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">log_path</span><span class="p">,</span> <span class="s2">"w"</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">)</span> <span class="k">as</span> <span class="n">logf</span><span class="p">:</span>
+                <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+                    <span class="n">argv</span><span class="p">,</span>
+                    <span class="n">cwd</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">save_dir</span><span class="p">,</span>
+                    <span class="n">env</span><span class="o">=</span><span class="n">env</span><span class="p">,</span>
+                    <span class="n">stdout</span><span class="o">=</span><span class="n">logf</span><span class="p">,</span>
+                    <span class="n">stderr</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">STDOUT</span><span class="p">,</span>
+                    <span class="n">check</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="p">)</span>
+
+            <span class="n">produced</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span>
+                <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">save_dir</span> <span class="o">/</span> <span class="n">run_base</span> <span class="o">/</span> <span class="s2">"grid_out"</span><span class="p">)</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span>
+                    <span class="s2">"out_element_centroid_*.csv"</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">produced</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"resample produced no grid CSV for timestep </span><span class="si">{</span><span class="n">ts</span><span class="si">}</span><span class="s2">; see </span><span class="si">{</span><span class="n">log_path</span><span class="si">}</span><span class="s2">"</span>
+                <span class="p">)</span>
+            <span class="n">dst</span> <span class="o">=</span> <span class="n">grid_out</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"out_element_centroid_</span><span class="si">{</span><span class="n">out_idx</span><span class="si">:</span><span class="s2">04d</span><span class="si">}</span><span class="s2">.csv"</span>
+            <span class="n">shutil</span><span class="o">.</span><span class="n">move</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">produced</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]),</span> <span class="nb">str</span><span class="p">(</span><span class="n">dst</span><span class="p">))</span>
+            <span class="n">outputs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dst</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"    -&gt; </span><span class="si">{</span><span class="n">dst</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">outputs</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Argonne National Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,384 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>graintrace.neper_env &mdash; graintrace 0.1.2</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="../../_static/sphinx-design.min.css?v=95c83b7e" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=92734c54"></script>
+      <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../../_static/copybutton.js?v=96c007af"></script>
+      <script src="../../_static/design-tabs.js?v=f930bc37"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            graintrace
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../concepts.html">Concepts &amp; data formats</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../configuration.html">Configuration reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../mcp.html">MCP server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../benchmarks.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../pitfalls.html">Common pitfalls</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Tutorials &amp; examples</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/tutorials.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api/api.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../development.html">Building &amp; testing the docs</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">graintrace</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">graintrace.neper_env</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for graintrace.neper_env</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright 2026, UChicago Argonne, LLC</span>
+<span class="c1"># All Rights Reserved</span>
+<span class="c1"># Software Name: graintrace</span>
+<span class="c1"># By: Argonne National Laboratory</span>
+<span class="c1"># OPEN SOURCE LICENSE (MIT)</span>
+<span class="c1">#</span>
+<span class="c1"># Permission is hereby granted, free of charge, to any person obtaining a copy</span>
+<span class="c1"># of this software and associated documentation files (the "Software"), to deal</span>
+<span class="c1"># in the Software without restriction, including without limitation the rights</span>
+<span class="c1"># to use, copy, modify, merge, publish, distribute, sublicense, and/or sell</span>
+<span class="c1"># copies of the Software, and to permit persons to whom the Software is</span>
+<span class="c1"># furnished to do so, subject to the following conditions:</span>
+<span class="c1">#</span>
+<span class="c1"># The above copyright notice and this permission notice shall be included in</span>
+<span class="c1"># all copies or substantial portions of the Software.</span>
+<span class="c1">#</span>
+<span class="c1"># THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR</span>
+<span class="c1"># IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,</span>
+<span class="c1"># FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE</span>
+<span class="c1"># AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER</span>
+<span class="c1"># LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,</span>
+<span class="c1"># OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN</span>
+<span class="c1"># THE SOFTWARE.</span>
+
+<span class="sd">"""Locate a user-provided NEPER binary and build a subprocess environment for it.</span>
+
+<span class="sd">graintrace drives NEPER as an external tool; like CUBIT/SCULPT it is *not* a pip</span>
+<span class="sd">package and must be installed by the user. Install NEPER once (see</span>
+<span class="sd">https://neper.info/doc/introduction.html#installing-neper) and graintrace will</span>
+<span class="sd">find it, in this order:</span>
+
+<span class="sd">  1. an explicit ``neper_path`` / ``env=`` passed to the builder,</span>
+<span class="sd">  2. the ``NEPER`` environment variable (absolute path to the ``neper`` binary),</span>
+<span class="sd">  3. the ``neper`` key of a ``graintrace_tools.json`` (see ``graintrace.mcp.tool_paths``),</span>
+<span class="sd">  4. ``neper`` on ``PATH`` (``shutil.which``).</span>
+
+<span class="sd">gmsh, by contrast, *is* a pip package (declared in ``pyproject.toml`` and</span>
+<span class="sd">installed with graintrace), so it needs no discovery here.</span>
+
+<span class="sd">For the legacy convenience of a from-source build on Linux, pass</span>
+<span class="sd">``auto_install=True`` (opt-in): it builds GSL, OpenBLAS and NEPER into</span>
+<span class="sd">``~/.local`` exactly as older graintrace did. The default path never downloads or</span>
+<span class="sd">compiles anything.</span>
+<span class="sd">"""</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">subprocess</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span>
+
+<span class="n">NEPER_INSTALL_URL</span> <span class="o">=</span> <span class="s2">"https://neper.info/doc/introduction.html#installing-neper"</span>
+
+
+<div class="viewcode-block" id="find_neper">
+<a class="viewcode-back" href="../../api/neper_env.html#graintrace.neper_env.find_neper">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">find_neper</span><span class="p">(</span><span class="n">neper_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""Resolve the ``neper`` binary path, or ``None`` if it cannot be found.</span>
+
+<span class="sd">    Order: explicit ``neper_path`` -&gt; ``NEPER`` env var -&gt; tools.json ``neper``</span>
+<span class="sd">    key -&gt; ``shutil.which("neper")``.</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="n">neper_path</span> <span class="ow">and</span> <span class="n">Path</span><span class="p">(</span><span class="n">neper_path</span><span class="p">)</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+        <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">neper_path</span><span class="p">)</span>
+
+    <span class="n">env_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"NEPER"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">env_path</span> <span class="ow">and</span> <span class="n">Path</span><span class="p">(</span><span class="n">env_path</span><span class="p">)</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+        <span class="k">return</span> <span class="n">env_path</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="c1"># Lazy import: keeps this module light and avoids an import cycle.</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">graintrace.mcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">tool_paths</span>  <span class="c1"># pylint: disable=import-outside-toplevel</span>
+
+        <span class="n">cfg</span> <span class="o">=</span> <span class="n">tool_paths</span><span class="o">.</span><span class="n">neper</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">cfg</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">cfg</span>
+    <span class="c1"># Best-effort: the MCP subpackage is optional; ignore any failure.</span>
+    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>  <span class="c1"># pylint: disable=broad-exception-caught</span>
+        <span class="k">pass</span>
+
+    <span class="k">return</span> <span class="n">shutil</span><span class="o">.</span><span class="n">which</span><span class="p">(</span><span class="s2">"neper"</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="build_env">
+<a class="viewcode-back" href="../../api/neper_env.html#graintrace.neper_env.build_env">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">build_env</span><span class="p">(</span><span class="n">neper_bin</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Copy ``os.environ`` and, given a ``neper_bin``, put its dir/libs on the path.</span>
+
+<span class="sd">    Prepends the binary's directory to ``PATH`` and the sibling ``lib``/``lib64``</span>
+<span class="sd">    of its install prefix to ``LD_LIBRARY_PATH`` so a self-built NEPER (e.g. under</span>
+<span class="sd">    ``~/.local/bin``) finds its GSL/OpenBLAS shared libraries.</span>
+<span class="sd">    """</span>
+    <span class="n">env</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">neper_bin</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">env</span>
+
+    <span class="n">bindir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">neper_bin</span><span class="p">))</span>
+    <span class="n">prefix</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">bindir</span><span class="p">)</span>
+    <span class="n">env</span><span class="p">[</span><span class="s2">"PATH"</span><span class="p">]</span> <span class="o">=</span> <span class="n">bindir</span> <span class="o">+</span> <span class="n">os</span><span class="o">.</span><span class="n">pathsep</span> <span class="o">+</span> <span class="n">env</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"PATH"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span>
+    <span class="n">libdirs</span> <span class="o">=</span> <span class="p">[</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">prefix</span><span class="p">,</span> <span class="s2">"lib"</span><span class="p">),</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">prefix</span><span class="p">,</span> <span class="s2">"lib64"</span><span class="p">)]</span>
+    <span class="n">existing</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"LD_LIBRARY_PATH"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span>
+    <span class="n">env</span><span class="p">[</span><span class="s2">"LD_LIBRARY_PATH"</span><span class="p">]</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">pathsep</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+        <span class="p">[</span><span class="n">d</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">libdirs</span> <span class="k">if</span> <span class="n">d</span><span class="p">]</span> <span class="o">+</span> <span class="p">([</span><span class="n">existing</span><span class="p">]</span> <span class="k">if</span> <span class="n">existing</span> <span class="k">else</span> <span class="p">[])</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">env</span></div>
+
+
+
+<div class="viewcode-block" id="resolve_neper_env">
+<a class="viewcode-back" href="../../api/neper_env.html#graintrace.neper_env.resolve_neper_env">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">resolve_neper_env</span><span class="p">(</span>
+    <span class="n">neper_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">auto_install</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""Return ``(neper_bin, env)`` for driving NEPER, or raise a clear error.</span>
+
+<span class="sd">    Looks NEPER up via :func:`find_neper`. If not found and ``auto_install`` is</span>
+<span class="sd">    True, builds it from source under ``~/.local`` (Linux only); otherwise raises</span>
+<span class="sd">    ``RuntimeError`` with install guidance.</span>
+<span class="sd">    """</span>
+    <span class="n">neper_bin</span> <span class="o">=</span> <span class="n">find_neper</span><span class="p">(</span><span class="n">neper_path</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">neper_bin</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">auto_install</span><span class="p">:</span>
+        <span class="n">neper_bin</span> <span class="o">=</span> <span class="n">_auto_install_neper</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">neper_bin</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+            <span class="s2">"NEPER not found. graintrace does not ship NEPER; install it yourself "</span>
+            <span class="sa">f</span><span class="s2">"(</span><span class="si">{</span><span class="n">NEPER_INSTALL_URL</span><span class="si">}</span><span class="s2">), then let graintrace find it via one of:</span><span class="se">\n</span><span class="s2">"</span>
+            <span class="s2">"  - the NEPER environment variable (absolute path to the `neper` binary),</span><span class="se">\n</span><span class="s2">"</span>
+            <span class="s2">"  - a graintrace_tools.json with a `neper` key "</span>
+            <span class="s2">"(see graintrace/mcp/tools.example.json),</span><span class="se">\n</span><span class="s2">"</span>
+            <span class="s2">"  - `neper` on your PATH,</span><span class="se">\n</span><span class="s2">"</span>
+            <span class="s2">"  - passing neper_path=/abs/path/to/neper (or a prepared env=) to the builder.</span><span class="se">\n</span><span class="s2">"</span>
+            <span class="s2">"As a last resort on Linux, pass auto_install=True to build it into ~/.local."</span>
+        <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">neper_bin</span><span class="p">,</span> <span class="n">build_env</span><span class="p">(</span><span class="n">neper_bin</span><span class="p">)</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_auto_install_neper</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Opt-in Linux from-source build of GSL + OpenBLAS + NEPER into ``~/.local``.</span>
+
+<span class="sd">    Returns the installed ``neper`` path. This is the legacy behavior, retained</span>
+<span class="sd">    only behind ``auto_install=True``; the default resolution never calls it.</span>
+<span class="sd">    """</span>
+    <span class="n">home</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="s2">"~"</span><span class="p">)</span>
+    <span class="n">prefix</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">home</span><span class="p">,</span> <span class="s2">".local"</span><span class="p">)</span>
+    <span class="n">env</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">env</span><span class="p">[</span><span class="s2">"PATH"</span><span class="p">]</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">prefix</span><span class="si">}</span><span class="s2">/bin:"</span> <span class="o">+</span> <span class="n">env</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"PATH"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span>
+    <span class="n">env</span><span class="p">[</span><span class="s2">"LD_LIBRARY_PATH"</span><span class="p">]</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">prefix</span><span class="si">}</span><span class="s2">/lib:"</span> <span class="o">+</span> <span class="n">env</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"LD_LIBRARY_PATH"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">is_installed</span><span class="p">(</span><span class="n">cmd</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">shutil</span><span class="o">.</span><span class="n">which</span><span class="p">(</span><span class="n">cmd</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="n">env</span><span class="p">[</span><span class="s2">"PATH"</span><span class="p">])</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="n">cmd</span><span class="p">,</span> <span class="n">cwd</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">"&gt;"</span><span class="p">,</span> <span class="s2">" "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">cmd</span><span class="p">))</span>
+        <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">cmd</span><span class="p">,</span> <span class="n">check</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">cwd</span><span class="o">=</span><span class="n">cwd</span><span class="p">,</span> <span class="n">env</span><span class="o">=</span><span class="n">env</span><span class="p">)</span>
+
+    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">prefix</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># GSL</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">prefix</span><span class="p">,</span> <span class="s2">"lib"</span><span class="p">,</span> <span class="s2">"libgsl.so"</span><span class="p">)):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">"Installing GSL locally..."</span><span class="p">)</span>
+        <span class="n">run</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="s2">"wget"</span><span class="p">,</span>
+                <span class="s2">"https://ftp.gnu.org/gnu/gsl/gsl-latest.tar.gz"</span><span class="p">,</span>
+                <span class="s2">"-O"</span><span class="p">,</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">home</span><span class="p">,</span> <span class="s2">"gsl.tar.gz"</span><span class="p">),</span>
+            <span class="p">]</span>
+        <span class="p">)</span>
+        <span class="n">run</span><span class="p">([</span><span class="s2">"tar"</span><span class="p">,</span> <span class="s2">"-xzf"</span><span class="p">,</span> <span class="s2">"gsl.tar.gz"</span><span class="p">],</span> <span class="n">cwd</span><span class="o">=</span><span class="n">home</span><span class="p">)</span>
+        <span class="n">gsl_src</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">home</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">home</span><span class="p">)</span> <span class="k">if</span> <span class="n">d</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"gsl-"</span><span class="p">)),</span>
+            <span class="kc">None</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">gsl_src</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">"GSL extraction failed."</span><span class="p">)</span>
+        <span class="n">run</span><span class="p">([</span><span class="s2">"./configure"</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"--prefix=</span><span class="si">{</span><span class="n">prefix</span><span class="si">}</span><span class="s2">"</span><span class="p">],</span> <span class="n">cwd</span><span class="o">=</span><span class="n">gsl_src</span><span class="p">)</span>
+        <span class="n">run</span><span class="p">([</span><span class="s2">"make"</span><span class="p">,</span> <span class="s2">"-j"</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">cpu_count</span><span class="p">())],</span> <span class="n">cwd</span><span class="o">=</span><span class="n">gsl_src</span><span class="p">)</span>
+        <span class="n">run</span><span class="p">([</span><span class="s2">"make"</span><span class="p">,</span> <span class="s2">"install"</span><span class="p">],</span> <span class="n">cwd</span><span class="o">=</span><span class="n">gsl_src</span><span class="p">)</span>
+
+    <span class="c1"># OpenBLAS</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">prefix</span><span class="p">,</span> <span class="s2">"lib"</span><span class="p">,</span> <span class="s2">"libopenblas.so.0"</span><span class="p">)):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">"Installing OpenBLAS locally..."</span><span class="p">)</span>
+        <span class="n">progs_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="s2">"~/Progs"</span><span class="p">)</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">progs_dir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">run</span><span class="p">([</span><span class="s2">"git"</span><span class="p">,</span> <span class="s2">"clone"</span><span class="p">,</span> <span class="s2">"https://github.com/xianyi/OpenBLAS.git"</span><span class="p">],</span> <span class="n">cwd</span><span class="o">=</span><span class="n">progs_dir</span><span class="p">)</span>
+        <span class="n">openblas_src</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">progs_dir</span><span class="p">,</span> <span class="s2">"OpenBLAS"</span><span class="p">)</span>
+        <span class="n">conda_prefix</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"CONDA_PREFIX"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span>
+        <span class="n">run</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="s2">"make"</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">"PREFIX=</span><span class="si">{</span><span class="n">prefix</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">"FC=</span><span class="si">{</span><span class="n">conda_prefix</span><span class="si">}</span><span class="s2">/bin/x86_64-conda-linux-gnu-gfortran"</span><span class="p">,</span>
+                <span class="s2">"-j"</span><span class="p">,</span>
+                <span class="nb">str</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">cpu_count</span><span class="p">()),</span>
+            <span class="p">],</span>
+            <span class="n">cwd</span><span class="o">=</span><span class="n">openblas_src</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">run</span><span class="p">([</span><span class="s2">"make"</span><span class="p">,</span> <span class="s2">"install"</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"PREFIX=</span><span class="si">{</span><span class="n">prefix</span><span class="si">}</span><span class="s2">"</span><span class="p">],</span> <span class="n">cwd</span><span class="o">=</span><span class="n">openblas_src</span><span class="p">)</span>
+
+    <span class="c1"># NEPER</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">is_installed</span><span class="p">(</span><span class="s2">"neper"</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">"Installing Neper locally..."</span><span class="p">)</span>
+        <span class="n">stable_version</span> <span class="o">=</span> <span class="s2">"4.10.1"</span>
+        <span class="n">stable_url</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"https://neper.info/download/neper-</span><span class="si">{</span><span class="n">stable_version</span><span class="si">}</span><span class="s2">.tar.gz"</span>
+        <span class="n">progs_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="s2">"~/Progs"</span><span class="p">)</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">progs_dir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Attempting official stable release v</span><span class="si">{</span><span class="n">stable_version</span><span class="si">}</span><span class="s2">..."</span><span class="p">)</span>
+            <span class="n">run</span><span class="p">(</span>
+                <span class="p">[</span>
+                    <span class="s2">"wget"</span><span class="p">,</span>
+                    <span class="n">stable_url</span><span class="p">,</span>
+                    <span class="s2">"-O"</span><span class="p">,</span>
+                    <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">progs_dir</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"neper-</span><span class="si">{</span><span class="n">stable_version</span><span class="si">}</span><span class="s2">.tar.gz"</span><span class="p">),</span>
+                <span class="p">]</span>
+            <span class="p">)</span>
+            <span class="n">run</span><span class="p">([</span><span class="s2">"tar"</span><span class="p">,</span> <span class="s2">"-zxf"</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"neper-</span><span class="si">{</span><span class="n">stable_version</span><span class="si">}</span><span class="s2">.tar.gz"</span><span class="p">],</span> <span class="n">cwd</span><span class="o">=</span><span class="n">progs_dir</span><span class="p">)</span>
+            <span class="n">neper_src_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">progs_dir</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"neper-</span><span class="si">{</span><span class="n">stable_version</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="s2">"src"</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">CalledProcessError</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">"Stable release unavailable, cloning GitHub master instead..."</span><span class="p">)</span>
+            <span class="n">repo_url</span> <span class="o">=</span> <span class="s2">"https://github.com/rquey/neper.git"</span>
+            <span class="n">neper_src_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">progs_dir</span><span class="p">,</span> <span class="s2">"neper"</span><span class="p">,</span> <span class="s2">"src"</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">progs_dir</span><span class="p">,</span> <span class="s2">"neper"</span><span class="p">)):</span>
+                <span class="n">run</span><span class="p">([</span><span class="s2">"git"</span><span class="p">,</span> <span class="s2">"clone"</span><span class="p">,</span> <span class="n">repo_url</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">progs_dir</span><span class="p">,</span> <span class="s2">"neper"</span><span class="p">)])</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">run</span><span class="p">([</span><span class="s2">"git"</span><span class="p">,</span> <span class="s2">"-C"</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">progs_dir</span><span class="p">,</span> <span class="s2">"neper"</span><span class="p">),</span> <span class="s2">"pull"</span><span class="p">])</span>
+
+        <span class="n">build_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">neper_src_dir</span><span class="p">,</span> <span class="s2">"build"</span><span class="p">)</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">build_dir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">run</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="s2">"cmake"</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">"-DCMAKE_INSTALL_PREFIX=</span><span class="si">{</span><span class="n">prefix</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                <span class="s2">"-DNEPER_INSTALL_BASH_COMPLETION=OFF"</span><span class="p">,</span>  <span class="c1"># disable sudo path</span>
+                <span class="s2">".."</span><span class="p">,</span>
+            <span class="p">],</span>
+            <span class="n">cwd</span><span class="o">=</span><span class="n">build_dir</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">run</span><span class="p">([</span><span class="s2">"make"</span><span class="p">,</span> <span class="s2">"-j"</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">cpu_count</span><span class="p">())],</span> <span class="n">cwd</span><span class="o">=</span><span class="n">build_dir</span><span class="p">)</span>
+        <span class="n">run</span><span class="p">([</span><span class="s2">"make"</span><span class="p">,</span> <span class="s2">"install"</span><span class="p">],</span> <span class="n">cwd</span><span class="o">=</span><span class="n">build_dir</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">is_installed</span><span class="p">(</span><span class="s2">"neper"</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">"Neper installation failed."</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">"Neper installed successfully (stable or GitHub build)."</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">"Neper already available in PATH."</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">shutil</span><span class="o">.</span><span class="n">which</span><span class="p">(</span><span class="s2">"neper"</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="n">env</span><span class="p">[</span><span class="s2">"PATH"</span><span class="p">])</span> <span class="ow">or</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+        <span class="n">prefix</span><span class="p">,</span> <span class="s2">"bin"</span><span class="p">,</span> <span class="s2">"neper"</span>
+    <span class="p">)</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Argonne National Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

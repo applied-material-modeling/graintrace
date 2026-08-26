@@ -1,0 +1,579 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Voxel segmentation and meshing &mdash; graintrace 0.1.2</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=92734c54"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=96c007af"></script>
+      <script src="../_static/design-tabs.js?v=f930bc37"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Meshing a grain grid into hex" href="meshing.html" />
+    <link rel="prev" title="NF mesh reconstruction" href="nf-reconstruction.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            graintrace
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts.html">Concepts &amp; data formats</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../configuration.html">Configuration reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../mcp.html">MCP server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../benchmarks.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pitfalls.html">Common pitfalls</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Tutorials &amp; examples</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="tutorials.html">Tutorials</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="hedm-stitching.html">HEDM scan simulation and stitching</a></li>
+<li class="toctree-l2"><a class="reference internal" href="microstructure-generation.html">Microstructure generation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ff-reconstruction.html">FF Voronoi reconstruction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="nf-reconstruction.html">NF mesh reconstruction</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Voxel segmentation and meshing</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#inputs">Inputs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#recipe">Recipe</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#key-parameters">Key parameters</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#outputs-in-save-dir">Outputs (in <code class="docutils literal notranslate"><span class="pre">save_dir</span></code>)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#gotchas">Gotchas</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#full-example">Full example</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="meshing.html">Meshing a grain grid into hex</a></li>
+<li class="toctree-l2"><a class="reference internal" href="experiment-rotation.html">Registering FF data to the sim frame</a></li>
+<li class="toctree-l2"><a class="reference internal" href="material-calibration.html">Material calibration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cpfe-simulation.html">CPFE simulation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cpfe-nf-ff.html">CPFE (NF geometry + FF initial strain)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="post-processing.html">Post-CPFE analysis &amp; plotting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rare-event-identification.html">Rare-event identification (REI)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rei-comparison.html">REI comparison</a></li>
+<li class="toctree-l2"><a class="reference internal" href="grain-tracking.html">Grain tracking across load steps</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../api/api.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../development.html">Building &amp; testing the docs</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">graintrace</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="tutorials.html">Tutorials</a></li>
+      <li class="breadcrumb-item active">Voxel segmentation and meshing</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/tutorials/voxel-segmentation-mesh.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="voxel-segmentation-and-meshing">
+<h1>Voxel segmentation and meshing<a class="headerlink" href="#voxel-segmentation-and-meshing" title="Link to this heading"></a></h1>
+<p>Segment a voxel or grid orientation field (EBSD or gridded NF) into grains via
+graph clustering (Leiden) or flood-fill, then build a conformal hex mesh with
+CUBIT/SCULPT, using <code class="xref py py-class docutils literal notranslate"><span class="pre">VoxelMeshBuilder</span></code>. Use this when you have a
+gridded Euler-angle CSV or an FF <code class="docutils literal notranslate"><span class="pre">reconstruction_reformatted.csv</span></code> and want a
+segmented mesh.</p>
+<p><strong>Needs:</strong> CUBIT/SCULPT (via <code class="docutils literal notranslate"><span class="pre">sculpt_config</span></code>); graph segmentation uses networkit
+(Leiden). Wrap the driver in <code class="docutils literal notranslate"><span class="pre">if</span> <span class="pre">__name__</span> <span class="pre">==</span> <span class="pre">&quot;__main__&quot;:</span> <span class="pre">main()</span></code>.</p>
+<section id="inputs">
+<h2>Inputs<a class="headerlink" href="#inputs" title="Link to this heading"></a></h2>
+<p>A merged CSV with <code class="docutils literal notranslate"><span class="pre">x,y,z,Eul0,Eul1,Eul2</span></code> (EBSD), or an FF
+<code class="docutils literal notranslate"><span class="pre">reconstruction_reformatted.csv</span></code> (pass <code class="docutils literal notranslate"><span class="pre">cell_id_col</span></code> and
+<code class="docutils literal notranslate"><span class="pre">angle_type=&quot;degrees&quot;</span></code>). See <a class="reference internal" href="../concepts.html"><span class="doc">Concepts &amp; data formats</span></a>.</p>
+</section>
+<section id="recipe">
+<h2>Recipe<a class="headerlink" href="#recipe" title="Link to this heading"></a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">graintrace.construct_voxel_mesh</span><span class="w"> </span><span class="kn">import</span> <span class="n">VoxelMeshBuilder</span>
+
+<span class="n">builder</span> <span class="o">=</span> <span class="n">VoxelMeshBuilder</span><span class="p">(</span>
+    <span class="n">file_path</span><span class="o">=</span><span class="s2">"out/ebsd/EBSD_merged.csv"</span><span class="p">,</span> <span class="n">save_dir</span><span class="o">=</span><span class="s2">"out/ebsd/mesh"</span><span class="p">,</span>
+    <span class="n">euler_cols</span><span class="o">=</span><span class="p">[</span><span class="s2">"Eul0"</span><span class="p">,</span> <span class="s2">"Eul1"</span><span class="p">,</span> <span class="s2">"Eul2"</span><span class="p">],</span> <span class="n">angle_convention</span><span class="o">=</span><span class="s2">"bunge"</span><span class="p">,</span>
+    <span class="n">angle_type</span><span class="o">=</span><span class="s2">"radians"</span><span class="p">,</span> <span class="n">symmetry</span><span class="o">=</span><span class="s2">"432"</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">merged_grid</span> <span class="o">=</span> <span class="n">builder</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">(</span>
+    <span class="n">apply_smoothing</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">segmentation</span><span class="o">=</span><span class="p">{</span>
+        <span class="s2">"method"</span><span class="p">:</span> <span class="s2">"graph"</span><span class="p">,</span>                       <span class="c1"># "graph" or "flood"</span>
+        <span class="s2">"params"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"misorientation_tol"</span><span class="p">:</span> <span class="mf">5.0</span><span class="p">,</span>    <span class="c1"># deg if angle_type="degrees" else rad</span>
+                   <span class="s2">"connectivity"</span><span class="p">:</span> <span class="mi">26</span><span class="p">,</span> <span class="s2">"grain_threshold_final"</span><span class="p">:</span> <span class="mi">100</span><span class="p">},</span>
+        <span class="s2">"graph_params"</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">"segmenter"</span><span class="p">:</span> <span class="s2">"leiden"</span><span class="p">,</span> <span class="s2">"graph_mode"</span><span class="p">:</span> <span class="s2">"grid"</span><span class="p">,</span> <span class="s2">"manhattan_radius"</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
+            <span class="s2">"grid_tol"</span><span class="p">:</span> <span class="mf">1e-6</span><span class="p">,</span> <span class="s2">"n_jobs"</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span> <span class="s2">"weight_chunk_size"</span><span class="p">:</span> <span class="mi">1_000_000</span><span class="p">,</span>
+            <span class="s2">"reduce_edges_topweights_k"</span><span class="p">:</span> <span class="mi">8</span><span class="p">,</span> <span class="s2">"nodes_chunk"</span><span class="p">:</span> <span class="mi">500_000</span><span class="p">,</span> <span class="s2">"seed"</span><span class="p">:</span> <span class="mi">42</span><span class="p">,</span>
+            <span class="s2">"networkit_kwargs"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"gamma"</span><span class="p">:</span> <span class="mf">0.001</span><span class="p">},</span>   <span class="c1"># lower gamma = fewer clusters</span>
+            <span class="s2">"weight_cfg"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"mode"</span><span class="p">:</span> <span class="s2">"rbf"</span><span class="p">,</span> <span class="s2">"sigma"</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+                           <span class="s2">"sigma_auto"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"sample_size"</span><span class="p">:</span> <span class="mi">20_000</span><span class="p">,</span> <span class="s2">"random_state"</span><span class="p">:</span> <span class="mi">42</span><span class="p">,</span>
+                                          <span class="s2">"quantile"</span><span class="p">:</span> <span class="mf">0.5</span><span class="p">},</span> <span class="s2">"power"</span><span class="p">:</span> <span class="mf">2.0</span><span class="p">},</span>
+            <span class="s2">"plot"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="p">},</span>
+    <span class="p">},</span>
+<span class="p">)</span>
+<span class="n">mesh_path</span> <span class="o">=</span> <span class="n">builder</span><span class="o">.</span><span class="n">mesh</span><span class="p">(</span><span class="n">sculpt_config</span><span class="o">=</span><span class="n">sculpt_config</span><span class="p">,</span> <span class="n">sculpt_options</span><span class="o">=</span><span class="n">sculpt_options</span><span class="p">,</span>
+                         <span class="n">merged_grid</span><span class="o">=</span><span class="n">merged_grid</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="key-parameters">
+<h2>Key parameters<a class="headerlink" href="#key-parameters" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">segmentation.method</span></code> — <code class="docutils literal notranslate"><span class="pre">&quot;graph&quot;</span></code> (Leiden; better for complex textures) or
+<code class="docutils literal notranslate"><span class="pre">&quot;flood&quot;</span></code> (simpler, adds <code class="docutils literal notranslate"><span class="pre">batch_norm</span></code> / <code class="docutils literal notranslate"><span class="pre">grain_threshold</span></code> / <code class="docutils literal notranslate"><span class="pre">stop_count</span></code>).
+See <a class="reference internal" href="../configuration.html"><span class="doc">Configuration reference</span></a>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">misorientation_tol</span></code> units follow <code class="docutils literal notranslate"><span class="pre">angle_type</span></code>; <code class="docutils literal notranslate"><span class="pre">connectivity</span></code> is 6 or 26.</p></li>
+<li><p>Graph tuning: <code class="docutils literal notranslate"><span class="pre">networkit_kwargs[&quot;gamma&quot;]</span></code> (lower gives fewer, larger grains) and
+the <code class="docutils literal notranslate"><span class="pre">weight_cfg</span></code> RBF settings.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sculpt_config</span></code> / <code class="docutils literal notranslate"><span class="pre">sculpt_options</span></code> — CUBIT hex meshing; see
+<a class="reference internal" href="../configuration.html"><span class="doc">Configuration reference</span></a> and <a class="reference internal" href="meshing.html"><span class="doc">Meshing a grain grid into hex</span></a>.</p></li>
+</ul>
+</section>
+<section id="outputs-in-save-dir">
+<h2>Outputs (in <code class="docutils literal notranslate"><span class="pre">save_dir</span></code>)<a class="headerlink" href="#outputs-in-save-dir" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>the segmented voxel grid <code class="docutils literal notranslate"><span class="pre">.npy</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">mesh.e</span></code> — the Exodus mesh</p></li>
+<li><p>per-element MRP <code class="docutils literal notranslate"><span class="pre">orientations.csv</span></code></p></li>
+<li><p>optional VTK and diagnostic plots</p></li>
+</ul>
+</section>
+<section id="gotchas">
+<h2>Gotchas<a class="headerlink" href="#gotchas" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>FF-to-voxel path: an input <code class="docutils literal notranslate"><span class="pre">reconstruction_reformatted.csv</span></code> holds Euler angles
+in degrees, so pass <code class="docutils literal notranslate"><span class="pre">angle_type=&quot;degrees&quot;</span></code>. See <a class="reference internal" href="../pitfalls.html"><span class="doc">Common pitfalls</span></a>.</p></li>
+<li><p>Large grids: tune <code class="docutils literal notranslate"><span class="pre">n_jobs</span></code>, <code class="docutils literal notranslate"><span class="pre">weight_chunk_size</span></code>, and <code class="docutils literal notranslate"><span class="pre">nodes_chunk</span></code> for
+memory.</p></li>
+</ul>
+</section>
+<section id="full-example">
+<h2>Full example<a class="headerlink" href="#full-example" title="Link to this heading"></a></h2>
+<div class="literal-block-wrapper docutils container" id="id1">
+<div class="code-block-caption"><span class="caption-text">examples/demonstrate_grid_segmentation_mesh.py</span><a class="headerlink" href="#id1" title="Link to this code"></a></div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Copyright 2026, UChicago Argonne, LLC</span>
+<span class="c1"># All Rights Reserved</span>
+<span class="c1"># Software Name: graintrace</span>
+<span class="c1"># By: Argonne National Laboratory</span>
+<span class="c1"># OPEN SOURCE LICENSE (MIT)</span>
+<span class="c1">#</span>
+<span class="c1"># Permission is hereby granted, free of charge, to any person obtaining a copy</span>
+<span class="c1"># of this software and associated documentation files (the "Software"), to deal</span>
+<span class="c1"># in the Software without restriction, including without limitation the rights</span>
+<span class="c1"># to use, copy, modify, merge, publish, distribute, sublicense, and/or sell</span>
+<span class="c1"># copies of the Software, and to permit persons to whom the Software is</span>
+<span class="c1"># furnished to do so, subject to the following conditions:</span>
+<span class="c1">#</span>
+<span class="c1"># The above copyright notice and this permission notice shall be included in</span>
+<span class="c1"># all copies or substantial portions of the Software.</span>
+<span class="c1">#</span>
+<span class="c1"># THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR</span>
+<span class="c1"># IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,</span>
+<span class="c1"># FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE</span>
+<span class="c1"># AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER</span>
+<span class="c1"># LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,</span>
+<span class="c1"># OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN</span>
+<span class="c1"># THE SOFTWARE.</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">graintrace.construct_voxel_mesh</span><span class="w"> </span><span class="kn">import</span> <span class="n">VoxelMeshBuilder</span>
+
+
+<span class="c1">## INPUTS ---------------------------------------------------</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>  <span class="c1"># wrapped in main() for multiprocessing</span>
+
+    <span class="c1"># Self-contained: generate a synthetic layered Euler-angle grid under save_folder.</span>
+    <span class="n">generate_synthetic</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">ncore</span> <span class="o">=</span> <span class="mi">24</span>
+
+    <span class="n">save_folder</span> <span class="o">=</span> <span class="s2">"test_demo_grid_segmentation"</span>
+    <span class="n">filename</span> <span class="o">=</span> <span class="s2">"test_graph_segmentation_2d.csv"</span>
+    <span class="n">nx</span> <span class="o">=</span> <span class="mi">400</span>
+    <span class="n">ny</span> <span class="o">=</span> <span class="mi">400</span>
+    <span class="n">radius_elements_range</span> <span class="o">=</span> <span class="p">(</span><span class="mi">20</span><span class="p">,</span> <span class="mi">60</span><span class="p">)</span>
+
+    <span class="n">segmentation_prop</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">"method"</span><span class="p">:</span> <span class="s2">"graph"</span><span class="p">,</span>
+        <span class="s2">"params"</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">"misorientation_tol"</span><span class="p">:</span> <span class="mf">5.0</span><span class="p">,</span>  <span class="c1"># degrees</span>
+            <span class="s2">"connectivity"</span><span class="p">:</span> <span class="mi">6</span><span class="p">,</span>
+            <span class="s2">"grain_threshold_final"</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span>
+            <span class="c1"># flood params</span>
+            <span class="s2">"batch_norm"</span><span class="p">:</span> <span class="mi">1000</span><span class="p">,</span>
+            <span class="s2">"grain_threshold"</span><span class="p">:</span> <span class="mi">100</span><span class="p">,</span>
+            <span class="s2">"stop_count"</span><span class="p">:</span> <span class="mi">100</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s2">"graph_params"</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">"segmenter"</span><span class="p">:</span> <span class="s2">"leiden"</span><span class="p">,</span>
+            <span class="s2">"graph_mode"</span><span class="p">:</span> <span class="s2">"grid"</span><span class="p">,</span>
+            <span class="s2">"manhattan_radius"</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span>
+            <span class="s2">"grid_tol"</span><span class="p">:</span> <span class="mf">1e-6</span><span class="p">,</span>
+            <span class="s2">"n_jobs"</span><span class="p">:</span> <span class="n">ncore</span><span class="p">,</span>
+            <span class="s2">"weight_chunk_size"</span><span class="p">:</span> <span class="mi">1_000_000</span><span class="p">,</span>
+            <span class="s2">"nodes_chunk"</span><span class="p">:</span> <span class="mi">1_000_000</span><span class="p">,</span>
+            <span class="s2">"reduce_edges_topweights_k"</span><span class="p">:</span> <span class="mi">8</span><span class="p">,</span>
+            <span class="s2">"seed"</span><span class="p">:</span> <span class="mi">42</span><span class="p">,</span>
+            <span class="s2">"networkit_kwargs"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"gamma"</span><span class="p">:</span> <span class="mf">0.001</span><span class="p">},</span>  <span class="c1"># lower gamma less clusters</span>
+            <span class="s2">"weight_cfg"</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s2">"mode"</span><span class="p">:</span> <span class="s2">"rbf"</span><span class="p">,</span>
+                <span class="s2">"sigma"</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="s2">"sigma_auto"</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s2">"sample_size"</span><span class="p">:</span> <span class="mi">20_000</span><span class="p">,</span>
+                    <span class="s2">"random_state"</span><span class="p">:</span> <span class="mi">42</span><span class="p">,</span>
+                    <span class="s2">"quantile"</span><span class="p">:</span> <span class="mf">0.5</span><span class="p">,</span>
+                <span class="p">},</span>
+                <span class="s2">"power"</span><span class="p">:</span> <span class="mf">2.0</span><span class="p">,</span>
+            <span class="p">},</span>
+            <span class="s2">"plot"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="p">},</span>
+    <span class="p">}</span>
+
+    <span class="c1"># EDIT: point these at your Coreform CUBIT/SCULPT install (paths only, never a license).</span>
+    <span class="n">sculpt_config</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">"launcher"</span><span class="p">:</span> <span class="s2">"/path/to/cubit/bin/mpi/bin/mpiexec"</span><span class="p">,</span>
+        <span class="s2">"psculpt"</span><span class="p">:</span> <span class="s2">"/path/to/cubit/bin/psculpt"</span><span class="p">,</span>
+        <span class="s2">"epu"</span><span class="p">:</span> <span class="s2">"/path/to/cubit/bin/epu"</span><span class="p">,</span>
+        <span class="s2">"nprocs"</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">ncore</span><span class="p">),</span>
+        <span class="s2">"environment"</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">"OPAL_LIBDIR"</span><span class="p">:</span> <span class="s2">"/path/to/cubit/bin/mpi/lib"</span><span class="p">,</span>
+            <span class="s2">"OPAL_PREFIX"</span><span class="p">:</span> <span class="s2">"/path/to/cubit/bin/mpi"</span><span class="p">,</span>
+        <span class="p">},</span>
+    <span class="p">}</span>
+
+    <span class="n">sculpt_options</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="s2">"--void_mat"</span><span class="p">,</span>
+        <span class="s2">"0"</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">generate_layered_euler_csv</span><span class="p">(</span>
+        <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">nx</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">80</span><span class="p">,</span>
+        <span class="n">ny</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">80</span><span class="p">,</span>
+        <span class="n">n_layers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+        <span class="n">rare_patches</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">6</span><span class="p">,</span>
+        <span class="n">random_state</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="n">radius_range</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span>  <span class="c1"># number of elements</span>
+        <span class="n">base_euler_spread_deg</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">2.0</span><span class="p">,</span>
+        <span class="n">patch_euler_spread_deg</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="n">random_state</span><span class="p">)</span>
+
+        <span class="c1"># regular 2D grid embedded in 3D</span>
+        <span class="n">x_coords</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">nx</span><span class="p">)</span>
+        <span class="n">y_coords</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">ny</span><span class="p">)</span>
+
+        <span class="c1"># baseline orientation (deg) per row-band</span>
+        <span class="n">layer_bases</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_layers</span><span class="p">):</span>
+            <span class="n">layer_bases</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+                    <span class="p">[</span>
+                        <span class="n">rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">360.0</span><span class="p">),</span>  <span class="c1"># phi1</span>
+                        <span class="n">rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">180.0</span><span class="p">),</span>  <span class="c1"># Phi</span>
+                        <span class="n">rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">360.0</span><span class="p">),</span>  <span class="c1"># phi2</span>
+                    <span class="p">],</span>
+                    <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="n">layer_height</span> <span class="o">=</span> <span class="n">ny</span> <span class="o">//</span> <span class="n">n_layers</span>
+        <span class="n">layer_index</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">ny</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_layers</span><span class="p">):</span>
+            <span class="n">start</span> <span class="o">=</span> <span class="n">i</span> <span class="o">*</span> <span class="n">layer_height</span>
+            <span class="n">end</span> <span class="o">=</span> <span class="n">ny</span> <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="n">n_layers</span> <span class="o">-</span> <span class="mi">1</span> <span class="k">else</span> <span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">layer_height</span>
+            <span class="n">layer_index</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]</span> <span class="o">=</span> <span class="n">i</span>
+
+        <span class="c1"># base Euler field</span>
+        <span class="n">euler_field</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">ny</span><span class="p">,</span> <span class="n">nx</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">ny</span><span class="p">):</span>
+            <span class="n">base</span> <span class="o">=</span> <span class="n">layer_bases</span><span class="p">[</span><span class="n">layer_index</span><span class="p">[</span><span class="n">j</span><span class="p">]]</span>
+            <span class="n">noise</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">base_euler_spread_deg</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">nx</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+            <span class="n">euler_field</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">base</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:]</span> <span class="o">+</span> <span class="n">noise</span>
+
+        <span class="c1"># add rare circular patches with distinct orientations</span>
+        <span class="n">yy</span><span class="p">,</span> <span class="n">xx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ogrid</span><span class="p">[:</span><span class="n">ny</span><span class="p">,</span> <span class="p">:</span><span class="n">nx</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">rare_patches</span><span class="p">):</span>
+            <span class="n">cx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">nx</span><span class="p">))</span>
+            <span class="n">cy</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">ny</span><span class="p">))</span>
+            <span class="n">radius</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="n">radius_range</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">radius_range</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+
+            <span class="n">patch_base</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+                <span class="p">[</span>
+                    <span class="n">rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">360.0</span><span class="p">),</span>
+                    <span class="n">rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">180.0</span><span class="p">),</span>
+                    <span class="n">rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">360.0</span><span class="p">),</span>
+                <span class="p">],</span>
+                <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span>
+            <span class="p">)</span>
+
+            <span class="n">mask</span> <span class="o">=</span> <span class="p">(</span><span class="n">xx</span> <span class="o">-</span> <span class="n">cx</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="p">(</span><span class="n">yy</span> <span class="o">-</span> <span class="n">cy</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">&lt;=</span> <span class="n">radius</span><span class="o">**</span><span class="mi">2</span>
+            <span class="n">n_mask</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">mask</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
+            <span class="n">patch_noise</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">patch_euler_spread_deg</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">n_mask</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+            <span class="n">euler_field</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span> <span class="o">=</span> <span class="n">patch_base</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:]</span> <span class="o">+</span> <span class="n">patch_noise</span>
+
+        <span class="c1"># wrap angles to conventional degree ranges</span>
+        <span class="n">euler_field</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mod</span><span class="p">(</span><span class="n">euler_field</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="mf">360.0</span><span class="p">)</span>  <span class="c1"># phi1</span>
+        <span class="n">euler_field</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">euler_field</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">180.0</span><span class="p">)</span>  <span class="c1"># Phi</span>
+        <span class="n">euler_field</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mod</span><span class="p">(</span><span class="n">euler_field</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="mf">360.0</span><span class="p">)</span>  <span class="c1"># phi2</span>
+
+        <span class="n">rows</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">element_id</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">ny</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nx</span><span class="p">):</span>
+                <span class="n">element_id</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="n">rows</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="p">{</span>
+                        <span class="s2">"id"</span><span class="p">:</span> <span class="n">element_id</span><span class="p">,</span>
+                        <span class="s2">"x"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">x_coords</span><span class="p">[</span><span class="n">i</span><span class="p">]),</span>
+                        <span class="s2">"y"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">y_coords</span><span class="p">[</span><span class="n">j</span><span class="p">]),</span>
+                        <span class="s2">"z"</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>
+                        <span class="s2">"phi1"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">euler_field</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="mi">0</span><span class="p">]),</span>
+                        <span class="s2">"Phi"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">euler_field</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="mi">1</span><span class="p">]),</span>
+                        <span class="s2">"phi2"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">euler_field</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="mi">2</span><span class="p">]),</span>
+                    <span class="p">}</span>
+                <span class="p">)</span>
+
+        <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">rows</span><span class="p">)</span>
+        <span class="n">df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="c1">## MAIN ---------------------------------------------------</span>
+
+    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">save_folder</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">filename</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">save_folder</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">generate_synthetic</span><span class="p">:</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="s2">"Generating synthetic Euler-angle data..."</span><span class="p">)</span>
+        <span class="n">generate_layered_euler_csv</span><span class="p">(</span>
+            <span class="n">path</span><span class="o">=</span><span class="n">filename</span><span class="p">,</span>
+            <span class="n">nx</span><span class="o">=</span><span class="n">nx</span><span class="p">,</span>
+            <span class="n">ny</span><span class="o">=</span><span class="n">ny</span><span class="p">,</span>
+            <span class="n">n_layers</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+            <span class="n">rare_patches</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span>
+            <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span>
+            <span class="n">radius_range</span><span class="o">=</span><span class="n">radius_elements_range</span><span class="p">,</span>
+            <span class="n">base_euler_spread_deg</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span>
+            <span class="n">patch_euler_spread_deg</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+
+    <span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+
+    <span class="n">builder</span> <span class="o">=</span> <span class="n">VoxelMeshBuilder</span><span class="p">(</span>
+        <span class="n">file_path</span><span class="o">=</span><span class="n">filename</span><span class="p">,</span>
+        <span class="n">save_dir</span><span class="o">=</span><span class="n">save_folder</span><span class="p">,</span>
+        <span class="n">euler_cols</span><span class="o">=</span><span class="p">(</span><span class="s2">"phi1"</span><span class="p">,</span> <span class="s2">"Phi"</span><span class="p">,</span> <span class="s2">"phi2"</span><span class="p">),</span>
+        <span class="n">angle_convention</span><span class="o">=</span><span class="s2">"bunge"</span><span class="p">,</span>
+        <span class="n">angle_type</span><span class="o">=</span><span class="s2">"degrees"</span><span class="p">,</span>
+        <span class="n">symmetry</span><span class="o">=</span><span class="s2">"432"</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">merged_path</span> <span class="o">=</span> <span class="n">builder</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">(</span>
+        <span class="n">segmentation</span><span class="o">=</span><span class="n">segmentation_prop</span><span class="p">,</span>
+        <span class="n">apply_smoothing</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">end</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+    <span class="n">elapsed</span> <span class="o">=</span> <span class="n">end</span> <span class="o">-</span> <span class="n">start</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"segmentation took </span><span class="si">{</span><span class="n">elapsed</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> seconds"</span><span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">Reconstruction complete: </span><span class="si">{</span><span class="n">merged_path</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+
+    <span class="n">mesh_path</span> <span class="o">=</span> <span class="n">builder</span><span class="o">.</span><span class="n">mesh</span><span class="p">(</span>
+        <span class="n">sculpt_config</span><span class="o">=</span><span class="n">sculpt_config</span><span class="p">,</span>
+        <span class="n">sculpt_options</span><span class="o">=</span><span class="n">sculpt_options</span><span class="p">,</span>
+        <span class="n">merged_grid</span><span class="o">=</span><span class="n">merged_path</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Meshing complete: </span><span class="si">{</span><span class="n">mesh_path</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+    <span class="c1"># plot 2D original and segmentation to check</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+
+    <span class="n">df_in</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
+    <span class="n">merged</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">merged_path</span><span class="p">)</span>
+
+    <span class="c1"># reconstruct x-y index maps from the original csv</span>
+    <span class="n">xs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">df_in</span><span class="p">[</span><span class="s2">"x"</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">())</span>
+    <span class="n">ys</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">df_in</span><span class="p">[</span><span class="s2">"y"</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">())</span>
+    <span class="n">x_map</span> <span class="o">=</span> <span class="p">{</span><span class="n">v</span><span class="p">:</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">xs</span><span class="p">)}</span>
+    <span class="n">y_map</span> <span class="o">=</span> <span class="p">{</span><span class="n">v</span><span class="p">:</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">ys</span><span class="p">)}</span>
+
+    <span class="n">nx_plot</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">xs</span><span class="p">)</span>
+    <span class="n">ny_plot</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ys</span><span class="p">)</span>
+
+    <span class="n">phi1_grid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">ny_plot</span><span class="p">,</span> <span class="n">nx_plot</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">Phi_grid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">ny_plot</span><span class="p">,</span> <span class="n">nx_plot</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">phi2_grid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">ny_plot</span><span class="p">,</span> <span class="n">nx_plot</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">df_in</span><span class="o">.</span><span class="n">iterrows</span><span class="p">():</span>
+        <span class="n">i</span> <span class="o">=</span> <span class="n">x_map</span><span class="p">[</span><span class="n">row</span><span class="p">[</span><span class="s2">"x"</span><span class="p">]]</span>
+        <span class="n">j</span> <span class="o">=</span> <span class="n">y_map</span><span class="p">[</span><span class="n">row</span><span class="p">[</span><span class="s2">"y"</span><span class="p">]]</span>
+        <span class="n">phi1_grid</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">"phi1"</span><span class="p">])</span>
+        <span class="n">Phi_grid</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">"Phi"</span><span class="p">])</span>
+        <span class="n">phi2_grid</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">"phi2"</span><span class="p">])</span>
+
+    <span class="c1"># merged grid has shape (nx, ny, nz, 7); for this synthetic case nz=1</span>
+    <span class="n">phase_grid</span> <span class="o">=</span> <span class="n">merged</span><span class="p">[:,</span> <span class="p">:,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">T</span>
+    <span class="n">phi1_seg_grid</span> <span class="o">=</span> <span class="n">merged</span><span class="p">[:,</span> <span class="p">:,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">T</span>
+    <span class="n">Phi_seg_grid</span> <span class="o">=</span> <span class="n">merged</span><span class="p">[:,</span> <span class="p">:,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">T</span>
+    <span class="n">phi2_seg_grid</span> <span class="o">=</span> <span class="n">merged</span><span class="p">[:,</span> <span class="p">:,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">T</span>
+
+    <span class="n">plot_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">save_folder</span><span class="p">,</span> <span class="s2">"plots"</span><span class="p">)</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">plot_dir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># segmentation map</span>
+    <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">6</span><span class="p">))</span>
+    <span class="n">im</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span>
+        <span class="n">phase_grid</span><span class="p">,</span>
+        <span class="n">origin</span><span class="o">=</span><span class="s2">"lower"</span><span class="p">,</span>
+        <span class="n">extent</span><span class="o">=</span><span class="p">[</span><span class="n">xs</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">xs</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span> <span class="n">ys</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">ys</span><span class="o">.</span><span class="n">max</span><span class="p">()],</span>
+        <span class="n">aspect</span><span class="o">=</span><span class="s2">"equal"</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">"Final segmented phase IDs"</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">"x"</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">"y"</span><span class="p">)</span>
+    <span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">"phase id"</span><span class="p">)</span>
+    <span class="n">fig</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+    <span class="n">fig</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">plot_dir</span><span class="p">,</span> <span class="s2">"segmentation_phase_map.png"</span><span class="p">),</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">300</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"identify </span><span class="si">{}</span><span class="s2"> unique segments"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">phase_grid</span><span class="p">)</span><span class="o">.</span><span class="n">size</span><span class="p">))</span>
+
+    <span class="k">for</span> <span class="n">arr</span><span class="p">,</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">[</span>
+        <span class="p">(</span><span class="n">phi1_grid</span><span class="p">,</span> <span class="s2">"phi1"</span><span class="p">),</span>
+        <span class="p">(</span><span class="n">Phi_grid</span><span class="p">,</span> <span class="s2">"Phi"</span><span class="p">),</span>
+        <span class="p">(</span><span class="n">phi2_grid</span><span class="p">,</span> <span class="s2">"phi2"</span><span class="p">),</span>
+    <span class="p">]:</span>
+        <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">6</span><span class="p">))</span>
+        <span class="n">im</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span>
+            <span class="n">arr</span><span class="p">,</span>
+            <span class="n">origin</span><span class="o">=</span><span class="s2">"lower"</span><span class="p">,</span>
+            <span class="n">extent</span><span class="o">=</span><span class="p">[</span><span class="n">xs</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">xs</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span> <span class="n">ys</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">ys</span><span class="o">.</span><span class="n">max</span><span class="p">()],</span>
+            <span class="n">aspect</span><span class="o">=</span><span class="s2">"equal"</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Original </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> (deg)"</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">"x"</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">"y"</span><span class="p">)</span>
+        <span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> (deg)"</span><span class="p">)</span>
+        <span class="n">fig</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+        <span class="n">fig</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">plot_dir</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"original_</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">.png"</span><span class="p">),</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">300</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">arr</span><span class="p">,</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">[</span>
+        <span class="p">(</span><span class="n">phi1_seg_grid</span><span class="p">,</span> <span class="s2">"phi1"</span><span class="p">),</span>
+        <span class="p">(</span><span class="n">Phi_seg_grid</span><span class="p">,</span> <span class="s2">"Phi"</span><span class="p">),</span>
+        <span class="p">(</span><span class="n">phi2_seg_grid</span><span class="p">,</span> <span class="s2">"phi2"</span><span class="p">),</span>
+    <span class="p">]:</span>
+        <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">6</span><span class="p">))</span>
+        <span class="n">im</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span>
+            <span class="n">arr</span><span class="p">,</span>
+            <span class="n">origin</span><span class="o">=</span><span class="s2">"lower"</span><span class="p">,</span>
+            <span class="n">extent</span><span class="o">=</span><span class="p">[</span><span class="n">xs</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">xs</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span> <span class="n">ys</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">ys</span><span class="o">.</span><span class="n">max</span><span class="p">()],</span>
+            <span class="n">aspect</span><span class="o">=</span><span class="s2">"equal"</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Segmented </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> stored on grid"</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">"x"</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">"y"</span><span class="p">)</span>
+        <span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> (deg)"</span><span class="p">)</span>
+        <span class="n">fig</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+        <span class="n">fig</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">plot_dir</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"segmented_</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">.png"</span><span class="p">),</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">300</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Plots saved to: </span><span class="si">{</span><span class="n">plot_dir</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">"__main__"</span><span class="p">:</span>
+    <span class="n">main</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="nf-reconstruction.html" class="btn btn-neutral float-left" title="NF mesh reconstruction" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="meshing.html" class="btn btn-neutral float-right" title="Meshing a grain grid into hex" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Argonne National Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

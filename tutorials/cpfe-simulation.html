@@ -1,0 +1,439 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CPFE simulation &mdash; graintrace 0.1.2</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=92734c54"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=96c007af"></script>
+      <script src="../_static/design-tabs.js?v=f930bc37"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="CPFE (NF geometry + FF initial strain)" href="cpfe-nf-ff.html" />
+    <link rel="prev" title="Material calibration" href="material-calibration.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            graintrace
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts.html">Concepts &amp; data formats</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../configuration.html">Configuration reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../mcp.html">MCP server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../benchmarks.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pitfalls.html">Common pitfalls</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Tutorials &amp; examples</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="tutorials.html">Tutorials</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="hedm-stitching.html">HEDM scan simulation and stitching</a></li>
+<li class="toctree-l2"><a class="reference internal" href="microstructure-generation.html">Microstructure generation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ff-reconstruction.html">FF Voronoi reconstruction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="nf-reconstruction.html">NF mesh reconstruction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="voxel-segmentation-mesh.html">Voxel segmentation and meshing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="meshing.html">Meshing a grain grid into hex</a></li>
+<li class="toctree-l2"><a class="reference internal" href="experiment-rotation.html">Registering FF data to the sim frame</a></li>
+<li class="toctree-l2"><a class="reference internal" href="material-calibration.html">Material calibration</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">CPFE simulation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#inputs">Inputs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#recipe">Recipe</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#key-parameters">Key parameters</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#outputs-in-save-simulation-folder-simulation-out">Outputs (in <code class="docutils literal notranslate"><span class="pre">save_simulation_folder/simulation_out</span></code>)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#gotchas">Gotchas</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#full-example">Full example</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="cpfe-nf-ff.html">CPFE (NF geometry + FF initial strain)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="post-processing.html">Post-CPFE analysis &amp; plotting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rare-event-identification.html">Rare-event identification (REI)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rei-comparison.html">REI comparison</a></li>
+<li class="toctree-l2"><a class="reference internal" href="grain-tracking.html">Grain tracking across load steps</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../api/api.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../development.html">Building &amp; testing the docs</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">graintrace</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="tutorials.html">Tutorials</a></li>
+      <li class="breadcrumb-item active">CPFE simulation</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/tutorials/cpfe-simulation.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="cpfe-simulation">
+<h1>CPFE simulation<a class="headerlink" href="#cpfe-simulation" title="Link to this heading"></a></h1>
+<p>Run a MOOSE/PUMA CPFE simulation on a far-field Voronoi reconstruction with a
+NEML2 v3 AOTI-compiled crystal-plasticity model, using
+<code class="xref py py-class docutils literal notranslate"><span class="pre">CPFESimulation</span></code>. Given a mesh and per-grain orientations
+(and an optional FF residual-strain field), it bakes the material parameters into
+the model, runs <code class="docutils literal notranslate"><span class="pre">neml2-compile</span></code>, and launches <code class="docutils literal notranslate"><span class="pre">puma-opt</span></code>.</p>
+<p><strong>Needs:</strong> MOOSE <code class="docutils literal notranslate"><span class="pre">puma-opt</span></code> and <code class="docutils literal notranslate"><span class="pre">neml2-compile</span></code> (AOTI); CUDA recommended.
+See <a class="reference internal" href="../install.html"><span class="doc">Installation</span></a>.</p>
+<section id="inputs">
+<h2>Inputs<a class="headerlink" href="#inputs" title="Link to this heading"></a></h2>
+<p>A hex (<code class="docutils literal notranslate"><span class="pre">.e</span></code>) or tet (<code class="docutils literal notranslate"><span class="pre">.msh</span></code>) mesh plus per-grain orientations; CPFE runs on
+either. The repo ships <code class="docutils literal notranslate"><span class="pre">mwe_data/cpfe_ff/</span></code> (<code class="docutils literal notranslate"><span class="pre">reconstruction.msh</span></code> +
+<code class="docutils literal notranslate"><span class="pre">orientations.dat</span></code>, 10 grains). This sample is a GMSH tet mesh, but the
+recommended FF route is a SCULPT hex mesh (see <a class="reference internal" href="meshing.html"><span class="doc">Meshing a grain grid into hex</span></a>). Orientations must
+be neml2 MRP; convert the FF Euler <code class="docutils literal notranslate"><span class="pre">orientations.dat</span></code> (degrees) with
+<code class="docutils literal notranslate"><span class="pre">orientation_helper.euler_to_mrp</span></code>.</p>
+</section>
+<section id="recipe">
+<h2>Recipe<a class="headerlink" href="#recipe" title="Link to this heading"></a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span><span class="o">,</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span><span class="o">,</span><span class="w"> </span><span class="nn">torch</span><span class="o">,</span><span class="w"> </span><span class="nn">meshio</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">graintrace.run_cpfe_simulation</span><span class="w"> </span><span class="kn">import</span> <span class="n">CPFESimulation</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">graintrace</span><span class="w"> </span><span class="kn">import</span> <span class="n">orientation_helper</span> <span class="k">as</span> <span class="n">oh</span>
+
+<span class="n">ff</span> <span class="o">=</span> <span class="s2">"mwe_data/cpfe_ff"</span><span class="p">;</span> <span class="n">out</span> <span class="o">=</span> <span class="s2">"cpfe_out"</span><span class="p">;</span> <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">euler</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">loadtxt</span><span class="p">(</span><span class="n">ff</span> <span class="o">+</span> <span class="s2">"/orientations.dat"</span><span class="p">)</span>                <span class="c1"># Euler-bunge, degrees</span>
+<span class="n">mrp</span> <span class="o">=</span> <span class="n">oh</span><span class="o">.</span><span class="n">euler_to_mrp</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">euler</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float64</span><span class="p">),</span> <span class="s2">"bunge"</span><span class="p">,</span> <span class="s2">"degrees"</span><span class="p">)</span>
+<span class="n">np</span><span class="o">.</span><span class="n">savetxt</span><span class="p">(</span><span class="n">out</span> <span class="o">+</span> <span class="s2">"/orientations_MRP.dat"</span><span class="p">,</span> <span class="n">mrp</span><span class="o">.</span><span class="n">numpy</span><span class="p">(),</span> <span class="n">fmt</span><span class="o">=</span><span class="s2">"</span><span class="si">%.12g</span><span class="s2">"</span><span class="p">)</span>
+
+<span class="n">m</span> <span class="o">=</span> <span class="n">meshio</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">ff</span> <span class="o">+</span> <span class="s2">"/reconstruction.msh"</span><span class="p">);</span> <span class="n">P</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">points</span>
+<span class="n">bbox</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">P</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">()),</span> <span class="nb">float</span><span class="p">(</span><span class="n">P</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">()),</span>
+        <span class="nb">float</span><span class="p">(</span><span class="n">P</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">()),</span> <span class="nb">float</span><span class="p">(</span><span class="n">P</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">()),</span>
+        <span class="nb">float</span><span class="p">(</span><span class="n">P</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">()),</span> <span class="nb">float</span><span class="p">(</span><span class="n">P</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">())]</span>
+<span class="n">order</span> <span class="o">=</span> <span class="s2">"SECOND"</span> <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="s2">"10"</span> <span class="ow">in</span> <span class="n">c</span><span class="o">.</span><span class="n">type</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">m</span><span class="o">.</span><span class="n">cells</span><span class="p">)</span> <span class="k">else</span> <span class="s2">"FIRST"</span>
+
+<span class="n">sim</span> <span class="o">=</span> <span class="n">CPFESimulation</span><span class="p">(</span>
+    <span class="n">mesh_file</span><span class="o">=</span><span class="n">ff</span> <span class="o">+</span> <span class="s2">"/reconstruction.msh"</span><span class="p">,</span> <span class="n">save_simulation_folder</span><span class="o">=</span><span class="n">out</span><span class="p">,</span>
+    <span class="n">moose_run_file</span><span class="o">=</span><span class="s2">"external/puma/puma-opt"</span><span class="p">,</span>   <span class="c1"># your built puma-opt</span>
+    <span class="n">element_order</span><span class="o">=</span><span class="n">order</span><span class="p">,</span> <span class="n">eeres_file</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ori_file</span><span class="o">=</span><span class="n">out</span> <span class="o">+</span> <span class="s2">"/orientations_MRP.dat"</span><span class="p">,</span>
+    <span class="n">dim</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">use_ff_initial_field</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>           <span class="c1"># eeres_file=None -&gt; 12-col zero ee</span>
+<span class="p">)</span>
+<span class="n">sim</span><span class="o">.</span><span class="n">set_parameters</span><span class="p">(</span><span class="s2">"material"</span><span class="p">,</span> <span class="n">slip_constant_strength</span><span class="o">=</span><span class="mf">130.0</span><span class="p">,</span>
+    <span class="n">voce_hardening_initial_slope</span><span class="o">=</span><span class="mf">1556.09</span><span class="p">,</span> <span class="n">voce_hardening_saturation</span><span class="o">=</span><span class="mf">100.0</span><span class="p">,</span>
+    <span class="n">power_slip_n</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">power_slip_g0</span><span class="o">=</span><span class="mf">1e-4</span><span class="p">,</span> <span class="n">elastic_E</span><span class="o">=</span><span class="mf">209016.0</span><span class="p">,</span> <span class="n">elastic_nu</span><span class="o">=</span><span class="mf">0.307</span><span class="p">,</span>
+    <span class="n">elastic_G</span><span class="o">=</span><span class="mf">60355.0</span><span class="p">,</span> <span class="n">burger_scale</span><span class="o">=</span><span class="mf">2.22</span><span class="p">)</span>
+<span class="n">sim</span><span class="o">.</span><span class="n">set_parameters</span><span class="p">(</span><span class="s2">"simulation_parameters"</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s2">"cuda:0"</span><span class="p">,</span> <span class="n">device_batch</span><span class="o">=</span><span class="mi">20000</span><span class="p">,</span>
+    <span class="n">dt</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">total_time</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">initialize_time</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">sync_times</span><span class="o">=</span><span class="s2">"2.0"</span><span class="p">,</span>
+    <span class="n">grid_transfer</span><span class="o">=</span><span class="s2">"final"</span><span class="p">,</span> <span class="n">exodus_output</span><span class="o">=</span><span class="s2">"sync"</span><span class="p">)</span>
+
+<span class="n">disp</span> <span class="o">=</span> <span class="mf">0.002</span> <span class="o">*</span> <span class="p">(</span><span class="n">bbox</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span> <span class="o">-</span> <span class="n">bbox</span><span class="p">[</span><span class="mi">4</span><span class="p">])</span>
+<span class="n">sim</span><span class="o">.</span><span class="n">set_parameters</span><span class="p">(</span><span class="s2">"boundary"</span><span class="p">,</span> <span class="n">bounding_box</span><span class="o">=</span><span class="n">bbox</span><span class="p">,</span> <span class="n">bc</span><span class="o">=</span><span class="p">{</span>
+    <span class="s2">"x"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"negative"</span><span class="p">:</span> <span class="s2">"stress_free"</span><span class="p">,</span> <span class="s2">"positive"</span><span class="p">:</span> <span class="s2">"stress_free"</span><span class="p">},</span>
+    <span class="s2">"y"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"negative"</span><span class="p">:</span> <span class="s2">"stress_free"</span><span class="p">,</span> <span class="s2">"positive"</span><span class="p">:</span> <span class="s2">"stress_free"</span><span class="p">},</span>
+    <span class="s2">"z"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"negative"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">"positive"</span><span class="p">:</span> <span class="n">disp</span><span class="p">}})</span>
+<span class="n">grid_bb</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">bbox</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span> <span class="n">grid_bb</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+=</span> <span class="mf">1e-4</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span> <span class="n">grid_bb</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-=</span> <span class="mf">1e-4</span>
+<span class="n">sim</span><span class="o">.</span><span class="n">set_parameters</span><span class="p">(</span><span class="s2">"grid_properties"</span><span class="p">,</span> <span class="n">number_of_elements</span><span class="o">=</span><span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">],</span>
+                   <span class="n">bounding_box</span><span class="o">=</span><span class="n">grid_bb</span><span class="p">)</span>
+
+<span class="n">sim</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">ncore</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>   <span class="c1"># ncore == mpiexec -n; also spreads a device list over ranks</span>
+</pre></div>
+</div>
+</section>
+<section id="key-parameters">
+<h2>Key parameters<a class="headerlink" href="#key-parameters" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">device</span></code> — <code class="docutils literal notranslate"><span class="pre">&quot;cpu&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;cuda:0&quot;</span></code>, or a space-separated list
+<code class="docutils literal notranslate"><span class="pre">&quot;cuda:0</span> <span class="pre">cuda:1&quot;</span></code> (multi-GPU over MPI ranks).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">device_batch</span></code> — per-device NEML2 chunk (quad points per call); a finite
+value caps GPU memory (0 means the whole batch, risking OOM on large meshes).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">initialize_time</span></code> — the load ramps from <code class="docutils literal notranslate"><span class="pre">initialize_time</span></code> to
+<code class="docutils literal notranslate"><span class="pre">total_time</span></code>; <code class="docutils literal notranslate"><span class="pre">sync_times</span></code> are the grid-output times.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">use_ff_initial_field=True</span></code> with a real <code class="docutils literal notranslate"><span class="pre">eeres_file</span></code> applies an FF residual
+strain (12 columns: x, y, z plus 9); <code class="docutils literal notranslate"><span class="pre">eeres_file=None</span></code> writes a 12-column
+zero ee.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">grid_transfer</span></code> and <code class="docutils literal notranslate"><span class="pre">exodus_output</span></code> default to the cheap settings (transfer
+only at the last step, Exodus only at <code class="docutils literal notranslate"><span class="pre">sync_times</span></code>). Use <code class="docutils literal notranslate"><span class="pre">&quot;per_step&quot;</span></code> for
+every-step grid REI output or Exodus writes; with <code class="docutils literal notranslate"><span class="pre">grid_transfer</span></code> other than
+<code class="docutils literal notranslate"><span class="pre">&quot;per_step&quot;</span></code>, regenerate grid CSVs offline with
+<code class="xref py py-class docutils literal notranslate"><span class="pre">GridResampler</span></code>.</p></li>
+<li><p>AOTI: material parameters are baked into the model <code class="docutils literal notranslate"><span class="pre">.i</span></code> and <code class="docutils literal notranslate"><span class="pre">neml2-compile``d</span>
+<span class="pre">on</span> <span class="pre">``run()</span></code>; <code class="docutils literal notranslate"><span class="pre">recompile=True</span></code> (default) rebuilds when parameters change.</p></li>
+</ul>
+<p>See <a class="reference internal" href="../configuration.html"><span class="doc">Configuration reference</span></a> for the <code class="docutils literal notranslate"><span class="pre">bc</span></code> dict and inset <code class="docutils literal notranslate"><span class="pre">grid_properties</span></code>
+bounding box.</p>
+</section>
+<section id="outputs-in-save-simulation-folder-simulation-out">
+<h2>Outputs (in <code class="docutils literal notranslate"><span class="pre">save_simulation_folder/simulation_out</span></code>)<a class="headerlink" href="#outputs-in-save-simulation-folder-simulation-out" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">out.csv</span></code> — per-block time series.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sim_output.e</span></code> / <code class="docutils literal notranslate"><span class="pre">sim_output_grid.e</span></code> — Exodus output.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">grid_out/*.csv</span></code> — per-grid fields (cauchy_stress, ee, nye_tensor,
+ori_rodrigues), for post-processing and REI.</p></li>
+</ul>
+</section>
+<section id="gotchas">
+<h2>Gotchas<a class="headerlink" href="#gotchas" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>v3 has no runtime <code class="docutils literal notranslate"><span class="pre">[NEML2]</span> <span class="pre">cli_args</span></code> or <code class="docutils literal notranslate"><span class="pre">[Schedulers]</span></code>; do not pass
+<code class="docutils literal notranslate"><span class="pre">scheduler_name</span></code>.</p></li>
+<li><p>For neml2-dominated CPFE, use fewer MPI ranks (about one per GPU) for bigger
+per-rank batches.</p></li>
+<li><p>Stiff first steps may make MOOSE cut <code class="docutils literal notranslate"><span class="pre">dt</span></code> and recover; that is normal, not a
+failure.</p></li>
+<li><p>The environment, <code class="docutils literal notranslate"><span class="pre">LD_LIBRARY_PATH</span></code>, and <code class="docutils literal notranslate"><span class="pre">neml2_load_files</span></code> auto-derive from
+the <code class="docutils literal notranslate"><span class="pre">moose_run_file</span></code> repo layout.</p></li>
+</ul>
+</section>
+<section id="full-example">
+<h2>Full example<a class="headerlink" href="#full-example" title="Link to this heading"></a></h2>
+<div class="literal-block-wrapper docutils container" id="id1">
+<div class="code-block-caption"><span class="caption-text">examples/demonstrate_cpfe.py</span><a class="headerlink" href="#id1" title="Link to this code"></a></div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Copyright 2026, UChicago Argonne, LLC</span>
+<span class="c1"># All Rights Reserved</span>
+<span class="c1"># Software Name: graintrace</span>
+<span class="c1"># By: Argonne National Laboratory</span>
+<span class="c1"># OPEN SOURCE LICENSE (MIT)</span>
+<span class="c1">#</span>
+<span class="c1"># Permission is hereby granted, free of charge, to any person obtaining a copy</span>
+<span class="c1"># of this software and associated documentation files (the "Software"), to deal</span>
+<span class="c1"># in the Software without restriction, including without limitation the rights</span>
+<span class="c1"># to use, copy, modify, merge, publish, distribute, sublicense, and/or sell</span>
+<span class="c1"># copies of the Software, and to permit persons to whom the Software is</span>
+<span class="c1"># furnished to do so, subject to the following conditions:</span>
+<span class="c1">#</span>
+<span class="c1"># The above copyright notice and this permission notice shall be included in</span>
+<span class="c1"># all copies or substantial portions of the Software.</span>
+<span class="c1">#</span>
+<span class="c1"># THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR</span>
+<span class="c1"># IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,</span>
+<span class="c1"># FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE</span>
+<span class="c1"># AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER</span>
+<span class="c1"># LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,</span>
+<span class="c1"># OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN</span>
+<span class="c1"># THE SOFTWARE.</span>
+
+<span class="c1"># Run a CPFE simulation on a far-field (Voronoi) reconstruction with NEML2 v3.</span>
+<span class="c1"># CPFESimulation.run() bakes material params, runs neml2-compile (env/paths</span>
+<span class="c1"># auto-derived from moose_run_file), then launches puma-opt. FF orientations.dat</span>
+<span class="c1"># is Euler and converted to neml2 MRP (the canonical interchange) before use.</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">meshio</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">graintrace.run_cpfe_simulation</span><span class="w"> </span><span class="kn">import</span> <span class="n">CPFESimulation</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">graintrace</span><span class="w"> </span><span class="kn">import</span> <span class="n">orientation_helper</span> <span class="k">as</span> <span class="n">oh</span>
+
+<span class="c1">## INPUT</span>
+<span class="c1">## ------------------------------------</span>
+<span class="c1"># A far-field reconstruction folder containing the co-registered mesh + initial</span>
+<span class="c1"># elastic strain, and the per-grain Euler orientations (see demonstrate_farfield).</span>
+<span class="c1"># Minimal FF dataset shipped in mwe_data: a 10-grain reconstruction mesh + its</span>
+<span class="c1"># per-grain Euler orientations. (To use a real FF residual strain, point</span>
+<span class="c1"># eeres_file at a reconstruction_cpfe_ee.csv; here we use zero initial strain.)</span>
+<span class="n">ff_dir</span> <span class="o">=</span> <span class="s2">"mwe_data/cpfe_ff"</span>
+<span class="n">mesh_file</span> <span class="o">=</span> <span class="n">ff_dir</span> <span class="o">+</span> <span class="s2">"/reconstruction.msh"</span>
+<span class="n">eeres_file</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># None -&gt; zero initial elastic strain (no FF ee field in this MWE)</span>
+<span class="n">euler_file</span> <span class="o">=</span> <span class="n">ff_dir</span> <span class="o">+</span> <span class="s2">"/orientations.dat"</span>  <span class="c1"># Euler bunge, degrees (FF output)</span>
+
+<span class="n">outputdir</span> <span class="o">=</span> <span class="s2">"cpfe_out"</span>
+<span class="c1"># EDIT: path to your built PUMA binary (e.g. external/puma/puma-opt after building it).</span>
+<span class="n">moose_run_file</span> <span class="o">=</span> <span class="s2">"external/puma/puma-opt"</span>
+
+<span class="n">angle_convention</span> <span class="o">=</span> <span class="s2">"bunge"</span>
+<span class="n">angle_type</span> <span class="o">=</span> <span class="s2">"degrees"</span>
+
+<span class="c1"># NEML2 device(s): "cpu", "cuda:0", or a space-separated list for multi-GPU.</span>
+<span class="n">device</span> <span class="o">=</span> <span class="s2">"cuda:0"</span>
+<span class="n">ncore</span> <span class="o">=</span> <span class="mi">4</span>
+<span class="c1"># Per-device NEML2 batch chunk (quad points per call). 0 = whole batch; a finite</span>
+<span class="c1"># value caps GPU memory by chunking.</span>
+<span class="n">device_batch</span> <span class="o">=</span> <span class="mi">20000</span>
+
+<span class="n">total_strain</span> <span class="o">=</span> <span class="mf">0.002</span>  <span class="c1"># applied axial (z) engineering strain</span>
+<span class="n">dt</span> <span class="o">=</span> <span class="mf">0.5</span>
+<span class="n">total_time</span> <span class="o">=</span> <span class="mf">2.0</span>
+<span class="n">initialize_time</span> <span class="o">=</span> <span class="mf">1.0</span>
+<span class="n">sync_times</span> <span class="o">=</span> <span class="s2">"2.0"</span>
+<span class="n">grid_elements</span> <span class="o">=</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">]</span>
+
+<span class="n">material</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
+    <span class="n">slip_constant_strength</span><span class="o">=</span><span class="mf">130.0</span><span class="p">,</span>
+    <span class="n">voce_hardening_initial_slope</span><span class="o">=</span><span class="mf">1556.09</span><span class="p">,</span>
+    <span class="n">voce_hardening_saturation</span><span class="o">=</span><span class="mf">100.0</span><span class="p">,</span>
+    <span class="n">power_slip_n</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+    <span class="n">power_slip_g0</span><span class="o">=</span><span class="mf">0.0001</span><span class="p">,</span>
+    <span class="n">elastic_E</span><span class="o">=</span><span class="mf">209016.0</span><span class="p">,</span>
+    <span class="n">elastic_nu</span><span class="o">=</span><span class="mf">0.307</span><span class="p">,</span>
+    <span class="n">elastic_G</span><span class="o">=</span><span class="mf">60355.0</span><span class="p">,</span>
+    <span class="n">burger_scale</span><span class="o">=</span><span class="mf">2.22</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="c1">## ------------------------------------</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">=== CPFE simulation (NEML2 v3 / AOTI) ===</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+
+<span class="c1"># FF Euler orientations -&gt; neml2 MRP (canonical interchange)</span>
+<span class="n">euler</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">loadtxt</span><span class="p">(</span><span class="n">euler_file</span><span class="p">)</span>
+<span class="n">mrp</span> <span class="o">=</span> <span class="n">oh</span><span class="o">.</span><span class="n">euler_to_mrp</span><span class="p">(</span>
+    <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">euler</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float64</span><span class="p">),</span> <span class="n">angle_convention</span><span class="p">,</span> <span class="n">angle_type</span>
+<span class="p">)</span>
+<span class="n">ori_file</span> <span class="o">=</span> <span class="n">outputdir</span> <span class="o">+</span> <span class="s2">"/orientations_MRP.dat"</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+
+<span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">outputdir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">np</span><span class="o">.</span><span class="n">savetxt</span><span class="p">(</span><span class="n">ori_file</span><span class="p">,</span> <span class="n">mrp</span><span class="o">.</span><span class="n">numpy</span><span class="p">(),</span> <span class="n">fmt</span><span class="o">=</span><span class="s2">"</span><span class="si">%.12g</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Converted </span><span class="si">{</span><span class="n">euler</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> Euler orientations -&gt; neml2 MRP"</span><span class="p">)</span>
+
+<span class="c1"># Mesh bounding box + element order</span>
+<span class="n">m</span> <span class="o">=</span> <span class="n">meshio</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">mesh_file</span><span class="p">)</span>
+<span class="n">P</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">points</span>
+<span class="n">bbox</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="nb">float</span><span class="p">(</span><span class="n">P</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">()),</span>
+    <span class="nb">float</span><span class="p">(</span><span class="n">P</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">()),</span>
+    <span class="nb">float</span><span class="p">(</span><span class="n">P</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">()),</span>
+    <span class="nb">float</span><span class="p">(</span><span class="n">P</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">()),</span>
+    <span class="nb">float</span><span class="p">(</span><span class="n">P</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">()),</span>
+    <span class="nb">float</span><span class="p">(</span><span class="n">P</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">()),</span>
+<span class="p">]</span>
+<span class="n">celltypes</span> <span class="o">=</span> <span class="p">{</span><span class="n">c</span><span class="o">.</span><span class="n">type</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">m</span><span class="o">.</span><span class="n">cells</span><span class="p">}</span>
+<span class="n">element_order</span> <span class="o">=</span> <span class="s2">"SECOND"</span> <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="s2">"10"</span> <span class="ow">in</span> <span class="n">t</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">celltypes</span><span class="p">)</span> <span class="k">else</span> <span class="s2">"FIRST"</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"element_order=</span><span class="si">{</span><span class="n">element_order</span><span class="si">}</span><span class="s2">, bbox=</span><span class="si">{</span><span class="p">[</span><span class="nb">round</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">)</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">bbox</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+<span class="n">sim</span> <span class="o">=</span> <span class="n">CPFESimulation</span><span class="p">(</span>
+    <span class="n">mesh_file</span><span class="o">=</span><span class="n">mesh_file</span><span class="p">,</span>
+    <span class="n">save_simulation_folder</span><span class="o">=</span><span class="n">outputdir</span><span class="p">,</span>
+    <span class="n">moose_run_file</span><span class="o">=</span><span class="n">moose_run_file</span><span class="p">,</span>
+    <span class="n">element_order</span><span class="o">=</span><span class="n">element_order</span><span class="p">,</span>
+    <span class="n">eeres_file</span><span class="o">=</span><span class="n">eeres_file</span><span class="p">,</span>
+    <span class="n">ori_file</span><span class="o">=</span><span class="n">ori_file</span><span class="p">,</span>
+    <span class="n">dim</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+    <span class="n">use_ff_initial_field</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>  <span class="c1"># eeres_file=None -&gt; zero initial elastic strain</span>
+<span class="p">)</span>
+
+<span class="n">sim</span><span class="o">.</span><span class="n">set_parameters</span><span class="p">(</span><span class="s2">"material"</span><span class="p">,</span> <span class="o">**</span><span class="n">material</span><span class="p">)</span>
+<span class="n">sim</span><span class="o">.</span><span class="n">set_parameters</span><span class="p">(</span>
+    <span class="s2">"simulation_parameters"</span><span class="p">,</span>
+    <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+    <span class="n">device_batch</span><span class="o">=</span><span class="n">device_batch</span><span class="p">,</span>
+    <span class="n">dt</span><span class="o">=</span><span class="n">dt</span><span class="p">,</span>
+    <span class="n">total_time</span><span class="o">=</span><span class="n">total_time</span><span class="p">,</span>
+    <span class="n">initialize_time</span><span class="o">=</span><span class="n">initialize_time</span><span class="p">,</span>
+    <span class="n">sync_times</span><span class="o">=</span><span class="n">sync_times</span><span class="p">,</span>
+    <span class="c1"># Output-frequency knobs (defaults shown). mesh_csv -&gt; crisp per-element fields in</span>
+    <span class="c1"># mesh_out/ for full-mesh REI; grid_transfer/exodus_output default to cheap (final/sync).</span>
+    <span class="c1"># For a regular grid without per-step transfers, keep grid_transfer="final" and resample</span>
+    <span class="c1"># sim_output.e offline with graintrace.grid_resampling.GridResampler.</span>
+    <span class="n">mesh_csv</span><span class="o">=</span><span class="s2">"sync"</span><span class="p">,</span>
+    <span class="n">grid_transfer</span><span class="o">=</span><span class="s2">"final"</span><span class="p">,</span>
+    <span class="n">exodus_output</span><span class="o">=</span><span class="s2">"sync"</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">displace</span> <span class="o">=</span> <span class="n">total_strain</span> <span class="o">*</span> <span class="p">(</span><span class="n">bbox</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span> <span class="o">-</span> <span class="n">bbox</span><span class="p">[</span><span class="mi">4</span><span class="p">])</span>
+<span class="n">sim</span><span class="o">.</span><span class="n">set_parameters</span><span class="p">(</span>
+    <span class="s2">"boundary"</span><span class="p">,</span>
+    <span class="n">bounding_box</span><span class="o">=</span><span class="n">bbox</span><span class="p">,</span>
+    <span class="n">bc</span><span class="o">=</span><span class="p">{</span>
+        <span class="s2">"x"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"negative"</span><span class="p">:</span> <span class="s2">"stress_free"</span><span class="p">,</span> <span class="s2">"positive"</span><span class="p">:</span> <span class="s2">"stress_free"</span><span class="p">},</span>
+        <span class="s2">"y"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"negative"</span><span class="p">:</span> <span class="s2">"stress_free"</span><span class="p">,</span> <span class="s2">"positive"</span><span class="p">:</span> <span class="s2">"stress_free"</span><span class="p">},</span>
+        <span class="s2">"z"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"negative"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">"positive"</span><span class="p">:</span> <span class="n">displace</span><span class="p">},</span>
+    <span class="p">},</span>
+<span class="p">)</span>
+
+<span class="n">grid_bb</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">bbox</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span>
+    <span class="n">grid_bb</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+=</span> <span class="mf">1e-4</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span>
+    <span class="n">grid_bb</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-=</span> <span class="mf">1e-4</span>
+<span class="n">sim</span><span class="o">.</span><span class="n">set_parameters</span><span class="p">(</span>
+    <span class="s2">"grid_properties"</span><span class="p">,</span> <span class="n">number_of_elements</span><span class="o">=</span><span class="n">grid_elements</span><span class="p">,</span> <span class="n">bounding_box</span><span class="o">=</span><span class="n">grid_bb</span>
+<span class="p">)</span>
+
+<span class="c1"># Bakes material params -&gt; neml2-compile -&gt; AOTI package -&gt; launches puma-opt.</span>
+<span class="n">sim</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">ncore</span><span class="o">=</span><span class="n">ncore</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span>
+    <span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">CPFE simulation launched; outputs will appear under </span><span class="si">{</span><span class="n">outputdir</span><span class="si">}</span><span class="s2">/simulation_out"</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="material-calibration.html" class="btn btn-neutral float-left" title="Material calibration" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="cpfe-nf-ff.html" class="btn btn-neutral float-right" title="CPFE (NF geometry + FF initial strain)" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Argonne National Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

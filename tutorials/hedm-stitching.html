@@ -1,0 +1,475 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HEDM scan simulation and stitching &mdash; graintrace 0.1.2</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=92734c54"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=96c007af"></script>
+      <script src="../_static/design-tabs.js?v=f930bc37"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Microstructure generation" href="microstructure-generation.html" />
+    <link rel="prev" title="Tutorials" href="tutorials.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            graintrace
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts.html">Concepts &amp; data formats</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../configuration.html">Configuration reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../mcp.html">MCP server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../benchmarks.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pitfalls.html">Common pitfalls</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Tutorials &amp; examples</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="tutorials.html">Tutorials</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">HEDM scan simulation and stitching</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#inputs">Inputs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#recipe">Recipe</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#key-parameters">Key parameters</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#outputs">Outputs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#gotchas">Gotchas</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#full-example">Full example</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="microstructure-generation.html">Microstructure generation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ff-reconstruction.html">FF Voronoi reconstruction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="nf-reconstruction.html">NF mesh reconstruction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="voxel-segmentation-mesh.html">Voxel segmentation and meshing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="meshing.html">Meshing a grain grid into hex</a></li>
+<li class="toctree-l2"><a class="reference internal" href="experiment-rotation.html">Registering FF data to the sim frame</a></li>
+<li class="toctree-l2"><a class="reference internal" href="material-calibration.html">Material calibration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cpfe-simulation.html">CPFE simulation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cpfe-nf-ff.html">CPFE (NF geometry + FF initial strain)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="post-processing.html">Post-CPFE analysis &amp; plotting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rare-event-identification.html">Rare-event identification (REI)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rei-comparison.html">REI comparison</a></li>
+<li class="toctree-l2"><a class="reference internal" href="grain-tracking.html">Grain tracking across load steps</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../api/api.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../development.html">Building &amp; testing the docs</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">graintrace</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="tutorials.html">Tutorials</a></li>
+      <li class="breadcrumb-item active">HEDM scan simulation and stitching</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/tutorials/hedm-stitching.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="hedm-scan-simulation-and-stitching">
+<h1>HEDM scan simulation and stitching<a class="headerlink" href="#hedm-scan-simulation-and-stitching" title="Link to this heading"></a></h1>
+<p>Generate a synthetic crystal, simulate overlapping HEDM z-scans, stitch the scan
+layers into one grain set, and compare the stitched result against the ground
+truth. Use this to test or study HEDM stitching, examine the effect of scan
+overlap, or produce a stitched FF CSV from multiple scan layers.</p>
+<p><strong>Needs:</strong> NEPER (crystal generation and z-scan). No MOOSE or CUBIT.</p>
+<section id="inputs">
+<h2>Inputs<a class="headerlink" href="#inputs" title="Link to this heading"></a></h2>
+<p>The example is self-generating: <code class="xref py py-class docutils literal notranslate"><span class="pre">CrystalGenerator</span></code> writes a
+<code class="docutils literal notranslate"><span class="pre">voronoi.tess</span></code> / <code class="docutils literal notranslate"><span class="pre">voronoi.csv</span></code> and a set of <code class="docutils literal notranslate"><span class="pre">hedm_scan/scan_{i}.csv</span></code> layers.
+For real data, feed your own per-scan CSVs to the stitcher: whitespace- or
+comma-delimited FF grain tables with <code class="docutils literal notranslate"><span class="pre">X,Y,Z,GrainRadius,Eul0/1/2,eKen*</span></code>, each
+layer already Z-shifted. See <a class="reference internal" href="../concepts.html"><span class="doc">Concepts &amp; data formats</span></a> for the raw FF format.</p>
+</section>
+<section id="recipe">
+<h2>Recipe<a class="headerlink" href="#recipe" title="Link to this heading"></a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">graintrace.generate_random_crystal</span><span class="w"> </span><span class="kn">import</span> <span class="n">CrystalGenerator</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">graintrace.hedm_stitching_techniques.region_base_stitching</span><span class="w"> </span><span class="kn">import</span> <span class="n">RegionBaseStitching</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">graintrace.scan_stitching_comparison</span><span class="w"> </span><span class="kn">import</span> <span class="n">ScanStitchingComparison</span>
+
+<span class="n">bounding_box</span> <span class="o">=</span> <span class="p">[</span><span class="o">-</span><span class="mi">500</span><span class="p">,</span> <span class="mi">500</span><span class="p">,</span> <span class="o">-</span><span class="mi">500</span><span class="p">,</span> <span class="mi">500</span><span class="p">,</span> <span class="o">-</span><span class="mi">1000</span><span class="p">,</span> <span class="mi">500</span><span class="p">]</span>
+<span class="n">nscan</span><span class="p">,</span> <span class="n">overlap_percentage</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">25</span>
+
+<span class="n">cg</span> <span class="o">=</span> <span class="n">CrystalGenerator</span><span class="p">(</span><span class="n">output_dir</span><span class="o">=</span><span class="s2">"hedm_out"</span><span class="p">,</span> <span class="n">bounding_box</span><span class="o">=</span><span class="n">bounding_box</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+<span class="n">cg</span><span class="o">.</span><span class="n">generate_tessellation</span><span class="p">(</span><span class="n">morpho_args</span><span class="o">=</span><span class="p">{</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"diameq"</span><span class="p">,</span> <span class="s2">"distribution"</span><span class="p">:</span> <span class="s2">"lognormal"</span><span class="p">,</span>
+                                      <span class="s2">"params"</span><span class="p">:</span> <span class="p">(</span><span class="mf">130.0</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">)})</span>
+<span class="n">cg</span><span class="o">.</span><span class="n">hedm_zscan</span><span class="p">(</span><span class="n">tess_file</span><span class="o">=</span><span class="s2">"hedm_out/voronoi.tess"</span><span class="p">,</span> <span class="n">nstep</span><span class="o">=</span><span class="n">nscan</span><span class="p">,</span>
+              <span class="n">overlap_percentage</span><span class="o">=</span><span class="n">overlap_percentage</span><span class="p">,</span>
+              <span class="n">position_noise_std</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">orientation_noise_std</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">radius_noise</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+              <span class="n">noise_seed</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+
+<span class="n">scan_files</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">"hedm_out/hedm_scan/scan_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">.csv"</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nscan</span><span class="p">)]</span>
+<span class="n">stitcher</span> <span class="o">=</span> <span class="n">RegionBaseStitching</span><span class="p">(</span>
+    <span class="n">scan_files</span><span class="o">=</span><span class="n">scan_files</span><span class="p">,</span> <span class="n">output_csv</span><span class="o">=</span><span class="s2">"hedm_out/stitched.csv"</span><span class="p">,</span>
+    <span class="n">position_tolerance</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">orientation_tolerance</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">radius_tolerance</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+    <span class="n">weights</span><span class="o">=</span><span class="p">{</span><span class="s2">"pos"</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">,</span> <span class="s2">"ori"</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span> <span class="s2">"rad"</span><span class="p">:</span> <span class="mi">0</span><span class="p">},</span> <span class="n">min_neighbors</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">stitched</span> <span class="o">=</span> <span class="n">stitcher</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">zlo</span><span class="o">=</span><span class="n">bounding_box</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span> <span class="n">zhi</span><span class="o">=</span><span class="n">bounding_box</span><span class="p">[</span><span class="mi">5</span><span class="p">],</span>
+                        <span class="n">overlap_fraction</span><span class="o">=</span><span class="n">overlap_percentage</span> <span class="o">/</span> <span class="mf">100.0</span><span class="p">)</span>
+
+<span class="n">ScanStitchingComparison</span><span class="p">(</span>
+    <span class="n">output_dir</span><span class="o">=</span><span class="s2">"hedm_out/comparison"</span><span class="p">,</span> <span class="n">true_csv</span><span class="o">=</span><span class="s2">"hedm_out/voronoi.csv"</span><span class="p">,</span>
+    <span class="n">stitch_csv</span><span class="o">=</span><span class="s2">"hedm_out/stitched.csv"</span><span class="p">,</span> <span class="n">position_tolerance</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+    <span class="n">orientation_tolerance</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span> <span class="n">radius_tolerance</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+    <span class="n">weights</span><span class="o">=</span><span class="p">{</span><span class="s2">"pos"</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">,</span> <span class="s2">"ori"</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span> <span class="s2">"rad"</span><span class="p">:</span> <span class="mi">0</span><span class="p">},</span>
+<span class="p">)</span><span class="o">.</span><span class="n">run_comparison</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+<section id="key-parameters">
+<h2>Key parameters<a class="headerlink" href="#key-parameters" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">morpho_args</span></code> — grain morphology passed to
+<code class="xref py py-class docutils literal notranslate"><span class="pre">CrystalGenerator</span></code> (see <a class="reference internal" href="microstructure-generation.html"><span class="doc">Microstructure generation</span></a>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">nscan</span></code>, <code class="docutils literal notranslate"><span class="pre">overlap_percentage</span></code> — number of z-scan layers and their overlap.</p></li>
+<li><p>Noise, each applied only when greater than zero, with <code class="docutils literal notranslate"><span class="pre">noise_seed</span></code> for
+reproducibility: <code class="docutils literal notranslate"><span class="pre">position_noise_std</span></code> (absolute centroid std, length units),
+<code class="docutils literal notranslate"><span class="pre">orientation_noise_std</span></code> (proper misorientation, degrees), <code class="docutils literal notranslate"><span class="pre">radius_noise</span></code>
+(relative fraction). <code class="docutils literal notranslate"><span class="pre">remove_minimum_volume</span></code> / <code class="docutils literal notranslate"><span class="pre">min_vol</span></code> drop small grains.</p></li>
+<li><p>Stitch: <code class="docutils literal notranslate"><span class="pre">position_tolerance</span></code> (length), <code class="docutils literal notranslate"><span class="pre">orientation_tolerance</span></code> (degrees),
+<code class="docutils literal notranslate"><span class="pre">weights</span></code>, <code class="docutils literal notranslate"><span class="pre">min_neighbors</span></code>.</p></li>
+<li><p>Alternative stitchers: <code class="docutils literal notranslate"><span class="pre">NaiveStitching</span></code> and <code class="docutils literal notranslate"><span class="pre">RegionBaseStitching</span></code>.</p></li>
+</ul>
+<p>Region classification (deciding which duplicate grain to trust or merge) uses each
+grain’s z-extent. By default this is the equivalent-sphere estimate <code class="docutils literal notranslate"><span class="pre">z</span> <span class="pre">±</span> <span class="pre">GrainRadius</span></code>.
+For elongated grains, <code class="docutils literal notranslate"><span class="pre">refine_extents=True</span></code> uses a NEPER tessellation to recover
+the true per-cell <code class="docutils literal notranslate"><span class="pre">[zmin,</span> <span class="pre">zmax]</span></code>; this re-tessellates at each fold step and is
+slower. See <a class="reference internal" href="../pitfalls.html"><span class="doc">Common pitfalls</span></a> for the limits of extent recovery from FF observables.</p>
+</section>
+<section id="outputs">
+<h2>Outputs<a class="headerlink" href="#outputs" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">hedm_out/stitched.csv</span></code> — the merged single grain set.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">hedm_out/comparison/</span></code> — stitched-vs-true comparison from
+<code class="xref py py-class docutils literal notranslate"><span class="pre">ScanStitchingComparison</span></code>.</p></li>
+</ul>
+</section>
+<section id="gotchas">
+<h2>Gotchas<a class="headerlink" href="#gotchas" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">orientation_tolerance</span></code> is in degrees here. If a downstream step uses radians,
+convert with <code class="docutils literal notranslate"><span class="pre">np.deg2rad</span></code>; see <a class="reference internal" href="../pitfalls.html"><span class="doc">Common pitfalls</span></a>.</p></li>
+<li><p>Set <code class="docutils literal notranslate"><span class="pre">radius_tolerance=-1</span></code> to disable the radius gate in the match cost.</p></li>
+</ul>
+</section>
+<section id="full-example">
+<h2>Full example<a class="headerlink" href="#full-example" title="Link to this heading"></a></h2>
+<div class="literal-block-wrapper docutils container" id="id1">
+<div class="code-block-caption"><span class="caption-text">examples/demonstrate_hedm_study.py</span><a class="headerlink" href="#id1" title="Link to this code"></a></div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Copyright 2026, UChicago Argonne, LLC</span>
+<span class="c1"># All Rights Reserved</span>
+<span class="c1"># Software Name: graintrace</span>
+<span class="c1"># By: Argonne National Laboratory</span>
+<span class="c1"># OPEN SOURCE LICENSE (MIT)</span>
+<span class="c1">#</span>
+<span class="c1"># Permission is hereby granted, free of charge, to any person obtaining a copy</span>
+<span class="c1"># of this software and associated documentation files (the "Software"), to deal</span>
+<span class="c1"># in the Software without restriction, including without limitation the rights</span>
+<span class="c1"># to use, copy, modify, merge, publish, distribute, sublicense, and/or sell</span>
+<span class="c1"># copies of the Software, and to permit persons to whom the Software is</span>
+<span class="c1"># furnished to do so, subject to the following conditions:</span>
+<span class="c1">#</span>
+<span class="c1"># The above copyright notice and this permission notice shall be included in</span>
+<span class="c1"># all copies or substantial portions of the Software.</span>
+<span class="c1">#</span>
+<span class="c1"># THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR</span>
+<span class="c1"># IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,</span>
+<span class="c1"># FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE</span>
+<span class="c1"># AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER</span>
+<span class="c1"># LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,</span>
+<span class="c1"># OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN</span>
+<span class="c1"># THE SOFTWARE.</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">graintrace.generate_random_crystal</span><span class="w"> </span><span class="kn">import</span> <span class="n">CrystalGenerator</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">graintrace.scan_stitching_comparison</span><span class="w"> </span><span class="kn">import</span> <span class="n">ScanStitchingComparison</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">graintrace.hedm_stitching_techniques.naive_stitching</span><span class="w"> </span><span class="kn">import</span> <span class="n">NaiveStitching</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">graintrace.hedm_stitching_techniques.region_base_stitching</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">RegionBaseStitching</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+
+<span class="n">fsize</span> <span class="o">=</span> <span class="mi">14</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">rcParams</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+    <span class="p">{</span>
+        <span class="s2">"font.size"</span><span class="p">:</span> <span class="n">fsize</span><span class="p">,</span>
+        <span class="s2">"axes.labelsize"</span><span class="p">:</span> <span class="n">fsize</span><span class="p">,</span>
+        <span class="s2">"axes.titlesize"</span><span class="p">:</span> <span class="n">fsize</span><span class="p">,</span>
+        <span class="s2">"xtick.labelsize"</span><span class="p">:</span> <span class="n">fsize</span><span class="p">,</span>
+        <span class="s2">"ytick.labelsize"</span><span class="p">:</span> <span class="n">fsize</span><span class="p">,</span>
+        <span class="s2">"legend.fontsize"</span><span class="p">:</span> <span class="n">fsize</span><span class="p">,</span>
+    <span class="p">}</span>
+<span class="p">)</span>
+
+<span class="c1"># INPUT -------------------------------------------------------</span>
+<span class="n">output_dir</span> <span class="o">=</span> <span class="s2">"hedm_demonstrate"</span>
+
+<span class="c1"># True crystal structure parameters</span>
+<span class="n">bounding_box</span> <span class="o">=</span> <span class="p">[</span><span class="o">-</span><span class="mi">500</span><span class="p">,</span> <span class="mi">500</span><span class="p">,</span> <span class="o">-</span><span class="mi">500</span><span class="p">,</span> <span class="mi">500</span><span class="p">,</span> <span class="o">-</span><span class="mi">1000</span><span class="p">,</span> <span class="mi">500</span><span class="p">]</span>
+<span class="n">crystal_morpho_args</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"type"</span><span class="p">:</span> <span class="s2">"diameq"</span><span class="p">,</span>
+    <span class="s2">"distribution"</span><span class="p">:</span> <span class="s2">"lognormal"</span><span class="p">,</span>
+    <span class="s2">"params"</span><span class="p">:</span> <span class="p">(</span><span class="mf">130.0</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">),</span>
+<span class="p">}</span>
+
+<span class="c1"># HEDM scan parameters</span>
+<span class="n">nscan</span> <span class="o">=</span> <span class="mi">4</span>
+<span class="n">overlap_percentage</span> <span class="o">=</span> <span class="mi">25</span>  <span class="c1"># percentage units (0-100)</span>
+
+<span class="c1"># Mimic experiment noise conditions (each applied only when &gt; 0; all-zero = noiseless)</span>
+<span class="n">remove_minimum_volume</span> <span class="o">=</span> <span class="kc">False</span>
+
+<span class="c1"># centroid uncertainty: absolute Gaussian std in physical length units (micrometers),</span>
+<span class="c1"># additive and origin-independent (comparable to position_tolerance below)</span>
+<span class="n">position_noise_std</span> <span class="o">=</span> <span class="mf">0.0</span>
+<span class="c1"># orientation uncertainty: proper random misorientation, Gaussian std in degrees</span>
+<span class="n">orientation_noise_std</span> <span class="o">=</span> <span class="mf">0.0</span>
+<span class="c1"># grain-radius uncertainty: relative (fractional) Gaussian std, e.g. 0.05 = 5%</span>
+<span class="n">radius_noise</span> <span class="o">=</span> <span class="mf">0.0</span>
+<span class="c1"># seed for reproducible noise (None -&gt; nondeterministic)</span>
+<span class="n">noise_seed</span> <span class="o">=</span> <span class="mi">42</span>
+<span class="c1"># grain volume minimum threshold</span>
+<span class="n">min_vol</span> <span class="o">=</span> <span class="mf">0.0</span>
+
+<span class="c1"># Acceptable tolerance for comparison and stitching</span>
+<span class="n">position_tolerance</span> <span class="o">=</span> <span class="mi">20</span>  <span class="c1"># length units</span>
+<span class="n">orientation_tolerance</span> <span class="o">=</span> <span class="mi">1</span>  <span class="c1"># degrees</span>
+<span class="n">radius_tolerance</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>  <span class="c1"># percentage units; set to -1 to disable radius gating</span>
+
+<span class="n">compare_position_tolerance</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="mi">20</span>  <span class="c1"># adjusted such that max_pos_error remains the same as this value increases</span>
+<span class="p">)</span>
+<span class="n">compare_orientation_tolerance</span> <span class="o">=</span> <span class="mf">5.0</span>
+
+<span class="c1"># uncomment to see available morphology options:</span>
+<span class="c1"># CrystalGenerator.show_morpho_options(exit_after=True)</span>
+
+<span class="n">seed_number</span> <span class="o">=</span> <span class="mi">42</span>  <span class="c1"># for reproducibility</span>
+<span class="n">test</span> <span class="o">=</span> <span class="kc">False</span>
+
+<span class="c1"># MAIN ----------------------------------------------------------</span>
+<span class="n">output_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">output_dir</span><span class="p">)</span>
+
+<span class="c1"># Generate true crystal structure</span>
+<span class="n">cg</span> <span class="o">=</span> <span class="n">CrystalGenerator</span><span class="p">(</span>
+    <span class="n">output_dir</span><span class="o">=</span><span class="n">output_dir</span><span class="p">,</span>
+    <span class="n">bounding_box</span><span class="o">=</span><span class="n">bounding_box</span><span class="p">,</span>
+    <span class="n">seed</span><span class="o">=</span><span class="n">seed_number</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">cg</span><span class="o">.</span><span class="n">generate_tessellation</span><span class="p">(</span>
+    <span class="n">morpho_args</span><span class="o">=</span><span class="n">crystal_morpho_args</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Simulate HEDM scans</span>
+<span class="n">cg</span><span class="o">.</span><span class="n">hedm_zscan</span><span class="p">(</span>
+    <span class="n">tess_file</span><span class="o">=</span><span class="n">output_dir</span> <span class="o">+</span> <span class="s2">"/voronoi.tess"</span><span class="p">,</span>
+    <span class="n">nstep</span><span class="o">=</span><span class="n">nscan</span><span class="p">,</span>
+    <span class="n">overlap_percentage</span><span class="o">=</span><span class="n">overlap_percentage</span><span class="p">,</span>
+    <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="c1"># Noise controls sections</span>
+    <span class="n">position_noise_std</span><span class="o">=</span><span class="n">position_noise_std</span><span class="p">,</span>
+    <span class="n">orientation_noise_std</span><span class="o">=</span><span class="n">orientation_noise_std</span><span class="p">,</span>
+    <span class="n">radius_noise</span><span class="o">=</span><span class="n">radius_noise</span><span class="p">,</span>
+    <span class="n">noise_seed</span><span class="o">=</span><span class="n">noise_seed</span><span class="p">,</span>
+    <span class="n">remove_minimum_volume</span><span class="o">=</span><span class="n">remove_minimum_volume</span><span class="p">,</span>
+    <span class="n">min_vol</span><span class="o">=</span><span class="n">min_vol</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Perform stitching</span>
+<span class="n">scan_files</span> <span class="o">=</span> <span class="p">[</span><span class="n">output_dir</span> <span class="o">+</span> <span class="sa">f</span><span class="s2">"/hedm_scan/scan_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">.csv"</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nscan</span><span class="p">)]</span>
+<span class="n">stitch_output_csv</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">+</span> <span class="s2">"/huy_stitched.csv"</span>
+
+<span class="c1"># TODO: change stitching technique here (region-based shown below)</span>
+<span class="n">weights</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"pos"</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">,</span>
+    <span class="s2">"ori"</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>
+    <span class="s2">"rad"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+<span class="p">}</span>
+<span class="n">min_neighbors</span> <span class="o">=</span> <span class="mi">5</span>
+
+<span class="n">zlo</span> <span class="o">=</span> <span class="n">bounding_box</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span>
+<span class="n">zhi</span> <span class="o">=</span> <span class="n">bounding_box</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span>
+<span class="n">overlap_fraction</span> <span class="o">=</span> <span class="n">overlap_percentage</span> <span class="o">/</span> <span class="mf">100.0</span>
+
+<span class="n">stitcher</span> <span class="o">=</span> <span class="n">RegionBaseStitching</span><span class="p">(</span>
+    <span class="n">scan_files</span><span class="o">=</span><span class="n">scan_files</span><span class="p">,</span>
+    <span class="n">output_csv</span><span class="o">=</span><span class="n">stitch_output_csv</span><span class="p">,</span>
+    <span class="n">position_tolerance</span><span class="o">=</span><span class="n">position_tolerance</span><span class="p">,</span>
+    <span class="n">orientation_tolerance</span><span class="o">=</span><span class="n">orientation_tolerance</span><span class="p">,</span>
+    <span class="n">radius_tolerance</span><span class="o">=</span><span class="n">radius_tolerance</span><span class="p">,</span>
+    <span class="n">weights</span><span class="o">=</span><span class="n">weights</span><span class="p">,</span>
+    <span class="n">min_neighbors</span><span class="o">=</span><span class="n">min_neighbors</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">stitched</span> <span class="o">=</span> <span class="n">stitcher</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">zlo</span><span class="o">=</span><span class="n">zlo</span><span class="p">,</span> <span class="n">zhi</span><span class="o">=</span><span class="n">zhi</span><span class="p">,</span> <span class="n">overlap_fraction</span><span class="o">=</span><span class="n">overlap_fraction</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">Stitching complete."</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Stitched df shape: </span><span class="si">{</span><span class="n">stitched</span><span class="o">.</span><span class="n">df</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Output written to: </span><span class="si">{</span><span class="n">stitch_output_csv</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+
+<span class="c1"># Run comparison between true and stitched structures</span>
+<span class="n">weights</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"pos"</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">,</span>
+    <span class="s2">"ori"</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>
+    <span class="s2">"rad"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="n">compare</span> <span class="o">=</span> <span class="n">ScanStitchingComparison</span><span class="p">(</span>
+    <span class="n">output_dir</span><span class="o">=</span><span class="n">output_dir</span> <span class="o">+</span> <span class="s2">"/comparison"</span><span class="p">,</span>
+    <span class="n">true_csv</span><span class="o">=</span><span class="n">output_dir</span> <span class="o">+</span> <span class="s2">"/voronoi.csv"</span><span class="p">,</span>
+    <span class="n">stitch_csv</span><span class="o">=</span><span class="n">stitch_output_csv</span><span class="p">,</span>
+    <span class="n">position_tolerance</span><span class="o">=</span><span class="n">compare_position_tolerance</span><span class="p">,</span>
+    <span class="n">orientation_tolerance</span><span class="o">=</span><span class="n">compare_orientation_tolerance</span><span class="p">,</span>
+    <span class="n">radius_tolerance</span><span class="o">=</span><span class="n">radius_tolerance</span><span class="p">,</span>
+    <span class="n">weights</span><span class="o">=</span><span class="n">weights</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">compare</span><span class="o">.</span><span class="n">run_comparison</span><span class="p">()</span>
+<span class="n">compare</span><span class="o">.</span><span class="n">_get_unmatched_grains</span><span class="p">(</span>
+    <span class="n">bounding_box</span><span class="o">=</span><span class="n">bounding_box</span><span class="p">,</span>
+    <span class="n">pos_tol</span><span class="o">=</span><span class="n">compare_position_tolerance</span><span class="p">,</span>
+    <span class="n">ori_tol</span><span class="o">=</span><span class="n">compare_orientation_tolerance</span><span class="p">,</span>
+    <span class="n">plot</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Testing stuff</span>
+<span class="k">if</span> <span class="n">test</span><span class="p">:</span>
+    <span class="n">CrystalGenerator</span><span class="o">.</span><span class="n">show_morpho_options</span><span class="p">()</span>
+
+    <span class="n">tests</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">{</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"gg"</span><span class="p">,</span> <span class="s2">"mean"</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">},</span>
+        <span class="p">{</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"lamellar"</span><span class="p">,</span> <span class="s2">"n"</span><span class="p">:</span> <span class="mi">8</span><span class="p">,</span> <span class="s2">"v"</span><span class="p">:</span> <span class="s2">"z"</span><span class="p">},</span>
+        <span class="p">{</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"columnar"</span><span class="p">,</span> <span class="s2">"n"</span><span class="p">:</span> <span class="mi">8</span><span class="p">,</span> <span class="s2">"v"</span><span class="p">:</span> <span class="s2">"x"</span><span class="p">},</span>
+        <span class="p">{</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"bamboo"</span><span class="p">,</span> <span class="s2">"n"</span><span class="p">:</span> <span class="mi">8</span><span class="p">,</span> <span class="s2">"v"</span><span class="p">:</span> <span class="s2">"y"</span><span class="p">},</span>
+        <span class="p">{</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"diameq"</span><span class="p">,</span> <span class="s2">"distribution"</span><span class="p">:</span> <span class="s2">"lognormal"</span><span class="p">,</span> <span class="s2">"params"</span><span class="p">:</span> <span class="p">(</span><span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.03</span><span class="p">)},</span>
+        <span class="p">{</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"size"</span><span class="p">,</span> <span class="s2">"distribution"</span><span class="p">:</span> <span class="s2">"weibull"</span><span class="p">,</span> <span class="s2">"params"</span><span class="p">:</span> <span class="p">(</span><span class="mf">2.5</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)},</span>
+    <span class="p">]</span>
+
+    <span class="n">cg</span> <span class="o">=</span> <span class="n">CrystalGenerator</span><span class="p">(</span>
+        <span class="n">output_dir</span><span class="o">=</span><span class="n">output_dir</span><span class="p">,</span>
+        <span class="n">bounding_box</span><span class="o">=</span><span class="n">bounding_box</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">tests</span><span class="p">:</span>
+        <span class="n">morpho_str</span> <span class="o">=</span> <span class="n">cg</span><span class="o">.</span><span class="n">_build_morpho</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Input: </span><span class="si">{</span><span class="n">m</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Corresponding morphology string: </span><span class="si">{</span><span class="n">morpho_str</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+
+    <span class="n">stitch</span> <span class="o">=</span> <span class="n">NaiveStitching</span><span class="p">(</span>
+        <span class="n">scan_files</span><span class="o">=</span><span class="p">[</span>
+            <span class="n">output_dir</span> <span class="o">+</span> <span class="s2">"/hedm_scan/scan_0.csv"</span><span class="p">,</span>
+            <span class="n">output_dir</span> <span class="o">+</span> <span class="s2">"/hedm_scan/scan_1.csv"</span><span class="p">,</span>
+            <span class="n">output_dir</span> <span class="o">+</span> <span class="s2">"/hedm_scan/scan_2.csv"</span><span class="p">,</span>
+        <span class="p">],</span>
+        <span class="n">output_csv</span><span class="o">=</span><span class="n">output_dir</span> <span class="o">+</span> <span class="s2">"/naive_stitched.csv"</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">stitch</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+
+    <span class="n">compare</span> <span class="o">=</span> <span class="n">ScanStitchingComparison</span><span class="p">(</span>
+        <span class="n">output_dir</span><span class="o">=</span><span class="n">output_dir</span> <span class="o">+</span> <span class="s2">"/comparison"</span><span class="p">,</span>
+        <span class="n">true_csv</span><span class="o">=</span><span class="n">output_dir</span> <span class="o">+</span> <span class="s2">"/voronoi.csv"</span><span class="p">,</span>
+        <span class="n">stitch_csv</span><span class="o">=</span><span class="n">output_dir</span> <span class="o">+</span> <span class="s2">"/voronoi.csv"</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">compare</span><span class="o">.</span><span class="n">run_comparison</span><span class="p">()</span>
+    <span class="n">compare</span><span class="o">.</span><span class="n">_get_unmatched_grains</span><span class="p">(</span>
+        <span class="n">bounding_box</span><span class="o">=</span><span class="n">bounding_box</span><span class="p">,</span>
+        <span class="n">pos_tol</span><span class="o">=</span><span class="n">position_tolerance</span><span class="p">,</span>
+        <span class="n">ori_tol</span><span class="o">=</span><span class="n">orientation_tolerance</span><span class="p">,</span>
+        <span class="n">rad_tol</span><span class="o">=</span><span class="n">radius_tolerance</span><span class="p">,</span>
+        <span class="n">plot</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="tutorials.html" class="btn btn-neutral float-left" title="Tutorials" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="microstructure-generation.html" class="btn btn-neutral float-right" title="Microstructure generation" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Argonne National Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

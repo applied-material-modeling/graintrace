@@ -1,0 +1,244 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>graintrace.neper_env &mdash; graintrace 0.1.2</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=92734c54"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=96c007af"></script>
+      <script src="../_static/design-tabs.js?v=f930bc37"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="graintrace.scan_stitching_comparison" href="scan_stitching_comparison.html" />
+    <link rel="prev" title="graintrace.synthetic_hedm_generator" href="synthetic_hedm_generator.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            graintrace
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts.html">Concepts &amp; data formats</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../configuration.html">Configuration reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../mcp.html">MCP server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../benchmarks.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pitfalls.html">Common pitfalls</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Tutorials &amp; examples</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/tutorials.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="api.html">API reference</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="construct_voronoi_mesh.html">graintrace.construct_voronoi_mesh</a></li>
+<li class="toctree-l2"><a class="reference internal" href="construct_nf_mesh.html">graintrace.construct_nf_mesh</a></li>
+<li class="toctree-l2"><a class="reference internal" href="construct_voxel_mesh.html">graintrace.construct_voxel_mesh</a></li>
+<li class="toctree-l2"><a class="reference internal" href="nf_grid_conversion.html">graintrace.nf_grid_conversion</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generate_random_crystal.html">graintrace.generate_random_crystal</a></li>
+<li class="toctree-l2"><a class="reference internal" href="synthetic_hedm_generator.html">graintrace.synthetic_hedm_generator</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">graintrace.neper_env</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#graintrace.neper_env.find_neper"><code class="docutils literal notranslate"><span class="pre">find_neper()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#graintrace.neper_env.build_env"><code class="docutils literal notranslate"><span class="pre">build_env()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#graintrace.neper_env.resolve_neper_env"><code class="docutils literal notranslate"><span class="pre">resolve_neper_env()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="scan_stitching_comparison.html">graintrace.scan_stitching_comparison</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hedm_stitching_techniques.html">graintrace.hedm_stitching_techniques</a></li>
+<li class="toctree-l2"><a class="reference internal" href="run_cpfe_simulation.html">graintrace.run_cpfe_simulation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="grid_resampling.html">graintrace.grid_resampling</a></li>
+<li class="toctree-l2"><a class="reference internal" href="material_calibration.html">graintrace.material_calibration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="taylor.html">graintrace.taylor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="base_material_approximation.html">graintrace.base_material_approximation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="experiment_rotation_helper.html">graintrace.experiment_rotation_helper</a></li>
+<li class="toctree-l2"><a class="reference internal" href="orientation_helper.html">graintrace.orientation_helper</a></li>
+<li class="toctree-l2"><a class="reference internal" href="simulation_postprocessing.html">graintrace.simulation_postprocessing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="experiment_postprocessing.html">graintrace.experiment_postprocessing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="plot_postprocessing.html">graintrace.plot_postprocessing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ipf_postprocess.html">graintrace.ipf_postprocess</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rare_cluster_indicator.html">graintrace.rare_cluster_indicator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="graph_spatial_cluster.html">graintrace.graph_spatial_cluster</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cluster_indicator.html">graintrace.cluster_indicator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="similarity_metric_library.html">graintrace.similarity_metric_library</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rare_criteria_selection_library.html">graintrace.rare_criteria_selection_library</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rei_comparison.html">graintrace.rei_comparison</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user_data_class.html">graintrace.user_data_class</a></li>
+<li class="toctree-l2"><a class="reference internal" href="grain_graph_matching.html">graintrace.grain_graph_matching</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tess_to_gnn.html">graintrace.tess_to_gnn</a></li>
+<li class="toctree-l2"><a class="reference internal" href="nf.html">graintrace.nf</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../development.html">Building &amp; testing the docs</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">graintrace</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="api.html">API reference</a></li>
+      <li class="breadcrumb-item active">graintrace.neper_env</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api/neper_env.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-graintrace.neper_env">
+<span id="graintrace-neper-env"></span><h1>graintrace.neper_env<a class="headerlink" href="#module-graintrace.neper_env" title="Link to this heading"></a></h1>
+<p>Locate a user-provided NEPER binary and build a subprocess environment for it.</p>
+<p>graintrace drives NEPER as an external tool; like CUBIT/SCULPT it is <em>not</em> a pip
+package and must be installed by the user. Install NEPER once (see
+<a class="reference external" href="https://neper.info/doc/introduction.html#installing-neper">https://neper.info/doc/introduction.html#installing-neper</a>) and graintrace will
+find it, in this order:</p>
+<blockquote>
+<div><ol class="arabic simple">
+<li><p>an explicit <code class="docutils literal notranslate"><span class="pre">neper_path</span></code> / <code class="docutils literal notranslate"><span class="pre">env=</span></code> passed to the builder,</p></li>
+<li><p>the <code class="docutils literal notranslate"><span class="pre">NEPER</span></code> environment variable (absolute path to the <code class="docutils literal notranslate"><span class="pre">neper</span></code> binary),</p></li>
+<li><p>the <code class="docutils literal notranslate"><span class="pre">neper</span></code> key of a <code class="docutils literal notranslate"><span class="pre">graintrace_tools.json</span></code> (see <code class="docutils literal notranslate"><span class="pre">graintrace.mcp.tool_paths</span></code>),</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">neper</span></code> on <code class="docutils literal notranslate"><span class="pre">PATH</span></code> (<code class="docutils literal notranslate"><span class="pre">shutil.which</span></code>).</p></li>
+</ol>
+</div></blockquote>
+<p>gmsh, by contrast, <em>is</em> a pip package (declared in <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code> and
+installed with graintrace), so it needs no discovery here.</p>
+<p>For the legacy convenience of a from-source build on Linux, pass
+<code class="docutils literal notranslate"><span class="pre">auto_install=True</span></code> (opt-in): it builds GSL, OpenBLAS and NEPER into
+<code class="docutils literal notranslate"><span class="pre">~/.local</span></code> exactly as older graintrace did. The default path never downloads or
+compiles anything.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="graintrace.neper_env.find_neper">
+<span class="sig-prename descclassname"><span class="pre">graintrace.neper_env.</span></span><span class="sig-name descname"><span class="pre">find_neper</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">neper_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/graintrace/neper_env.html#find_neper"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#graintrace.neper_env.find_neper" title="Link to this definition"></a></dt>
+<dd><p>Resolve the <code class="docutils literal notranslate"><span class="pre">neper</span></code> binary path, or <code class="docutils literal notranslate"><span class="pre">None</span></code> if it cannot be found.</p>
+<p>Order: explicit <code class="docutils literal notranslate"><span class="pre">neper_path</span></code> -&gt; <code class="docutils literal notranslate"><span class="pre">NEPER</span></code> env var -&gt; tools.json <code class="docutils literal notranslate"><span class="pre">neper</span></code>
+key -&gt; <code class="docutils literal notranslate"><span class="pre">shutil.which(&quot;neper&quot;)</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>neper_path</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>)</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)">str</a> | None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="graintrace.neper_env.build_env">
+<span class="sig-prename descclassname"><span class="pre">graintrace.neper_env.</span></span><span class="sig-name descname"><span class="pre">build_env</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">neper_bin</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/graintrace/neper_env.html#build_env"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#graintrace.neper_env.build_env" title="Link to this definition"></a></dt>
+<dd><p>Copy <code class="docutils literal notranslate"><span class="pre">os.environ</span></code> and, given a <code class="docutils literal notranslate"><span class="pre">neper_bin</span></code>, put its dir/libs on the path.</p>
+<p>Prepends the binary’s directory to <code class="docutils literal notranslate"><span class="pre">PATH</span></code> and the sibling <code class="docutils literal notranslate"><span class="pre">lib</span></code>/<code class="docutils literal notranslate"><span class="pre">lib64</span></code>
+of its install prefix to <code class="docutils literal notranslate"><span class="pre">LD_LIBRARY_PATH</span></code> so a self-built NEPER (e.g. under
+<code class="docutils literal notranslate"><span class="pre">~/.local/bin</span></code>) finds its GSL/OpenBLAS shared libraries.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>neper_bin</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>)</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="graintrace.neper_env.resolve_neper_env">
+<span class="sig-prename descclassname"><span class="pre">graintrace.neper_env.</span></span><span class="sig-name descname"><span class="pre">resolve_neper_env</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">neper_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">auto_install</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/graintrace/neper_env.html#resolve_neper_env"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#graintrace.neper_env.resolve_neper_env" title="Link to this definition"></a></dt>
+<dd><p>Return <code class="docutils literal notranslate"><span class="pre">(neper_bin,</span> <span class="pre">env)</span></code> for driving NEPER, or raise a clear error.</p>
+<p>Looks NEPER up via <a class="reference internal" href="#graintrace.neper_env.find_neper" title="graintrace.neper_env.find_neper"><code class="xref py py-func docutils literal notranslate"><span class="pre">find_neper()</span></code></a>. If not found and <code class="docutils literal notranslate"><span class="pre">auto_install</span></code> is
+True, builds it from source under <code class="docutils literal notranslate"><span class="pre">~/.local</span></code> (Linux only); otherwise raises
+<code class="docutils literal notranslate"><span class="pre">RuntimeError</span></code> with install guidance.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>neper_path</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>)</p></li>
+<li><p><strong>auto_install</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.14)"><em>Tuple</em></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)">str</a>, <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="synthetic_hedm_generator.html" class="btn btn-neutral float-left" title="graintrace.synthetic_hedm_generator" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="scan_stitching_comparison.html" class="btn btn-neutral float-right" title="graintrace.scan_stitching_comparison" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Argonne National Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

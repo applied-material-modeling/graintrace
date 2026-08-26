@@ -1,0 +1,730 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>graintrace.rei_comparison &mdash; graintrace 0.1.2</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="../../_static/sphinx-design.min.css?v=95c83b7e" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=92734c54"></script>
+      <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../../_static/copybutton.js?v=96c007af"></script>
+      <script src="../../_static/design-tabs.js?v=f930bc37"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            graintrace
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../concepts.html">Concepts &amp; data formats</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../configuration.html">Configuration reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../mcp.html">MCP server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../benchmarks.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../pitfalls.html">Common pitfalls</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Tutorials &amp; examples</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/tutorials.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api/api.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../development.html">Building &amp; testing the docs</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">graintrace</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">graintrace.rei_comparison</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for graintrace.rei_comparison</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright 2026, UChicago Argonne, LLC</span>
+<span class="c1"># All Rights Reserved</span>
+<span class="c1"># Software Name: graintrace</span>
+<span class="c1"># By: Argonne National Laboratory</span>
+<span class="c1"># OPEN SOURCE LICENSE (MIT)</span>
+<span class="c1">#</span>
+<span class="c1"># Permission is hereby granted, free of charge, to any person obtaining a copy</span>
+<span class="c1"># of this software and associated documentation files (the "Software"), to deal</span>
+<span class="c1"># in the Software without restriction, including without limitation the rights</span>
+<span class="c1"># to use, copy, modify, merge, publish, distribute, sublicense, and/or sell</span>
+<span class="c1"># copies of the Software, and to permit persons to whom the Software is</span>
+<span class="c1"># furnished to do so, subject to the following conditions:</span>
+<span class="c1">#</span>
+<span class="c1"># The above copyright notice and this permission notice shall be included in</span>
+<span class="c1"># all copies or substantial portions of the Software.</span>
+<span class="c1">#</span>
+<span class="c1"># THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR</span>
+<span class="c1"># IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,</span>
+<span class="c1"># FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE</span>
+<span class="c1"># AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER</span>
+<span class="c1"># LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,</span>
+<span class="c1"># OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN</span>
+<span class="c1"># THE SOFTWARE.</span>
+
+<span class="sd">"""Compare two rare-event-identification point clouds for spatial overlap."""</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scipy.optimize</span><span class="w"> </span><span class="kn">import</span> <span class="n">linear_sum_assignment</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.rare_cluster_indicator</span><span class="w"> </span><span class="kn">import</span> <span class="n">IdentifyRareClusters</span>
+
+<span class="n">SpacingLike</span> <span class="o">=</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]]]</span>
+
+
+<div class="viewcode-block" id="REIComparison">
+<a class="viewcode-back" href="../../api/rei_comparison.html#graintrace.rei_comparison.REIComparison">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">REIComparison</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Compare two rare-event-identification (REI) point clouds.</span>
+
+<span class="sd">    Each input CSV is a voxelized point cloud of a rare region on a regular grid</span>
+<span class="sd">    (columns ``coord_cols`` plus an optional integer ``cluster_col``). The two</span>
+<span class="sd">    grids may have *different* spacings but are assumed to share an origin (no</span>
+<span class="sd">    rotation / translation is applied here).</span>
+
+<span class="sd">    A rare point is treated as the center of its voxel cube, so each REI is a</span>
+<span class="sd">    union of axis-aligned cubes and the overlap is a boolean volume</span>
+<span class="sd">    intersection. Both regions are resampled onto a common finer lattice</span>
+<span class="sd">    (``s_ref = min(spacing_1, spacing_2)`` per axis); membership is then an O(1)</span>
+<span class="sd">    integer-index hash lookup. Carrying ``cluster_col`` through the same pass</span>
+<span class="sd">    yields a per-cluster overlap matrix used for a 1-to-1 (Hungarian) cluster</span>
+<span class="sd">    correspondence.</span>
+
+<span class="sd">    Outputs written to ``output_dir``:</span>
+<span class="sd">      * ``overlap_metrics.json``: IoU/Dice/containment + counts/volumes</span>
+<span class="sd">      * ``overlap_cloud.vtk``: classified point cloud</span>
+<span class="sd">        (membership 1=only-1, 2=only-2, 3=both)</span>
+<span class="sd">      * ``cluster_match.csv``: 1-to-1 cluster pairing (if ``cluster_col``)</span>
+<span class="sd">    """</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">rei_csv_1</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">rei_csv_2</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">output_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">spacing_1</span><span class="p">:</span> <span class="n">SpacingLike</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">spacing_2</span><span class="p">:</span> <span class="n">SpacingLike</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">coord_cols</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"x"</span><span class="p">,</span> <span class="s2">"y"</span><span class="p">,</span> <span class="s2">"z"</span><span class="p">),</span>
+        <span class="n">cluster_col</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"rare_cluster_id"</span><span class="p">,</span>
+        <span class="n">origin</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">s_ref</span><span class="p">:</span> <span class="n">SpacingLike</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">supersample</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="n">split_merge_fraction</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.2</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">rei_csv_1</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"REI CSV 1 not found: </span><span class="si">{</span><span class="n">rei_csv_1</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">rei_csv_2</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"REI CSV 2 not found: </span><span class="si">{</span><span class="n">rei_csv_2</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">coord_cols</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"coord_cols must be a 3-tuple (x, y, z column names)."</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">int</span><span class="p">(</span><span class="n">supersample</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"supersample must be a positive integer (&gt;= 1)."</span><span class="p">)</span>
+
+        <span class="n">required</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">coord_cols</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">cluster_col</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">required</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">cluster_col</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">path</span><span class="p">,</span> <span class="n">label</span> <span class="ow">in</span> <span class="p">[(</span><span class="n">rei_csv_1</span><span class="p">,</span> <span class="s2">"rei_csv_1"</span><span class="p">),</span> <span class="p">(</span><span class="n">rei_csv_2</span><span class="p">,</span> <span class="s2">"rei_csv_2"</span><span class="p">)]:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">cols</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">nrows</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>  <span class="c1"># pragma: no cover - passthrough of pandas error</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Failed to read </span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
+            <span class="n">missing</span> <span class="o">=</span> <span class="n">required</span> <span class="o">-</span> <span class="n">cols</span>
+            <span class="k">if</span> <span class="n">missing</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2"> missing columns: </span><span class="si">{</span><span class="s1">', '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">missing</span><span class="p">))</span><span class="si">}</span><span class="s2">"</span>
+                <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">rei_csv_1</span> <span class="o">=</span> <span class="n">rei_csv_1</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rei_csv_2</span> <span class="o">=</span> <span class="n">rei_csv_2</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">output_dir</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">coord_cols</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">coord_cols</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cluster_col</span> <span class="o">=</span> <span class="n">cluster_col</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">supersample</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">supersample</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">split_merge_fraction</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">split_merge_fraction</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_spacing_1_in</span> <span class="o">=</span> <span class="n">spacing_1</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_spacing_2_in</span> <span class="o">=</span> <span class="n">spacing_2</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_s_ref_in</span> <span class="o">=</span> <span class="n">s_ref</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_origin_in</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">origin</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">origin</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="c1"># populated by run_comparison()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">df_1</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">df_2</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">spacing_1</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">spacing_2</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">s_ref</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">origin</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">metrics</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cluster_match</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># ------------------------------------------------------------------ public</span>
+
+<div class="viewcode-block" id="REIComparison.run_comparison">
+<a class="viewcode-back" href="../../api/rei_comparison.html#graintrace.rei_comparison.REIComparison.run_comparison">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">run_comparison</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Run the full comparison, write outputs, and return the metrics dict."""</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_load_data</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_geometry</span><span class="p">()</span>
+
+        <span class="n">coords_1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">df_1</span><span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">coord_cols</span><span class="p">)]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+        <span class="n">coords_2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">df_2</span><span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">coord_cols</span><span class="p">)]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+        <span class="n">cid_1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cluster_ids</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">df_1</span><span class="p">,</span> <span class="n">coords_1</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">cid_2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cluster_ids</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">df_2</span><span class="p">,</span> <span class="n">coords_2</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+        <span class="c1"># occupied cells in each grid's own integer index space (nearest center)</span>
+        <span class="n">cells_1</span><span class="p">,</span> <span class="n">cid_cells_1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_occupied_cells</span><span class="p">(</span>
+            <span class="n">coords_1</span><span class="p">,</span> <span class="n">cid_1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">origin</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">spacing_1</span>
+        <span class="p">)</span>
+        <span class="n">cells_2</span><span class="p">,</span> <span class="n">cid_cells_2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_occupied_cells</span><span class="p">(</span>
+            <span class="n">coords_2</span><span class="p">,</span> <span class="n">cid_2</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">origin</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">spacing_2</span>
+        <span class="p">)</span>
+
+        <span class="c1"># rasterize both regions onto the common fine lattice</span>
+        <span class="n">fine_1</span><span class="p">,</span> <span class="n">fcid_1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rasterize_to_fine</span><span class="p">(</span>
+            <span class="n">cells_1</span><span class="p">,</span> <span class="n">cid_cells_1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">spacing_1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">s_ref</span>
+        <span class="p">)</span>
+        <span class="n">fine_2</span><span class="p">,</span> <span class="n">fcid_2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rasterize_to_fine</span><span class="p">(</span>
+            <span class="n">cells_2</span><span class="p">,</span> <span class="n">cid_cells_2</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">spacing_2</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">s_ref</span>
+        <span class="p">)</span>
+
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compare_fine</span><span class="p">(</span><span class="n">fine_1</span><span class="p">,</span> <span class="n">fcid_1</span><span class="p">,</span> <span class="n">fine_2</span><span class="p">,</span> <span class="n">fcid_2</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">result</span></div>
+
+
+    <span class="c1"># ------------------------------------------------------------------ loading</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_load_data</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">df_1</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">rei_csv_1</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">df_2</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">rei_csv_2</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"Loaded </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">df_1</span><span class="p">)</span><span class="si">}</span><span class="s2"> points (REI 1) and "</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">df_2</span><span class="p">)</span><span class="si">}</span><span class="s2"> points (REI 2)."</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_cluster_ids</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cluster_col</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="n">pd</span><span class="o">.</span><span class="n">to_numeric</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">cluster_col</span><span class="p">],</span> <span class="n">errors</span><span class="o">=</span><span class="s2">"coerce"</span><span class="p">)</span>
+            <span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+            <span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_geometry</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">coords_1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">df_1</span><span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">coord_cols</span><span class="p">)]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+        <span class="n">coords_2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">df_2</span><span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">coord_cols</span><span class="p">)]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">spacing_1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_spacing</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_spacing_1_in</span><span class="p">,</span> <span class="n">coords_1</span><span class="p">,</span> <span class="s2">"REI 1"</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">spacing_2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_spacing</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_spacing_2_in</span><span class="p">,</span> <span class="n">coords_2</span><span class="p">,</span> <span class="s2">"REI 2"</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_s_ref_in</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">s_ref</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_as_vec3</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_s_ref_in</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">s_ref</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">minimum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">spacing_1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">spacing_2</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">s_ref</span> <span class="o">=</span> <span class="n">s_ref</span> <span class="o">/</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">supersample</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_origin_in</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">origin</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_origin_in</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">origin</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">minimum</span><span class="p">(</span><span class="n">coords_1</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">coords_2</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="s2">"Grid geometry:</span><span class="se">\n</span><span class="s2">"</span>
+            <span class="sa">f</span><span class="s2">"  spacing_1 = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">spacing_1</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span>
+            <span class="sa">f</span><span class="s2">"  spacing_2 = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">spacing_2</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span>
+            <span class="sa">f</span><span class="s2">"  s_ref     = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">s_ref</span><span class="si">}</span><span class="s2"> (supersample=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">supersample</span><span class="si">}</span><span class="s2">)</span><span class="se">\n</span><span class="s2">"</span>
+            <span class="sa">f</span><span class="s2">"  origin    = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">origin</span><span class="si">}</span><span class="s2">"</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_spacing</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">spacing_in</span><span class="p">:</span> <span class="n">SpacingLike</span><span class="p">,</span> <span class="n">coords</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">label</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">spacing_in</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_as_vec3</span><span class="p">(</span><span class="n">spacing_in</span><span class="p">)</span>
+        <span class="n">spacing</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">ax</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">):</span>
+            <span class="n">s</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_infer_spacing_axis</span><span class="p">(</span><span class="n">coords</span><span class="p">[:,</span> <span class="n">ax</span><span class="p">])</span>
+            <span class="n">spacing</span><span class="p">[</span><span class="n">ax</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="k">if</span> <span class="n">s</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">s</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  auto-detected spacing for </span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">spacing</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">spacing</span>
+
+    <span class="c1"># ------------------------------------------------------------- voxelization</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_as_vec3</span><span class="p">(</span><span class="n">val</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="n">arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">arr</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">arr</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">arr</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="p">(</span><span class="mi">3</span><span class="p">,):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"spacing must be a scalar or a length-3 sequence."</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">arr</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"spacing values must be positive."</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">arr</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_infer_spacing_axis</span><span class="p">(</span><span class="n">vals</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-4</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
+        <span class="n">u</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">vals</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">u</span><span class="o">.</span><span class="n">size</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>  <span class="c1"># degenerate axis (single layer)</span>
+        <span class="n">du</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
+        <span class="n">step</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">du</span><span class="o">.</span><span class="n">min</span><span class="p">())</span>
+        <span class="k">if</span> <span class="n">step</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="n">ratios</span> <span class="o">=</span> <span class="n">du</span> <span class="o">/</span> <span class="n">step</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">ratios</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">ratios</span><span class="p">)))</span> <span class="o">&gt;</span> <span class="n">tol</span> <span class="o">*</span> <span class="nb">max</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">ratios</span><span class="o">.</span><span class="n">max</span><span class="p">()):</span>
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="s2">"  [warning] coordinate spacing is not perfectly regular; "</span>
+                <span class="sa">f</span><span class="s2">"using min positive step = </span><span class="si">{</span><span class="n">step</span><span class="si">:</span><span class="s2">.6g</span><span class="si">}</span><span class="s2">. "</span>
+                <span class="s2">"Pass an explicit spacing if this is wrong."</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">step</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_unique_rows</span><span class="p">(</span><span class="n">idx</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""First-occurrence indices of unique integer rows (via 1-D key encoding).</span>
+
+<span class="sd">        Faster than ``np.unique(axis=0)`` on large arrays: encode each (i,j,k)</span>
+<span class="sd">        into a single int64 key over the array's own bounding box, then unique.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">idx</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+        <span class="n">mn</span> <span class="o">=</span> <span class="n">idx</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">dims</span> <span class="o">=</span> <span class="p">(</span><span class="n">idx</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">-</span> <span class="n">mn</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+        <span class="n">shifted</span> <span class="o">=</span> <span class="p">(</span><span class="n">idx</span> <span class="o">-</span> <span class="n">mn</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+        <span class="n">keys</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ravel_multi_index</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">shifted</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">shifted</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">shifted</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">]),</span>
+            <span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">dims</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">int</span><span class="p">(</span><span class="n">dims</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="nb">int</span><span class="p">(</span><span class="n">dims</span><span class="p">[</span><span class="mi">2</span><span class="p">])),</span>
+        <span class="p">)</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">keep</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">keys</span><span class="p">,</span> <span class="n">return_index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">keep</span><span class="o">.</span><span class="n">sort</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">keep</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_occupied_cells</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">coords</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">cluster_ids</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">origin</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">spacing</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Map centers to integer cell indices (nearest lattice cell) and dedup."""</span>
+        <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">((</span><span class="n">coords</span> <span class="o">-</span> <span class="n">origin</span><span class="p">)</span> <span class="o">/</span> <span class="n">spacing</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+        <span class="n">keep</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_unique_rows</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span>  <span class="c1"># keep first cluster id seen per cell</span>
+        <span class="k">return</span> <span class="n">idx</span><span class="p">[</span><span class="n">keep</span><span class="p">],</span> <span class="n">cluster_ids</span><span class="p">[</span><span class="n">keep</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_rasterize_to_fine</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">cells</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">cluster_ids</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">spacing</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">s_ref</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Express occupied cells of one grid on the common fine lattice.</span>
+
+<span class="sd">        Returns (fine_indices (K,3) int64, cluster_ids (K,)). Each fine cell is a</span>
+<span class="sd">        lattice cell of spacing ``s_ref`` whose center falls inside the source</span>
+<span class="sd">        cell (nearest-neighbour occupancy upsampling).</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">cells</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+
+        <span class="c1"># identity fast-path: this grid already matches the fine lattice</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">spacing</span><span class="p">,</span> <span class="n">s_ref</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mf">1e-9</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
+            <span class="n">base</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">((</span><span class="n">cells</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span> <span class="o">*</span> <span class="n">spacing</span><span class="p">)</span> <span class="o">/</span> <span class="n">s_ref</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">base</span><span class="p">,</span> <span class="n">cluster_ids</span>
+
+        <span class="n">ratio</span> <span class="o">=</span> <span class="n">spacing</span> <span class="o">/</span> <span class="n">s_ref</span>  <span class="c1"># &gt;= 1 per axis</span>
+        <span class="n">n_off</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">ratio</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>  <span class="c1"># fine cells spanning a coarse cell</span>
+
+        <span class="c1"># per-axis fine-index start = first fine center inside the coarse cell</span>
+        <span class="c1"># coarse-cell lower face (relative to origin) = spacing*cell - spacing/2</span>
+        <span class="n">lower</span> <span class="o">=</span> <span class="n">spacing</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:]</span> <span class="o">*</span> <span class="n">cells</span> <span class="o">-</span> <span class="n">spacing</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:]</span> <span class="o">/</span> <span class="mf">2.0</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">lower</span> <span class="o">/</span> <span class="n">s_ref</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:]</span> <span class="o">-</span> <span class="mf">0.5</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>  <span class="c1"># (M,3)</span>
+
+        <span class="c1"># stencil of candidate offsets (product of per-axis ranges)</span>
+        <span class="n">offs</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">n_off</span><span class="p">[</span><span class="n">ax</span><span class="p">]))</span> <span class="k">for</span> <span class="n">ax</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)]</span>
+        <span class="n">ox</span><span class="p">,</span> <span class="n">oy</span><span class="p">,</span> <span class="n">oz</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">offs</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">offs</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">offs</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">indexing</span><span class="o">=</span><span class="s2">"ij"</span><span class="p">)</span>
+        <span class="n">stencil</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">ox</span><span class="o">.</span><span class="n">ravel</span><span class="p">(),</span> <span class="n">oy</span><span class="o">.</span><span class="n">ravel</span><span class="p">(),</span> <span class="n">oz</span><span class="o">.</span><span class="n">ravel</span><span class="p">()],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># (S,3)</span>
+
+        <span class="n">cand</span> <span class="o">=</span> <span class="n">start</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">,</span> <span class="p">:]</span> <span class="o">+</span> <span class="n">stencil</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span>  <span class="c1"># (M,S,3)</span>
+        <span class="n">src_cid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">broadcast_to</span><span class="p">(</span><span class="n">cluster_ids</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">],</span> <span class="n">cand</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="mi">2</span><span class="p">])</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">src_cell</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">broadcast_to</span><span class="p">(</span><span class="n">cells</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">,</span> <span class="p">:],</span> <span class="n">cand</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+        <span class="n">cand</span> <span class="o">=</span> <span class="n">cand</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+
+        <span class="c1"># keep candidates whose nearest source-grid cell is the originating cell</span>
+        <span class="n">fine_center</span> <span class="o">=</span> <span class="n">cand</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span> <span class="o">*</span> <span class="n">s_ref</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:]</span>  <span class="c1"># relative to origin</span>
+        <span class="n">nearest</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">fine_center</span> <span class="o">/</span> <span class="n">spacing</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+        <span class="n">keep</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">nearest</span> <span class="o">==</span> <span class="n">src_cell</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="n">fine</span> <span class="o">=</span> <span class="n">cand</span><span class="p">[</span><span class="n">keep</span><span class="p">]</span>
+        <span class="n">fcid</span> <span class="o">=</span> <span class="n">src_cid</span><span class="p">[</span><span class="n">keep</span><span class="p">]</span>
+        <span class="c1"># dedup fine cells (a fine cell can only belong to one source cell here)</span>
+        <span class="n">uidx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_unique_rows</span><span class="p">(</span><span class="n">fine</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">fine</span><span class="p">[</span><span class="n">uidx</span><span class="p">],</span> <span class="n">fcid</span><span class="p">[</span><span class="n">uidx</span><span class="p">]</span>
+
+    <span class="c1"># ----------------------------------------------------------------- compare</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_compare_fine</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">fine_1</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">fcid_1</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">fine_2</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">fcid_2</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="c1"># shared integer key space over both regions</span>
+        <span class="k">if</span> <span class="n">fine_1</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">fine_2</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Both REI point clouds are empty after voxelization."</span><span class="p">)</span>
+
+        <span class="n">all_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">([</span><span class="n">fine_1</span><span class="p">,</span> <span class="n">fine_2</span><span class="p">])</span> <span class="k">if</span> <span class="n">fine_2</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">else</span> <span class="n">fine_1</span>
+        <span class="k">if</span> <span class="n">fine_1</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">all_idx</span> <span class="o">=</span> <span class="n">fine_2</span>
+        <span class="n">mn</span> <span class="o">=</span> <span class="n">all_idx</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">dims</span> <span class="o">=</span> <span class="p">(</span><span class="n">all_idx</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">-</span> <span class="n">mn</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+        <span class="n">dims_t</span> <span class="o">=</span> <span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">dims</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">int</span><span class="p">(</span><span class="n">dims</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="nb">int</span><span class="p">(</span><span class="n">dims</span><span class="p">[</span><span class="mi">2</span><span class="p">]))</span>
+
+        <span class="n">keys_1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ravel</span><span class="p">(</span><span class="n">fine_1</span><span class="p">,</span> <span class="n">mn</span><span class="p">,</span> <span class="n">dims_t</span><span class="p">)</span>
+        <span class="n">keys_2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ravel</span><span class="p">(</span><span class="n">fine_2</span><span class="p">,</span> <span class="n">mn</span><span class="p">,</span> <span class="n">dims_t</span><span class="p">)</span>
+
+        <span class="c1"># sort for searchsorted-based lookups (keys already unique per region)</span>
+        <span class="n">o1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">keys_1</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="s2">"mergesort"</span><span class="p">)</span>
+        <span class="n">keys_1</span><span class="p">,</span> <span class="n">fcid_1</span> <span class="o">=</span> <span class="n">keys_1</span><span class="p">[</span><span class="n">o1</span><span class="p">],</span> <span class="n">fcid_1</span><span class="p">[</span><span class="n">o1</span><span class="p">]</span>
+        <span class="n">o2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">keys_2</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="s2">"mergesort"</span><span class="p">)</span>
+        <span class="n">keys_2</span><span class="p">,</span> <span class="n">fcid_2</span> <span class="o">=</span> <span class="n">keys_2</span><span class="p">[</span><span class="n">o2</span><span class="p">],</span> <span class="n">fcid_2</span><span class="p">[</span><span class="n">o2</span><span class="p">]</span>
+
+        <span class="n">union_keys</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">union1d</span><span class="p">(</span><span class="n">keys_1</span><span class="p">,</span> <span class="n">keys_2</span><span class="p">)</span>
+        <span class="n">in1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">union_keys</span><span class="p">,</span> <span class="n">keys_1</span><span class="p">,</span> <span class="n">assume_unique</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">in2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">union_keys</span><span class="p">,</span> <span class="n">keys_2</span><span class="p">,</span> <span class="n">assume_unique</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">both</span> <span class="o">=</span> <span class="n">in1</span> <span class="o">&amp;</span> <span class="n">in2</span>
+
+        <span class="n">cid1_u</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lookup</span><span class="p">(</span><span class="n">union_keys</span><span class="p">,</span> <span class="n">keys_1</span><span class="p">,</span> <span class="n">fcid_1</span><span class="p">)</span>
+        <span class="n">cid2_u</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lookup</span><span class="p">(</span><span class="n">union_keys</span><span class="p">,</span> <span class="n">keys_2</span><span class="p">,</span> <span class="n">fcid_2</span><span class="p">)</span>
+
+        <span class="n">membership</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">both</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">in1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+
+        <span class="n">n1</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">keys_1</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
+        <span class="n">n2</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">keys_2</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
+        <span class="n">n_inter</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">count_nonzero</span><span class="p">(</span><span class="n">both</span><span class="p">))</span>
+        <span class="n">n_union</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">union_keys</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
+        <span class="n">vcell</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">s_ref</span><span class="p">))</span>
+
+        <span class="n">iou</span> <span class="o">=</span> <span class="n">n_inter</span> <span class="o">/</span> <span class="n">n_union</span> <span class="k">if</span> <span class="n">n_union</span> <span class="k">else</span> <span class="mf">0.0</span>
+        <span class="n">dice</span> <span class="o">=</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">n_inter</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">n1</span> <span class="o">+</span> <span class="n">n2</span><span class="p">)</span> <span class="k">if</span> <span class="p">(</span><span class="n">n1</span> <span class="o">+</span> <span class="n">n2</span><span class="p">)</span> <span class="k">else</span> <span class="mf">0.0</span>
+        <span class="n">cont_1</span> <span class="o">=</span> <span class="n">n_inter</span> <span class="o">/</span> <span class="n">n1</span> <span class="k">if</span> <span class="n">n1</span> <span class="k">else</span> <span class="mf">0.0</span>
+        <span class="n">cont_2</span> <span class="o">=</span> <span class="n">n_inter</span> <span class="o">/</span> <span class="n">n2</span> <span class="k">if</span> <span class="n">n2</span> <span class="k">else</span> <span class="mf">0.0</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">metrics</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">"s_ref"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">s_ref</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+            <span class="s2">"voxel_volume"</span><span class="p">:</span> <span class="n">vcell</span><span class="p">,</span>
+            <span class="s2">"n_voxels_1"</span><span class="p">:</span> <span class="n">n1</span><span class="p">,</span>
+            <span class="s2">"n_voxels_2"</span><span class="p">:</span> <span class="n">n2</span><span class="p">,</span>
+            <span class="s2">"n_voxels_intersection"</span><span class="p">:</span> <span class="n">n_inter</span><span class="p">,</span>
+            <span class="s2">"n_voxels_union"</span><span class="p">:</span> <span class="n">n_union</span><span class="p">,</span>
+            <span class="s2">"volume_1"</span><span class="p">:</span> <span class="n">n1</span> <span class="o">*</span> <span class="n">vcell</span><span class="p">,</span>
+            <span class="s2">"volume_2"</span><span class="p">:</span> <span class="n">n2</span> <span class="o">*</span> <span class="n">vcell</span><span class="p">,</span>
+            <span class="s2">"volume_intersection"</span><span class="p">:</span> <span class="n">n_inter</span> <span class="o">*</span> <span class="n">vcell</span><span class="p">,</span>
+            <span class="s2">"volume_union"</span><span class="p">:</span> <span class="n">n_union</span> <span class="o">*</span> <span class="n">vcell</span><span class="p">,</span>
+            <span class="s2">"iou"</span><span class="p">:</span> <span class="n">iou</span><span class="p">,</span>
+            <span class="s2">"dice"</span><span class="p">:</span> <span class="n">dice</span><span class="p">,</span>
+            <span class="s2">"containment_1"</span><span class="p">:</span> <span class="n">cont_1</span><span class="p">,</span>
+            <span class="s2">"containment_2"</span><span class="p">:</span> <span class="n">cont_2</span><span class="p">,</span>
+        <span class="p">}</span>
+
+        <span class="n">metrics_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span><span class="p">,</span> <span class="s2">"overlap_metrics.json"</span><span class="p">)</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">metrics_path</span><span class="p">,</span> <span class="s2">"w"</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">metrics</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">=== REI Comparison Metrics ==="</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">metrics</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="n">k</span><span class="si">:</span><span class="s2">24s</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Saved metrics: </span><span class="si">{</span><span class="n">metrics_path</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+        <span class="c1"># cluster-level 1-to-1 matching</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cluster_col</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_match_clusters</span><span class="p">(</span>
+                <span class="n">keys_1</span><span class="p">,</span> <span class="n">fcid_1</span><span class="p">,</span> <span class="n">keys_2</span><span class="p">,</span> <span class="n">fcid_2</span><span class="p">,</span> <span class="n">both</span><span class="p">,</span> <span class="n">cid1_u</span><span class="p">,</span> <span class="n">cid2_u</span><span class="p">,</span> <span class="n">vcell</span>
+            <span class="p">)</span>
+
+        <span class="c1"># export classified point cloud</span>
+        <span class="n">vtk_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_export_vtk</span><span class="p">(</span><span class="n">union_keys</span><span class="p">,</span> <span class="n">mn</span><span class="p">,</span> <span class="n">dims_t</span><span class="p">,</span> <span class="n">membership</span><span class="p">,</span> <span class="n">cid1_u</span><span class="p">,</span> <span class="n">cid2_u</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">"output_dir"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span><span class="p">,</span>
+            <span class="s2">"metrics"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">metrics</span><span class="p">,</span>
+            <span class="s2">"metrics_path"</span><span class="p">:</span> <span class="n">metrics_path</span><span class="p">,</span>
+            <span class="s2">"overlap_vtk_path"</span><span class="p">:</span> <span class="n">vtk_path</span><span class="p">,</span>
+            <span class="s2">"cluster_match_path"</span><span class="p">:</span> <span class="p">(</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span><span class="p">,</span> <span class="s2">"cluster_match.csv"</span><span class="p">)</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cluster_col</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+                <span class="k">else</span> <span class="kc">None</span>
+            <span class="p">),</span>
+        <span class="p">}</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_match_clusters</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">_keys_1</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">fcid_1</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">_keys_2</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">fcid_2</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">both</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">cid1_u</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">cid2_u</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">vcell</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">labels_1</span><span class="p">,</span> <span class="n">cnt_1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">fcid_1</span><span class="p">,</span> <span class="n">return_counts</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>  <span class="c1"># sorted labels</span>
+        <span class="n">labels_2</span><span class="p">,</span> <span class="n">cnt_2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">fcid_2</span><span class="p">,</span> <span class="n">return_counts</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">labels_1</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">labels_2</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="c1"># per-label voxel counts (whole region, not just overlap)</span>
+        <span class="n">size_1</span> <span class="o">=</span> <span class="p">{</span><span class="nb">int</span><span class="p">(</span><span class="n">l</span><span class="p">):</span> <span class="nb">int</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">l</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">labels_1</span><span class="p">,</span> <span class="n">cnt_1</span><span class="p">)}</span>
+        <span class="n">size_2</span> <span class="o">=</span> <span class="p">{</span><span class="nb">int</span><span class="p">(</span><span class="n">l</span><span class="p">):</span> <span class="nb">int</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">l</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">labels_2</span><span class="p">,</span> <span class="n">cnt_2</span><span class="p">)}</span>
+
+        <span class="c1"># overlap matrix over the intersection voxels (vectorized label -&gt; index)</span>
+        <span class="n">c1</span> <span class="o">=</span> <span class="n">cid1_u</span><span class="p">[</span><span class="n">both</span><span class="p">]</span>
+        <span class="n">c2</span> <span class="o">=</span> <span class="n">cid2_u</span><span class="p">[</span><span class="n">both</span><span class="p">]</span>
+        <span class="n">O</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">labels_1</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="n">labels_2</span><span class="o">.</span><span class="n">size</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">c1</span><span class="o">.</span><span class="n">size</span><span class="p">:</span>
+            <span class="n">i1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="n">labels_1</span><span class="p">,</span> <span class="n">c1</span><span class="p">)</span>
+            <span class="n">i2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="n">labels_2</span><span class="p">,</span> <span class="n">c2</span><span class="p">)</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">add</span><span class="o">.</span><span class="n">at</span><span class="p">(</span><span class="n">O</span><span class="p">,</span> <span class="p">(</span><span class="n">i1</span><span class="p">,</span> <span class="n">i2</span><span class="p">),</span> <span class="mi">1</span><span class="p">)</span>
+
+        <span class="n">row_ind</span><span class="p">,</span> <span class="n">col_ind</span> <span class="o">=</span> <span class="n">linear_sum_assignment</span><span class="p">(</span><span class="o">-</span><span class="n">O</span><span class="p">)</span>
+
+        <span class="n">rows</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">matched_1</span><span class="p">,</span> <span class="n">matched_2</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(),</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">r</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">row_ind</span><span class="p">,</span> <span class="n">col_ind</span><span class="p">):</span>
+            <span class="n">overlap</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">O</span><span class="p">[</span><span class="n">r</span><span class="p">,</span> <span class="n">c</span><span class="p">])</span>
+            <span class="k">if</span> <span class="n">overlap</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">lab1</span><span class="p">,</span> <span class="n">lab2</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">labels_1</span><span class="p">[</span><span class="n">r</span><span class="p">]),</span> <span class="nb">int</span><span class="p">(</span><span class="n">labels_2</span><span class="p">[</span><span class="n">c</span><span class="p">])</span>
+            <span class="n">union</span> <span class="o">=</span> <span class="n">size_1</span><span class="p">[</span><span class="n">lab1</span><span class="p">]</span> <span class="o">+</span> <span class="n">size_2</span><span class="p">[</span><span class="n">lab2</span><span class="p">]</span> <span class="o">-</span> <span class="n">overlap</span>
+            <span class="n">rows</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="p">{</span>
+                    <span class="s2">"cluster_1"</span><span class="p">:</span> <span class="n">lab1</span><span class="p">,</span>
+                    <span class="s2">"cluster_2"</span><span class="p">:</span> <span class="n">lab2</span><span class="p">,</span>
+                    <span class="s2">"overlap_voxels"</span><span class="p">:</span> <span class="n">overlap</span><span class="p">,</span>
+                    <span class="s2">"overlap_volume"</span><span class="p">:</span> <span class="n">overlap</span> <span class="o">*</span> <span class="n">vcell</span><span class="p">,</span>
+                    <span class="s2">"size_voxels_1"</span><span class="p">:</span> <span class="n">size_1</span><span class="p">[</span><span class="n">lab1</span><span class="p">],</span>
+                    <span class="s2">"size_voxels_2"</span><span class="p">:</span> <span class="n">size_2</span><span class="p">[</span><span class="n">lab2</span><span class="p">],</span>
+                    <span class="s2">"jaccard"</span><span class="p">:</span> <span class="n">overlap</span> <span class="o">/</span> <span class="n">union</span> <span class="k">if</span> <span class="n">union</span> <span class="k">else</span> <span class="mf">0.0</span><span class="p">,</span>
+                    <span class="s2">"containment_1"</span><span class="p">:</span> <span class="n">overlap</span> <span class="o">/</span> <span class="n">size_1</span><span class="p">[</span><span class="n">lab1</span><span class="p">]</span> <span class="k">if</span> <span class="n">size_1</span><span class="p">[</span><span class="n">lab1</span><span class="p">]</span> <span class="k">else</span> <span class="mf">0.0</span><span class="p">,</span>
+                    <span class="s2">"containment_2"</span><span class="p">:</span> <span class="n">overlap</span> <span class="o">/</span> <span class="n">size_2</span><span class="p">[</span><span class="n">lab2</span><span class="p">]</span> <span class="k">if</span> <span class="n">size_2</span><span class="p">[</span><span class="n">lab2</span><span class="p">]</span> <span class="k">else</span> <span class="mf">0.0</span><span class="p">,</span>
+                <span class="p">}</span>
+            <span class="p">)</span>
+            <span class="n">matched_1</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">lab1</span><span class="p">)</span>
+            <span class="n">matched_2</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">lab2</span><span class="p">)</span>
+
+        <span class="c1"># unmatched clusters (no overlap partner)</span>
+        <span class="k">for</span> <span class="n">lab1</span> <span class="ow">in</span> <span class="n">labels_1</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">int</span><span class="p">(</span><span class="n">lab1</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">matched_1</span><span class="p">:</span>
+                <span class="n">rows</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="p">{</span>
+                        <span class="s2">"cluster_1"</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">lab1</span><span class="p">),</span>
+                        <span class="s2">"cluster_2"</span><span class="p">:</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span>
+                        <span class="s2">"overlap_voxels"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+                        <span class="s2">"overlap_volume"</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>
+                        <span class="s2">"size_voxels_1"</span><span class="p">:</span> <span class="n">size_1</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">lab1</span><span class="p">)],</span>
+                        <span class="s2">"size_voxels_2"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+                        <span class="s2">"jaccard"</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>
+                        <span class="s2">"containment_1"</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>
+                        <span class="s2">"containment_2"</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>
+                    <span class="p">}</span>
+                <span class="p">)</span>
+        <span class="k">for</span> <span class="n">lab2</span> <span class="ow">in</span> <span class="n">labels_2</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">int</span><span class="p">(</span><span class="n">lab2</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">matched_2</span><span class="p">:</span>
+                <span class="n">rows</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="p">{</span>
+                        <span class="s2">"cluster_1"</span><span class="p">:</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span>
+                        <span class="s2">"cluster_2"</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">lab2</span><span class="p">),</span>
+                        <span class="s2">"overlap_voxels"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+                        <span class="s2">"overlap_volume"</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>
+                        <span class="s2">"size_voxels_1"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+                        <span class="s2">"size_voxels_2"</span><span class="p">:</span> <span class="n">size_2</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">lab2</span><span class="p">)],</span>
+                        <span class="s2">"jaccard"</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>
+                        <span class="s2">"containment_1"</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>
+                        <span class="s2">"containment_2"</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>
+                    <span class="p">}</span>
+                <span class="p">)</span>
+
+        <span class="c1"># split / merge detection from the full overlap matrix</span>
+        <span class="n">frac</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">split_merge_fraction</span>
+        <span class="n">n_split</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c1"># one cluster_1 overlaps multiple cluster_2 significantly</span>
+        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">labels_1</span><span class="o">.</span><span class="n">size</span><span class="p">):</span>
+            <span class="n">sig</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">count_nonzero</span><span class="p">(</span><span class="n">O</span><span class="p">[</span><span class="n">r</span><span class="p">,</span> <span class="p">:]</span> <span class="o">&gt;=</span> <span class="n">frac</span> <span class="o">*</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">size_1</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">labels_1</span><span class="p">[</span><span class="n">r</span><span class="p">])]))</span>
+            <span class="k">if</span> <span class="n">sig</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">n_split</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="n">n_merge</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c1"># one cluster_2 covered by multiple cluster_1 significantly</span>
+        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">labels_2</span><span class="o">.</span><span class="n">size</span><span class="p">):</span>
+            <span class="n">sig</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">count_nonzero</span><span class="p">(</span><span class="n">O</span><span class="p">[:,</span> <span class="n">c</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">frac</span> <span class="o">*</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">size_2</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">labels_2</span><span class="p">[</span><span class="n">c</span><span class="p">])]))</span>
+            <span class="k">if</span> <span class="n">sig</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">n_merge</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="n">match_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">rows</span><span class="p">)</span>
+        <span class="n">match_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span><span class="p">,</span> <span class="s2">"cluster_match.csv"</span><span class="p">)</span>
+        <span class="n">match_df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">match_path</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cluster_match</span> <span class="o">=</span> <span class="n">match_df</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">metrics</span><span class="p">[</span><span class="s2">"n_clusters_1"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">labels_1</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">metrics</span><span class="p">[</span><span class="s2">"n_clusters_2"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">labels_2</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">metrics</span><span class="p">[</span><span class="s2">"n_matched_clusters"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">matched_1</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">metrics</span><span class="p">[</span><span class="s2">"n_splits"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">n_split</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">metrics</span><span class="p">[</span><span class="s2">"n_merges"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">n_merge</span><span class="p">)</span>
+
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">Cluster matching: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">matched_1</span><span class="p">)</span><span class="si">}</span><span class="s2"> matched "</span>
+            <span class="sa">f</span><span class="s2">"(</span><span class="si">{</span><span class="n">labels_1</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2"> in REI 1, </span><span class="si">{</span><span class="n">labels_2</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2"> in REI 2); "</span>
+            <span class="sa">f</span><span class="s2">"splits=</span><span class="si">{</span><span class="n">n_split</span><span class="si">}</span><span class="s2">, merges=</span><span class="si">{</span><span class="n">n_merge</span><span class="si">}</span><span class="s2">."</span>
+        <span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Saved cluster match table: </span><span class="si">{</span><span class="n">match_path</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_export_vtk</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">union_keys</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">mn</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">dims</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
+        <span class="n">membership</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">cid1_u</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">cid2_u</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="c1"># np.unravel_index returns one array per dim; pylint can't infer the count</span>
+        <span class="c1"># pylint: disable-next=unbalanced-tuple-unpacking</span>
+        <span class="n">ix</span><span class="p">,</span> <span class="n">iy</span><span class="p">,</span> <span class="n">iz</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unravel_index</span><span class="p">(</span><span class="n">union_keys</span><span class="p">,</span> <span class="n">dims</span><span class="p">)</span>
+        <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">ix</span><span class="p">,</span> <span class="n">iy</span><span class="p">,</span> <span class="n">iz</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="n">mn</span>
+        <span class="n">coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">origin</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:]</span> <span class="o">+</span> <span class="n">idx</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">s_ref</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:]</span>
+
+        <span class="n">point_data</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">"membership"</span><span class="p">:</span> <span class="n">membership</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">),</span>
+            <span class="s2">"cluster_id_1"</span><span class="p">:</span> <span class="n">cid1_u</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">),</span>
+            <span class="s2">"cluster_id_2"</span><span class="p">:</span> <span class="n">cid2_u</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">),</span>
+        <span class="p">}</span>
+        <span class="n">vtk_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span><span class="p">,</span> <span class="s2">"overlap_cloud.vtk"</span><span class="p">)</span>
+        <span class="c1"># Reuse the REI VTK point-cloud writer (shared internal helper).</span>
+        <span class="n">IdentifyRareClusters</span><span class="o">.</span><span class="n">_write_polydata_points_vtk</span><span class="p">(</span>  <span class="c1"># pylint: disable=protected-access</span>
+            <span class="n">vtk_path</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">point_data</span>
+        <span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Saved classified overlap cloud: </span><span class="si">{</span><span class="n">vtk_path</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">vtk_path</span>
+
+    <span class="c1"># ------------------------------------------------------------------ helpers</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_ravel</span><span class="p">(</span>
+        <span class="n">idx</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">mn</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">dims</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">idx</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+        <span class="n">shifted</span> <span class="o">=</span> <span class="p">(</span><span class="n">idx</span> <span class="o">-</span> <span class="n">mn</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">ravel_multi_index</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">shifted</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">shifted</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">shifted</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">]),</span> <span class="n">dims</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_lookup</span><span class="p">(</span>
+        <span class="n">query_keys</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">sorted_keys</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">values</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Return values for query_keys found in sorted_keys, else -1."""</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">query_keys</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">sorted_keys</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">out</span>
+        <span class="n">pos</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="n">sorted_keys</span><span class="p">,</span> <span class="n">query_keys</span><span class="p">)</span>
+        <span class="n">pos</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">sorted_keys</span><span class="o">.</span><span class="n">size</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">hit</span> <span class="o">=</span> <span class="n">sorted_keys</span><span class="p">[</span><span class="n">pos</span><span class="p">]</span> <span class="o">==</span> <span class="n">query_keys</span>
+        <span class="n">out</span><span class="p">[</span><span class="n">hit</span><span class="p">]</span> <span class="o">=</span> <span class="n">values</span><span class="p">[</span><span class="n">pos</span><span class="p">[</span><span class="n">hit</span><span class="p">]]</span>
+        <span class="k">return</span> <span class="n">out</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Argonne National Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,202 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Common pitfalls &mdash; graintrace 0.1.2</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=92734c54"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="_static/copybutton.js?v=96c007af"></script>
+      <script src="_static/design-tabs.js?v=f930bc37"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Tutorials" href="tutorials/tutorials.html" />
+    <link rel="prev" title="Benchmarks" href="benchmarks.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            graintrace
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concepts.html">Concepts &amp; data formats</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mcp.html">MCP server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="benchmarks.html">Benchmarks</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Common pitfalls</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#neper-is-bring-your-own">NEPER is bring-your-own</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#derive-the-cpfe-base-path-dynamically">Derive the cpfe_base path dynamically</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#ff-output-orientations-are-always-in-degrees">FF output orientations are always in degrees</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#orientation-tolerance-units-must-match-ori-units">orientation_tolerance units must match ori_units</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#grid-properties-bounding-box-should-be-inset">grid_properties bounding box should be inset</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#cuda-material-calibration-the-model-must-be-on-the-device">CUDA material calibration: the model must be on the device</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#use-the-gpu-when-one-is-available">Use the GPU when one is available</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#the-multiprocessing-guard">The multiprocessing guard</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Tutorials &amp; examples</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/tutorials.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api/api.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="development.html">Building &amp; testing the docs</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">graintrace</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Common pitfalls</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/pitfalls.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="common-pitfalls">
+<h1>Common pitfalls<a class="headerlink" href="#common-pitfalls" title="Link to this heading"></a></h1>
+<section id="neper-is-bring-your-own">
+<h2>NEPER is bring-your-own<a class="headerlink" href="#neper-is-bring-your-own" title="Link to this heading"></a></h2>
+<p><code class="xref py py-class docutils literal notranslate"><span class="pre">VoronoiMeshBuilder</span></code> and <code class="xref py py-class docutils literal notranslate"><span class="pre">CrystalGenerator</span></code>
+resolve a user-installed NEPER via <code class="docutils literal notranslate"><span class="pre">graintrace/neper_env.py</span></code>. Precedence:
+explicit <code class="docutils literal notranslate"><span class="pre">neper_path=</span></code>/<code class="docutils literal notranslate"><span class="pre">env=</span></code> → <code class="docutils literal notranslate"><span class="pre">NEPER</span></code> env var → <code class="docutils literal notranslate"><span class="pre">graintrace_tools.json</span></code>
+<code class="docutils literal notranslate"><span class="pre">&quot;neper&quot;</span></code> key → <code class="docutils literal notranslate"><span class="pre">neper</span></code> on <code class="docutils literal notranslate"><span class="pre">PATH</span></code>. If none resolve, the builder raises a
+clear error. On Linux, <code class="docutils literal notranslate"><span class="pre">auto_install=True</span></code> performs a <code class="docutils literal notranslate"><span class="pre">~/.local</span></code> source build.</p>
+</section>
+<section id="derive-the-cpfe-base-path-dynamically">
+<h2>Derive the cpfe_base path dynamically<a class="headerlink" href="#derive-the-cpfe-base-path-dynamically" title="Link to this heading"></a></h2>
+<p>Do not hardcode it:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">graintrace</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_gt</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="n">_cpfe_base</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">_gt</span><span class="o">.</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="s2">"cpfe_base"</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="ff-output-orientations-are-always-in-degrees">
+<h2>FF output orientations are always in degrees<a class="headerlink" href="#ff-output-orientations-are-always-in-degrees" title="Link to this heading"></a></h2>
+<p><code class="xref py py-meth docutils literal notranslate"><span class="pre">build_voronoi()</span></code> always writes
+<code class="docutils literal notranslate"><span class="pre">orientations.dat</span></code> in degrees, regardless of input units. When feeding to
+<code class="xref py py-class docutils literal notranslate"><span class="pre">VoxelMeshBuilder</span></code> afterward, set <code class="docutils literal notranslate"><span class="pre">angle_type=&quot;degrees&quot;</span></code>.</p>
+</section>
+<section id="orientation-tolerance-units-must-match-ori-units">
+<h2>orientation_tolerance units must match ori_units<a class="headerlink" href="#orientation-tolerance-units-must-match-ori-units" title="Link to this heading"></a></h2>
+<p>When <code class="docutils literal notranslate"><span class="pre">ori_units=&quot;radians&quot;</span></code>, convert <code class="docutils literal notranslate"><span class="pre">orientation_tolerance</span></code> before passing it
+to <code class="docutils literal notranslate"><span class="pre">RegionBaseStitching</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="n">ori_units</span> <span class="o">==</span> <span class="s2">"radians"</span><span class="p">:</span>
+    <span class="n">orientation_tolerance</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">deg2rad</span><span class="p">(</span><span class="n">orientation_tolerance</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="grid-properties-bounding-box-should-be-inset">
+<h2>grid_properties bounding box should be inset<a class="headerlink" href="#grid-properties-bounding-box-should-be-inset" title="Link to this heading"></a></h2>
+<p>Inset <code class="docutils literal notranslate"><span class="pre">grid_bb</span></code> by <code class="docutils literal notranslate"><span class="pre">0.0001</span></code> on each face to avoid mesh-boundary issues, while
+using the full box for the boundary conditions (see <a class="reference internal" href="configuration.html"><span class="doc">Configuration reference</span></a>).</p>
+</section>
+<section id="cuda-material-calibration-the-model-must-be-on-the-device">
+<h2>CUDA material calibration: the model must be on the device<a class="headerlink" href="#cuda-material-calibration-the-model-must-be-on-the-device" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">TaylorModel(device=&quot;cuda&quot;)</span></code> works because <code class="docutils literal notranslate"><span class="pre">taylor.py</span></code> moves the whole
+nonlinear system with <code class="docutils literal notranslate"><span class="pre">nsys.to(device)</span></code> before wrapping it in the pyzag factory.
+Moving only the factory leaves the crystal-geometry buffers on CPU, which
+surfaces as a silent <code class="docutils literal notranslate"><span class="pre">loss=inf</span></code>.</p>
+</section>
+<section id="use-the-gpu-when-one-is-available">
+<h2>Use the GPU when one is available<a class="headerlink" href="#use-the-gpu-when-one-is-available" title="Link to this heading"></a></h2>
+<p>The GPU-accelerated steps are CPFE, material calibration, and pole figures. When
+a CUDA GPU is present, use it (<code class="docutils literal notranslate"><span class="pre">device=&quot;cuda:0&quot;</span></code> for CPFE,
+<code class="docutils literal notranslate"><span class="pre">TaylorModel(device=&quot;cuda&quot;)</span></code> for calibration); CPU is much slower for these
+NEML2-dominated workloads.</p>
+</section>
+<section id="the-multiprocessing-guard">
+<h2>The multiprocessing guard<a class="headerlink" href="#the-multiprocessing-guard" title="Link to this heading"></a></h2>
+<p>NF reconstruction (<code class="docutils literal notranslate"><span class="pre">graintrace/nf/convert.py</span></code>) uses <code class="docutils literal notranslate"><span class="pre">multiprocess.Pool</span></code>, so
+scripts that call it must be under an <code class="docutils literal notranslate"><span class="pre">if</span> <span class="pre">__name__</span> <span class="pre">==</span> <span class="pre">&quot;__main__&quot;:</span></code> guard. The
+graph-clustering / REI pipeline does not require the guard, but keeping it is good
+practice.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="benchmarks.html" class="btn btn-neutral float-left" title="Benchmarks" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="tutorials/tutorials.html" class="btn btn-neutral float-right" title="Tutorials" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Argonne National Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

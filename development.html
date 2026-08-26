@@ -1,0 +1,221 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Building &amp; testing the docs &mdash; graintrace 0.1.2</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=92734c54"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="_static/copybutton.js?v=96c007af"></script>
+      <script src="_static/design-tabs.js?v=f930bc37"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="graintrace.nf" href="api/nf.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            graintrace
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concepts.html">Concepts &amp; data formats</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mcp.html">MCP server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="benchmarks.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pitfalls.html">Common pitfalls</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Tutorials &amp; examples</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/tutorials.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="api/api.html">API reference</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Building &amp; testing the docs</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#install-the-docs-toolchain">Install the docs toolchain</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#build-the-html">Build the HTML</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#doc-tests">Doc tests</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#continuous-integration">Continuous integration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#writing-new-pages">Writing new pages</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#definition-of-done-adding-or-changing-code">Definition of done (adding or changing code)</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">graintrace</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Building &amp; testing the docs</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/development.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="building-testing-the-docs">
+<h1>Building &amp; testing the docs<a class="headerlink" href="#building-testing-the-docs" title="Link to this heading"></a></h1>
+<p>The documentation is built with Sphinx. The build needs none of the compiled
+stack (NEML2, MOOSE/PUMA, NEPER, CUBIT) — <code class="docutils literal notranslate"><span class="pre">docs/conf.py</span></code> mocks those imports —
+so it runs from a plain checkout.</p>
+<section id="install-the-docs-toolchain">
+<h2>Install the docs toolchain<a class="headerlink" href="#install-the-docs-toolchain" title="Link to this heading"></a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">".[docs]"</span>
+</pre></div>
+</div>
+</section>
+<section id="build-the-html">
+<h2>Build the HTML<a class="headerlink" href="#build-the-html" title="Link to this heading"></a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>docs
+make<span class="w"> </span>html
+<span class="c1"># open docs/_build/html/index.html</span>
+</pre></div>
+</div>
+<p>For a strict build that treats warnings (broken cross-references, import
+failures) as errors — the same check CI runs:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>sphinx-build<span class="w"> </span>-W<span class="w"> </span>--keep-going<span class="w"> </span>-b<span class="w"> </span>html<span class="w"> </span>docs<span class="w"> </span>docs/_build/html
+</pre></div>
+</div>
+</section>
+<section id="doc-tests">
+<h2>Doc tests<a class="headerlink" href="#doc-tests" title="Link to this heading"></a></h2>
+<p>Runnable snippets marked with the <code class="docutils literal notranslate"><span class="pre">doctest</span></code> directive are executed by the
+doctest builder, and external links are checked by the linkcheck builder:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>make<span class="w"> </span>-C<span class="w"> </span>docs<span class="w"> </span>doctest
+make<span class="w"> </span>-C<span class="w"> </span>docs<span class="w"> </span>linkcheck
+</pre></div>
+</div>
+<p>A minimal doctest, verifying the package imports and exposes a version string:</p>
+<div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">graintrace</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">isinstance</span><span class="p">(</span><span class="n">graintrace</span><span class="o">.</span><span class="n">__version__</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
+<span class="go">True</span>
+</pre></div>
+</div>
+</section>
+<section id="continuous-integration">
+<h2>Continuous integration<a class="headerlink" href="#continuous-integration" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">.github/workflows/build_docs.yml</span></code> runs the strict HTML build plus <code class="docutils literal notranslate"><span class="pre">doctest</span></code>
+and <code class="docutils literal notranslate"><span class="pre">linkcheck</span></code> on every push and pull request to <code class="docutils literal notranslate"><span class="pre">main</span></code> and
+<code class="docutils literal notranslate"><span class="pre">documentation</span></code>. Pull requests get an ephemeral GitHub Pages preview; a push to
+<code class="docutils literal notranslate"><span class="pre">main</span></code> deploys the site to the <code class="docutils literal notranslate"><span class="pre">gh-pages</span></code> branch. The <code class="docutils literal notranslate"><span class="pre">documentation</span></code> branch
+is built but never deployed.</p>
+</section>
+<section id="writing-new-pages">
+<h2>Writing new pages<a class="headerlink" href="#writing-new-pages" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>API pages under <code class="docutils literal notranslate"><span class="pre">docs/api/</span></code> are thin <code class="docutils literal notranslate"><span class="pre">automodule</span></code> stubs; add one per new
+public module and list it in <code class="docutils literal notranslate"><span class="pre">docs/api/api.rst</span></code>.</p></li>
+<li><p>Tutorial pages under <code class="docutils literal notranslate"><span class="pre">docs/tutorials/</span></code> embed a runnable example with
+<code class="docutils literal notranslate"><span class="pre">..</span> <span class="pre">literalinclude::</span> <span class="pre">../../examples/&lt;script&gt;</span></code> and are listed in
+<code class="docutils literal notranslate"><span class="pre">docs/tutorials/tutorials.rst</span></code>.</p></li>
+<li><p>Keep the prose plain and factual; let the code examples carry the detail.</p></li>
+</ul>
+</section>
+<section id="definition-of-done-adding-or-changing-code">
+<span id="definition-of-done"></span><h2>Definition of done (adding or changing code)<a class="headerlink" href="#definition-of-done-adding-or-changing-code" title="Link to this heading"></a></h2>
+<p>A new feature or code change is not complete until all five of these are done in
+the same change:</p>
+<ol class="arabic simple">
+<li><p><strong>Tests pass.</strong> Add or extend tests under <code class="docutils literal notranslate"><span class="pre">tests/</span></code> and keep the suite green:
+<code class="docutils literal notranslate"><span class="pre">pytest</span></code>, <code class="docutils literal notranslate"><span class="pre">black</span> <span class="pre">--check</span> <span class="pre">graintrace</span> <span class="pre">tests</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">pylint</span> <span class="pre">--rcfile=.pylintrc</span> <span class="pre">graintrace</span></code>. Tests that need the external stack
+self-skip via <code class="docutils literal notranslate"><span class="pre">pytest.importorskip</span></code>/<code class="docutils literal notranslate"><span class="pre">skipif</span></code>.</p></li>
+<li><p><strong>Docstrings updated.</strong> Every new or changed public class, method, and
+function has a docstring (Google or NumPy style). Document new constructor
+keyword arguments — they surface directly in the API reference.</p></li>
+<li><p><strong>Docs updated.</strong> Update the relevant tutorial under <code class="docutils literal notranslate"><span class="pre">docs/tutorials/</span></code>,
+<a class="reference internal" href="configuration.html"><span class="doc">Configuration reference</span></a> for new options, and add an <code class="docutils literal notranslate"><span class="pre">automodule</span></code> page under
+<code class="docutils literal notranslate"><span class="pre">docs/api/</span></code> for a new public module. The strict build and <code class="docutils literal notranslate"><span class="pre">doctest</span></code> must
+pass (see above).</p></li>
+<li><p><strong>CLAUDE.md updated.</strong> Update <code class="docutils literal notranslate"><span class="pre">.claude/CLAUDE.md</span></code> — the working reference for
+the codebase — so it stays the source of truth.</p></li>
+<li><p><strong>MCP updated.</strong> If the change is a workflow segment or adds/changes
+user-facing parameters, update the MCP tool in <code class="docutils literal notranslate"><span class="pre">graintrace/mcp/tools/</span></code>, its
+recipe in <code class="docutils literal notranslate"><span class="pre">graintrace/mcp/recipes/</span></code>, and the tool table in
+<code class="docutils literal notranslate"><span class="pre">graintrace/mcp/README.md</span></code>. New external-tool dependencies must be reported
+by <code class="docutils literal notranslate"><span class="pre">dependency_status</span></code>.</p></li>
+</ol>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="api/nf.html" class="btn btn-neutral float-left" title="graintrace.nf" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Argonne National Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

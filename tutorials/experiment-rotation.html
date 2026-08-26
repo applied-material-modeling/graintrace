@@ -1,0 +1,538 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Registering FF data to the sim frame &mdash; graintrace 0.1.2</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=92734c54"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=96c007af"></script>
+      <script src="../_static/design-tabs.js?v=f930bc37"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Material calibration" href="material-calibration.html" />
+    <link rel="prev" title="Meshing a grain grid into hex" href="meshing.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            graintrace
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts.html">Concepts &amp; data formats</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../configuration.html">Configuration reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../mcp.html">MCP server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../benchmarks.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pitfalls.html">Common pitfalls</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Tutorials &amp; examples</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="tutorials.html">Tutorials</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="hedm-stitching.html">HEDM scan simulation and stitching</a></li>
+<li class="toctree-l2"><a class="reference internal" href="microstructure-generation.html">Microstructure generation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ff-reconstruction.html">FF Voronoi reconstruction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="nf-reconstruction.html">NF mesh reconstruction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="voxel-segmentation-mesh.html">Voxel segmentation and meshing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="meshing.html">Meshing a grain grid into hex</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Registering FF data to the sim frame</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#inputs">Inputs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#recipe">Recipe</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#key-parameters">Key parameters</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#outputs">Outputs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#gotchas">Gotchas</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#full-example">Full example</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="material-calibration.html">Material calibration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cpfe-simulation.html">CPFE simulation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cpfe-nf-ff.html">CPFE (NF geometry + FF initial strain)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="post-processing.html">Post-CPFE analysis &amp; plotting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rare-event-identification.html">Rare-event identification (REI)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rei-comparison.html">REI comparison</a></li>
+<li class="toctree-l2"><a class="reference internal" href="grain-tracking.html">Grain tracking across load steps</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../api/api.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../development.html">Building &amp; testing the docs</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">graintrace</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="tutorials.html">Tutorials</a></li>
+      <li class="breadcrumb-item active">Registering FF data to the sim frame</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/tutorials/experiment-rotation.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="registering-ff-data-to-the-sim-frame">
+<h1>Registering FF data to the sim frame<a class="headerlink" href="#registering-ff-data-to-the-sim-frame" title="Link to this heading"></a></h1>
+<p>Rotate raw far-field experiment CSVs into the simulation frame before
+calibration, using <code class="docutils literal notranslate"><span class="pre">graintrace.experiment_rotation_helper</span></code>. For each file it
+applies a sample tilt, builds a Voronoi reconstruction, and appends the rotated
+orientation matrix <code class="docutils literal notranslate"><span class="pre">O11..O33</span></code>. Use this to prepare per-stress-level FF CSVs for
+a physically registered <a class="reference internal" href="material-calibration.html"><span class="doc">Material calibration</span></a>.</p>
+<p><strong>Needs:</strong> NEPER (a Voronoi build per file supplies the rotated <code class="docutils literal notranslate"><span class="pre">O</span></code>).</p>
+<section id="inputs">
+<h2>Inputs<a class="headerlink" href="#inputs" title="Link to this heading"></a></h2>
+<p>A folder of numeric-named per-stress-level FF CSVs (<code class="docutils literal notranslate"><span class="pre">0.csv</span></code>, <code class="docutils literal notranslate"><span class="pre">50.csv</span></code>, …),
+each with <code class="docutils literal notranslate"><span class="pre">X,</span> <span class="pre">Y,</span> <span class="pre">Z,</span> <span class="pre">GrainRadius</span></code>, Euler columns (<code class="docutils literal notranslate"><span class="pre">Eul0/1/2</span></code>), and the
+9-component elastic strain (<code class="docutils literal notranslate"><span class="pre">eKen11..eKen33</span></code>). Raw FF files may already carry
+<code class="docutils literal notranslate"><span class="pre">O11..O33</span></code>. The repo ships <code class="docutils literal notranslate"><span class="pre">mwe_data/ff_calibration/</span></code>. See <a class="reference internal" href="../concepts.html"><span class="doc">Concepts &amp; data formats</span></a>
+for the raw FF format.</p>
+</section>
+<section id="recipe">
+<h2>Recipe<a class="headerlink" href="#recipe" title="Link to this heading"></a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">graintrace.experiment_rotation_helper</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">update_experiments</span><span class="p">,</span> <span class="n">collect_experiment_files</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">files</span><span class="p">,</span> <span class="n">stress_levels</span> <span class="o">=</span> <span class="n">collect_experiment_files</span><span class="p">(</span><span class="s2">"mwe_data/ff_calibration"</span><span class="p">)</span>
+<span class="n">update_experiments</span><span class="p">(</span>
+    <span class="n">input_files</span><span class="o">=</span><span class="n">files</span><span class="p">,</span>
+    <span class="n">output_root</span><span class="o">=</span><span class="s2">"out/rotated_experiments"</span><span class="p">,</span>
+    <span class="n">bounding_box</span><span class="o">=</span><span class="p">[</span><span class="o">-</span><span class="mi">477</span><span class="p">,</span> <span class="mi">528</span><span class="p">,</span> <span class="o">-</span><span class="mi">487</span><span class="p">,</span> <span class="mi">532</span><span class="p">,</span> <span class="o">-</span><span class="mi">1025</span><span class="p">,</span> <span class="mi">625</span><span class="p">],</span>
+    <span class="n">auto_fix_bbox</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">bbox_fix_mode</span><span class="o">=</span><span class="s2">"remove_points"</span><span class="p">,</span>
+    <span class="n">rotate_angles</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mf">3.6</span> <span class="o">/</span> <span class="mi">180</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">),</span>   <span class="c1"># sample tilt; unit must match `unit`</span>
+    <span class="n">unit</span><span class="o">=</span><span class="s2">"rad"</span><span class="p">,</span>
+    <span class="n">angle_identifier</span><span class="o">=</span><span class="p">[</span><span class="s2">"Eul0"</span><span class="p">,</span> <span class="s2">"Eul1"</span><span class="p">,</span> <span class="s2">"Eul2"</span><span class="p">],</span>
+    <span class="n">orientation_descriptor</span><span class="o">=</span><span class="s2">"euler-bunge"</span><span class="p">,</span> <span class="n">orientation_active_convention</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">elastic_strain_identifier</span><span class="o">=</span><span class="p">[</span><span class="sa">f</span><span class="s2">"eKen</span><span class="si">{</span><span class="n">i</span><span class="si">}{</span><span class="n">j</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">)],</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="key-parameters">
+<h2>Key parameters<a class="headerlink" href="#key-parameters" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">rotate_angles</span></code> + <code class="docutils literal notranslate"><span class="pre">unit</span></code> — the sample-to-sim tilt (radians here), applied
+to both positions and orientations.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">bounding_box</span></code> + <code class="docutils literal notranslate"><span class="pre">auto_fix_bbox</span></code> / <code class="docutils literal notranslate"><span class="pre">bbox_fix_mode</span></code> — drop out-of-box
+grains (<code class="docutils literal notranslate"><span class="pre">remove_points</span></code> for production).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">elastic_strain_identifier</span></code> — the 9 <code class="docutils literal notranslate"><span class="pre">eKen</span></code> columns, scaled by 1e6 if the
+strain unit is microstrain.</p></li>
+</ul>
+</section>
+<section id="outputs">
+<h2>Outputs<a class="headerlink" href="#outputs" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">out/rotated_experiments/&lt;name&gt;.csv</span></code> per input, each with rotated <code class="docutils literal notranslate"><span class="pre">O11..O33</span></code>
+(from <code class="docutils literal notranslate"><span class="pre">reconstruction.ori</span></code>) plus coordinates, Euler angles, and <code class="docutils literal notranslate"><span class="pre">eKen</span></code>
+columns. These feed <a class="reference internal" href="material-calibration.html"><span class="doc">Material calibration</span></a> as its <code class="docutils literal notranslate"><span class="pre">data_dir</span></code>.</p>
+</section>
+<section id="gotchas">
+<h2>Gotchas<a class="headerlink" href="#gotchas" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>The helper replaces any pre-existing <code class="docutils literal notranslate"><span class="pre">O</span></code> columns with the freshly rotated
+ones (it drops the raw <code class="docutils literal notranslate"><span class="pre">O</span></code> before concatenating), so there are no duplicate
+<code class="docutils literal notranslate"><span class="pre">O11.1</span></code> columns.</p></li>
+<li><p>Each file triggers a full NEPER tessellation; a few hundred grains is quick,
+thousands are slower.</p></li>
+<li><p>For a quick, non-registered calibration you can skip this step and point
+calibration straight at raw CSVs that already contain <code class="docutils literal notranslate"><span class="pre">O11..O33</span></code> (as in
+<code class="docutils literal notranslate"><span class="pre">mwe_data/ff_calibration</span></code>).</p></li>
+</ul>
+</section>
+<section id="full-example">
+<h2>Full example<a class="headerlink" href="#full-example" title="Link to this heading"></a></h2>
+<div class="literal-block-wrapper docutils container" id="id1">
+<div class="code-block-caption"><span class="caption-text">examples/demonstrate_farfield.py</span><a class="headerlink" href="#id1" title="Link to this code"></a></div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Copyright 2026, UChicago Argonne, LLC</span>
+<span class="c1"># All Rights Reserved</span>
+<span class="c1"># Software Name: graintrace</span>
+<span class="c1"># By: Argonne National Laboratory</span>
+<span class="c1"># OPEN SOURCE LICENSE (MIT)</span>
+<span class="c1">#</span>
+<span class="c1"># Permission is hereby granted, free of charge, to any person obtaining a copy</span>
+<span class="c1"># of this software and associated documentation files (the "Software"), to deal</span>
+<span class="c1"># in the Software without restriction, including without limitation the rights</span>
+<span class="c1"># to use, copy, modify, merge, publish, distribute, sublicense, and/or sell</span>
+<span class="c1"># copies of the Software, and to permit persons to whom the Software is</span>
+<span class="c1"># furnished to do so, subject to the following conditions:</span>
+<span class="c1">#</span>
+<span class="c1"># The above copyright notice and this permission notice shall be included in</span>
+<span class="c1"># all copies or substantial portions of the Software.</span>
+<span class="c1">#</span>
+<span class="c1"># THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR</span>
+<span class="c1"># IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,</span>
+<span class="c1"># FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE</span>
+<span class="c1"># AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER</span>
+<span class="c1"># LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,</span>
+<span class="c1"># OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN</span>
+<span class="c1"># THE SOFTWARE.</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">graintrace.construct_voronoi_mesh</span><span class="w"> </span><span class="kn">import</span> <span class="n">VoronoiMeshBuilder</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">graintrace.run_cpfe_simulation</span><span class="w"> </span><span class="kn">import</span> <span class="n">CPFESimulation</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">graintrace.tess_to_gnn</span><span class="w"> </span><span class="kn">import</span> <span class="n">NeperTessToGraphNN</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">graintrace.material_calibration</span><span class="w"> </span><span class="kn">import</span> <span class="n">MaterialCalibration</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">graintrace.experiment_rotation_helper</span><span class="w"> </span><span class="kn">import</span> <span class="n">update_experiments</span><span class="p">,</span> <span class="n">collect_experiment_files</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">graintrace.taylor</span><span class="w"> </span><span class="kn">import</span> <span class="n">TaylorModel</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">graintrace</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_gt</span>
+<span class="n">_cpfe_base</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">_gt</span><span class="o">.</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="s1">'cpfe_base'</span><span class="p">)</span>
+
+<span class="n">fsize</span> <span class="o">=</span> <span class="mi">14</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">rcParams</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+    <span class="p">{</span>
+        <span class="s2">"font.size"</span><span class="p">:</span> <span class="n">fsize</span><span class="p">,</span>
+        <span class="s2">"axes.labelsize"</span><span class="p">:</span> <span class="n">fsize</span><span class="p">,</span>
+        <span class="s2">"axes.titlesize"</span><span class="p">:</span> <span class="n">fsize</span><span class="p">,</span>
+        <span class="s2">"xtick.labelsize"</span><span class="p">:</span> <span class="n">fsize</span><span class="p">,</span>
+        <span class="s2">"ytick.labelsize"</span><span class="p">:</span> <span class="n">fsize</span><span class="p">,</span>
+        <span class="s2">"legend.fontsize"</span><span class="p">:</span> <span class="n">fsize</span><span class="p">,</span>
+    <span class="p">}</span>
+<span class="p">)</span>
+
+<span class="c1">## INPUT</span>
+<span class="c1">##------------------------------------</span>
+<span class="n">outputdir</span> <span class="o">=</span> <span class="s2">"farfield_out"</span>
+
+<span class="n">generate_sudo</span> <span class="o">=</span> <span class="kc">False</span>
+
+<span class="c1"># Self-contained far-field dataset shipped in mwe_data: 9 load steps (0..250),</span>
+<span class="c1"># 500 grains each (X,Y,Z + GrainRadius + Euler-bunge + eKen elastic strain), plus</span>
+<span class="c1"># the macroscopic strain-stress curve.</span>
+<span class="n">exp_data_dir</span> <span class="o">=</span> <span class="s2">"mwe_data/ff_calibration"</span>
+<span class="n">input_file</span> <span class="o">=</span> <span class="n">exp_data_dir</span> <span class="o">+</span> <span class="s2">"/0.csv"</span>
+
+<span class="n">bounding_box</span> <span class="o">=</span> <span class="p">[</span><span class="o">-</span><span class="mf">477.0</span><span class="p">,</span> <span class="mi">528</span><span class="p">,</span> <span class="o">-</span><span class="mi">487</span><span class="p">,</span> <span class="mi">532</span><span class="p">,</span> <span class="o">-</span><span class="mi">1025</span><span class="p">,</span> <span class="mi">625</span><span class="p">]</span>
+<span class="n">rotate_angles</span> <span class="o">=</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mf">3.6</span> <span class="o">/</span> <span class="mi">180</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span>
+<span class="n">rotate_unit</span> <span class="o">=</span> <span class="s2">"rad"</span>
+
+<span class="c1"># row-major ordered</span>
+<span class="n">elastic_strain_identifier</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s2">"eKen11"</span><span class="p">,</span>
+    <span class="s2">"eKen12"</span><span class="p">,</span>
+    <span class="s2">"eKen13"</span><span class="p">,</span>
+    <span class="s2">"eKen21"</span><span class="p">,</span>
+    <span class="s2">"eKen22"</span><span class="p">,</span>
+    <span class="s2">"eKen23"</span><span class="p">,</span>
+    <span class="s2">"eKen31"</span><span class="p">,</span>
+    <span class="s2">"eKen32"</span><span class="p">,</span>
+    <span class="s2">"eKen33"</span><span class="p">,</span>
+<span class="p">]</span>
+
+<span class="n">run_cpfe</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="n">update_experiments_data</span> <span class="o">=</span> <span class="kc">True</span>  <span class="c1"># rotate raw FF data -&gt; outputdir/rotated_experiments</span>
+<span class="n">run_calibration</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="n">build_graph</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="n">build_voronoi</span> <span class="o">=</span> <span class="kc">False</span>
+
+<span class="k">if</span> <span class="n">generate_sudo</span><span class="p">:</span>
+
+    <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="mi">42</span><span class="p">)</span>
+
+    <span class="n">bounding_box</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
+    <span class="n">n_centroids</span> <span class="o">=</span> <span class="mi">10</span>
+
+    <span class="c1"># random points (x,y,z) within bounding box</span>
+    <span class="n">points</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">n_centroids</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+    <span class="n">points</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">points</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">bounding_box</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">bounding_box</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">+</span> <span class="n">bounding_box</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">points</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">points</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">bounding_box</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">-</span> <span class="n">bounding_box</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span> <span class="o">+</span> <span class="n">bounding_box</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+    <span class="n">points</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">points</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">bounding_box</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span> <span class="o">-</span> <span class="n">bounding_box</span><span class="p">[</span><span class="mi">4</span><span class="p">])</span> <span class="o">+</span> <span class="n">bounding_box</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span>
+
+    <span class="n">weights</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">n_centroids</span><span class="p">)</span> <span class="o">**</span> <span class="mi">3</span>
+
+    <span class="c1"># euler angles: 30 deg in 'x', 0 elsewhere</span>
+    <span class="n">euler_angles</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">n_centroids</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="mi">30</span><span class="p">)</span>
+    <span class="n">euler_angles</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">euler_angles</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="c1"># symmetric tensors in microstrain</span>
+    <span class="n">exx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="o">-</span><span class="mi">500</span><span class="p">,</span> <span class="mi">500</span><span class="p">,</span> <span class="n">n_centroids</span><span class="p">)</span>
+    <span class="n">eyy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="o">-</span><span class="mi">500</span><span class="p">,</span> <span class="mi">500</span><span class="p">,</span> <span class="n">n_centroids</span><span class="p">)</span>
+    <span class="n">ezz</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="o">-</span><span class="mi">500</span><span class="p">,</span> <span class="mi">500</span><span class="p">,</span> <span class="n">n_centroids</span><span class="p">)</span>
+    <span class="n">exy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="o">-</span><span class="mi">500</span><span class="p">,</span> <span class="mi">500</span><span class="p">,</span> <span class="n">n_centroids</span><span class="p">)</span>
+    <span class="n">eyz</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="o">-</span><span class="mi">500</span><span class="p">,</span> <span class="mi">500</span><span class="p">,</span> <span class="n">n_centroids</span><span class="p">)</span>
+    <span class="n">exz</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="o">-</span><span class="mi">500</span><span class="p">,</span> <span class="mi">500</span><span class="p">,</span> <span class="n">n_centroids</span><span class="p">)</span>
+
+    <span class="c1"># flatten into 9-component row-major form</span>
+    <span class="n">ee</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">exx</span><span class="p">,</span> <span class="n">exy</span><span class="p">,</span> <span class="n">exz</span><span class="p">,</span> <span class="n">exy</span><span class="p">,</span> <span class="n">eyy</span><span class="p">,</span> <span class="n">eyz</span><span class="p">,</span> <span class="n">exz</span><span class="p">,</span> <span class="n">eyz</span><span class="p">,</span> <span class="n">ezz</span><span class="p">])</span>
+
+    <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">points</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">"X"</span><span class="p">,</span> <span class="s2">"Y"</span><span class="p">,</span> <span class="s2">"Z"</span><span class="p">])</span>
+    <span class="n">df</span><span class="p">[</span><span class="s2">"GrainRadius"</span><span class="p">]</span> <span class="o">=</span> <span class="n">weights</span>
+    <span class="n">df</span><span class="p">[</span><span class="s2">"Eul0"</span><span class="p">]</span> <span class="o">=</span> <span class="n">euler_angles</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+    <span class="n">df</span><span class="p">[</span><span class="s2">"Eul1"</span><span class="p">]</span> <span class="o">=</span> <span class="n">euler_angles</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span>
+    <span class="n">df</span><span class="p">[</span><span class="s2">"Eul2"</span><span class="p">]</span> <span class="o">=</span> <span class="n">euler_angles</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">]</span>
+    <span class="n">df</span><span class="p">[</span><span class="s2">"eKen11"</span><span class="p">]</span> <span class="o">=</span> <span class="n">ee</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+    <span class="n">df</span><span class="p">[</span><span class="s2">"eKen12"</span><span class="p">]</span> <span class="o">=</span> <span class="n">ee</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span>
+    <span class="n">df</span><span class="p">[</span><span class="s2">"eKen13"</span><span class="p">]</span> <span class="o">=</span> <span class="n">ee</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">]</span>
+    <span class="n">df</span><span class="p">[</span><span class="s2">"eKen21"</span><span class="p">]</span> <span class="o">=</span> <span class="n">ee</span><span class="p">[:,</span> <span class="mi">3</span><span class="p">]</span>
+    <span class="n">df</span><span class="p">[</span><span class="s2">"eKen22"</span><span class="p">]</span> <span class="o">=</span> <span class="n">ee</span><span class="p">[:,</span> <span class="mi">4</span><span class="p">]</span>
+    <span class="n">df</span><span class="p">[</span><span class="s2">"eKen23"</span><span class="p">]</span> <span class="o">=</span> <span class="n">ee</span><span class="p">[:,</span> <span class="mi">5</span><span class="p">]</span>
+    <span class="n">df</span><span class="p">[</span><span class="s2">"eKen31"</span><span class="p">]</span> <span class="o">=</span> <span class="n">ee</span><span class="p">[:,</span> <span class="mi">6</span><span class="p">]</span>
+    <span class="n">df</span><span class="p">[</span><span class="s2">"eKen32"</span><span class="p">]</span> <span class="o">=</span> <span class="n">ee</span><span class="p">[:,</span> <span class="mi">7</span><span class="p">]</span>
+    <span class="n">df</span><span class="p">[</span><span class="s2">"eKen33"</span><span class="p">]</span> <span class="o">=</span> <span class="n">ee</span><span class="p">[:,</span> <span class="mi">8</span><span class="p">]</span>
+
+    <span class="n">df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="s2">"test.csv"</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">input_file</span> <span class="o">=</span> <span class="s2">"test.csv"</span>
+
+<span class="k">if</span> <span class="n">build_voronoi</span><span class="p">:</span>
+
+    <span class="n">builder</span> <span class="o">=</span> <span class="n">VoronoiMeshBuilder</span><span class="p">(</span>
+        <span class="n">input_csv</span><span class="o">=</span><span class="n">input_file</span><span class="p">,</span>
+        <span class="n">output_dir</span><span class="o">=</span><span class="n">outputdir</span><span class="p">,</span>
+        <span class="n">bounding_box</span><span class="o">=</span><span class="n">bounding_box</span><span class="p">,</span>
+        <span class="n">dim</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+        <span class="n">weighted</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">auto_fix_bbox</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">bbox_fix_mode</span><span class="o">=</span><span class="s2">"remove_points"</span><span class="p">,</span>  <span class="c1"># 'extend_bounding_box' or 'remove_points'</span>
+        <span class="n">bbox_tolerance</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>  <span class="c1"># bounding box tolerance % factor</span>
+        <span class="n">auto_rotate</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>  <span class="c1"># if True, PCA method applied (rotate_angles ignored)</span>
+        <span class="n">rotate_angles</span><span class="o">=</span><span class="n">rotate_angles</span><span class="p">,</span>
+        <span class="n">rotate_convention</span><span class="o">=</span><span class="s2">"xyz"</span><span class="p">,</span>
+        <span class="n">unit</span><span class="o">=</span><span class="n">rotate_unit</span><span class="p">,</span>
+        <span class="n">angle_identifier</span><span class="o">=</span><span class="p">[</span><span class="s2">"Eul0"</span><span class="p">,</span> <span class="s2">"Eul1"</span><span class="p">,</span> <span class="s2">"Eul2"</span><span class="p">],</span>
+        <span class="n">orientation_descriptor</span><span class="o">=</span><span class="s2">"euler-bunge"</span><span class="p">,</span>
+        <span class="n">orientation_active_convention</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">elastic_strain_identifier</span><span class="o">=</span><span class="n">elastic_strain_identifier</span><span class="p">,</span>
+        <span class="n">strain_unit</span><span class="o">=</span><span class="s2">"microstrain"</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">builder</span><span class="o">.</span><span class="n">build_voronoi</span><span class="p">(</span>
+        <span class="n">generate_mesh</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">mesh_quality_min</span><span class="o">=</span><span class="mf">0.7</span><span class="p">,</span>
+        <span class="n">relative_el_size</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span>  <span class="c1"># 1 roughly 100 elements per cell</span>
+        <span class="n">option</span><span class="o">=</span><span class="s2">"centroid"</span><span class="p">,</span>  <span class="c1"># voronoi, centroid, centroidsize</span>
+        <span class="n">CVT_iter</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+        <span class="n">morphoalgo</span><span class="o">=</span><span class="s2">"subplex"</span><span class="p">,</span>  <span class="c1"># subplex, lloyd, praxis</span>
+    <span class="p">)</span>
+
+<span class="k">if</span> <span class="n">build_graph</span><span class="p">:</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">NeperTessToGraphNN</span><span class="p">(</span>
+        <span class="n">tess_path</span><span class="o">=</span><span class="n">outputdir</span> <span class="o">+</span> <span class="s2">"/voronoi.tess"</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s2">"cpu"</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float64</span>
+    <span class="p">)</span>
+
+    <span class="n">graph</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">build_cell_graph</span><span class="p">()</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">outputdir</span> <span class="o">+</span> <span class="s2">"/figures/gnn"</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">visualize_graph_2D</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">outpath</span><span class="o">=</span><span class="n">outputdir</span> <span class="o">+</span> <span class="s2">"/figures/gnn/graph_2D.png"</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">visualize_graph_3D</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">outpath</span><span class="o">=</span><span class="n">outputdir</span> <span class="o">+</span> <span class="s2">"/figures/gnn/graph_3D.png"</span><span class="p">)</span>
+
+<span class="k">if</span> <span class="n">update_experiments_data</span><span class="p">:</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">=== Updating Experimental Data with Rotation and Strain ===</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+
+    <span class="n">files</span><span class="p">,</span> <span class="n">stress_levels</span> <span class="o">=</span> <span class="n">collect_experiment_files</span><span class="p">(</span><span class="n">exp_data_dir</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Found </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">files</span><span class="p">)</span><span class="si">}</span><span class="s2"> CSV files in '</span><span class="si">{</span><span class="n">exp_data_dir</span><span class="si">}</span><span class="s2">':"</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">f</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">files</span><span class="p">,</span> <span class="n">stress_levels</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">f</span><span class="p">)</span><span class="si">:</span><span class="s2">&gt;12</span><span class="si">}</span><span class="s2">  (stress = </span><span class="si">{</span><span class="n">s</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
+
+    <span class="n">update_experiments</span><span class="p">(</span>
+        <span class="n">input_files</span><span class="o">=</span><span class="n">files</span><span class="p">,</span>
+        <span class="n">output_root</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outputdir</span><span class="p">,</span> <span class="s2">"rotated_experiments"</span><span class="p">),</span>
+        <span class="n">bounding_box</span><span class="o">=</span><span class="n">bounding_box</span><span class="p">,</span>
+        <span class="n">auto_fix_bbox</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">bbox_fix_mode</span><span class="o">=</span><span class="s2">"remove_points"</span><span class="p">,</span>
+        <span class="n">rotate_angles</span><span class="o">=</span><span class="n">rotate_angles</span><span class="p">,</span>
+        <span class="n">unit</span><span class="o">=</span><span class="n">rotate_unit</span><span class="p">,</span>
+        <span class="n">angle_identifier</span><span class="o">=</span><span class="p">[</span><span class="s2">"Eul0"</span><span class="p">,</span> <span class="s2">"Eul1"</span><span class="p">,</span> <span class="s2">"Eul2"</span><span class="p">],</span>
+        <span class="n">orientation_descriptor</span><span class="o">=</span><span class="s2">"euler-bunge"</span><span class="p">,</span>
+        <span class="n">orientation_active_convention</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">elastic_strain_identifier</span><span class="o">=</span><span class="p">[</span>
+            <span class="s2">"eKen11"</span><span class="p">,</span>
+            <span class="s2">"eKen12"</span><span class="p">,</span>
+            <span class="s2">"eKen13"</span><span class="p">,</span>
+            <span class="s2">"eKen21"</span><span class="p">,</span>
+            <span class="s2">"eKen22"</span><span class="p">,</span>
+            <span class="s2">"eKen23"</span><span class="p">,</span>
+            <span class="s2">"eKen31"</span><span class="p">,</span>
+            <span class="s2">"eKen32"</span><span class="p">,</span>
+            <span class="s2">"eKen33"</span><span class="p">,</span>
+        <span class="p">],</span>
+    <span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">Processed all experiments. Results in: </span><span class="si">{</span><span class="n">outputdir</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+<span class="c1"># Material calibration</span>
+<span class="k">if</span> <span class="n">run_calibration</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">=== Starting Material Calibration ===</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+
+    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">outputdir</span> <span class="o">+</span> <span class="s2">"/figures/material_calibration"</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># NEML2 v3 + pyzag adjoint calibration. n_grains subsamples grains (None =</span>
+    <span class="c1"># all); nchunk is the pyzag chunk size for the bidiagonal-in-time solve.</span>
+    <span class="n">npoints</span> <span class="o">=</span> <span class="mi">30</span>  <span class="c1"># resampled stress-strain points (= number of pyzag time steps)</span>
+    <span class="n">calib</span> <span class="o">=</span> <span class="n">MaterialCalibration</span><span class="p">(</span>
+        <span class="n">model_class</span><span class="o">=</span><span class="n">TaylorModel</span><span class="p">,</span>
+        <span class="n">model_args</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span>
+            <span class="n">neml2_path</span><span class="o">=</span><span class="n">_cpfe_base</span> <span class="o">+</span> <span class="s2">"/neml2_cpfe_calibration.i"</span><span class="p">,</span>
+            <span class="n">npoints</span><span class="o">=</span><span class="n">npoints</span><span class="p">,</span>
+            <span class="n">nchunk</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+            <span class="n">device</span><span class="o">=</span><span class="s2">"cuda"</span><span class="p">,</span>  <span class="c1"># or "cpu"</span>
+            <span class="nb">compile</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="p">),</span>
+        <span class="n">data_args</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span>
+            <span class="n">data_dir</span><span class="o">=</span><span class="n">outputdir</span> <span class="o">+</span> <span class="s2">"/rotated_experiments"</span><span class="p">,</span>
+            <span class="n">strain_stress_file</span><span class="o">=</span><span class="n">exp_data_dir</span> <span class="o">+</span> <span class="s2">"/strain-stress.csv"</span><span class="p">,</span>
+            <span class="n">npoints</span><span class="o">=</span><span class="n">npoints</span><span class="p">,</span>
+            <span class="n">full_field_strain_units</span><span class="o">=</span><span class="s2">"microstrain"</span><span class="p">,</span>
+            <span class="n">straintype</span><span class="o">=</span><span class="s2">"eKen"</span><span class="p">,</span>
+            <span class="n">max_strain</span><span class="o">=</span><span class="mf">0.006</span><span class="p">,</span>
+            <span class="n">n_grains</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>  <span class="c1"># subsample grains per load step for speed (&lt;=500 shipped)</span>
+            <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span>
+        <span class="p">),</span>
+        <span class="n">save_dir</span><span class="o">=</span><span class="n">outputdir</span> <span class="o">+</span> <span class="s2">"/figures/material_calibration"</span><span class="p">,</span>
+        <span class="n">apply_elastic_correction</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">strain_window</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0015</span><span class="p">),</span>
+    <span class="p">)</span>
+
+    <span class="n">calib</span><span class="o">.</span><span class="n">plot_texture</span><span class="p">(</span><span class="n">direction</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+    <span class="n">calib</span><span class="o">.</span><span class="n">plot_stress_strain</span><span class="p">()</span>
+
+    <span class="c1"># maxiter is only an upper bound: the plateau guard stops early once the</span>
+    <span class="c1"># relative loss improvement over `plateau_window` steps drops below</span>
+    <span class="c1"># `plateau_rtol` (LBFGS with strong-Wolfe converges in a few iterations).</span>
+    <span class="n">calib</span><span class="o">.</span><span class="n">calibrate</span><span class="p">(</span>
+        <span class="n">maxiter</span><span class="o">=</span><span class="mi">15</span><span class="p">,</span>
+        <span class="n">lr</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
+        <span class="n">max_iter_per_step</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span>
+        <span class="n">line_search_fn</span><span class="o">=</span><span class="s2">"strong_wolfe"</span><span class="p">,</span>
+        <span class="n">plateau_rtol</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">,</span>
+        <span class="n">plateau_window</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">calib</span><span class="o">.</span><span class="n">load</span><span class="p">(</span>
+        <span class="n">outputdir</span> <span class="o">+</span> <span class="s2">"/figures/material_calibration"</span> <span class="o">+</span> <span class="s2">"/calibrated_material.json"</span>
+    <span class="p">)</span>
+
+    <span class="n">calib</span><span class="o">.</span><span class="n">plot_stress_strain</span><span class="p">(</span><span class="n">include_model</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">calib</span><span class="o">.</span><span class="n">plot_strain_histogram</span><span class="p">(</span><span class="n">include_initial_strain</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="n">translation</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">"elastic_tensor_E"</span><span class="p">:</span> <span class="s2">"elastic_E"</span><span class="p">,</span>
+        <span class="s2">"elastic_tensor_G"</span><span class="p">:</span> <span class="s2">"elastic_G"</span><span class="p">,</span>
+        <span class="s2">"elastic_tensor_nu"</span><span class="p">:</span> <span class="s2">"elastic_nu"</span><span class="p">,</span>
+        <span class="s2">"slip_strength_constant_strength"</span><span class="p">:</span> <span class="s2">"slip_constant_strength"</span><span class="p">,</span>
+        <span class="s2">"voce_hardening_initial_slope"</span><span class="p">:</span> <span class="s2">"voce_hardening_initial_slope"</span><span class="p">,</span>
+        <span class="s2">"voce_hardening_saturated_hardening"</span><span class="p">:</span> <span class="s2">"voce_hardening_saturation"</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="n">optimized_material</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">translation</span><span class="p">[</span><span class="n">k</span><span class="p">]:</span> <span class="nb">float</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">calib</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">opt_vars</span><span class="p">,</span> <span class="n">calib</span><span class="o">.</span><span class="n">opt_params</span><span class="p">)</span>
+    <span class="p">}</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">Calibrated material parameters:"</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">optimized_material</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2"> = </span><span class="si">{</span><span class="n">v</span><span class="si">:</span><span class="s2">.6g</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+<span class="k">if</span> <span class="n">run_cpfe</span><span class="p">:</span>
+    <span class="n">sim</span> <span class="o">=</span> <span class="n">CPFESimulation</span><span class="p">(</span>
+        <span class="n">mesh_file</span><span class="o">=</span><span class="n">outputdir</span> <span class="o">+</span> <span class="s2">"/voronoi.msh"</span><span class="p">,</span>
+        <span class="n">save_simulation_folder</span><span class="o">=</span><span class="n">outputdir</span> <span class="o">+</span> <span class="s2">"/simulation_cpfe"</span><span class="p">,</span>
+        <span class="n">eeres_file</span><span class="o">=</span><span class="n">outputdir</span> <span class="o">+</span> <span class="s2">"/voronoi.ee"</span><span class="p">,</span>
+        <span class="n">ori_file</span><span class="o">=</span><span class="n">outputdir</span> <span class="o">+</span> <span class="s2">"/voronoi.ori"</span><span class="p">,</span>
+        <span class="n">dim</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+        <span class="n">moose_run_file</span><span class="o">=</span><span class="s2">"external/puma/puma-opt"</span><span class="p">,</span>  <span class="c1"># EDIT: your built PUMA binary</span>
+    <span class="p">)</span>
+
+    <span class="n">sim</span><span class="o">.</span><span class="n">set_parameters</span><span class="p">(</span><span class="s2">"material"</span><span class="p">,</span> <span class="o">**</span><span class="n">optimized_material</span><span class="p">)</span>
+
+    <span class="n">sim</span><span class="o">.</span><span class="n">set_parameters</span><span class="p">(</span>
+        <span class="s2">"boundary"</span><span class="p">,</span>
+        <span class="n">bounding_box</span><span class="o">=</span><span class="n">builder</span><span class="o">.</span><span class="n">bounding_box</span><span class="p">,</span>
+        <span class="n">bc</span><span class="o">=</span><span class="p">{</span>
+            <span class="s2">"x"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"negative"</span><span class="p">:</span> <span class="s2">"stress_free"</span><span class="p">,</span> <span class="s2">"positive"</span><span class="p">:</span> <span class="s2">"stress_free"</span><span class="p">},</span>
+            <span class="s2">"y"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"negative"</span><span class="p">:</span> <span class="s2">"stress_free"</span><span class="p">,</span> <span class="s2">"positive"</span><span class="p">:</span> <span class="s2">"stress_free"</span><span class="p">},</span>
+            <span class="s2">"z"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"negative"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">"positive"</span><span class="p">:</span> <span class="mi">30</span><span class="p">},</span>
+        <span class="p">},</span>
+    <span class="p">)</span>
+
+    <span class="n">sim</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">ncore</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="meshing.html" class="btn btn-neutral float-left" title="Meshing a grain grid into hex" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="material-calibration.html" class="btn btn-neutral float-right" title="Material calibration" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Argonne National Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

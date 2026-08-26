@@ -1,0 +1,534 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CPFE (NF geometry + FF initial strain) &mdash; graintrace 0.1.2</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=92734c54"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=96c007af"></script>
+      <script src="../_static/design-tabs.js?v=f930bc37"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Post-CPFE analysis &amp; plotting" href="post-processing.html" />
+    <link rel="prev" title="CPFE simulation" href="cpfe-simulation.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            graintrace
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts.html">Concepts &amp; data formats</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../configuration.html">Configuration reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../mcp.html">MCP server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../benchmarks.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pitfalls.html">Common pitfalls</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Tutorials &amp; examples</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="tutorials.html">Tutorials</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="hedm-stitching.html">HEDM scan simulation and stitching</a></li>
+<li class="toctree-l2"><a class="reference internal" href="microstructure-generation.html">Microstructure generation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ff-reconstruction.html">FF Voronoi reconstruction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="nf-reconstruction.html">NF mesh reconstruction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="voxel-segmentation-mesh.html">Voxel segmentation and meshing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="meshing.html">Meshing a grain grid into hex</a></li>
+<li class="toctree-l2"><a class="reference internal" href="experiment-rotation.html">Registering FF data to the sim frame</a></li>
+<li class="toctree-l2"><a class="reference internal" href="material-calibration.html">Material calibration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cpfe-simulation.html">CPFE simulation</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">CPFE (NF geometry + FF initial strain)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#inputs">Inputs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#pipeline">Pipeline</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#recipe">Recipe</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#key-parameters">Key parameters</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#gotchas">Gotchas</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#full-example">Full example</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="post-processing.html">Post-CPFE analysis &amp; plotting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rare-event-identification.html">Rare-event identification (REI)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rei-comparison.html">REI comparison</a></li>
+<li class="toctree-l2"><a class="reference internal" href="grain-tracking.html">Grain tracking across load steps</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../api/api.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../development.html">Building &amp; testing the docs</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">graintrace</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="tutorials.html">Tutorials</a></li>
+      <li class="breadcrumb-item active">CPFE (NF geometry + FF initial strain)</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/tutorials/cpfe-nf-ff.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="cpfe-nf-geometry-ff-initial-strain">
+<h1>CPFE (NF geometry + FF initial strain)<a class="headerlink" href="#cpfe-nf-geometry-ff-initial-strain" title="Link to this heading"></a></h1>
+<p>Run a combined near-field + far-field CPFE simulation: the NF reconstruction
+supplies the high-resolution hex mesh and per-element orientations, while the FF
+reconstruction supplies the initial elastic-strain (residual-strain) field. Use
+this when you want to drive CPFE from an NF mesh with an FF residual-strain
+initial condition, optionally end to end from synthetic HEDM.</p>
+<p><strong>Needs:</strong> the native stack — NEPER (FF/synthetic), CUBIT/SCULPT (NF mesh),
+MOOSE <code class="docutils literal notranslate"><span class="pre">puma-opt</span></code> + <code class="docutils literal notranslate"><span class="pre">neml2-compile</span></code>.</p>
+<section id="inputs">
+<h2>Inputs<a class="headerlink" href="#inputs" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>An NF mesh and orientations, from <a class="reference internal" href="nf-reconstruction.html"><span class="doc">NF mesh reconstruction</span></a>
+(<code class="xref py py-class docutils literal notranslate"><span class="pre">NearFieldMeshBuilder</span></code>): <code class="docutils literal notranslate"><span class="pre">mesh.e</span></code> plus a per-element MRP
+<code class="docutils literal notranslate"><span class="pre">orientations.csv</span></code>.</p></li>
+<li><p>An FF per-grain elastic-strain file, from <a class="reference internal" href="ff-reconstruction.html"><span class="doc">FF Voronoi reconstruction</span></a>
+(<code class="xref py py-class docutils literal notranslate"><span class="pre">VoronoiMeshBuilder</span></code> with <code class="docutils literal notranslate"><span class="pre">generate_mesh=False</span></code>):
+<code class="docutils literal notranslate"><span class="pre">reconstruction_cpfe_ee.csv</span></code>.</p></li>
+</ul>
+<p>If the NF and FF data are not co-registered, shift the FF <code class="docutils literal notranslate"><span class="pre">x,</span> <span class="pre">y,</span> <span class="pre">z</span></code> into the NF
+frame first (see below). A synthetic HEDM generator can produce both stages when
+you do not have experimental data.</p>
+</section>
+<section id="pipeline">
+<h2>Pipeline<a class="headerlink" href="#pipeline" title="Link to this heading"></a></h2>
+<ol class="arabic simple">
+<li><p>(optional) Generate synthetic HEDM, writing an FF CSV and NF layers.</p></li>
+<li><p>Build the NF mesh: <code class="xref py py-meth docutils literal notranslate"><span class="pre">reconstruct()</span></code> then
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">mesh()</span></code> produce <code class="docutils literal notranslate"><span class="pre">mesh.e</span></code> and
+<code class="docutils literal notranslate"><span class="pre">orientations.csv</span></code>.</p></li>
+<li><p>Build the FF residual strain: <code class="docutils literal notranslate"><span class="pre">build_voronoi(generate_mesh=False,</span> <span class="pre">...)</span></code>
+produces <code class="docutils literal notranslate"><span class="pre">reconstruction_cpfe_ee.csv</span></code>.</p></li>
+<li><p>Run CPFE with the NF mesh, NF orientations, and the FF strain field.</p></li>
+</ol>
+</section>
+<section id="recipe">
+<h2>Recipe<a class="headerlink" href="#recipe" title="Link to this heading"></a></h2>
+<p>Shift the FF elastic-strain file into the NF frame when the two are not
+co-registered:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+
+<span class="n">ff_translation</span> <span class="o">=</span> <span class="p">(</span><span class="n">dx</span><span class="p">,</span> <span class="n">dy</span><span class="p">,</span> <span class="n">dz</span><span class="p">)</span>   <span class="c1"># from experiment geometry</span>
+<span class="n">ee</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s2">"out/ff_reconstruction/reconstruction_cpfe_ee.csv"</span><span class="p">,</span>
+                 <span class="n">header</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">index_col</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">ee</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">+=</span> <span class="n">ff_translation</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">ee</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">+=</span> <span class="n">ff_translation</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+<span class="n">ee</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">+=</span> <span class="n">ff_translation</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+<span class="n">ee</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="s2">"out/ff_reconstruction/reconstruction_cpfe_ee_shifted.csv"</span><span class="p">,</span>
+          <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Run the simulation:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">graintrace.run_cpfe_simulation</span><span class="w"> </span><span class="kn">import</span> <span class="n">CPFESimulation</span>
+
+<span class="n">sim</span> <span class="o">=</span> <span class="n">CPFESimulation</span><span class="p">(</span>
+    <span class="n">mesh_file</span><span class="o">=</span><span class="s2">"out/nf_reconstruction/mesh.e"</span><span class="p">,</span>
+    <span class="n">save_simulation_folder</span><span class="o">=</span><span class="s2">"out/simulation"</span><span class="p">,</span>
+    <span class="n">eeres_file</span><span class="o">=</span><span class="s2">"out/ff_reconstruction/reconstruction_cpfe_ee_shifted.csv"</span><span class="p">,</span>
+    <span class="n">ori_file</span><span class="o">=</span><span class="s2">"out/nf_reconstruction/orientations.csv"</span><span class="p">,</span>
+    <span class="n">dim</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">element_order</span><span class="o">=</span><span class="s2">"FIRST"</span><span class="p">,</span>           <span class="c1"># NF meshes are typically FIRST order</span>
+    <span class="n">moose_run_file</span><span class="o">=</span><span class="s2">"external/puma/puma-opt"</span><span class="p">,</span>   <span class="c1"># your built puma-opt</span>
+    <span class="n">use_ff_initial_field</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>             <span class="c1"># ee comes from a DIFFERENT mesh</span>
+<span class="p">)</span>
+<span class="n">sim</span><span class="o">.</span><span class="n">set_parameters</span><span class="p">(</span><span class="s2">"material"</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>         <span class="c1"># see :doc:`material-calibration`</span>
+<span class="n">sim</span><span class="o">.</span><span class="n">set_parameters</span><span class="p">(</span><span class="s2">"simulation_parameters"</span><span class="p">,</span>
+                   <span class="n">device</span><span class="o">=</span><span class="s2">"cuda:0"</span><span class="p">,</span> <span class="n">device_batch</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
+                   <span class="n">dt</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">total_time</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">initialize_time</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">sync_times</span><span class="o">=</span><span class="s2">"2.0"</span><span class="p">)</span>
+<span class="n">sim</span><span class="o">.</span><span class="n">set_parameters</span><span class="p">(</span><span class="s2">"boundary"</span><span class="p">,</span> <span class="n">bounding_box</span><span class="o">=</span><span class="n">nf_bbox</span><span class="p">,</span> <span class="n">bc</span><span class="o">=</span><span class="p">{</span><span class="o">...</span><span class="p">})</span>
+<span class="n">sim</span><span class="o">.</span><span class="n">set_parameters</span><span class="p">(</span><span class="s2">"grid_properties"</span><span class="p">,</span>
+                   <span class="n">number_of_elements</span><span class="o">=</span><span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">],</span> <span class="n">bounding_box</span><span class="o">=</span><span class="n">grid_bb</span><span class="p">)</span>
+<span class="n">sim</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">ncore</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="key-parameters">
+<h2>Key parameters<a class="headerlink" href="#key-parameters" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">use_ff_initial_field</span></code> — <code class="docutils literal notranslate"><span class="pre">False</span></code> when the elastic-strain file and the mesh
+are different meshes (FF strain on an NF mesh); <code class="docutils literal notranslate"><span class="pre">True</span></code> only when mesh and
+strain file are co-registered FF.</p></li>
+<li><p>FF-to-NF shift — add <code class="docutils literal notranslate"><span class="pre">(dx,</span> <span class="pre">dy,</span> <span class="pre">dz)</span></code> to the first three columns of
+<code class="docutils literal notranslate"><span class="pre">reconstruction_cpfe_ee.csv</span></code> to align frames before passing it as
+<code class="docutils literal notranslate"><span class="pre">eeres_file</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">nf_bbox</span></code> — derive from the NF <code class="docutils literal notranslate"><span class="pre">merged_segmented_fixed_grid.npy</span></code> coordinates
+(see <a class="reference internal" href="../configuration.html"><span class="doc">Configuration reference</span></a>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sculpt_config</span></code> — configures the NF hex mesh (see <a class="reference internal" href="../configuration.html"><span class="doc">Configuration reference</span></a>).</p></li>
+<li><p>CPFE material, simulation, boundary, and grid parameters follow
+<a class="reference internal" href="cpfe-simulation.html"><span class="doc">CPFE simulation</span></a>.</p></li>
+</ul>
+</section>
+<section id="gotchas">
+<h2>Gotchas<a class="headerlink" href="#gotchas" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>The same NEML2 v3 AOTI notes as <a class="reference internal" href="cpfe-simulation.html"><span class="doc">CPFE simulation</span></a> apply: material
+parameters are baked into the model and compiled on <code class="docutils literal notranslate"><span class="pre">run()</span></code>; there are no
+runtime schedulers; a device list maps to MPI ranks.</p></li>
+<li><p>NF reconstruction uses multiprocessing, so the driver must sit under an
+<code class="docutils literal notranslate"><span class="pre">if</span> <span class="pre">__name__</span> <span class="pre">==</span> <span class="pre">&quot;__main__&quot;:</span></code> guard.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">moose_run_file</span></code> must point at your built v3 <code class="docutils literal notranslate"><span class="pre">puma-opt</span></code>.</p></li>
+</ul>
+</section>
+<section id="full-example">
+<h2>Full example<a class="headerlink" href="#full-example" title="Link to this heading"></a></h2>
+<div class="literal-block-wrapper docutils container" id="id1">
+<div class="code-block-caption"><span class="caption-text">examples/demonstrate_cpfe_nfff.py</span><a class="headerlink" href="#id1" title="Link to this code"></a></div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Copyright 2026, UChicago Argonne, LLC</span>
+<span class="c1"># All Rights Reserved</span>
+<span class="c1"># Software Name: graintrace</span>
+<span class="c1"># By: Argonne National Laboratory</span>
+<span class="c1"># OPEN SOURCE LICENSE (MIT)</span>
+<span class="c1">#</span>
+<span class="c1"># Permission is hereby granted, free of charge, to any person obtaining a copy</span>
+<span class="c1"># of this software and associated documentation files (the "Software"), to deal</span>
+<span class="c1"># in the Software without restriction, including without limitation the rights</span>
+<span class="c1"># to use, copy, modify, merge, publish, distribute, sublicense, and/or sell</span>
+<span class="c1"># copies of the Software, and to permit persons to whom the Software is</span>
+<span class="c1"># furnished to do so, subject to the following conditions:</span>
+<span class="c1">#</span>
+<span class="c1"># The above copyright notice and this permission notice shall be included in</span>
+<span class="c1"># all copies or substantial portions of the Software.</span>
+<span class="c1">#</span>
+<span class="c1"># THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR</span>
+<span class="c1"># IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,</span>
+<span class="c1"># FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE</span>
+<span class="c1"># AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER</span>
+<span class="c1"># LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,</span>
+<span class="c1"># OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN</span>
+<span class="c1"># THE SOFTWARE.</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">graintrace.synthetic_hedm_generator</span><span class="w"> </span><span class="kn">import</span> <span class="n">SyntheticHEDMGenerator</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">graintrace.run_cpfe_simulation</span><span class="w"> </span><span class="kn">import</span> <span class="n">CPFESimulation</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">graintrace.construct_voronoi_mesh</span><span class="w"> </span><span class="kn">import</span> <span class="n">VoronoiMeshBuilder</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">graintrace.construct_nf_mesh</span><span class="w"> </span><span class="kn">import</span> <span class="n">NearFieldMeshBuilder</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="n">fsize</span> <span class="o">=</span> <span class="mi">14</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">rcParams</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+    <span class="p">{</span>
+        <span class="s2">"font.size"</span><span class="p">:</span> <span class="n">fsize</span><span class="p">,</span>
+        <span class="s2">"axes.labelsize"</span><span class="p">:</span> <span class="n">fsize</span><span class="p">,</span>
+        <span class="s2">"axes.titlesize"</span><span class="p">:</span> <span class="n">fsize</span><span class="p">,</span>
+        <span class="s2">"xtick.labelsize"</span><span class="p">:</span> <span class="n">fsize</span><span class="p">,</span>
+        <span class="s2">"ytick.labelsize"</span><span class="p">:</span> <span class="n">fsize</span><span class="p">,</span>
+        <span class="s2">"legend.fontsize"</span><span class="p">:</span> <span class="n">fsize</span><span class="p">,</span>
+    <span class="p">}</span>
+<span class="p">)</span>
+
+<span class="c1"># INPUT -------------------------------------------------------</span>
+<span class="n">output_dir</span> <span class="o">=</span> <span class="s2">"minimum_example_nfff_cpfe"</span>
+
+<span class="n">ff_bounding_box</span> <span class="o">=</span> <span class="p">[</span><span class="o">-</span><span class="mi">500</span><span class="p">,</span> <span class="mi">500</span><span class="p">,</span> <span class="o">-</span><span class="mi">500</span><span class="p">,</span> <span class="mi">500</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1500</span><span class="p">]</span>
+<span class="n">ff_strain_stdev</span> <span class="o">=</span> <span class="mf">1000.0</span>  <span class="c1"># microstrain</span>
+
+<span class="n">nf_bounding_box</span> <span class="o">=</span> <span class="p">[</span><span class="o">-</span><span class="mi">200</span><span class="p">,</span> <span class="mi">200</span><span class="p">,</span> <span class="o">-</span><span class="mi">200</span><span class="p">,</span> <span class="mi">200</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">600</span><span class="p">]</span>
+
+<span class="n">crystal_morpho_args</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"type"</span><span class="p">:</span> <span class="s2">"diameq"</span><span class="p">,</span>
+    <span class="s2">"distribution"</span><span class="p">:</span> <span class="s2">"lognormal"</span><span class="p">,</span>
+    <span class="s2">"params"</span><span class="p">:</span> <span class="p">(</span><span class="mf">200.0</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">),</span>
+<span class="p">}</span>
+
+<span class="n">nf_dz</span> <span class="o">=</span> <span class="mf">120.0</span>  <span class="c1"># Near field dz (thickness) per layer</span>
+<span class="n">nf_mesh_nx</span> <span class="o">=</span> <span class="mi">5</span>
+<span class="n">nf_mesh_ny</span> <span class="o">=</span> <span class="mi">5</span>
+
+<span class="n">nf_segmentation_input</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"misorientation_tol"</span><span class="p">:</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="mi">180</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">,</span>
+    <span class="s2">"connectivity"</span><span class="p">:</span> <span class="mi">26</span><span class="p">,</span>
+    <span class="s2">"batch_norm"</span><span class="p">:</span> <span class="mi">200_000</span><span class="p">,</span>
+    <span class="s2">"grain_threshold"</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span>
+    <span class="s2">"stop_count"</span><span class="p">:</span> <span class="mi">500</span><span class="p">,</span>
+    <span class="s2">"grain_threshold_final"</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="n">sculpt_options</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="s2">"--adapt"</span><span class="p">,</span>
+    <span class="c1"># "-A",</span>
+    <span class="c1"># "7",</span>
+    <span class="c1"># "-df",</span>
+    <span class="c1"># "1",</span>
+    <span class="s2">"-S"</span><span class="p">,</span>
+    <span class="s2">"2"</span><span class="p">,</span>
+    <span class="s2">"-CS"</span><span class="p">,</span>
+    <span class="s2">"4"</span><span class="p">,</span>
+    <span class="s2">"--void_mat"</span><span class="p">,</span>
+    <span class="s2">"0"</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># postprocess grid parameters</span>
+<span class="n">grid_nx</span> <span class="o">=</span> <span class="mi">10</span>
+<span class="n">grid_ny</span> <span class="o">=</span> <span class="mi">10</span>
+<span class="n">grid_nz</span> <span class="o">=</span> <span class="mi">10</span>
+
+<span class="n">reconstruction_needed</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="n">initialize_data</span> <span class="o">=</span> <span class="kc">True</span>
+
+<span class="c1"># simulation parameters</span>
+<span class="n">ncore</span> <span class="o">=</span> <span class="mi">8</span>
+<span class="n">device</span> <span class="o">=</span> <span class="s2">"cuda:0"</span>
+<span class="n">device_batch</span> <span class="o">=</span> <span class="mi">1000</span>
+
+<span class="c1"># program parameters</span>
+<span class="c1"># EDIT: path to your built PUMA binary (e.g. external/puma/puma-opt).</span>
+<span class="n">moose_run_file</span> <span class="o">=</span> <span class="s2">"external/puma/puma-opt"</span>
+
+<span class="c1"># EDIT: point these at your Coreform CUBIT/SCULPT install (paths only, never a license).</span>
+<span class="n">sculpt_config</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"launcher"</span><span class="p">:</span> <span class="s2">"/path/to/cubit/bin/mpi/bin/mpiexec"</span><span class="p">,</span>
+    <span class="s2">"psculpt"</span><span class="p">:</span> <span class="s2">"/path/to/cubit/bin/psculpt"</span><span class="p">,</span>
+    <span class="s2">"epu"</span><span class="p">:</span> <span class="s2">"/path/to/cubit/bin/epu"</span><span class="p">,</span>
+    <span class="s2">"nprocs"</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">ncore</span><span class="p">),</span>
+    <span class="s2">"environment"</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">"OPAL_LIBDIR"</span><span class="p">:</span> <span class="s2">"/path/to/cubit/bin/mpi/lib"</span><span class="p">,</span>
+        <span class="s2">"OPAL_PREFIX"</span><span class="p">:</span> <span class="s2">"/path/to/cubit/bin/mpi"</span><span class="p">,</span>
+    <span class="p">},</span>
+<span class="p">}</span>
+
+<span class="c1"># save locations</span>
+<span class="n">nf_folder</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="s2">"NF"</span><span class="p">)</span>
+<span class="n">nf_save_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="s2">"nf_reconstruction"</span><span class="p">)</span>
+<span class="n">output_ff</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="s2">"ff_reconstruction"</span><span class="p">)</span>
+
+<span class="k">if</span> <span class="n">initialize_data</span><span class="p">:</span>
+
+    <span class="c1">## GENERATE SYNTHETIC FF + NF STRUCTURE ------------------------</span>
+    <span class="n">synth_hedm_gen</span> <span class="o">=</span> <span class="n">SyntheticHEDMGenerator</span><span class="p">(</span>
+        <span class="n">output_dir</span><span class="o">=</span><span class="n">output_dir</span><span class="p">,</span>
+        <span class="n">ff_bounding_box</span><span class="o">=</span><span class="n">ff_bounding_box</span><span class="p">,</span>
+        <span class="n">ff_strain_stdev</span><span class="o">=</span><span class="n">ff_strain_stdev</span><span class="p">,</span>
+        <span class="n">ff_grain_characteristics</span><span class="o">=</span><span class="n">crystal_morpho_args</span><span class="p">,</span>
+        <span class="n">nf_bounding_box</span><span class="o">=</span><span class="n">nf_bounding_box</span><span class="p">,</span>
+        <span class="n">nf_dz</span><span class="o">=</span><span class="n">nf_dz</span><span class="p">,</span>
+        <span class="n">nf_spacing</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span>  <span class="c1"># lattice spacing</span>
+        <span class="n">random_seed</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">synth_hedm_gen</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">ff_iterations</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+
+    <span class="n">nf_bounding_box</span> <span class="o">=</span> <span class="n">synth_hedm_gen</span><span class="o">.</span><span class="n">nf_bounding_box</span>
+
+    <span class="k">if</span> <span class="n">reconstruction_needed</span><span class="p">:</span>
+        <span class="c1">## NEAR FIELD MESHING -------------------------------------------</span>
+
+        <span class="n">builder_nf</span> <span class="o">=</span> <span class="n">NearFieldMeshBuilder</span><span class="p">(</span>
+            <span class="n">input_folder</span><span class="o">=</span><span class="n">nf_folder</span><span class="p">,</span>
+            <span class="n">save_dir</span><span class="o">=</span><span class="n">nf_save_dir</span><span class="p">,</span>
+            <span class="n">angle_convention</span><span class="o">=</span><span class="s2">"bunge"</span><span class="p">,</span>
+            <span class="n">angle_type</span><span class="o">=</span><span class="s2">"degrees"</span><span class="p">,</span>
+            <span class="n">symmetry</span><span class="o">=</span><span class="s2">"432"</span><span class="p">,</span>
+            <span class="n">prefix</span><span class="o">=</span><span class="s2">"reconstructed"</span><span class="p">,</span>
+            <span class="n">write_intermediate</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">write_vtk</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">merged_grid_path</span> <span class="o">=</span> <span class="n">builder_nf</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">(</span>
+            <span class="n">dz</span><span class="o">=</span><span class="n">nf_dz</span><span class="p">,</span>  <span class="c1"># must match your SyntheticHEDMGenerator nf_dz</span>
+            <span class="n">nx</span><span class="o">=</span><span class="n">nf_mesh_nx</span><span class="p">,</span>
+            <span class="n">ny</span><span class="o">=</span><span class="n">nf_mesh_ny</span><span class="p">,</span>
+            <span class="n">segmentation</span><span class="o">=</span><span class="n">nf_segmentation_input</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">Reconstruction complete: </span><span class="si">{</span><span class="n">merged_grid_path</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+
+        <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">merged_grid_path</span><span class="p">)</span>
+
+        <span class="n">coords</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">4</span><span class="p">:</span><span class="mi">7</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+        <span class="n">x_min</span><span class="p">,</span> <span class="n">y_min</span><span class="p">,</span> <span class="n">z_min</span> <span class="o">=</span> <span class="n">coords</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">x_max</span><span class="p">,</span> <span class="n">y_max</span><span class="p">,</span> <span class="n">z_max</span> <span class="o">=</span> <span class="n">coords</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+        <span class="n">bounding_box_nf</span> <span class="o">=</span> <span class="p">[</span><span class="n">x_min</span><span class="p">,</span> <span class="n">x_max</span><span class="p">,</span> <span class="n">y_min</span><span class="p">,</span> <span class="n">y_max</span><span class="p">,</span> <span class="n">z_min</span><span class="p">,</span> <span class="n">z_max</span><span class="p">]</span>
+
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"Mesh bounding box: x[</span><span class="si">{</span><span class="n">x_min</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">x_max</span><span class="si">}</span><span class="s2">], y[</span><span class="si">{</span><span class="n">y_min</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">y_max</span><span class="si">}</span><span class="s2">], z[</span><span class="si">{</span><span class="n">z_min</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">z_max</span><span class="si">}</span><span class="s2">]"</span>
+        <span class="p">)</span>
+
+        <span class="n">mesh_path</span> <span class="o">=</span> <span class="n">builder_nf</span><span class="o">.</span><span class="n">mesh</span><span class="p">(</span>
+            <span class="n">sculpt_config</span><span class="o">=</span><span class="n">sculpt_config</span><span class="p">,</span>
+            <span class="n">sculpt_options</span><span class="o">=</span><span class="n">sculpt_options</span><span class="p">,</span>
+            <span class="n">merged_grid</span><span class="o">=</span><span class="n">merged_grid_path</span><span class="p">,</span>  <span class="c1"># explicit restart-safe input</span>
+        <span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Meshing complete: </span><span class="si">{</span><span class="n">mesh_path</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Mapped orientations: </span><span class="si">{</span><span class="n">builder_nf</span><span class="o">.</span><span class="n">mapped_orientations_path</span><span class="si">}</span><span class="s2">.csv"</span><span class="p">)</span>
+
+        <span class="c1">## RECONSTRUCTED FROM FF DATA -------------------------------------------</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">output_ff</span><span class="p">):</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">output_ff</span><span class="p">)</span>
+
+        <span class="n">elastic_strain_identifier</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="s2">"eKen11"</span><span class="p">,</span>
+            <span class="s2">"eKen12"</span><span class="p">,</span>
+            <span class="s2">"eKen13"</span><span class="p">,</span>
+            <span class="s2">"eKen21"</span><span class="p">,</span>
+            <span class="s2">"eKen22"</span><span class="p">,</span>
+            <span class="s2">"eKen23"</span><span class="p">,</span>
+            <span class="s2">"eKen31"</span><span class="p">,</span>
+            <span class="s2">"eKen32"</span><span class="p">,</span>
+            <span class="s2">"eKen33"</span><span class="p">,</span>
+        <span class="p">]</span>
+
+        <span class="n">builder_ff</span> <span class="o">=</span> <span class="n">VoronoiMeshBuilder</span><span class="p">(</span>
+            <span class="n">input_csv</span><span class="o">=</span><span class="n">output_dir</span> <span class="o">+</span> <span class="s2">"/FF/ff.csv"</span><span class="p">,</span>
+            <span class="n">output_dir</span><span class="o">=</span><span class="n">output_ff</span><span class="p">,</span>
+            <span class="n">bounding_box</span><span class="o">=</span><span class="n">ff_bounding_box</span><span class="p">,</span>
+            <span class="n">dim</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+            <span class="n">weighted</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">auto_fix_bbox</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">auto_rotate</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">angle_identifier</span><span class="o">=</span><span class="p">[</span><span class="s2">"Eul0"</span><span class="p">,</span> <span class="s2">"Eul1"</span><span class="p">,</span> <span class="s2">"Eul2"</span><span class="p">],</span>
+            <span class="n">orientation_descriptor</span><span class="o">=</span><span class="s2">"euler-bunge"</span><span class="p">,</span>
+            <span class="n">orientation_active_convention</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">elastic_strain_identifier</span><span class="o">=</span><span class="n">elastic_strain_identifier</span><span class="p">,</span>
+            <span class="n">strain_unit</span><span class="o">=</span><span class="s2">"microstrain"</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">builder_ff</span><span class="o">.</span><span class="n">build_voronoi</span><span class="p">(</span>
+            <span class="n">generate_mesh</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">option</span><span class="o">=</span><span class="s2">"centroid"</span><span class="p">,</span>
+            <span class="n">CVT_iter</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+            <span class="n">morphoalgo</span><span class="o">=</span><span class="s2">"subplex"</span><span class="p">,</span>
+        <span class="p">)</span>
+
+<span class="c1">## USE SOLUTION AUX TO INITIALIZE EE FOR NF MESH, RUN SIMULATION</span>
+
+<span class="n">output_sim</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="s2">"simulation"</span><span class="p">)</span>
+<span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">output_sim</span><span class="p">):</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">output_sim</span><span class="p">)</span>
+
+<span class="n">sim</span> <span class="o">=</span> <span class="n">CPFESimulation</span><span class="p">(</span>
+    <span class="n">mesh_file</span><span class="o">=</span><span class="n">output_dir</span> <span class="o">+</span> <span class="s2">"/nf_reconstruction/mesh.e"</span><span class="p">,</span>
+    <span class="n">save_simulation_folder</span><span class="o">=</span><span class="n">output_sim</span><span class="p">,</span>
+    <span class="n">element_order</span><span class="o">=</span><span class="s2">"FIRST"</span><span class="p">,</span>
+    <span class="n">eeres_file</span><span class="o">=</span><span class="n">output_ff</span> <span class="o">+</span> <span class="s2">"/reconstruction_cpfe_ee.csv"</span><span class="p">,</span>
+    <span class="n">ori_file</span><span class="o">=</span><span class="n">output_dir</span> <span class="o">+</span> <span class="s2">"/nf_reconstruction/orientations.csv"</span><span class="p">,</span>
+    <span class="n">dim</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+    <span class="n">moose_run_file</span><span class="o">=</span><span class="n">moose_run_file</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">sim</span><span class="o">.</span><span class="n">set_parameters</span><span class="p">(</span>
+    <span class="s2">"simulation_parameters"</span><span class="p">,</span>
+    <span class="n">dt</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>
+    <span class="n">total_time</span><span class="o">=</span><span class="mf">0.4</span><span class="p">,</span>
+    <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+    <span class="n">device_batch</span><span class="o">=</span><span class="n">device_batch</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">grid_bb</span> <span class="o">=</span> <span class="n">nf_bounding_box</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+<span class="n">grid_bb</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">nf_bounding_box</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="mf">0.0001</span>
+<span class="n">grid_bb</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">nf_bounding_box</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="mf">0.0001</span>
+<span class="n">grid_bb</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">nf_bounding_box</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">+</span> <span class="mf">0.0001</span>
+<span class="n">grid_bb</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="n">nf_bounding_box</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">-</span> <span class="mf">0.0001</span>
+<span class="n">grid_bb</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span> <span class="o">=</span> <span class="n">nf_bounding_box</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span> <span class="o">+</span> <span class="mf">0.0001</span>
+<span class="n">grid_bb</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span> <span class="o">=</span> <span class="n">nf_bounding_box</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span> <span class="o">-</span> <span class="mf">0.0001</span>
+
+<span class="n">sim</span><span class="o">.</span><span class="n">set_parameters</span><span class="p">(</span>
+    <span class="s2">"boundary"</span><span class="p">,</span>
+    <span class="n">bounding_box</span><span class="o">=</span><span class="n">nf_bounding_box</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+    <span class="n">bc</span><span class="o">=</span><span class="p">{</span>
+        <span class="s2">"x"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"negative"</span><span class="p">:</span> <span class="s2">"stress_free"</span><span class="p">,</span> <span class="s2">"positive"</span><span class="p">:</span> <span class="s2">"stress_free"</span><span class="p">},</span>
+        <span class="s2">"y"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"negative"</span><span class="p">:</span> <span class="s2">"stress_free"</span><span class="p">,</span> <span class="s2">"positive"</span><span class="p">:</span> <span class="s2">"stress_free"</span><span class="p">},</span>
+        <span class="s2">"z"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"negative"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">"positive"</span><span class="p">:</span> <span class="mf">0.4</span><span class="p">},</span>  <span class="c1"># 300/600 so that total strain is 50%</span>
+    <span class="p">},</span>
+<span class="p">)</span>
+
+<span class="n">sim</span><span class="o">.</span><span class="n">set_parameters</span><span class="p">(</span>
+    <span class="s2">"grid_properties"</span><span class="p">,</span>
+    <span class="n">number_of_elements</span><span class="o">=</span><span class="p">[</span><span class="n">grid_nx</span><span class="p">,</span> <span class="n">grid_ny</span><span class="p">,</span> <span class="n">grid_nz</span><span class="p">],</span>
+    <span class="n">bounding_box</span><span class="o">=</span><span class="n">grid_bb</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+<span class="p">)</span>
+
+<span class="n">sim</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">ncore</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">ncore</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="cpfe-simulation.html" class="btn btn-neutral float-left" title="CPFE simulation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="post-processing.html" class="btn btn-neutral float-right" title="Post-CPFE analysis &amp; plotting" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Argonne National Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

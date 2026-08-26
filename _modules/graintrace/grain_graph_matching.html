@@ -1,0 +1,690 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>graintrace.grain_graph_matching &mdash; graintrace 0.1.2</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="../../_static/sphinx-design.min.css?v=95c83b7e" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=92734c54"></script>
+      <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../../_static/copybutton.js?v=96c007af"></script>
+      <script src="../../_static/design-tabs.js?v=f930bc37"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            graintrace
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../concepts.html">Concepts &amp; data formats</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../configuration.html">Configuration reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../mcp.html">MCP server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../benchmarks.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../pitfalls.html">Common pitfalls</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Tutorials &amp; examples</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/tutorials.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api/api.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../development.html">Building &amp; testing the docs</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">graintrace</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">graintrace.grain_graph_matching</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for graintrace.grain_graph_matching</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright 2026, UChicago Argonne, LLC</span>
+<span class="c1"># All Rights Reserved</span>
+<span class="c1"># Software Name: graintrace</span>
+<span class="c1"># By: Argonne National Laboratory</span>
+<span class="c1"># OPEN SOURCE LICENSE (MIT)</span>
+<span class="c1">#</span>
+<span class="c1"># Permission is hereby granted, free of charge, to any person obtaining a copy</span>
+<span class="c1"># of this software and associated documentation files (the "Software"), to deal</span>
+<span class="c1"># in the Software without restriction, including without limitation the rights</span>
+<span class="c1"># to use, copy, modify, merge, publish, distribute, sublicense, and/or sell</span>
+<span class="c1"># copies of the Software, and to permit persons to whom the Software is</span>
+<span class="c1"># furnished to do so, subject to the following conditions:</span>
+<span class="c1">#</span>
+<span class="c1"># The above copyright notice and this permission notice shall be included in</span>
+<span class="c1"># all copies or substantial portions of the Software.</span>
+<span class="c1">#</span>
+<span class="c1"># THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR</span>
+<span class="c1"># IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,</span>
+<span class="c1"># FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE</span>
+<span class="c1"># AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER</span>
+<span class="c1"># LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,</span>
+<span class="c1"># OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN</span>
+<span class="c1"># THE SOFTWARE.</span>
+
+<span class="sd">"""Match grains across two load steps via graph message passing and neighbor selection."""</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">tqdm</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch_geometric.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">Data</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.orientation_helper</span><span class="w"> </span><span class="kn">import</span> <span class="n">mrp_to_matrix</span><span class="p">,</span> <span class="n">misorientation_matrix</span>
+
+
+<div class="viewcode-block" id="GraphGrainMatcher">
+<a class="viewcode-back" href="../../api/grain_graph_matching.html#graintrace.grain_graph_matching.GraphGrainMatcher">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">GraphGrainMatcher</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Match grains between two grain graphs (A and B) and write correspondence results."""</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">graph_a</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+        <span class="n">graph_b</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+        <span class="n">output_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"grain_matching_results"</span><span class="p">,</span>
+        <span class="n">output_prefix</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"out_"</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">graph_a</span> <span class="o">=</span> <span class="n">graph_a</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">graph_b</span> <span class="o">=</span> <span class="n">graph_b</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span> <span class="o">=</span> <span class="n">output_dir</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">output_prefix</span> <span class="o">=</span> <span class="n">output_prefix</span>
+
+<div class="viewcode-block" id="GraphGrainMatcher.match_grains">
+<a class="viewcode-back" href="../../api/grain_graph_matching.html#graintrace.grain_graph_matching.GraphGrainMatcher.match_grains">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">match_grains</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">message_passing_function</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">neighbor_selection_cost_function</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">message_passing_iter</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">6</span><span class="p">,</span>
+        <span class="n">neighbor_selection_param</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Run message passing on both graphs, select matches, write and return results."""</span>
+        <span class="k">if</span> <span class="n">neighbor_selection_param</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">neighbor_selection_param</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s2">"lambda"</span><span class="p">:</span> <span class="mf">0.125</span><span class="p">,</span>
+                <span class="s2">"iterations"</span><span class="p">:</span> <span class="mi">100</span><span class="p">,</span>
+                <span class="s2">"tolerance"</span><span class="p">:</span> <span class="mf">1e-6</span><span class="p">,</span>
+            <span class="p">}</span>
+
+        <span class="k">if</span> <span class="n">message_passing_function</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">message_passing_function</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">GraphGrainMatcher</span><span class="o">.</span><span class="n">default_message_passing_function</span>
+            <span class="p">)</span>
+            <span class="n">use_default</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">"Using default message passing function.</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">use_default</span> <span class="o">=</span> <span class="kc">False</span>
+
+        <span class="k">if</span> <span class="n">neighbor_selection_cost_function</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">neighbor_selection_cost_function</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">GraphGrainMatcher</span><span class="o">.</span><span class="n">default_neighbor_selection_cost_function</span>
+            <span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">"Using default neighbor selection cost function.</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">Start grain matching</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="s2">"--- Message Passing on Graph A ---</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+        <span class="n">Fa</span><span class="p">,</span> <span class="n">ctx_a</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">message_passing</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">graph_a</span><span class="p">,</span>
+            <span class="n">message_passing_function</span><span class="p">,</span>
+            <span class="n">message_passing_iter</span><span class="o">=</span><span class="n">message_passing_iter</span><span class="p">,</span>
+            <span class="n">use_default</span><span class="o">=</span><span class="n">use_default</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">--- Message Passing on Graph B ---</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+        <span class="n">Fb</span><span class="p">,</span> <span class="n">ctx_b</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">message_passing</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">graph_b</span><span class="p">,</span>
+            <span class="n">message_passing_function</span><span class="p">,</span>
+            <span class="n">message_passing_iter</span><span class="o">=</span><span class="n">message_passing_iter</span><span class="p">,</span>
+            <span class="n">use_default</span><span class="o">=</span><span class="n">use_default</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">--- Perform neighborhood selection ---</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+        <span class="n">match_out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">neighbor_selection</span><span class="p">(</span>
+            <span class="n">Fa</span><span class="p">,</span>
+            <span class="n">Fb</span><span class="p">,</span>
+            <span class="n">neighbor_selection_cost_function</span><span class="o">=</span><span class="n">neighbor_selection_cost_function</span><span class="p">,</span>
+            <span class="n">neighbor_selection_param</span><span class="o">=</span><span class="n">neighbor_selection_param</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">result</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">"graph_a_features"</span><span class="p">:</span> <span class="n">Fa</span><span class="p">,</span>
+            <span class="s2">"graph_b_features"</span><span class="p">:</span> <span class="n">Fb</span><span class="p">,</span>
+            <span class="s2">"graph_a_ctx"</span><span class="p">:</span> <span class="n">ctx_a</span><span class="p">,</span>
+            <span class="s2">"graph_b_ctx"</span><span class="p">:</span> <span class="n">ctx_b</span><span class="p">,</span>
+            <span class="s2">"match"</span><span class="p">:</span> <span class="n">match_out</span><span class="p">,</span>
+        <span class="p">}</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">write_results</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">result</span></div>
+
+
+<div class="viewcode-block" id="GraphGrainMatcher.message_passing">
+<a class="viewcode-back" href="../../api/grain_graph_matching.html#graintrace.grain_graph_matching.GraphGrainMatcher.message_passing">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">message_passing</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">graph</span><span class="p">:</span> <span class="n">Data</span><span class="p">,</span>
+        <span class="n">message_passing_function</span><span class="p">,</span>
+        <span class="n">message_passing_iter</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">6</span><span class="p">,</span>
+        <span class="n">use_default</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Propagate node features over graph edges for a fixed number of iterations."""</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">Data</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">"graph must be a torch_geometric.data.Data"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="s2">"x"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">graph</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"graph.x must exist and be 2D [N, F]"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="s2">"edge_index"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"graph.edge_index missing"</span><span class="p">)</span>
+
+        <span class="n">edge_index</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">edge_index</span>
+        <span class="k">if</span> <span class="n">edge_index</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">2</span> <span class="ow">or</span> <span class="n">edge_index</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"graph.edge_index must have shape [2, E]"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="s2">"feature_slices"</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"graph.feature_slices missing"</span><span class="p">)</span>
+
+        <span class="n">x</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">x</span>
+        <span class="n">device</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">device</span>
+        <span class="n">N</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">edge_index</span><span class="o">.</span><span class="n">device</span> <span class="o">!=</span> <span class="n">device</span> <span class="ow">or</span> <span class="n">edge_index</span><span class="o">.</span><span class="n">dtype</span> <span class="o">!=</span> <span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">:</span>
+            <span class="n">edge_index</span> <span class="o">=</span> <span class="n">edge_index</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">)</span>
+
+        <span class="n">src0</span> <span class="o">=</span> <span class="n">edge_index</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">dst0</span> <span class="o">=</span> <span class="n">edge_index</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+        <span class="n">src</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">src0</span><span class="p">,</span> <span class="n">dst0</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">dst</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">dst0</span><span class="p">,</span> <span class="n">src0</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">E</span> <span class="o">=</span> <span class="n">src</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="n">spec</span><span class="p">,</span> <span class="n">phi_operator</span> <span class="o">=</span> <span class="n">message_passing_function</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">spec</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="s2">"message_passing_function() must return (spec: dict, phi_operator: callable)"</span>
+            <span class="p">)</span>
+
+        <span class="n">required</span> <span class="o">=</span> <span class="n">spec</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"required_node_features"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">required</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"spec['required_node_features'] must be a non-empty list"</span><span class="p">)</span>
+
+        <span class="n">graph_slices</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">feature_slices</span>
+
+        <span class="k">if</span> <span class="n">use_default</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"Eul0"</span><span class="p">,</span> <span class="s2">"Eul1"</span><span class="p">,</span> <span class="s2">"Eul2"</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">graph_slices</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">"Required feature '</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">' not found in graph.feature_slices"</span>
+                    <span class="p">)</span>
+
+        <span class="n">e0a</span><span class="p">,</span> <span class="n">e0b</span> <span class="o">=</span> <span class="n">graph_slices</span><span class="p">[</span><span class="s2">"Eul0"</span><span class="p">]</span>
+        <span class="n">e1a</span><span class="p">,</span> <span class="n">e1b</span> <span class="o">=</span> <span class="n">graph_slices</span><span class="p">[</span><span class="s2">"Eul1"</span><span class="p">]</span>
+        <span class="n">e2a</span><span class="p">,</span> <span class="n">e2b</span> <span class="o">=</span> <span class="n">graph_slices</span><span class="p">[</span><span class="s2">"Eul2"</span><span class="p">]</span>
+        <span class="n">euler</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">x</span><span class="p">[:,</span> <span class="n">e0a</span><span class="p">:</span><span class="n">e0b</span><span class="p">],</span> <span class="n">x</span><span class="p">[:,</span> <span class="n">e1a</span><span class="p">:</span><span class="n">e1b</span><span class="p">],</span> <span class="n">x</span><span class="p">[:,</span> <span class="n">e2a</span><span class="p">:</span><span class="n">e2b</span><span class="p">]],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">euler</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">2</span> <span class="ow">or</span> <span class="n">euler</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Euler must be [N,3], got </span><span class="si">{</span><span class="n">euler</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+        <span class="n">blocks</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">F_slices</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="k">if</span> <span class="n">use_default</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"X"</span><span class="p">,</span> <span class="s2">"Y"</span><span class="p">,</span> <span class="s2">"Z"</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">graph_slices</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">"Required feature '</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">' not found in graph.feature_slices"</span>
+                    <span class="p">)</span>
+                <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="n">graph_slices</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+                <span class="n">width</span> <span class="o">=</span> <span class="n">b</span> <span class="o">-</span> <span class="n">a</span>
+                <span class="n">blocks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">x</span><span class="p">[:,</span> <span class="n">a</span><span class="p">:</span><span class="n">b</span><span class="p">])</span>
+                <span class="n">F_slices</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">start</span> <span class="o">+</span> <span class="n">width</span><span class="p">)</span>
+                <span class="n">start</span> <span class="o">+=</span> <span class="n">width</span>
+
+            <span class="n">blocks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">N</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">dtype</span><span class="p">))</span>
+            <span class="n">F_slices</span><span class="p">[</span><span class="s2">"M"</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">start</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">start</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">required</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">graph_slices</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">"Required feature '</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">' not found in graph.feature_slices"</span>
+                    <span class="p">)</span>
+                <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="n">graph_slices</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+                <span class="n">width</span> <span class="o">=</span> <span class="n">b</span> <span class="o">-</span> <span class="n">a</span>
+                <span class="n">blocks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">x</span><span class="p">[:,</span> <span class="n">a</span><span class="p">:</span><span class="n">b</span><span class="p">])</span>
+                <span class="n">F_slices</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">start</span> <span class="o">+</span> <span class="n">width</span><span class="p">)</span>
+                <span class="n">start</span> <span class="o">+=</span> <span class="n">width</span>
+
+        <span class="n">d</span> <span class="o">=</span> <span class="n">start</span>
+        <span class="n">F</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">blocks</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="n">ctx</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">"F_slices"</span><span class="p">:</span> <span class="n">F_slices</span><span class="p">,</span>
+            <span class="s2">"required_node_features"</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="n">required</span><span class="p">),</span>
+            <span class="s2">"euler"</span><span class="p">:</span> <span class="n">euler</span><span class="p">,</span>
+            <span class="s2">"edge_src"</span><span class="p">:</span> <span class="n">src</span><span class="p">,</span>
+            <span class="s2">"edge_dst"</span><span class="p">:</span> <span class="n">dst</span><span class="p">,</span>
+        <span class="p">}</span>
+
+        <span class="n">message_passing_iter</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">message_passing_iter</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">message_passing_iter</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"message_passing_iter must be &gt;= 0"</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="o">.</span><span class="n">tqdm</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">message_passing_iter</span><span class="p">),</span> <span class="n">desc</span><span class="o">=</span><span class="s2">"Message Passing"</span><span class="p">):</span>
+            <span class="n">F_src</span> <span class="o">=</span> <span class="n">F</span><span class="p">[</span><span class="n">src</span><span class="p">]</span>
+            <span class="n">F_dst</span> <span class="o">=</span> <span class="n">F</span><span class="p">[</span><span class="n">dst</span><span class="p">]</span>
+
+            <span class="c1"># phi_operator MUST accept (F_src, F_dst, ctx, k)</span>
+            <span class="c1"># phi_operator must accept (F_src, F_dst, ctx, k) and return [E, d]</span>
+            <span class="n">Phi</span> <span class="o">=</span> <span class="n">phi_operator</span><span class="p">(</span><span class="n">F_src</span><span class="p">,</span> <span class="n">F_dst</span><span class="p">,</span> <span class="n">ctx</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
+            <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">torch</span><span class="o">.</span><span class="n">is_tensor</span><span class="p">(</span><span class="n">Phi</span><span class="p">))</span> <span class="ow">or</span> <span class="n">Phi</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">2</span> <span class="ow">or</span> <span class="n">Phi</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="p">(</span><span class="n">E</span><span class="p">,</span> <span class="n">d</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"phi_operator must return tensor of shape [E, </span><span class="si">{</span><span class="n">d</span><span class="si">}</span><span class="s2">], got </span><span class="si">{</span><span class="nb">getattr</span><span class="p">(</span><span class="n">Phi</span><span class="p">,</span><span class="w"> </span><span class="s1">'shape'</span><span class="p">,</span><span class="w"> </span><span class="kc">None</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span>
+                <span class="p">)</span>
+
+            <span class="n">m</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">N</span><span class="p">,</span> <span class="n">d</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">F</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">F</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+            <span class="n">m</span><span class="o">.</span><span class="n">index_add_</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dst</span><span class="p">,</span> <span class="n">Phi</span><span class="p">)</span>
+            <span class="n">F</span> <span class="o">=</span> <span class="n">F</span> <span class="o">+</span> <span class="n">m</span>
+
+        <span class="k">return</span> <span class="n">F</span><span class="p">,</span> <span class="n">ctx</span></div>
+
+
+<div class="viewcode-block" id="GraphGrainMatcher.neighbor_selection">
+<a class="viewcode-back" href="../../api/grain_graph_matching.html#graintrace.grain_graph_matching.GraphGrainMatcher.neighbor_selection">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">neighbor_selection</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">graph_a_features</span><span class="p">,</span>
+        <span class="n">graph_b_features</span><span class="p">,</span>
+        <span class="n">neighbor_selection_cost_function</span><span class="p">,</span>
+        <span class="n">neighbor_selection_param</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Assign each grain in A to a grain in B by iterative cost-minimizing selection."""</span>
+        <span class="k">if</span> <span class="n">neighbor_selection_param</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">neighbor_selection_param</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s2">"lambda"</span><span class="p">:</span> <span class="mf">0.125</span><span class="p">,</span>
+                <span class="s2">"iterations"</span><span class="p">:</span> <span class="mi">100</span><span class="p">,</span>
+                <span class="s2">"tolerance"</span><span class="p">:</span> <span class="mf">1e-6</span><span class="p">,</span>
+                <span class="s2">"topk"</span><span class="p">:</span> <span class="mi">25</span><span class="p">,</span>
+                <span class="s2">"chunk"</span><span class="p">:</span> <span class="mi">1000</span><span class="p">,</span>
+            <span class="p">}</span>
+
+        <span class="n">lam</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">neighbor_selection_param</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"lambda"</span><span class="p">,</span> <span class="mf">0.125</span><span class="p">))</span>
+        <span class="n">max_it</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">neighbor_selection_param</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"iterations"</span><span class="p">,</span> <span class="mi">100</span><span class="p">))</span>
+        <span class="n">tol</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">neighbor_selection_param</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"tolerance"</span><span class="p">,</span> <span class="mf">1e-6</span><span class="p">))</span>
+        <span class="n">topk</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">neighbor_selection_param</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"topk"</span><span class="p">,</span> <span class="mi">25</span><span class="p">))</span>
+        <span class="n">chunk</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">neighbor_selection_param</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"chunk"</span><span class="p">,</span> <span class="mi">1024</span><span class="p">))</span>
+
+        <span class="n">Fa</span> <span class="o">=</span> <span class="n">graph_a_features</span>
+        <span class="n">Fb</span> <span class="o">=</span> <span class="n">graph_b_features</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">torch</span><span class="o">.</span><span class="n">is_tensor</span><span class="p">(</span><span class="n">Fa</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">torch</span><span class="o">.</span><span class="n">is_tensor</span><span class="p">(</span><span class="n">Fb</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">"graph_*_features must be tensors."</span><span class="p">)</span>
+
+        <span class="n">device</span> <span class="o">=</span> <span class="n">Fa</span><span class="o">.</span><span class="n">device</span>
+        <span class="n">Fb</span> <span class="o">=</span> <span class="n">Fb</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">Fa</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+
+        <span class="n">Na</span><span class="p">,</span> <span class="n">d</span> <span class="o">=</span> <span class="n">Fa</span><span class="o">.</span><span class="n">shape</span>
+        <span class="n">Nb</span><span class="p">,</span> <span class="n">d2</span> <span class="o">=</span> <span class="n">Fb</span><span class="o">.</span><span class="n">shape</span>
+        <span class="k">if</span> <span class="n">d</span> <span class="o">!=</span> <span class="n">d2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Feature dims mismatch: </span><span class="si">{</span><span class="n">d</span><span class="si">}</span><span class="s2"> vs </span><span class="si">{</span><span class="n">d2</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">build_neighbors</span><span class="p">(</span><span class="n">graph</span><span class="p">):</span>
+            <span class="n">ei</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">edge_index</span>
+            <span class="k">if</span> <span class="n">ei</span><span class="o">.</span><span class="n">device</span> <span class="o">!=</span> <span class="n">device</span><span class="p">:</span>
+                <span class="n">ei</span> <span class="o">=</span> <span class="n">ei</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+            <span class="n">src</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">ei</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">ei</span><span class="p">[</span><span class="mi">1</span><span class="p">]],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">dst</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">ei</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">ei</span><span class="p">[</span><span class="mi">0</span><span class="p">]],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+            <span class="n">src_cpu</span> <span class="o">=</span> <span class="n">src</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span>
+            <span class="n">dst_cpu</span> <span class="o">=</span> <span class="n">dst</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span>
+
+            <span class="n">N</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span>
+                <span class="nb">getattr</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="s2">"num_nodes"</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+                <span class="ow">or</span> <span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">src_cpu</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span> <span class="n">dst_cpu</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">())</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="n">neigh</span> <span class="o">=</span> <span class="p">[</span><span class="nb">set</span><span class="p">()</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">)]</span>
+            <span class="k">for</span> <span class="n">s</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">src_cpu</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="n">dst_cpu</span><span class="o">.</span><span class="n">tolist</span><span class="p">()):</span>
+                <span class="k">if</span> <span class="n">s</span> <span class="o">!=</span> <span class="n">t</span><span class="p">:</span>
+                    <span class="n">neigh</span><span class="p">[</span><span class="n">s</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">neigh</span>
+
+        <span class="n">neigh_a</span> <span class="o">=</span> <span class="n">build_neighbors</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">graph_a</span><span class="p">)</span>
+        <span class="n">neigh_b</span> <span class="o">=</span> <span class="n">build_neighbors</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">graph_b</span><span class="p">)</span>
+
+        <span class="n">cand_j</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">Na</span><span class="p">,</span> <span class="n">topk</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">i0</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">Na</span><span class="p">,</span> <span class="n">chunk</span><span class="p">):</span>
+            <span class="n">i1</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">Na</span><span class="p">,</span> <span class="n">i0</span> <span class="o">+</span> <span class="n">chunk</span><span class="p">)</span>
+            <span class="n">Fi</span> <span class="o">=</span> <span class="n">Fa</span><span class="p">[</span><span class="n">i0</span><span class="p">:</span><span class="n">i1</span><span class="p">]</span>
+            <span class="n">dist</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cdist</span><span class="p">(</span><span class="n">Fi</span><span class="p">,</span> <span class="n">Fb</span><span class="p">,</span> <span class="n">p</span><span class="o">=</span><span class="mf">2.0</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span>
+            <span class="n">_</span><span class="p">,</span> <span class="n">idx</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">topk</span><span class="p">(</span><span class="n">dist</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="nb">min</span><span class="p">(</span><span class="n">topk</span><span class="p">,</span> <span class="n">Nb</span><span class="p">),</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">largest</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">cand_j</span><span class="p">[</span><span class="n">i0</span><span class="p">:</span><span class="n">i1</span><span class="p">,</span> <span class="p">:</span> <span class="n">idx</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span> <span class="o">=</span> <span class="n">idx</span>
+            <span class="k">if</span> <span class="n">idx</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">topk</span><span class="p">:</span>
+                <span class="n">cand_j</span><span class="p">[</span><span class="n">i0</span><span class="p">:</span><span class="n">i1</span><span class="p">,</span> <span class="n">idx</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="p">:]</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+
+        <span class="n">a_to_b</span> <span class="o">=</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">Na</span>
+        <span class="n">mean_cost_history</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="n">_it</span> <span class="o">=</span> <span class="n">max_it</span> <span class="o">-</span> <span class="mi">1</span>  <span class="c1"># defined even if max_it == 0 (loop body never runs)</span>
+        <span class="k">for</span> <span class="n">_it</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="o">.</span><span class="n">tqdm</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">max_it</span><span class="p">),</span> <span class="n">desc</span><span class="o">=</span><span class="s2">"Neighbor Selection"</span><span class="p">):</span>
+
+            <span class="n">best_for_i</span> <span class="o">=</span> <span class="p">[(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">math</span><span class="o">.</span><span class="n">inf</span><span class="p">)]</span> <span class="o">*</span> <span class="n">Na</span>  <span class="c1"># (j, cost)</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">Na</span><span class="p">):</span>
+                <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">cand_j</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">():</span>
+                    <span class="k">if</span> <span class="n">j</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="k">continue</span>
+                    <span class="n">c</span> <span class="o">=</span> <span class="n">neighbor_selection_cost_function</span><span class="p">(</span>
+                        <span class="n">Fa</span><span class="p">,</span> <span class="n">Fb</span><span class="p">,</span> <span class="n">neigh_a</span><span class="p">,</span> <span class="n">neigh_b</span><span class="p">,</span> <span class="n">a_to_b</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">lam</span>
+                    <span class="p">)</span>
+                    <span class="k">if</span> <span class="n">c</span> <span class="o">&lt;</span> <span class="n">best_for_i</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">1</span><span class="p">]:</span>
+                        <span class="n">best_for_i</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">j</span><span class="p">,</span> <span class="n">c</span><span class="p">)</span>
+
+            <span class="n">claims</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">j</span><span class="p">,</span> <span class="n">c</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">best_for_i</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">j</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">math</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">c</span><span class="p">):</span>
+                    <span class="k">continue</span>
+                <span class="k">if</span> <span class="p">(</span><span class="n">j</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">claims</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span><span class="n">c</span> <span class="o">&lt;</span> <span class="n">claims</span><span class="p">[</span><span class="n">j</span><span class="p">][</span><span class="mi">1</span><span class="p">]):</span>
+                    <span class="n">claims</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">c</span><span class="p">)</span>
+
+            <span class="n">new_a_to_b</span> <span class="o">=</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">Na</span>
+            <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">c</span><span class="p">)</span> <span class="ow">in</span> <span class="n">claims</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">new_a_to_b</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">j</span>
+
+            <span class="n">assigned</span> <span class="o">=</span> <span class="p">[(</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">new_a_to_b</span><span class="p">)</span> <span class="k">if</span> <span class="n">j</span> <span class="o">!=</span> <span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">assigned</span><span class="p">:</span>
+                <span class="k">break</span>
+
+            <span class="n">costs</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">neighbor_selection_cost_function</span><span class="p">(</span>
+                    <span class="n">Fa</span><span class="p">,</span> <span class="n">Fb</span><span class="p">,</span> <span class="n">neigh_a</span><span class="p">,</span> <span class="n">neigh_b</span><span class="p">,</span> <span class="n">new_a_to_b</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">lam</span>
+                <span class="p">)</span>
+                <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">assigned</span>
+            <span class="p">]</span>
+            <span class="n">mean_cost</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">costs</span><span class="p">)</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">costs</span><span class="p">))</span>
+            <span class="n">mean_cost_history</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">mean_cost</span><span class="p">)</span>
+
+            <span class="n">a_to_b</span> <span class="o">=</span> <span class="n">new_a_to_b</span>
+
+        <span class="k">if</span> <span class="n">_it</span> <span class="o">&lt;</span> <span class="n">max_it</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">"Converged before max iterations."</span><span class="p">)</span>
+
+        <span class="n">a_to_b_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">a_to_b</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+
+        <span class="n">matched_i</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">nonzero</span><span class="p">(</span><span class="n">a_to_b_tensor</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">as_tuple</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">matched_j</span> <span class="o">=</span> <span class="n">a_to_b_tensor</span><span class="p">[</span><span class="n">matched_i</span><span class="p">]</span>
+        <span class="n">matches</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">matched_i</span><span class="p">,</span> <span class="n">matched_j</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="n">a_to_b_cpu</span> <span class="o">=</span> <span class="n">a_to_b_tensor</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+
+        <span class="n">final_costs</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">matches</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">Fa</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">matches</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">matches</span><span class="p">[</span><span class="n">k</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+            <span class="n">j</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">matches</span><span class="p">[</span><span class="n">k</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+            <span class="n">final_costs</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">neighbor_selection_cost_function</span><span class="p">(</span>
+                <span class="n">Fa</span><span class="p">,</span> <span class="n">Fb</span><span class="p">,</span> <span class="n">neigh_a</span><span class="p">,</span> <span class="n">neigh_b</span><span class="p">,</span> <span class="n">a_to_b_cpu</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">lam</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">"matches"</span><span class="p">:</span> <span class="n">matches</span><span class="p">,</span>
+            <span class="s2">"costs"</span><span class="p">:</span> <span class="n">final_costs</span><span class="p">,</span>
+            <span class="s2">"a_to_b"</span><span class="p">:</span> <span class="n">a_to_b_tensor</span><span class="p">,</span>
+            <span class="s2">"mean_cost_history"</span><span class="p">:</span> <span class="n">mean_cost_history</span><span class="p">,</span>
+            <span class="s2">"params"</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s2">"lambda"</span><span class="p">:</span> <span class="n">lam</span><span class="p">,</span>
+                <span class="s2">"iterations"</span><span class="p">:</span> <span class="n">max_it</span><span class="p">,</span>
+                <span class="s2">"tolerance"</span><span class="p">:</span> <span class="n">tol</span><span class="p">,</span>
+                <span class="s2">"topk"</span><span class="p">:</span> <span class="n">topk</span><span class="p">,</span>
+                <span class="s2">"chunk"</span><span class="p">:</span> <span class="n">chunk</span><span class="p">,</span>
+            <span class="p">},</span>
+        <span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="GraphGrainMatcher.write_results">
+<a class="viewcode-back" href="../../api/grain_graph_matching.html#graintrace.grain_graph_matching.GraphGrainMatcher.write_results">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">write_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">result</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Write matches CSV, per-node A-&gt;B mapping, embeddings (.pt), and meta JSON."""</span>
+        <span class="n">out_dir</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">"output_dir"</span><span class="p">,</span> <span class="s2">"match_results"</span><span class="p">)</span>
+        <span class="n">run</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">"run_name"</span><span class="p">,</span> <span class="s2">"run"</span><span class="p">)</span>
+
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">out_dir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="n">Fa</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="s2">"graph_a_features"</span><span class="p">]</span>
+        <span class="n">Fb</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="s2">"graph_b_features"</span><span class="p">]</span>
+        <span class="n">match_out</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="s2">"match"</span><span class="p">]</span>
+
+        <span class="n">matches</span> <span class="o">=</span> <span class="n">match_out</span><span class="p">[</span><span class="s2">"matches"</span><span class="p">]</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span>
+        <span class="n">costs</span> <span class="o">=</span> <span class="n">match_out</span><span class="p">[</span><span class="s2">"costs"</span><span class="p">]</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span>
+        <span class="n">a_to_b</span> <span class="o">=</span> <span class="n">match_out</span><span class="p">[</span><span class="s2">"a_to_b"</span><span class="p">]</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span>
+
+        <span class="n">df_matches</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">"i_in_A"</span><span class="p">:</span> <span class="n">matches</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span> <span class="k">if</span> <span class="n">matches</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="k">else</span> <span class="p">[],</span>
+                <span class="s2">"j_in_B"</span><span class="p">:</span> <span class="n">matches</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span> <span class="k">if</span> <span class="n">matches</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="k">else</span> <span class="p">[],</span>
+                <span class="s2">"cost"</span><span class="p">:</span> <span class="n">costs</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span> <span class="k">if</span> <span class="n">costs</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="k">else</span> <span class="p">[],</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+        <span class="n">df_matches</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">out_dir</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">run</span><span class="si">}</span><span class="s2">_matches.csv"</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="n">df_map</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+            <span class="p">{</span><span class="s2">"i_in_A"</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">a_to_b</span><span class="o">.</span><span class="n">numel</span><span class="p">())),</span> <span class="s2">"j_in_B"</span><span class="p">:</span> <span class="n">a_to_b</span><span class="o">.</span><span class="n">numpy</span><span class="p">()}</span>
+        <span class="p">)</span>
+        <span class="n">df_map</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">out_dir</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">run</span><span class="si">}</span><span class="s2">_a_to_b.csv"</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="n">torch</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">Fa</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">(),</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">out_dir</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">run</span><span class="si">}</span><span class="s2">_Fa.pt"</span><span class="p">))</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">Fb</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">(),</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">out_dir</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">run</span><span class="si">}</span><span class="s2">_Fb.pt"</span><span class="p">))</span>
+
+        <span class="c1"># metadata (JSON-serializable only)</span>
+        <span class="n">meta</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">"neighbor_selection_params"</span><span class="p">:</span> <span class="n">match_out</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"params"</span><span class="p">,</span> <span class="p">{}),</span>
+            <span class="s2">"mean_cost_history"</span><span class="p">:</span> <span class="n">match_out</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"mean_cost_history"</span><span class="p">,</span> <span class="p">[]),</span>
+            <span class="s2">"graph_a_feature_names"</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">graph_a</span><span class="p">,</span> <span class="s2">"feature_names"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+            <span class="s2">"graph_b_feature_names"</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">graph_b</span><span class="p">,</span> <span class="s2">"feature_names"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+            <span class="s2">"message_passing_required_features"</span><span class="p">:</span> <span class="n">result</span><span class="p">[</span><span class="s2">"graph_a_ctx"</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+                <span class="s2">"required_node_features"</span><span class="p">,</span> <span class="kc">None</span>
+            <span class="p">),</span>
+        <span class="p">}</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">out_dir</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">run</span><span class="si">}</span><span class="s2">_meta.json"</span><span class="p">),</span> <span class="s2">"w"</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span>
+        <span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">meta</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="GraphGrainMatcher.default_message_passing_function">
+<a class="viewcode-back" href="../../api/grain_graph_matching.html#graintrace.grain_graph_matching.GraphGrainMatcher.default_message_passing_function">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">default_message_passing_function</span><span class="p">(</span>
+        <span class="n">angle_convention</span><span class="o">=</span><span class="s2">"kocks"</span><span class="p">,</span>  <span class="c1"># pylint: disable=unused-argument  # kept for interface parity</span>
+        <span class="n">angle_type</span><span class="o">=</span><span class="s2">"radians"</span><span class="p">,</span>
+        <span class="n">symmetry</span><span class="o">=</span><span class="s2">"432"</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Return (spec, phi_operator) for the default misorientation message-passing scheme."""</span>
+        <span class="n">spec</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">"required_node_features"</span><span class="p">:</span> <span class="p">[</span><span class="s2">"X"</span><span class="p">,</span> <span class="s2">"Y"</span><span class="p">,</span> <span class="s2">"Z"</span><span class="p">,</span> <span class="s2">"Eul0"</span><span class="p">,</span> <span class="s2">"Eul1"</span><span class="p">,</span> <span class="s2">"Eul2"</span><span class="p">],</span>
+        <span class="p">}</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">phi_operator</span><span class="p">(</span><span class="n">F_src</span><span class="p">,</span> <span class="n">F_dst</span><span class="p">,</span> <span class="n">ctx</span><span class="p">,</span> <span class="n">k</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+            <span class="n">device</span> <span class="o">=</span> <span class="n">F_src</span><span class="o">.</span><span class="n">device</span>
+            <span class="n">dtype</span> <span class="o">=</span> <span class="n">F_src</span><span class="o">.</span><span class="n">dtype</span>
+            <span class="n">E</span> <span class="o">=</span> <span class="n">F_src</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+            <span class="n">Fs</span> <span class="o">=</span> <span class="n">ctx</span><span class="p">[</span><span class="s2">"F_slices"</span><span class="p">]</span>
+            <span class="k">if</span> <span class="s2">"M"</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">Fs</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">"default_message_passing_function requires packed 'M' in ctx['F_slices']."</span>
+                <span class="p">)</span>
+
+            <span class="n">aM</span><span class="p">,</span> <span class="n">bM</span> <span class="o">=</span> <span class="n">Fs</span><span class="p">[</span><span class="s2">"M"</span><span class="p">]</span>
+
+            <span class="n">dX</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">E</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+            <span class="n">dY</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">E</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+            <span class="n">dZ</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">E</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">k</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">euler</span> <span class="o">=</span> <span class="n">ctx</span><span class="p">[</span><span class="s2">"euler"</span><span class="p">]</span>
+                <span class="n">src</span> <span class="o">=</span> <span class="n">ctx</span><span class="p">[</span><span class="s2">"edge_src"</span><span class="p">]</span>
+                <span class="n">dst</span> <span class="o">=</span> <span class="n">ctx</span><span class="p">[</span><span class="s2">"edge_dst"</span><span class="p">]</span>
+                <span class="n">e1</span> <span class="o">=</span> <span class="n">euler</span><span class="p">[</span><span class="n">src</span><span class="p">]</span>
+                <span class="n">e2</span> <span class="o">=</span> <span class="n">euler</span><span class="p">[</span><span class="n">dst</span><span class="p">]</span>
+
+                <span class="c1"># Assumes graintrace MRP (Gibbs) params; for Euler input swap in</span>
+                <span class="c1"># euler_to_matrix(e, angle_convention, angle_type) below.</span>
+                <span class="n">R1</span> <span class="o">=</span> <span class="n">mrp_to_matrix</span><span class="p">(</span><span class="n">e1</span><span class="p">)</span>
+                <span class="n">R2</span> <span class="o">=</span> <span class="n">mrp_to_matrix</span><span class="p">(</span><span class="n">e2</span><span class="p">)</span>
+
+                <span class="n">rad_mis</span> <span class="o">=</span> <span class="n">misorientation_matrix</span><span class="p">(</span><span class="n">R1</span><span class="p">,</span> <span class="n">R2</span><span class="p">,</span> <span class="n">symmetry</span><span class="p">,</span> <span class="n">angle_type</span><span class="o">=</span><span class="s2">"radians"</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">rad_mis</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="n">rad_mis</span> <span class="o">=</span> <span class="n">rad_mis</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="ow">not</span> <span class="p">(</span><span class="n">rad_mis</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="n">rad_mis</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span><span class="p">):</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">"Expected misorientation shape [E] or [E,1], got </span><span class="si">{</span><span class="n">rad_mis</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">"</span>
+                    <span class="p">)</span>
+
+                <span class="n">mis</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">rad2deg</span><span class="p">(</span><span class="n">rad_mis</span><span class="p">)</span> <span class="k">if</span> <span class="n">angle_type</span> <span class="o">==</span> <span class="s2">"degrees"</span> <span class="k">else</span> <span class="n">rad_mis</span>
+                <span class="n">Phi</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">E</span><span class="p">,</span> <span class="n">F_src</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+                <span class="n">Phi</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">:</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">dX</span>
+                <span class="n">Phi</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">:</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">dY</span>
+                <span class="n">Phi</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">:</span><span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="n">dZ</span>
+                <span class="n">Phi</span><span class="p">[:,</span> <span class="n">aM</span><span class="p">:</span><span class="n">bM</span><span class="p">]</span> <span class="o">=</span> <span class="n">mis</span>
+                <span class="k">return</span> <span class="n">Phi</span>
+
+            <span class="n">l2</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">F_dst</span> <span class="o">-</span> <span class="n">F_src</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="nb">ord</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+            <span class="n">Phi</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">E</span><span class="p">,</span> <span class="n">F_src</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+            <span class="n">Phi</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">:</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">dX</span>
+            <span class="n">Phi</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">:</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">dY</span>
+            <span class="n">Phi</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">:</span><span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="n">dZ</span>
+            <span class="n">Phi</span><span class="p">[:,</span> <span class="n">aM</span><span class="p">:</span><span class="n">bM</span><span class="p">]</span> <span class="o">=</span> <span class="n">l2</span>
+            <span class="k">return</span> <span class="n">Phi</span>
+
+        <span class="k">return</span> <span class="n">spec</span><span class="p">,</span> <span class="n">phi_operator</span></div>
+
+
+<div class="viewcode-block" id="GraphGrainMatcher.default_neighbor_selection_cost_function">
+<a class="viewcode-back" href="../../api/grain_graph_matching.html#graintrace.grain_graph_matching.GraphGrainMatcher.default_neighbor_selection_cost_function">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">default_neighbor_selection_cost_function</span><span class="p">(</span>
+        <span class="n">Fa</span><span class="p">,</span> <span class="n">Fb</span><span class="p">,</span> <span class="n">neigh_a</span><span class="p">,</span> <span class="n">neigh_b</span><span class="p">,</span> <span class="n">a_to_b</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">lam</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Default matching cost: feature distance plus a neighbor-consistency term."""</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">psi</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+            <span class="k">return</span> <span class="o">-</span><span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="n">u</span> <span class="o">-</span> <span class="n">v</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+
+        <span class="c1"># base term: ||Fi - Fj||^2</span>
+        <span class="n">cost</span> <span class="o">=</span> <span class="o">-</span><span class="n">psi</span><span class="p">(</span><span class="n">Fa</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">Fb</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+
+        <span class="n">ni</span> <span class="o">=</span> <span class="n">neigh_a</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="n">nj</span> <span class="o">=</span> <span class="n">neigh_b</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">ni</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">nj</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">cost</span>
+
+        <span class="n">cons</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="n">cnt</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">ni</span><span class="p">:</span>
+            <span class="n">q</span> <span class="o">=</span> <span class="n">a_to_b</span><span class="p">[</span><span class="n">p</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">q</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">q</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="n">q</span> <span class="ow">in</span> <span class="n">nj</span><span class="p">:</span>
+                <span class="n">cons</span> <span class="o">+=</span> <span class="n">psi</span><span class="p">(</span><span class="n">Fa</span><span class="p">[</span><span class="n">p</span><span class="p">],</span> <span class="n">Fb</span><span class="p">[</span><span class="n">q</span><span class="p">])</span>
+                <span class="n">cnt</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="c1"># degree-normalize so high-degree nodes don't automatically win</span>
+        <span class="k">if</span> <span class="n">cnt</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">cost</span> <span class="o">+=</span> <span class="n">lam</span> <span class="o">*</span> <span class="p">(</span><span class="n">cons</span> <span class="o">/</span> <span class="n">cnt</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">cost</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Argonne National Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

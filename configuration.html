@@ -1,0 +1,312 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Configuration reference &mdash; graintrace 0.1.2</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=92734c54"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="_static/copybutton.js?v=96c007af"></script>
+      <script src="_static/design-tabs.js?v=f930bc37"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="MCP server" href="mcp.html" />
+    <link rel="prev" title="Concepts &amp; data formats" href="concepts.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            graintrace
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concepts.html">Concepts &amp; data formats</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Configuration reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#sculpt-config">sculpt_config</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#sculpt-options">sculpt_options</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#boundary-conditions-bc">Boundary conditions (bc)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#segmentation">Segmentation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#weightconfig">WeightConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#cpfe-parameters">CPFE parameters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#external-tool-paths-tools-json">External-tool paths (tools.json)</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="mcp.html">MCP server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="benchmarks.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pitfalls.html">Common pitfalls</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Tutorials &amp; examples</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/tutorials.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api/api.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="development.html">Building &amp; testing the docs</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">graintrace</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Configuration reference</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/configuration.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="configuration-reference">
+<h1>Configuration reference<a class="headerlink" href="#configuration-reference" title="Link to this heading"></a></h1>
+<p>This page collects the configuration objects used across graintrace: meshing,
+boundary conditions, segmentation, clustering weights, the CPFE parameter
+groups, and external-tool paths.</p>
+<section id="sculpt-config">
+<span id="config-sculpt"></span><h2>sculpt_config<a class="headerlink" href="#sculpt-config" title="Link to this heading"></a></h2>
+<p>Required for any builder step that calls <code class="docutils literal notranslate"><span class="pre">builder.mesh(sculpt_config=...)</span></code>.
+Takes executable paths only — no license tokens.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">sculpt_config</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"launcher"</span><span class="p">:</span> <span class="s2">"/path/to/cubit/bin/mpi/bin/mpiexec"</span><span class="p">,</span>
+    <span class="s2">"psculpt"</span><span class="p">:</span>  <span class="s2">"/path/to/cubit/bin/psculpt"</span><span class="p">,</span>
+    <span class="s2">"epu"</span><span class="p">:</span>      <span class="s2">"/path/to/cubit/bin/epu"</span><span class="p">,</span>
+    <span class="s2">"nprocs"</span><span class="p">:</span>   <span class="mi">10</span><span class="p">,</span>
+    <span class="s2">"environment"</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">"OPAL_LIBDIR"</span><span class="p">:</span> <span class="s2">"/path/to/cubit/bin/mpi/lib"</span><span class="p">,</span>
+        <span class="s2">"OPAL_PREFIX"</span><span class="p">:</span> <span class="s2">"/path/to/cubit/bin/mpi"</span><span class="p">,</span>
+    <span class="p">},</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Required keys: <code class="docutils literal notranslate"><span class="pre">psculpt</span></code>, <code class="docutils literal notranslate"><span class="pre">epu</span></code>, <code class="docutils literal notranslate"><span class="pre">nprocs</span></code>. <code class="docutils literal notranslate"><span class="pre">launcher</span></code> and
+<code class="docutils literal notranslate"><span class="pre">environment</span></code> are needed for MPI-based execution.</p>
+</section>
+<section id="sculpt-options">
+<h2>sculpt_options<a class="headerlink" href="#sculpt-options" title="Link to this heading"></a></h2>
+<p>A tuple of CLI flag strings passed to SCULPT:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">sculpt_options</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="s2">"--adapt"</span><span class="p">,</span> <span class="s2">"-A"</span><span class="p">,</span> <span class="s2">"7"</span><span class="p">,</span>    <span class="c1"># mesh adaptation level</span>
+    <span class="s2">"-df"</span><span class="p">,</span> <span class="s2">"1"</span><span class="p">,</span>              <span class="c1"># dilation factor</span>
+    <span class="s2">"-S"</span><span class="p">,</span> <span class="s2">"2"</span><span class="p">,</span>               <span class="c1"># smoothing passes</span>
+    <span class="s2">"-CS"</span><span class="p">,</span> <span class="s2">"4"</span><span class="p">,</span>              <span class="c1"># curve smoothing</span>
+    <span class="s2">"--void_mat"</span><span class="p">,</span> <span class="s2">"0"</span><span class="p">,</span>       <span class="c1"># void material ID</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>For FF Voronoi meshes without adaptation, use just <code class="docutils literal notranslate"><span class="pre">(&quot;--void_mat&quot;,</span> <span class="pre">&quot;0&quot;)</span></code>.</p>
+</section>
+<section id="boundary-conditions-bc">
+<h2>Boundary conditions (bc)<a class="headerlink" href="#boundary-conditions-bc" title="Link to this heading"></a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">bc</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"x"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"negative"</span><span class="p">:</span> <span class="s2">"stress_free"</span><span class="p">,</span> <span class="s2">"positive"</span><span class="p">:</span> <span class="s2">"stress_free"</span><span class="p">},</span>
+    <span class="s2">"y"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"negative"</span><span class="p">:</span> <span class="s2">"stress_free"</span><span class="p">,</span> <span class="s2">"positive"</span><span class="p">:</span> <span class="s2">"stress_free"</span><span class="p">},</span>
+    <span class="s2">"z"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"negative"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">"positive"</span><span class="p">:</span> <span class="n">displace_amount</span><span class="p">},</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">&quot;stress_free&quot;</span></code> means traction-free (no constraint). An integer/float is a
+prescribed displacement (<code class="docutils literal notranslate"><span class="pre">0</span></code> = fixed).</p>
+</section>
+<section id="segmentation">
+<h2>Segmentation<a class="headerlink" href="#segmentation" title="Link to this heading"></a></h2>
+<p>Two methods are available for voxel segmentation (EBSD / NF-as-voxel).</p>
+<p>Flood fill — simpler and faster:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">segmentation</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"method"</span><span class="p">:</span> <span class="s2">"flood"</span><span class="p">,</span>
+    <span class="s2">"params"</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">"misorientation_tol"</span><span class="p">:</span> <span class="mf">5.0</span> <span class="o">/</span> <span class="mi">180</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">,</span>  <span class="c1"># radians for VoxelMeshBuilder</span>
+        <span class="s2">"connectivity"</span><span class="p">:</span> <span class="mi">26</span><span class="p">,</span>                        <span class="c1"># 6 or 26</span>
+        <span class="s2">"grain_threshold_final"</span><span class="p">:</span> <span class="mi">1000</span><span class="p">,</span>
+        <span class="s2">"batch_norm"</span><span class="p">:</span> <span class="mi">200_000</span><span class="p">,</span>
+        <span class="s2">"grain_threshold"</span><span class="p">:</span> <span class="mi">1000</span><span class="p">,</span>
+        <span class="s2">"stop_count"</span><span class="p">:</span> <span class="mi">500</span><span class="p">,</span>
+    <span class="p">},</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Graph-based — better for complex textures:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">segmentation</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"method"</span><span class="p">:</span> <span class="s2">"graph"</span><span class="p">,</span>
+    <span class="s2">"params"</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">"misorientation_tol"</span><span class="p">:</span> <span class="mf">5.0</span><span class="p">,</span>   <span class="c1"># degrees if angle_type="degrees", else radians</span>
+        <span class="s2">"connectivity"</span><span class="p">:</span> <span class="mi">26</span><span class="p">,</span>
+        <span class="s2">"grain_threshold_final"</span><span class="p">:</span> <span class="mi">100</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">"graph_params"</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">"segmenter"</span><span class="p">:</span> <span class="s2">"leiden"</span><span class="p">,</span>
+        <span class="s2">"graph_mode"</span><span class="p">:</span> <span class="s2">"grid"</span><span class="p">,</span>
+        <span class="s2">"manhattan_radius"</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
+        <span class="s2">"grid_tol"</span><span class="p">:</span> <span class="mf">1e-6</span><span class="p">,</span>
+        <span class="s2">"n_jobs"</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span>
+        <span class="s2">"weight_chunk_size"</span><span class="p">:</span> <span class="mi">1_000_000</span><span class="p">,</span>
+        <span class="s2">"reduce_edges_topweights_k"</span><span class="p">:</span> <span class="mi">8</span><span class="p">,</span>
+        <span class="s2">"nodes_chunk"</span><span class="p">:</span> <span class="mi">500_000</span><span class="p">,</span>
+        <span class="s2">"seed"</span><span class="p">:</span> <span class="mi">42</span><span class="p">,</span>
+        <span class="s2">"networkit_kwargs"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"gamma"</span><span class="p">:</span> <span class="mf">0.001</span><span class="p">},</span>   <span class="c1"># lower = fewer clusters</span>
+        <span class="s2">"weight_cfg"</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">"mode"</span><span class="p">:</span> <span class="s2">"rbf"</span><span class="p">,</span>
+            <span class="s2">"sigma"</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="s2">"sigma_auto"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"sample_size"</span><span class="p">:</span> <span class="mi">20_000</span><span class="p">,</span> <span class="s2">"random_state"</span><span class="p">:</span> <span class="mi">42</span><span class="p">,</span> <span class="s2">"quantile"</span><span class="p">:</span> <span class="mf">0.5</span><span class="p">},</span>
+            <span class="s2">"power"</span><span class="p">:</span> <span class="mf">2.0</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s2">"plot"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">},</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>For <code class="xref py py-meth docutils literal notranslate"><span class="pre">reconstruct()</span></code>, the <code class="docutils literal notranslate"><span class="pre">segmentation</span></code>
+argument is a flat dict (no <code class="docutils literal notranslate"><span class="pre">method</span></code>/<code class="docutils literal notranslate"><span class="pre">params</span></code> nesting), with
+<code class="docutils literal notranslate"><span class="pre">misorientation_tol</span></code> in radians.</p>
+</section>
+<section id="weightconfig">
+<h2>WeightConfig<a class="headerlink" href="#weightconfig" title="Link to this heading"></a></h2>
+<p>Controls edge weighting for graph clustering.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">graintrace.user_data_class</span><span class="w"> </span><span class="kn">import</span> <span class="n">WeightConfig</span>
+
+<span class="n">weight_cfg</span> <span class="o">=</span> <span class="n">WeightConfig</span><span class="p">(</span>
+    <span class="n">mode</span><span class="o">=</span><span class="s2">"rbf"</span><span class="p">,</span>           <span class="c1"># "rbf" | "inverse"</span>
+    <span class="n">power</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span>
+    <span class="n">sigma</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>           <span class="c1"># if None, use sigma_auto</span>
+    <span class="n">sigma_auto</span><span class="o">=</span><span class="p">{</span><span class="s2">"sample_size"</span><span class="p">:</span> <span class="mi">500_000</span><span class="p">,</span> <span class="s2">"random_state"</span><span class="p">:</span> <span class="mi">42</span><span class="p">,</span> <span class="s2">"quantile"</span><span class="p">:</span> <span class="mf">0.5</span><span class="p">},</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="cpfe-parameters">
+<h2>CPFE parameters<a class="headerlink" href="#cpfe-parameters" title="Link to this heading"></a></h2>
+<p><code class="xref py py-meth docutils literal notranslate"><span class="pre">set_parameters()</span></code> takes named groups. The main
+groups and common keys:</p>
+<p><strong>material</strong> — <code class="docutils literal notranslate"><span class="pre">slip_constant_strength</span></code>, <code class="docutils literal notranslate"><span class="pre">voce_hardening_initial_slope</span></code>,
+<code class="docutils literal notranslate"><span class="pre">voce_hardening_saturation</span></code>, <code class="docutils literal notranslate"><span class="pre">power_slip_n</span></code>, <code class="docutils literal notranslate"><span class="pre">power_slip_g0</span></code>, <code class="docutils literal notranslate"><span class="pre">elastic_E</span></code>,
+<code class="docutils literal notranslate"><span class="pre">elastic_nu</span></code>, <code class="docutils literal notranslate"><span class="pre">elastic_G</span></code>, <code class="docutils literal notranslate"><span class="pre">burger_scale</span></code>.</p>
+<p><strong>simulation_parameters</strong> — <code class="docutils literal notranslate"><span class="pre">dt</span></code>, <code class="docutils literal notranslate"><span class="pre">total_time</span></code>, <code class="docutils literal notranslate"><span class="pre">initialize_time</span></code> (load
+ramps from <code class="docutils literal notranslate"><span class="pre">initialize_time</span></code> to <code class="docutils literal notranslate"><span class="pre">total_time</span></code>), <code class="docutils literal notranslate"><span class="pre">device</span></code> (<code class="docutils literal notranslate"><span class="pre">&quot;cpu&quot;</span></code>,
+<code class="docutils literal notranslate"><span class="pre">&quot;cuda:N&quot;</span></code>, or a space-separated list), <code class="docutils literal notranslate"><span class="pre">device_batch</span></code> (per-device NEML2
+chunk), <code class="docutils literal notranslate"><span class="pre">sync_times</span></code> (space-separated grid-output times). Output-frequency
+knobs:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 22.0%" />
+<col style="width: 78.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Knob</p></th>
+<th class="head"><p>Values</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">grid_transfer</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;final&quot;</span></code> (default) | <code class="docutils literal notranslate"><span class="pre">&quot;per_step&quot;</span></code> | <code class="docutils literal notranslate"><span class="pre">&quot;off&quot;</span></code> — regular-grid MultiApp transfer</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">exodus_output</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;sync&quot;</span></code> (default, only at <code class="docutils literal notranslate"><span class="pre">sync_times</span></code>) | <code class="docutils literal notranslate"><span class="pre">&quot;per_step&quot;</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">mesh_csv</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;sync&quot;</span></code> (default) | <code class="docutils literal notranslate"><span class="pre">&quot;per_step&quot;</span></code> | <code class="docutils literal notranslate"><span class="pre">&quot;off&quot;</span></code> — per-element CSV on the true mesh</p></td>
+</tr>
+</tbody>
+</table>
+<p>The defaults are the cheap settings; the per-step grid transfer dominates wall
+time. Three sources of REI field data are described in
+<a class="reference internal" href="tutorials/rare-event-identification.html"><span class="doc">Rare-event identification (REI)</span></a>.</p>
+<p><strong>boundary</strong> — <code class="docutils literal notranslate"><span class="pre">bounding_box</span></code> and the <code class="docutils literal notranslate"><span class="pre">bc</span></code> dict (above).</p>
+<p><strong>grid_properties</strong> — <code class="docutils literal notranslate"><span class="pre">number_of_elements</span></code> and <code class="docutils literal notranslate"><span class="pre">bounding_box</span></code>. The grid box
+should be inset by a small amount on each face to avoid mesh-boundary issues:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">grid_bb</span> <span class="o">=</span> <span class="n">bounding_box</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span>   <span class="c1"># xlo, ylo, zlo</span>
+    <span class="n">grid_bb</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+=</span> <span class="mf">0.0001</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span>   <span class="c1"># xhi, yhi, zhi</span>
+    <span class="n">grid_bb</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-=</span> <span class="mf">0.0001</span>
+</pre></div>
+</div>
+</section>
+<section id="external-tool-paths-tools-json">
+<span id="config-tools-json"></span><h2>External-tool paths (tools.json)<a class="headerlink" href="#external-tool-paths-tools-json" title="Link to this heading"></a></h2>
+<p>External tool locations can be supplied via a JSON file instead of environment
+variables. The template is <code class="docutils literal notranslate"><span class="pre">graintrace/mcp/tools.example.json</span></code> with keys
+<code class="docutils literal notranslate"><span class="pre">puma_opt</span></code>, <code class="docutils literal notranslate"><span class="pre">neper</span></code>, and a <code class="docutils literal notranslate"><span class="pre">sculpt_config</span></code> block. Search order:
+<code class="docutils literal notranslate"><span class="pre">$GRAINTRACE_TOOLS_JSON</span></code> → <code class="docutils literal notranslate"><span class="pre">./graintrace_tools.json</span></code> →
+<code class="docutils literal notranslate"><span class="pre">~/.config/graintrace/tools.json</span></code>.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="concepts.html" class="btn btn-neutral float-left" title="Concepts &amp; data formats" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="mcp.html" class="btn btn-neutral float-right" title="MCP server" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Argonne National Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

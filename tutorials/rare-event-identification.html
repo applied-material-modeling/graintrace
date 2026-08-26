@@ -1,0 +1,683 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rare-event identification (REI) &mdash; graintrace 0.1.2</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=92734c54"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=96c007af"></script>
+      <script src="../_static/design-tabs.js?v=f930bc37"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="REI comparison" href="rei-comparison.html" />
+    <link rel="prev" title="Post-CPFE analysis &amp; plotting" href="post-processing.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            graintrace
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts.html">Concepts &amp; data formats</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../configuration.html">Configuration reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../mcp.html">MCP server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../benchmarks.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pitfalls.html">Common pitfalls</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Tutorials &amp; examples</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="tutorials.html">Tutorials</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="hedm-stitching.html">HEDM scan simulation and stitching</a></li>
+<li class="toctree-l2"><a class="reference internal" href="microstructure-generation.html">Microstructure generation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ff-reconstruction.html">FF Voronoi reconstruction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="nf-reconstruction.html">NF mesh reconstruction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="voxel-segmentation-mesh.html">Voxel segmentation and meshing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="meshing.html">Meshing a grain grid into hex</a></li>
+<li class="toctree-l2"><a class="reference internal" href="experiment-rotation.html">Registering FF data to the sim frame</a></li>
+<li class="toctree-l2"><a class="reference internal" href="material-calibration.html">Material calibration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cpfe-simulation.html">CPFE simulation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cpfe-nf-ff.html">CPFE (NF geometry + FF initial strain)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="post-processing.html">Post-CPFE analysis &amp; plotting</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Rare-event identification (REI)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#inputs">Inputs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#recipe">Recipe</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#key-parameters">Key parameters</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#outputs">Outputs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#gotchas">Gotchas</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#full-example">Full example</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="rei-comparison.html">REI comparison</a></li>
+<li class="toctree-l2"><a class="reference internal" href="grain-tracking.html">Grain tracking across load steps</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../api/api.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../development.html">Building &amp; testing the docs</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">graintrace</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="tutorials.html">Tutorials</a></li>
+      <li class="breadcrumb-item active">Rare-event identification (REI)</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/tutorials/rare-event-identification.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="rare-event-identification-rei">
+<h1>Rare-event identification (REI)<a class="headerlink" href="#rare-event-identification-rei" title="Link to this heading"></a></h1>
+<p>Find spatially coherent rare regions in a CPFE field (for example high
+Nye-tensor or von-Mises stress) via graph spatial clustering, a hierarchical
+merge, and a rare-cluster selection, then export the result to VTK. Use this to
+locate hotspots in CPFE field results, whether on the true mesh (<code class="docutils literal notranslate"><span class="pre">mesh_out/</span></code>)
+or a resampled grid (<code class="docutils literal notranslate"><span class="pre">grid_out/</span></code>). The pipeline is pure Python (networkit
+Leiden, scipy hierarchical clustering, PyVista/VTK).</p>
+<p><strong>Needs:</strong> none beyond graintrace — no MOOSE, NEPER, or CUBIT.</p>
+<section id="inputs">
+<h2>Inputs<a class="headerlink" href="#inputs" title="Link to this heading"></a></h2>
+<p>A point-cloud CSV with an <code class="docutils literal notranslate"><span class="pre">id</span></code> column, <code class="docutils literal notranslate"><span class="pre">x,</span> <span class="pre">y,</span> <span class="pre">z</span></code> coordinates, and field
+columns. REI is not grid-locked: a regular grid uses the fast grid graph, and
+arbitrary points fall back to the kNN graph (<code class="docutils literal notranslate"><span class="pre">graph_mode=&quot;knn&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;auto&quot;</span></code>).
+Two CPFE sources share the same schema:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">mesh_out/out_element_centroid_*.csv</span></code> — crisp per-element fields on the true
+mesh (<code class="docutils literal notranslate"><span class="pre">mesh_csv=&quot;sync&quot;</span></code> default); full fidelity, one row per element (kNN
+path). Preferred.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">grid_out/out_element_centroid_*.csv</span></code> — a regular grid, from
+<code class="docutils literal notranslate"><span class="pre">grid_transfer=&quot;per_step&quot;</span></code> or from an offline
+<code class="xref py py-class docutils literal notranslate"><span class="pre">GridResampler</span></code> (the resampled grid is smoothed; see
+<a class="reference internal" href="post-processing.html"><span class="doc">Post-CPFE analysis &amp; plotting</span></a>).</p></li>
+</ul>
+<p>The example scripts regenerate <code class="docutils literal notranslate"><span class="pre">mwe_data/synthetic_vms.csv</span></code> when
+<code class="docutils literal notranslate"><span class="pre">generate_synthetic=True</span></code>.</p>
+</section>
+<section id="recipe">
+<h2>Recipe<a class="headerlink" href="#recipe" title="Link to this heading"></a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">graintrace.rare_cluster_indicator</span><span class="w"> </span><span class="kn">import</span> <span class="n">IdentifyRareClusters</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">graintrace.similarity_metric_library</span><span class="w"> </span><span class="kn">import</span> <span class="n">SimilarityMetricLibrary</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">graintrace.user_data_class</span><span class="w"> </span><span class="kn">import</span> <span class="n">SimilarityMetric</span><span class="p">,</span> <span class="n">WeightConfig</span><span class="p">,</span> <span class="n">RareCriteria</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">graintrace</span><span class="w"> </span><span class="kn">import</span> <span class="n">rare_criteria_selection_library</span> <span class="k">as</span> <span class="n">rcs</span>
+
+<span class="n">lib</span> <span class="o">=</span> <span class="n">SimilarityMetricLibrary</span><span class="p">()</span>
+<span class="n">spec</span> <span class="o">=</span> <span class="n">lib</span><span class="o">.</span><span class="n">nye_tensor_norm</span><span class="p">(</span><span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="sa">f</span><span class="s2">"nye_tensor_</span><span class="si">{</span><span class="n">i</span><span class="si">}{</span><span class="n">j</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">)])</span>
+<span class="n">spec_reduced</span> <span class="o">=</span> <span class="n">SimilarityMetric</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="n">spec</span><span class="o">.</span><span class="n">name</span> <span class="o">+</span> <span class="s2">"_mean"</span><span class="p">,</span>
+    <span class="n">feature_cols</span><span class="o">=</span><span class="p">[</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">c</span><span class="si">}</span><span class="s2">_mean"</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">spec</span><span class="o">.</span><span class="n">feature_cols</span><span class="p">],</span> <span class="n">func</span><span class="o">=</span><span class="n">spec</span><span class="o">.</span><span class="n">func</span><span class="p">)</span>
+<span class="n">weight_cfg</span> <span class="o">=</span> <span class="n">WeightConfig</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s2">"rbf"</span><span class="p">,</span> <span class="n">power</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">sigma</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">sigma_auto</span><span class="o">=</span><span class="p">{</span><span class="s2">"sample_size"</span><span class="p">:</span> <span class="mi">500_000</span><span class="p">,</span> <span class="s2">"random_state"</span><span class="p">:</span> <span class="mi">42</span><span class="p">,</span> <span class="s2">"quantile"</span><span class="p">:</span> <span class="mf">0.5</span><span class="p">})</span>
+<span class="n">rare</span> <span class="o">=</span> <span class="n">RareCriteria</span><span class="p">(</span><span class="n">selector</span><span class="o">=</span><span class="k">lambda</span> <span class="n">df</span><span class="p">:</span> <span class="n">rcs</span><span class="o">.</span><span class="n">select_highest_scalar</span><span class="p">(</span>
+    <span class="n">df</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">required_cols</span><span class="o">=</span><span class="s2">"nye_tensor_norm_mean_mean"</span><span class="p">,</span> <span class="n">min_size</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+
+<span class="n">irc</span> <span class="o">=</span> <span class="n">IdentifyRareClusters</span><span class="p">(</span><span class="n">input_csv_path</span><span class="o">=</span><span class="s2">"out/last_grid.csv"</span><span class="p">,</span> <span class="n">id_col</span><span class="o">=</span><span class="s2">"id"</span><span class="p">,</span>
+                           <span class="n">coord_cols</span><span class="o">=</span><span class="p">(</span><span class="s2">"x"</span><span class="p">,</span> <span class="s2">"y"</span><span class="p">,</span> <span class="s2">"z"</span><span class="p">))</span>
+<span class="n">gsc</span><span class="p">,</span> <span class="n">indicator</span> <span class="o">=</span> <span class="n">irc</span><span class="o">.</span><span class="n">make_stage_objects</span><span class="p">(</span><span class="n">graph_cluster_out</span><span class="o">=</span><span class="s2">"out/rei_reduced.csv"</span><span class="p">)</span>
+<span class="n">bundle</span> <span class="o">=</span> <span class="n">irc</span><span class="o">.</span><span class="n">run_clustering</span><span class="p">(</span>
+    <span class="n">gsc</span><span class="o">=</span><span class="n">gsc</span><span class="p">,</span> <span class="n">indicator</span><span class="o">=</span><span class="n">indicator</span><span class="p">,</span> <span class="n">reduced_csv_path</span><span class="o">=</span><span class="s2">"out/rei_reduced.csv"</span><span class="p">,</span>
+    <span class="n">gsc_run_kwargs</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">spec</span><span class="o">=</span><span class="n">spec</span><span class="p">,</span> <span class="n">graph_mode</span><span class="o">=</span><span class="s2">"grid"</span><span class="p">,</span> <span class="n">manhattan_radius</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+        <span class="n">grid_tol</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span> <span class="n">weight_chunk_size</span><span class="o">=</span><span class="mi">500_000</span><span class="p">,</span> <span class="n">segmenter</span><span class="o">=</span><span class="s2">"leiden"</span><span class="p">,</span>
+        <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span> <span class="n">weight_cfg</span><span class="o">=</span><span class="n">weight_cfg</span><span class="p">,</span> <span class="n">reduce_edges_topweights_k</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+        <span class="n">networkit_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">"gamma"</span><span class="p">:</span> <span class="mf">10.0</span><span class="p">},</span> <span class="n">resume_from_checkpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+    <span class="n">indicator_run_kwargs</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">method_type</span><span class="o">=</span><span class="s2">"scipy_hierarchical"</span><span class="p">,</span> <span class="n">spec</span><span class="o">=</span><span class="n">spec_reduced</span><span class="p">,</span>
+        <span class="n">threshold</span><span class="o">=</span><span class="mf">0.0005</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">"average"</span><span class="p">,</span> <span class="n">criterion</span><span class="o">=</span><span class="s2">"distance"</span><span class="p">))</span>
+<span class="n">out</span> <span class="o">=</span> <span class="n">irc</span><span class="o">.</span><span class="n">run_get_rare_cluster</span><span class="p">(</span><span class="n">bundle</span><span class="o">=</span><span class="n">bundle</span><span class="p">,</span> <span class="n">criteria</span><span class="o">=</span><span class="n">rare</span><span class="p">,</span>
+    <span class="n">output_vtk_path</span><span class="o">=</span><span class="s2">"out/rare_clusters.vtk"</span><span class="p">,</span> <span class="n">export_control</span><span class="o">=</span><span class="s2">"auto"</span><span class="p">,</span>
+    <span class="n">background_block_id</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">first_rare_block_id</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>For simpler demos, <code class="xref py py-class docutils literal notranslate"><span class="pre">ClusterAnalysisIndicator</span></code> runs a
+single-stage hierarchical clustering, and
+<code class="xref py py-class docutils literal notranslate"><span class="pre">GraphSpatialCluster</span></code> combined with
+<code class="xref py py-class docutils literal notranslate"><span class="pre">ClusterAnalysisIndicator</span></code> runs the two-stage form.</p>
+</section>
+<section id="key-parameters">
+<h2>Key parameters<a class="headerlink" href="#key-parameters" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">spec</span></code> — the similarity feature from
+<code class="xref py py-class docutils literal notranslate"><span class="pre">SimilarityMetricLibrary</span></code> (<code class="docutils literal notranslate"><span class="pre">nye_tensor_norm</span></code>,
+<code class="docutils literal notranslate"><span class="pre">von_mises_stress</span></code>, and others). Reduce it to per-cluster means for stage two
+(<code class="docutils literal notranslate"><span class="pre">spec_reduced</span></code>).</p></li>
+<li><p>Graph — <code class="docutils literal notranslate"><span class="pre">graph_mode</span></code> (<code class="docutils literal notranslate"><span class="pre">grid</span></code>/<code class="docutils literal notranslate"><span class="pre">knn</span></code>/<code class="docutils literal notranslate"><span class="pre">auto</span></code>), <code class="docutils literal notranslate"><span class="pre">manhattan_radius</span></code>,
+<code class="docutils literal notranslate"><span class="pre">networkit_kwargs[&quot;gamma&quot;]</span></code> (higher gives more clusters),
+<code class="docutils literal notranslate"><span class="pre">reduce_edges_topweights_k</span></code>, and <code class="docutils literal notranslate"><span class="pre">weight_cfg</span></code> (RBF; see
+<a class="reference internal" href="../configuration.html"><span class="doc">Configuration reference</span></a>).</p></li>
+<li><p>Hierarchical — <code class="docutils literal notranslate"><span class="pre">threshold</span></code>, <code class="docutils literal notranslate"><span class="pre">method</span></code>, <code class="docutils literal notranslate"><span class="pre">criterion</span></code>.</p></li>
+<li><p><code class="xref py py-class docutils literal notranslate"><span class="pre">RareCriteria</span></code> — how rare clusters are chosen
+(<code class="docutils literal notranslate"><span class="pre">select_highest_scalar</span></code>, size quantiles).</p></li>
+</ul>
+</section>
+<section id="outputs">
+<h2>Outputs<a class="headerlink" href="#outputs" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">rare_clusters.vtk</span></code> — the rare regions as labeled blocks.</p></li>
+<li><p>The reduced per-cluster CSV and, optionally, a rare-cluster statistics CSV and
+a rare-points CSV (<code class="docutils literal notranslate"><span class="pre">x,</span> <span class="pre">y,</span> <span class="pre">z,</span> <span class="pre">rare_cluster_id</span></code>) for <a class="reference internal" href="rei-comparison.html"><span class="doc">REI comparison</span></a>.</p></li>
+</ul>
+</section>
+<section id="gotchas">
+<h2>Gotchas<a class="headerlink" href="#gotchas" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>Three checkpoint levels are available (bundle pickle, reduced CSV plus labels,
+graph edges); see the REI restart pattern in <a class="reference internal" href="../configuration.html"><span class="doc">Configuration reference</span></a>.</p></li>
+<li><p>The demo scripts regenerate <code class="docutils literal notranslate"><span class="pre">synthetic_vms.csv</span></code>; point <code class="docutils literal notranslate"><span class="pre">input_csv_path</span></code> at
+your own CPFE field CSV for real analysis.</p></li>
+<li><p>The clustering pipeline does not use multiprocessing, so no
+<code class="docutils literal notranslate"><span class="pre">if</span> <span class="pre">__name__</span> <span class="pre">==</span> <span class="pre">&quot;__main__&quot;:</span></code> guard is required.</p></li>
+</ul>
+</section>
+<section id="full-example">
+<h2>Full example<a class="headerlink" href="#full-example" title="Link to this heading"></a></h2>
+<div class="literal-block-wrapper docutils container" id="id1">
+<div class="code-block-caption"><span class="caption-text">examples/demonstrate_rei_pipeline.py</span><a class="headerlink" href="#id1" title="Link to this code"></a></div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Copyright 2026, UChicago Argonne, LLC</span>
+<span class="c1"># All Rights Reserved</span>
+<span class="c1"># Software Name: graintrace</span>
+<span class="c1"># By: Argonne National Laboratory</span>
+<span class="c1"># OPEN SOURCE LICENSE (MIT)</span>
+<span class="c1">#</span>
+<span class="c1"># Permission is hereby granted, free of charge, to any person obtaining a copy</span>
+<span class="c1"># of this software and associated documentation files (the "Software"), to deal</span>
+<span class="c1"># in the Software without restriction, including without limitation the rights</span>
+<span class="c1"># to use, copy, modify, merge, publish, distribute, sublicense, and/or sell</span>
+<span class="c1"># copies of the Software, and to permit persons to whom the Software is</span>
+<span class="c1"># furnished to do so, subject to the following conditions:</span>
+<span class="c1">#</span>
+<span class="c1"># The above copyright notice and this permission notice shall be included in</span>
+<span class="c1"># all copies or substantial portions of the Software.</span>
+<span class="c1">#</span>
+<span class="c1"># THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR</span>
+<span class="c1"># IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,</span>
+<span class="c1"># FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE</span>
+<span class="c1"># AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER</span>
+<span class="c1"># LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,</span>
+<span class="c1"># OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN</span>
+<span class="c1"># THE SOFTWARE.</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">multiprocessing</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">mp</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">graintrace.similarity_metric_library</span><span class="w"> </span><span class="kn">import</span> <span class="n">SimilarityMetricLibrary</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">graintrace.user_data_class</span><span class="w"> </span><span class="kn">import</span> <span class="n">SimilarityMetric</span><span class="p">,</span> <span class="n">WeightConfig</span><span class="p">,</span> <span class="n">RareCriteria</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">graintrace.rare_cluster_indicator</span><span class="w"> </span><span class="kn">import</span> <span class="n">IdentifyRareClusters</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">graintrace.cluster_indicator</span><span class="w"> </span><span class="kn">import</span> <span class="n">ClusterAnalysisIndicator</span>
+
+<span class="c1"># INPUT</span>
+<span class="n">filename</span> <span class="o">=</span> <span class="s2">"mwe_data/synthetic_vms.csv"</span>
+
+<span class="c1"># graph spatial cluster parameters</span>
+<span class="n">gsc_csv_path</span> <span class="o">=</span> <span class="n">filename</span>
+<span class="n">gsc_id_col</span> <span class="o">=</span> <span class="s2">"id"</span>
+<span class="n">gsc_coord_cols</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"x"</span><span class="p">,</span> <span class="s2">"y"</span><span class="p">,</span> <span class="s2">"z"</span><span class="p">)</span>
+
+<span class="c1"># graph build</span>
+<span class="n">gsc_graph_mode</span> <span class="o">=</span> <span class="s2">"grid"</span>  <span class="c1"># "grid" | "knn" | "auto"</span>
+<span class="n">gsc_k</span> <span class="o">=</span> <span class="mi">120</span>  <span class="c1"># used only if graph_mode="knn"</span>
+<span class="n">gsc_grid_radius</span> <span class="o">=</span> <span class="mi">4</span>  <span class="c1"># manhattan radius for grid connectivity if graph_mode="grid"</span>
+<span class="n">gsc_grid_tol</span> <span class="o">=</span> <span class="mf">1e-6</span>
+<span class="n">reduce_edges_topweights_k</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="mi">20</span>  <span class="c1"># keep only top k edges per node by weight before clustering</span>
+<span class="p">)</span>
+
+<span class="c1"># edge weights</span>
+<span class="n">gsc_eps</span> <span class="o">=</span> <span class="mf">1e-8</span>
+<span class="n">gsc_n_jobs</span> <span class="o">=</span> <span class="mi">12</span>
+<span class="n">gsc_weight_chunk_size</span> <span class="o">=</span> <span class="mi">500_000</span>
+<span class="n">weight_cfg</span> <span class="o">=</span> <span class="n">WeightConfig</span><span class="p">(</span>
+    <span class="n">mode</span><span class="o">=</span><span class="s2">"rbf"</span><span class="p">,</span>
+    <span class="n">power</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span>
+    <span class="n">sigma</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">sigma_auto</span><span class="o">=</span><span class="p">{</span><span class="s2">"sample_size"</span><span class="p">:</span> <span class="mi">500_000</span><span class="p">,</span> <span class="s2">"random_state"</span><span class="p">:</span> <span class="mi">42</span><span class="p">,</span> <span class="s2">"quantile"</span><span class="p">:</span> <span class="mf">0.5</span><span class="p">},</span>
+<span class="p">)</span>
+
+<span class="c1"># segmentation</span>
+<span class="n">gsc_segmenter</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"leiden"</span>  <span class="c1"># "leiden" | "plm" | "plp"</span>
+<span class="n">gsc_seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">42</span>
+<span class="n">graph_cluster_arguments</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"gamma"</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">}</span>
+<span class="c1"># for all parameters: https://networkit.github.io/dev-docs/python_api/community.html</span>
+
+<span class="c1"># synthetic generation</span>
+<span class="n">generate_synthetic</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="n">nx</span> <span class="o">=</span> <span class="mi">20</span>
+<span class="n">ny</span> <span class="o">=</span> <span class="mi">20</span>
+<span class="n">nz</span> <span class="o">=</span> <span class="mi">20</span>
+
+<span class="c1"># second-stage merge params</span>
+<span class="n">threshold</span> <span class="o">=</span> <span class="mf">0.05</span>
+<span class="n">radius_elements_range</span> <span class="o">=</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">8</span><span class="p">)</span>
+
+<span class="c1"># exporter / rarity selection</span>
+<span class="n">vtk_out</span> <span class="o">=</span> <span class="s2">"test_rei_pipeline/rare_clusters.vtk"</span>
+<span class="n">rare_criteria</span> <span class="o">=</span> <span class="n">RareCriteria</span><span class="p">(</span>
+    <span class="n">selector</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>  <span class="c1"># use size_quantile logic</span>
+    <span class="n">size_quantile</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span>  <span class="c1"># bottom 5% by merged cluster size (stage 2)</span>
+    <span class="n">min_size</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="n">max_rare</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">vtk_out</span><span class="p">),</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+
+<span class="c1"># Synthetic data generation</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_slice_to_array_worker</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
+    <span class="n">k0</span><span class="p">,</span> <span class="n">k1</span><span class="p">,</span> <span class="n">x_coords</span><span class="p">,</span> <span class="n">y_coords</span><span class="p">,</span> <span class="n">z_coords</span><span class="p">,</span> <span class="n">vm_field</span><span class="p">,</span> <span class="n">seed</span> <span class="o">=</span> <span class="n">args</span>
+    <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+
+    <span class="n">nx_</span> <span class="o">=</span> <span class="n">x_coords</span><span class="o">.</span><span class="n">size</span>
+    <span class="n">ny_</span> <span class="o">=</span> <span class="n">y_coords</span><span class="o">.</span><span class="n">size</span>
+    <span class="n">nk</span> <span class="o">=</span> <span class="n">k1</span> <span class="o">-</span> <span class="n">k0</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="n">nk</span> <span class="o">*</span> <span class="n">ny_</span> <span class="o">*</span> <span class="n">nx_</span>
+
+    <span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">broadcast_to</span><span class="p">(</span><span class="n">x_coords</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="p">:],</span> <span class="p">(</span><span class="n">nk</span><span class="p">,</span> <span class="n">ny_</span><span class="p">,</span> <span class="n">nx_</span><span class="p">))</span>
+    <span class="n">Y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">broadcast_to</span><span class="p">(</span><span class="n">y_coords</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:,</span> <span class="kc">None</span><span class="p">],</span> <span class="p">(</span><span class="n">nk</span><span class="p">,</span> <span class="n">ny_</span><span class="p">,</span> <span class="n">nx_</span><span class="p">))</span>
+    <span class="n">Z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">broadcast_to</span><span class="p">(</span><span class="n">z_coords</span><span class="p">[</span><span class="n">k0</span><span class="p">:</span><span class="n">k1</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span> <span class="p">(</span><span class="n">nk</span><span class="p">,</span> <span class="n">ny_</span><span class="p">,</span> <span class="n">nx_</span><span class="p">))</span>
+
+    <span class="n">vm</span> <span class="o">=</span> <span class="n">vm_field</span><span class="p">[</span><span class="n">k0</span><span class="p">:</span><span class="n">k1</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="n">sxx</span> <span class="o">=</span> <span class="n">vm</span> <span class="o">+</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">vm</span> <span class="o">*</span> <span class="mf">0.05</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">vm</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+    <span class="n">syy</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">vm</span> <span class="o">*</span> <span class="mf">0.02</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">vm</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+    <span class="n">szz</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">vm</span> <span class="o">*</span> <span class="mf">0.02</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">vm</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+    <span class="n">sxy</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">vm</span> <span class="o">*</span> <span class="mf">0.02</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">vm</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+    <span class="n">sxz</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">vm</span> <span class="o">*</span> <span class="mf">0.02</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">vm</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+    <span class="n">syz</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">vm</span> <span class="o">*</span> <span class="mf">0.02</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">vm</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+
+    <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">n</span><span class="p">,</span> <span class="mi">9</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="n">out</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">out</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">Y</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">out</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">Z</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">out</span><span class="p">[:,</span> <span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="n">sxx</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">out</span><span class="p">[:,</span> <span class="mi">4</span><span class="p">]</span> <span class="o">=</span> <span class="n">syy</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">out</span><span class="p">[:,</span> <span class="mi">5</span><span class="p">]</span> <span class="o">=</span> <span class="n">szz</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">out</span><span class="p">[:,</span> <span class="mi">6</span><span class="p">]</span> <span class="o">=</span> <span class="n">sxy</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">out</span><span class="p">[:,</span> <span class="mi">7</span><span class="p">]</span> <span class="o">=</span> <span class="n">sxz</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">out</span><span class="p">[:,</span> <span class="mi">8</span><span class="p">]</span> <span class="o">=</span> <span class="n">syz</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">k0</span><span class="p">,</span> <span class="n">out</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">generate_layered_vms_csv</span><span class="p">(</span>
+    <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">nx</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">20</span><span class="p">,</span>
+    <span class="n">ny</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">20</span><span class="p">,</span>
+    <span class="n">nz</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">20</span><span class="p">,</span>
+    <span class="n">n_layers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+    <span class="n">rare_patches</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span>
+    <span class="n">vm_low</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">50.0</span><span class="p">,</span>
+    <span class="n">vm_high</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">200.0</span><span class="p">,</span>
+    <span class="n">random_state</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="n">radius_range</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span>
+    <span class="n">gsc_n_jobs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="n">z_chunk</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+
+    <span class="k">if</span> <span class="n">n_layers</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"n_layers must be &gt;= 1"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">nx</span> <span class="o">&lt;</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">ny</span> <span class="o">&lt;</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">nz</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"nx, ny, nz must be &gt;= 1"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">radius_range</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">radius_range</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">radius_range</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"radius_range must be (min_radius&gt;=1, max_radius&gt;min_radius)"</span><span class="p">)</span>
+
+    <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="n">random_state</span><span class="p">)</span>
+
+    <span class="n">x_coords</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">nx</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="n">y_coords</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">ny</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="n">z_coords</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">nz</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+
+    <span class="n">layer_vm_levels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">vm_low</span><span class="p">,</span> <span class="n">vm_high</span><span class="p">,</span> <span class="n">n_layers</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+
+    <span class="n">layer_thickness</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">nz</span> <span class="o">//</span> <span class="n">n_layers</span><span class="p">)</span>
+    <span class="n">layer_index</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">nz</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_layers</span><span class="p">):</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="n">i</span> <span class="o">*</span> <span class="n">layer_thickness</span>
+        <span class="n">end</span> <span class="o">=</span> <span class="n">nz</span> <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="n">n_layers</span> <span class="o">-</span> <span class="mi">1</span> <span class="k">else</span> <span class="nb">min</span><span class="p">(</span><span class="n">nz</span><span class="p">,</span> <span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">layer_thickness</span><span class="p">)</span>
+        <span class="n">layer_index</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]</span> <span class="o">=</span> <span class="n">i</span>
+
+    <span class="n">vm_field</span> <span class="o">=</span> <span class="n">layer_vm_levels</span><span class="p">[</span><span class="n">layer_index</span><span class="p">][:,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span>
+        <span class="p">(</span><span class="n">nz</span><span class="p">,</span> <span class="n">ny</span><span class="p">,</span> <span class="n">nx</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span>
+    <span class="p">)</span>
+
+    <span class="n">zz</span><span class="p">,</span> <span class="n">yy</span><span class="p">,</span> <span class="n">xx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ogrid</span><span class="p">[:</span><span class="n">nz</span><span class="p">,</span> <span class="p">:</span><span class="n">ny</span><span class="p">,</span> <span class="p">:</span><span class="n">nx</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">rare_patches</span><span class="p">):</span>
+        <span class="n">cx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="n">low</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">high</span><span class="o">=</span><span class="n">nx</span><span class="p">))</span>
+        <span class="n">cy</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="n">low</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">high</span><span class="o">=</span><span class="n">ny</span><span class="p">))</span>
+        <span class="n">cz</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="n">low</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">high</span><span class="o">=</span><span class="n">nz</span><span class="p">))</span>
+        <span class="n">radius</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="n">low</span><span class="o">=</span><span class="n">radius_range</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">high</span><span class="o">=</span><span class="n">radius_range</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+        <span class="n">vm_boost</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mf">1.5</span><span class="p">,</span> <span class="mf">2.5</span><span class="p">))</span>
+
+        <span class="n">mask</span> <span class="o">=</span> <span class="p">(</span><span class="n">xx</span> <span class="o">-</span> <span class="n">cx</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="p">(</span><span class="n">yy</span> <span class="o">-</span> <span class="n">cy</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="p">(</span><span class="n">zz</span> <span class="o">-</span> <span class="n">cz</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">&lt;=</span> <span class="n">radius</span><span class="o">**</span><span class="mi">2</span>
+        <span class="n">vm_field</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span> <span class="o">*=</span> <span class="n">vm_boost</span>
+
+    <span class="n">tasks</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">k0</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">nz</span><span class="p">,</span> <span class="n">z_chunk</span><span class="p">):</span>
+        <span class="n">k1</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">nz</span><span class="p">,</span> <span class="n">k0</span> <span class="o">+</span> <span class="n">z_chunk</span><span class="p">)</span>
+        <span class="n">tasks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">k0</span><span class="p">,</span> <span class="n">k1</span><span class="p">,</span> <span class="n">x_coords</span><span class="p">,</span> <span class="n">y_coords</span><span class="p">,</span> <span class="n">z_coords</span><span class="p">,</span> <span class="n">vm_field</span><span class="p">,</span> <span class="n">random_state</span> <span class="o">+</span> <span class="mi">10_000</span> <span class="o">+</span> <span class="n">k0</span><span class="p">)</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">gsc_n_jobs</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">gsc_n_jobs</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="n">parts</span> <span class="o">=</span> <span class="p">[</span><span class="n">_slice_to_array_worker</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">tasks</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">ctx</span> <span class="o">=</span> <span class="n">mp</span><span class="o">.</span><span class="n">get_context</span><span class="p">()</span>
+        <span class="k">with</span> <span class="n">ctx</span><span class="o">.</span><span class="n">Pool</span><span class="p">(</span><span class="n">processes</span><span class="o">=</span><span class="n">gsc_n_jobs</span><span class="p">)</span> <span class="k">as</span> <span class="n">pool</span><span class="p">:</span>
+            <span class="n">parts</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">pool</span><span class="o">.</span><span class="n">imap</span><span class="p">(</span><span class="n">_slice_to_array_worker</span><span class="p">,</span> <span class="n">tasks</span><span class="p">,</span> <span class="n">chunksize</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+
+    <span class="n">parts</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">t</span><span class="p">:</span> <span class="n">t</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">p</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">parts</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>  <span class="c1"># (N,9)</span>
+
+    <span class="n">N</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">ids</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">N</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+
+    <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">"id"</span><span class="p">:</span> <span class="n">ids</span><span class="p">,</span>
+            <span class="s2">"x"</span><span class="p">:</span> <span class="n">data</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span>
+            <span class="s2">"y"</span><span class="p">:</span> <span class="n">data</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span>
+            <span class="s2">"z"</span><span class="p">:</span> <span class="n">data</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">],</span>
+            <span class="s2">"sxx"</span><span class="p">:</span> <span class="n">data</span><span class="p">[:,</span> <span class="mi">3</span><span class="p">],</span>
+            <span class="s2">"syy"</span><span class="p">:</span> <span class="n">data</span><span class="p">[:,</span> <span class="mi">4</span><span class="p">],</span>
+            <span class="s2">"szz"</span><span class="p">:</span> <span class="n">data</span><span class="p">[:,</span> <span class="mi">5</span><span class="p">],</span>
+            <span class="s2">"sxy"</span><span class="p">:</span> <span class="n">data</span><span class="p">[:,</span> <span class="mi">6</span><span class="p">],</span>
+            <span class="s2">"sxz"</span><span class="p">:</span> <span class="n">data</span><span class="p">[:,</span> <span class="mi">7</span><span class="p">],</span>
+            <span class="s2">"syz"</span><span class="p">:</span> <span class="n">data</span><span class="p">[:,</span> <span class="mi">8</span><span class="p">],</span>
+        <span class="p">}</span>
+    <span class="p">)</span>
+    <span class="n">df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+
+<span class="c1"># Main</span>
+
+<span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">filename</span><span class="p">),</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="k">if</span> <span class="n">generate_synthetic</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"Generating synthetic VMS data..."</span><span class="p">)</span>
+    <span class="n">generate_layered_vms_csv</span><span class="p">(</span>
+        <span class="n">path</span><span class="o">=</span><span class="n">filename</span><span class="p">,</span>
+        <span class="n">nx</span><span class="o">=</span><span class="n">nx</span><span class="p">,</span>
+        <span class="n">ny</span><span class="o">=</span><span class="n">ny</span><span class="p">,</span>
+        <span class="n">nz</span><span class="o">=</span><span class="n">nz</span><span class="p">,</span>
+        <span class="n">n_layers</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+        <span class="n">rare_patches</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span>
+        <span class="n">vm_low</span><span class="o">=</span><span class="mf">50.0</span><span class="p">,</span>
+        <span class="n">vm_high</span><span class="o">=</span><span class="mf">200.0</span><span class="p">,</span>
+        <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span>
+        <span class="n">radius_range</span><span class="o">=</span><span class="n">radius_elements_range</span><span class="p">,</span>
+        <span class="n">gsc_n_jobs</span><span class="o">=</span><span class="n">gsc_n_jobs</span><span class="p">,</span>
+        <span class="n">z_chunk</span><span class="o">=</span><span class="n">gsc_weight_chunk_size</span><span class="p">,</span>
+    <span class="p">)</span>
+
+
+<span class="n">PICK_CLUSTER_RESTART</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="n">FINAL_CLUSTERING_RESTART</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="n">GRAPH_SEGMENTATION_RESTART</span> <span class="o">=</span> <span class="kc">True</span>
+
+
+<span class="n">metric_lib</span> <span class="o">=</span> <span class="n">SimilarityMetricLibrary</span><span class="p">()</span>
+<span class="n">spec</span> <span class="o">=</span> <span class="n">metric_lib</span><span class="o">.</span><span class="n">von_mises_stress</span><span class="p">()</span>
+
+<span class="n">spec_reduced</span> <span class="o">=</span> <span class="n">SimilarityMetric</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="n">spec</span><span class="o">.</span><span class="n">name</span> <span class="o">+</span> <span class="s2">"_mean"</span><span class="p">,</span>
+    <span class="n">feature_cols</span><span class="o">=</span><span class="p">[</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">c</span><span class="si">}</span><span class="s2">_mean"</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">spec</span><span class="o">.</span><span class="n">feature_cols</span><span class="p">],</span>
+    <span class="n">func</span><span class="o">=</span><span class="n">spec</span><span class="o">.</span><span class="n">func</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">irc</span> <span class="o">=</span> <span class="n">IdentifyRareClusters</span><span class="p">(</span>
+    <span class="n">input_csv_path</span><span class="o">=</span><span class="n">filename</span><span class="p">,</span>
+    <span class="n">id_col</span><span class="o">=</span><span class="n">gsc_id_col</span><span class="p">,</span>
+    <span class="n">coord_cols</span><span class="o">=</span><span class="n">gsc_coord_cols</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">base</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">filename</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">graph_cluster_out</span> <span class="o">=</span> <span class="n">base</span> <span class="o">+</span> <span class="s2">"_reduced.csv"</span>
+<span class="n">bundle_checkpoint</span> <span class="o">=</span> <span class="n">base</span> <span class="o">+</span> <span class="s2">"_bundle.pkl"</span>
+<span class="n">gsc_labels_path</span> <span class="o">=</span> <span class="n">base</span> <span class="o">+</span> <span class="s2">"_reduced_gsc_labels.npy"</span>
+<span class="n">gsc_ckpt_base</span> <span class="o">=</span> <span class="n">base</span> <span class="o">+</span> <span class="s2">"_gsc_ckpt"</span>
+
+<span class="c1"># warning messages</span>
+<span class="k">if</span> <span class="p">(</span>
+    <span class="nb">sum</span><span class="p">([</span><span class="n">PICK_CLUSTER_RESTART</span><span class="p">,</span> <span class="n">FINAL_CLUSTERING_RESTART</span><span class="p">,</span> <span class="n">GRAPH_SEGMENTATION_RESTART</span><span class="p">])</span>
+    <span class="o">&gt;</span> <span class="mi">1</span>
+<span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span>
+        <span class="s2">"</span><span class="se">\n</span><span class="s2">Multiple restart flags enabled. Priority order:</span><span class="se">\n</span><span class="s2">"</span>
+        <span class="s2">"   1) PICK_CLUSTER_RESTART</span><span class="se">\n</span><span class="s2">"</span>
+        <span class="s2">"   2) FINAL_CLUSTERING_RESTART</span><span class="se">\n</span><span class="s2">"</span>
+        <span class="s2">"   3) GRAPH_SEGMENTATION_RESTART</span><span class="se">\n</span><span class="s2">"</span>
+        <span class="s2">"The first valid checkpoint found will be used.</span><span class="se">\n</span><span class="s2">"</span>
+        <span class="s2">"Valid checkpoint = all required files for that stage exist.</span><span class="se">\n</span><span class="s2">"</span>
+        <span class="s2">"Required files status:</span><span class="se">\n</span><span class="s2">"</span>
+    <span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"  PICK_CLUSTER_RESTART (bundle):"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">"     </span><span class="si">{</span><span class="n">bundle_checkpoint</span><span class="si">}</span><span class="s2">  "</span>
+        <span class="sa">f</span><span class="s2">"[</span><span class="si">{</span><span class="s1">'FOUND'</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">bundle_checkpoint</span><span class="p">)</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="s1">'MISSING'</span><span class="si">}</span><span class="s2">]"</span>
+    <span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"  FINAL_CLUSTERING_RESTART (reduced CSV + GSC labels):"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">"     </span><span class="si">{</span><span class="n">graph_cluster_out</span><span class="si">}</span><span class="s2">  "</span>
+        <span class="sa">f</span><span class="s2">"[</span><span class="si">{</span><span class="s1">'FOUND'</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">graph_cluster_out</span><span class="p">)</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="s1">'MISSING'</span><span class="si">}</span><span class="s2">]"</span>
+    <span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">"     </span><span class="si">{</span><span class="n">gsc_labels_path</span><span class="si">}</span><span class="s2">  "</span>
+        <span class="sa">f</span><span class="s2">"[</span><span class="si">{</span><span class="s1">'FOUND'</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">gsc_labels_path</span><span class="p">)</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="s1">'MISSING'</span><span class="si">}</span><span class="s2">]"</span>
+    <span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"  GRAPH_SEGMENTATION_RESTART (edges/weights/meta):"</span><span class="p">)</span>
+    <span class="n">edges_f</span> <span class="o">=</span> <span class="n">gsc_ckpt_base</span> <span class="o">+</span> <span class="s2">".edges.npy"</span>
+    <span class="n">weights_f</span> <span class="o">=</span> <span class="n">gsc_ckpt_base</span> <span class="o">+</span> <span class="s2">".weights.npy"</span>
+    <span class="n">meta_f</span> <span class="o">=</span> <span class="n">gsc_ckpt_base</span> <span class="o">+</span> <span class="s2">".meta.json"</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"     </span><span class="si">{</span><span class="n">edges_f</span><span class="si">}</span><span class="s2">  "</span> <span class="sa">f</span><span class="s2">"[</span><span class="si">{</span><span class="s1">'FOUND'</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">edges_f</span><span class="p">)</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="s1">'MISSING'</span><span class="si">}</span><span class="s2">]"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">"     </span><span class="si">{</span><span class="n">weights_f</span><span class="si">}</span><span class="s2">  "</span> <span class="sa">f</span><span class="s2">"[</span><span class="si">{</span><span class="s1">'FOUND'</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">weights_f</span><span class="p">)</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="s1">'MISSING'</span><span class="si">}</span><span class="s2">]"</span>
+    <span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"     </span><span class="si">{</span><span class="n">meta_f</span><span class="si">}</span><span class="s2">  "</span> <span class="sa">f</span><span class="s2">"[</span><span class="si">{</span><span class="s1">'FOUND'</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">meta_f</span><span class="p">)</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="s1">'MISSING'</span><span class="si">}</span><span class="s2">]</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+
+<span class="k">if</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span>
+    <span class="p">[</span><span class="n">PICK_CLUSTER_RESTART</span><span class="p">,</span> <span class="n">FINAL_CLUSTERING_RESTART</span><span class="p">,</span> <span class="n">GRAPH_SEGMENTATION_RESTART</span><span class="p">]</span>
+<span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"No restart requested → full pipeline will run from scratch."</span><span class="p">)</span>
+
+
+<span class="n">start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+
+<span class="n">bundle</span> <span class="o">=</span> <span class="kc">None</span>
+
+<span class="k">if</span> <span class="n">PICK_CLUSTER_RESTART</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">bundle_checkpoint</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Loading bundle checkpoint: </span><span class="si">{</span><span class="n">bundle_checkpoint</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="n">bundle</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_pickle</span><span class="p">(</span><span class="n">bundle_checkpoint</span><span class="p">)</span>
+
+<span class="k">if</span> <span class="n">bundle</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">FINAL_CLUSTERING_RESTART</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">graph_cluster_out</span><span class="p">)</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">gsc_labels_path</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">"Resume from final clustering checkpoint"</span><span class="p">)</span>
+
+        <span class="n">input_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
+        <span class="n">gsc_labels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">gsc_labels_path</span><span class="p">,</span> <span class="n">mmap_mode</span><span class="o">=</span><span class="s2">"r"</span><span class="p">)</span>
+
+        <span class="n">indicator</span> <span class="o">=</span> <span class="n">ClusterAnalysisIndicator</span><span class="p">(</span>
+            <span class="n">csv_path</span><span class="o">=</span><span class="n">graph_cluster_out</span><span class="p">,</span>
+            <span class="n">id_col</span><span class="o">=</span><span class="s2">"cluster_id"</span><span class="p">,</span>
+            <span class="n">coord_cols</span><span class="o">=</span><span class="n">gsc_coord_cols</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">ind_out</span> <span class="o">=</span> <span class="n">indicator</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+            <span class="n">method_type</span><span class="o">=</span><span class="s2">"scipy_hierarchical"</span><span class="p">,</span>
+            <span class="n">spec</span><span class="o">=</span><span class="n">spec_reduced</span><span class="p">,</span>
+            <span class="n">threshold</span><span class="o">=</span><span class="n">threshold</span><span class="p">,</span>
+            <span class="n">method</span><span class="o">=</span><span class="s2">"average"</span><span class="p">,</span>
+            <span class="n">criterion</span><span class="o">=</span><span class="s2">"distance"</span><span class="p">,</span>
+            <span class="n">dendrogram_path</span><span class="o">=</span><span class="s2">"test_rei_pipeline/dendrogram.png"</span><span class="p">,</span>
+            <span class="n">minimal_return</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">bundle</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">"input_df"</span><span class="p">:</span> <span class="n">input_df</span><span class="p">,</span>
+            <span class="s2">"gsc_labels"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">gsc_labels</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">),</span>
+            <span class="s2">"reduced_csv_path"</span><span class="p">:</span> <span class="n">graph_cluster_out</span><span class="p">,</span>
+            <span class="s2">"gsc_extras"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"labels_path"</span><span class="p">:</span> <span class="n">gsc_labels_path</span><span class="p">},</span>
+            <span class="s2">"indicator_points_df"</span><span class="p">:</span> <span class="n">ind_out</span><span class="p">[</span><span class="s2">"points"</span><span class="p">],</span>
+            <span class="s2">"indicator_clusters_df"</span><span class="p">:</span> <span class="n">ind_out</span><span class="p">[</span><span class="s2">"clusters"</span><span class="p">],</span>
+            <span class="s2">"indicator_extras"</span><span class="p">:</span> <span class="n">ind_out</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"extras"</span><span class="p">,</span> <span class="p">{}),</span>
+        <span class="p">}</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="s2">"FINAL_CLUSTERING_RESTART requested, but reduced CSV or GSC labels missing."</span>
+        <span class="p">)</span>
+
+<span class="k">if</span> <span class="n">bundle</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">gsc</span><span class="p">,</span> <span class="n">indicator</span> <span class="o">=</span> <span class="n">irc</span><span class="o">.</span><span class="n">make_stage_objects</span><span class="p">(</span><span class="n">graph_cluster_out</span><span class="o">=</span><span class="n">graph_cluster_out</span><span class="p">)</span>
+
+    <span class="n">weights_ckpt_exists</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">gsc_ckpt_base</span> <span class="o">+</span> <span class="s2">".edges.npy"</span><span class="p">)</span>
+        <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">gsc_ckpt_base</span> <span class="o">+</span> <span class="s2">".weights.npy"</span><span class="p">)</span>
+        <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">gsc_ckpt_base</span> <span class="o">+</span> <span class="s2">".meta.json"</span><span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="n">bundle</span> <span class="o">=</span> <span class="n">irc</span><span class="o">.</span><span class="n">run_clustering</span><span class="p">(</span>
+        <span class="n">gsc</span><span class="o">=</span><span class="n">gsc</span><span class="p">,</span>
+        <span class="n">indicator</span><span class="o">=</span><span class="n">indicator</span><span class="p">,</span>
+        <span class="n">reduced_csv_path</span><span class="o">=</span><span class="n">graph_cluster_out</span><span class="p">,</span>
+        <span class="n">gsc_run_kwargs</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span>
+            <span class="n">spec</span><span class="o">=</span><span class="n">spec</span><span class="p">,</span>
+            <span class="n">graph_mode</span><span class="o">=</span><span class="n">gsc_graph_mode</span><span class="p">,</span>
+            <span class="n">k</span><span class="o">=</span><span class="n">gsc_k</span><span class="p">,</span>
+            <span class="n">manhattan_radius</span><span class="o">=</span><span class="n">gsc_grid_radius</span><span class="p">,</span>
+            <span class="n">grid_tol</span><span class="o">=</span><span class="n">gsc_grid_tol</span><span class="p">,</span>
+            <span class="n">n_jobs</span><span class="o">=</span><span class="n">gsc_n_jobs</span><span class="p">,</span>
+            <span class="n">weight_chunk_size</span><span class="o">=</span><span class="n">gsc_weight_chunk_size</span><span class="p">,</span>
+            <span class="n">segmenter</span><span class="o">=</span><span class="n">gsc_segmenter</span><span class="p">,</span>
+            <span class="n">seed</span><span class="o">=</span><span class="n">gsc_seed</span><span class="p">,</span>
+            <span class="n">weight_cfg</span><span class="o">=</span><span class="n">weight_cfg</span><span class="p">,</span>
+            <span class="n">reduce_edges_topweights_k</span><span class="o">=</span><span class="n">reduce_edges_topweights_k</span><span class="p">,</span>
+            <span class="n">networkit_kwargs</span><span class="o">=</span><span class="n">graph_cluster_arguments</span><span class="p">,</span>
+            <span class="n">checkpoint_base_path</span><span class="o">=</span><span class="n">gsc_ckpt_base</span><span class="p">,</span>
+            <span class="n">resume_from_checkpoint</span><span class="o">=</span><span class="p">(</span><span class="n">GRAPH_SEGMENTATION_RESTART</span> <span class="ow">and</span> <span class="n">weights_ckpt_exists</span><span class="p">),</span>
+        <span class="p">),</span>
+        <span class="n">indicator_run_kwargs</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span>
+            <span class="n">method_type</span><span class="o">=</span><span class="s2">"scipy_hierarchical"</span><span class="p">,</span>
+            <span class="n">spec</span><span class="o">=</span><span class="n">spec_reduced</span><span class="p">,</span>
+            <span class="n">threshold</span><span class="o">=</span><span class="n">threshold</span><span class="p">,</span>
+            <span class="n">method</span><span class="o">=</span><span class="s2">"average"</span><span class="p">,</span>
+            <span class="n">criterion</span><span class="o">=</span><span class="s2">"distance"</span><span class="p">,</span>
+            <span class="n">dendrogram_path</span><span class="o">=</span><span class="s2">"test_rei_pipeline/dendrogram.png"</span><span class="p">,</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Saving bundle checkpoint to: </span><span class="si">{</span><span class="n">bundle_checkpoint</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="n">pd</span><span class="o">.</span><span class="n">to_pickle</span><span class="p">(</span><span class="n">bundle</span><span class="p">,</span> <span class="n">bundle_checkpoint</span><span class="p">)</span>
+
+<span class="n">out</span> <span class="o">=</span> <span class="n">irc</span><span class="o">.</span><span class="n">run_get_rare_cluster</span><span class="p">(</span>
+    <span class="n">bundle</span><span class="o">=</span><span class="n">bundle</span><span class="p">,</span>
+    <span class="n">criteria</span><span class="o">=</span><span class="n">rare_criteria</span><span class="p">,</span>
+    <span class="n">output_vtk_path</span><span class="o">=</span><span class="n">vtk_out</span><span class="p">,</span>
+    <span class="n">export_control</span><span class="o">=</span><span class="s2">"auto"</span><span class="p">,</span>
+    <span class="n">background_block_id</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="n">first_rare_block_id</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+    <span class="n">also_write_final_label</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">elapsed</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">--- Done ---"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Total elapsed time: </span><span class="si">{</span><span class="n">elapsed</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> seconds"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"VTK exported:"</span><span class="p">,</span> <span class="n">out</span><span class="p">[</span><span class="s2">"output_vtk_path"</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Export mode:"</span><span class="p">,</span> <span class="n">out</span><span class="p">[</span><span class="s2">"export_mode"</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Rare clusters (merged labels):"</span><span class="p">,</span> <span class="n">out</span><span class="p">[</span><span class="s2">"rare_super_labels"</span><span class="p">])</span>
+</pre></div>
+</div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="post-processing.html" class="btn btn-neutral float-left" title="Post-CPFE analysis &amp; plotting" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="rei-comparison.html" class="btn btn-neutral float-right" title="REI comparison" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Argonne National Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

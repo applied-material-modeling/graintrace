@@ -1,0 +1,1047 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>graintrace.run_cpfe_simulation &mdash; graintrace 0.1.2</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="../../_static/sphinx-design.min.css?v=95c83b7e" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=92734c54"></script>
+      <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../../_static/copybutton.js?v=96c007af"></script>
+      <script src="../../_static/design-tabs.js?v=f930bc37"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            graintrace
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../concepts.html">Concepts &amp; data formats</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../configuration.html">Configuration reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../mcp.html">MCP server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../benchmarks.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../pitfalls.html">Common pitfalls</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Tutorials &amp; examples</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/tutorials.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api/api.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../development.html">Building &amp; testing the docs</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">graintrace</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">graintrace.run_cpfe_simulation</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for graintrace.run_cpfe_simulation</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright 2026, UChicago Argonne, LLC</span>
+<span class="c1"># All Rights Reserved</span>
+<span class="c1"># Software Name: graintrace</span>
+<span class="c1"># By: Argonne National Laboratory</span>
+<span class="c1"># OPEN SOURCE LICENSE (MIT)</span>
+<span class="c1">#</span>
+<span class="c1"># Permission is hereby granted, free of charge, to any person obtaining a copy</span>
+<span class="c1"># of this software and associated documentation files (the "Software"), to deal</span>
+<span class="c1"># in the Software without restriction, including without limitation the rights</span>
+<span class="c1"># to use, copy, modify, merge, publish, distribute, sublicense, and/or sell</span>
+<span class="c1"># copies of the Software, and to permit persons to whom the Software is</span>
+<span class="c1"># furnished to do so, subject to the following conditions:</span>
+<span class="c1">#</span>
+<span class="c1"># The above copyright notice and this permission notice shall be included in</span>
+<span class="c1"># all copies or substantial portions of the Software.</span>
+<span class="c1">#</span>
+<span class="c1"># THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR</span>
+<span class="c1"># IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,</span>
+<span class="c1"># FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE</span>
+<span class="c1"># AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER</span>
+<span class="c1"># LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,</span>
+<span class="c1"># OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN</span>
+<span class="c1"># THE SOFTWARE.</span>
+
+<span class="sd">"""MOOSE/PUMA crystal-plasticity FE simulation runner (NEML2 v3 / AOTI)."""</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">copy</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">importlib</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">shlex</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">subprocess</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.orientation_helper</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_orientations</span>
+
+
+<div class="viewcode-block" id="CPFESimulation">
+<a class="viewcode-back" href="../../api/run_cpfe_simulation.html#graintrace.run_cpfe_simulation.CPFESimulation">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">CPFESimulation</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Configure and run a MOOSE/PUMA crystal-plasticity FE simulation (NEML2 v3 / AOTI).</span>
+
+<span class="sd">    Given a mesh, per-grain MRP orientations, and optional initial elastic strain, this</span>
+<span class="sd">    writes the MOOSE input decks, bakes the material parameters into the NEML2 model,</span>
+<span class="sd">    AOTI-compiles it with ``neml2-compile``, and launches ``puma-opt``. Configure via</span>
+<span class="sd">    ``set_parameters(section, **kwargs)`` for the ``material``, ``simulation_parameters``,</span>
+<span class="sd">    ``boundary``, and ``grid_properties`` sections, then call ``run(ncore=...)``. See</span>
+<span class="sd">    ``examples/demonstrate_cpfe.py`` and the ``/cpfe-simulation`` skill.</span>
+<span class="sd">    """</span>
+
+    <span class="c1"># Default parameters for CPFE simulation</span>
+    <span class="n">DEFAULT_PARAMS</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">"simulation_parameters"</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">"base_folder"</span><span class="p">:</span> <span class="s2">"simulation_out"</span><span class="p">,</span>
+            <span class="s2">"sync_times"</span><span class="p">:</span> <span class="s2">"0.1 1.0 2.0 3.0 4.0 5.0"</span><span class="p">,</span>
+            <span class="s2">"dt"</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">,</span>
+            <span class="s2">"total_time"</span><span class="p">:</span> <span class="mf">5.0</span><span class="p">,</span>
+            <span class="s2">"strain_unit_conversion"</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>
+            <span class="s2">"initialize_time"</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>
+            <span class="c1"># Runtime device for the MOOSE [NEML2] action: "cpu", "cuda:0", etc.</span>
+            <span class="s2">"device"</span><span class="p">:</span> <span class="s2">"cpu"</span><span class="p">,</span>
+            <span class="c1"># Per-device chunk size for the NEML2 scheduler; 0 = whole batch at once.</span>
+            <span class="s2">"device_batch"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+            <span class="c1"># Devices to build AOTI packages for. None -&gt; {cpu|cuda} from `device`.</span>
+            <span class="s2">"compile_devices"</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="c1"># neml2-compile `--load` extensions. None -&gt; auto-locate R2IncrementToRate.py.</span>
+            <span class="s2">"neml2_load_files"</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="c1"># Recompile the AOTI package for this run (material params are baked in).</span>
+            <span class="s2">"recompile"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+            <span class="c1"># Extra dirs for LD_LIBRARY_PATH. None -&gt; auto-derive from moose_run_file.</span>
+            <span class="s2">"extra_ld_library_paths"</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="c1"># MPI launcher for puma-opt: "mpiexec" (default) or "srun" (Cray/Slurm).</span>
+            <span class="s2">"launcher"</span><span class="p">:</span> <span class="s2">"mpiexec"</span><span class="p">,</span>
+            <span class="c1"># Regular-grid MultiApp transfer frequency:</span>
+            <span class="c1">#   "final" (default) -&gt; transfer/grid-output only at the last step;</span>
+            <span class="c1">#   "per_step" -&gt; every step (needed for on-the-fly REI at each step);</span>
+            <span class="c1">#   "off" -&gt; never (pure solve; resample offline with GridResampler).</span>
+            <span class="s2">"grid_transfer"</span><span class="p">:</span> <span class="s2">"final"</span><span class="p">,</span>
+            <span class="c1"># Native-mesh Exodus write frequency:</span>
+            <span class="c1">#   "sync" (default) -&gt; only at sync_times; "per_step" -&gt; every step.</span>
+            <span class="s2">"exodus_output"</span><span class="p">:</span> <span class="s2">"sync"</span><span class="p">,</span>
+            <span class="c1"># CPFE-mesh element-centroid CSV (mesh_out/out_element_centroid_*.csv):</span>
+            <span class="c1">#   "sync" (default) -&gt; only at sync_times; "per_step" -&gt; every step;</span>
+            <span class="c1">#   "off" -&gt; not written. Crisp true-mesh fields (no transfer/resampling)</span>
+            <span class="c1">#   for full-mesh REI.</span>
+            <span class="s2">"mesh_csv"</span><span class="p">:</span> <span class="s2">"sync"</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s2">"material"</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">"slip_constant_strength"</span><span class="p">:</span> <span class="mf">130.0</span><span class="p">,</span>
+            <span class="s2">"voce_hardening_initial_slope"</span><span class="p">:</span> <span class="mf">1556.09</span><span class="p">,</span>
+            <span class="s2">"voce_hardening_saturation"</span><span class="p">:</span> <span class="mf">100.0</span><span class="p">,</span>
+            <span class="s2">"power_slip_n"</span><span class="p">:</span> <span class="mi">20</span><span class="p">,</span>
+            <span class="s2">"power_slip_g0"</span><span class="p">:</span> <span class="mf">0.0001</span><span class="p">,</span>
+            <span class="s2">"elastic_E"</span><span class="p">:</span> <span class="mi">209016</span><span class="p">,</span>
+            <span class="s2">"elastic_nu"</span><span class="p">:</span> <span class="mf">0.307</span><span class="p">,</span>
+            <span class="s2">"elastic_G"</span><span class="p">:</span> <span class="mf">60355.0</span><span class="p">,</span>
+            <span class="s2">"burger_scale"</span><span class="p">:</span> <span class="mf">2.22</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s2">"boundary"</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">"bounding_box"</span><span class="p">:</span> <span class="p">[</span>
+                <span class="mf">0.0</span><span class="p">,</span>
+                <span class="mf">1.0</span><span class="p">,</span>
+                <span class="mf">0.0</span><span class="p">,</span>
+                <span class="mf">1.0</span><span class="p">,</span>
+                <span class="mf">0.0</span><span class="p">,</span>
+                <span class="mf">1.0</span><span class="p">,</span>
+            <span class="p">],</span>  <span class="c1"># xlo, xhi, ylo, yhi, zlo, zhi</span>
+            <span class="s2">"fix_tolerance"</span><span class="p">:</span> <span class="mf">1e-8</span><span class="p">,</span>
+            <span class="s2">"bc"</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s2">"x"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"negative"</span><span class="p">:</span> <span class="s2">"stress_free"</span><span class="p">,</span> <span class="s2">"positive"</span><span class="p">:</span> <span class="s2">"stress_free"</span><span class="p">},</span>
+                <span class="s2">"y"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"negative"</span><span class="p">:</span> <span class="s2">"stress_free"</span><span class="p">,</span> <span class="s2">"positive"</span><span class="p">:</span> <span class="s2">"stress_free"</span><span class="p">},</span>
+                <span class="s2">"z"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"negative"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">"positive"</span><span class="p">:</span> <span class="mf">0.001</span><span class="p">},</span>
+            <span class="p">},</span>
+            <span class="s2">"bounding_box_buffer"</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span>
+        <span class="p">},</span>
+        <span class="s2">"grid_properties"</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">"number_of_elements"</span><span class="p">:</span> <span class="p">[</span><span class="mi">20</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mi">20</span><span class="p">],</span>
+            <span class="s2">"bounding_box"</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">],</span>
+        <span class="p">},</span>
+    <span class="p">}</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">mesh_file</span><span class="p">,</span>
+        <span class="n">save_simulation_folder</span><span class="p">,</span>
+        <span class="n">moose_run_file</span><span class="p">,</span>
+        <span class="n">element_order</span><span class="o">=</span><span class="s2">"SECOND"</span><span class="p">,</span>
+        <span class="n">eeres_file</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">ori_file</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">use_ff_initial_field</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">dim</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Configure a CPFE run from a mesh, orientations, and optional initial strain.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            mesh_file: Path to the FE mesh. Default is a SCULPT/voxel hex Exodus (.e) from VoxelMeshBuilder; a GMSH tet .msh is the fallback. Must exist.</span>
+<span class="sd">            save_simulation_folder: Output directory for the generated input decks, AOTI package, and results. Created if needed; may not be named 'cpfe_base'.</span>
+<span class="sd">            moose_run_file: Path to the built PUMA binary (puma-opt) used to launch the simulation. Must exist.</span>
+<span class="sd">            element_order: FE shape-function order, "FIRST" or "SECOND". Use "FIRST" for SCULPT/voxel hex meshes and "SECOND" for a GMSH tet .msh. Default "SECOND".</span>
+<span class="sd">            eeres_file: Optional per-grain initial elastic-strain CSV (residual strain). If None, a zero 12-column strain file is written (no residual strain).</span>
+<span class="sd">            ori_file: Path to per-grain orientations, either 3-column neml2 MRP or 9-column rotation matrix. Required for a real run.</span>
+<span class="sd">            use_ff_initial_field: True when the mesh and eeres_file are co-registered FF data (uses initial_conditions_ff.i); False when eeres_file comes from a different mesh.</span>
+<span class="sd">            dim: Spatial dimension, 2 or 3. Only dim=3 is currently supported by run(). Default 3.</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mesh_file</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">mesh_file</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">mesh_file</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Mesh file not found: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">mesh_file</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">eeres_file</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">eeres_file</span><span class="p">)</span> <span class="k">if</span> <span class="n">eeres_file</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">eeres_file</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">eeres_file</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Elastic strain file not found: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">eeres_file</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">ori_file</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">ori_file</span><span class="p">)</span> <span class="k">if</span> <span class="n">ori_file</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">ori_file</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">ori_file</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Orientation file not found: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">ori_file</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">save_simulation_folder</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">save_simulation_folder</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">save_simulation_folder</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s2">"cpfe_base"</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"save_simulation_folder cannot be 'cpfe_base'"</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">save_simulation_folder</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">moose_run_file</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">moose_run_file</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">moose_run_file</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"MOOSE run file not found: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">moose_run_file</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">dim</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Invalid dimension </span><span class="si">{</span><span class="n">dim</span><span class="si">}</span><span class="s2">. Must be 2 or 3."</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">=</span> <span class="n">dim</span>
+
+        <span class="k">if</span> <span class="n">element_order</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"FIRST"</span><span class="p">,</span> <span class="s2">"SECOND"</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Invalid element_order </span><span class="si">{</span><span class="n">element_order</span><span class="si">}</span><span class="s2">. Must be 'FIRST' or 'SECOND'."</span>
+            <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">element_order</span> <span class="o">=</span> <span class="n">element_order</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">params</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">DEFAULT_PARAMS</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ncell_ff</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">use_ff_initial_field</span> <span class="o">=</span> <span class="n">use_ff_initial_field</span>
+
+<div class="viewcode-block" id="CPFESimulation.set_parameters">
+<a class="viewcode-back" href="../../api/run_cpfe_simulation.html#graintrace.run_cpfe_simulation.CPFESimulation.set_parameters">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">section</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Update one parameter section in place with keyword overrides.</span>
+
+<span class="sd">        Recognized sections and their common keys:</span>
+
+<span class="sd">        "material": slip_constant_strength, voce_hardening_initial_slope, voce_hardening_saturation, power_slip_n, power_slip_g0, elastic_E, elastic_nu, elastic_G, burger_scale (MPa/micrometer conventions per the model).</span>
+
+<span class="sd">        "simulation_parameters": dt, total_time, initialize_time (load ramps from initialize_time to total_time),</span>
+<span class="sd">        device ("cpu"/"cuda:N"/space-separated list), device_batch (per-device NEML2 chunk size; 0 = whole batch),</span>
+<span class="sd">        sync_times (space-separated string of MOOSE grid-output times), grid_transfer ("final"|"per_step"|"off"),</span>
+<span class="sd">        exodus_output ("sync"|"per_step"), mesh_csv ("sync"|"per_step"|"off"), launcher ("mpiexec"|"srun"),</span>
+<span class="sd">        recompile, compile_devices, neml2_load_files, extra_ld_library_paths, base_folder, strain_unit_conversion.</span>
+
+<span class="sd">        "boundary": bounding_box ([xlo,xhi,ylo,yhi,zlo,zhi]), bc (per-axis dict of "negative"/"positive" values, each "stress_free" or a numeric displacement), fix_tolerance, bounding_box_buffer.</span>
+
+<span class="sd">        "grid_properties": number_of_elements ([nx,ny,nz]) and bounding_box (the inset regular-grid box, typically the BC box shrunk by 0.0001 per face).</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            section: One of "material", "simulation_parameters", "boundary", "grid_properties".</span>
+<span class="sd">            **kwargs: Keys to override within that section; unknown keys are added as-is.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">section</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unknown parameter section: </span><span class="si">{</span><span class="n">section</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="n">section</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="CPFESimulation.get_section">
+<a class="viewcode-back" href="../../api/run_cpfe_simulation.html#graintrace.run_cpfe_simulation.CPFESimulation.get_section">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_section</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">section</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Return the parameter dict for the given section."""</span>
+        <span class="k">if</span> <span class="n">section</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unknown parameter section: </span><span class="si">{</span><span class="n">section</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="n">section</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="CPFESimulation.validate_geometry_and_bcs">
+<a class="viewcode-back" href="../../api/run_cpfe_simulation.html#graintrace.run_cpfe_simulation.CPFESimulation.validate_geometry_and_bcs">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_geometry_and_bcs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Validate bounding box and boundary conditions based on dimension."""</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s2">"boundary"</span><span class="p">]</span>
+        <span class="n">bb</span> <span class="o">=</span> <span class="n">b</span><span class="p">[</span><span class="s2">"bounding_box"</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">bb</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"bounding_box must be a list or tuple."</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">3</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">bb</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">6</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"For dim=3, bounding_box must have 6 entries: [xlo, xhi, ylo, yhi, zlo, zhi]."</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">bb</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">4</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"For dim=2, bounding_box must have 4 entries: [xlo, xhi, ylo, yhi]."</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">))</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">bb</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"All bounding_box entries must be numeric."</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="n">xlo</span><span class="p">,</span> <span class="n">xhi</span><span class="p">,</span> <span class="n">ylo</span><span class="p">,</span> <span class="n">yhi</span><span class="p">,</span> <span class="n">zlo</span><span class="p">,</span> <span class="n">zhi</span> <span class="o">=</span> <span class="n">bb</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">xhi</span> <span class="o">&gt;</span> <span class="n">xlo</span> <span class="ow">and</span> <span class="n">yhi</span> <span class="o">&gt;</span> <span class="n">ylo</span> <span class="ow">and</span> <span class="n">zhi</span> <span class="o">&gt;</span> <span class="n">zlo</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"Invalid 3D bounding_box: </span><span class="si">{</span><span class="n">bb</span><span class="si">}</span><span class="s2">. Upper bounds must exceed lower bounds."</span>
+                <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>  <span class="c1"># dim == 2</span>
+            <span class="n">xlo</span><span class="p">,</span> <span class="n">xhi</span><span class="p">,</span> <span class="n">ylo</span><span class="p">,</span> <span class="n">yhi</span> <span class="o">=</span> <span class="n">bb</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">xhi</span> <span class="o">&gt;</span> <span class="n">xlo</span> <span class="ow">and</span> <span class="n">yhi</span> <span class="o">&gt;</span> <span class="n">ylo</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"Invalid 2D bounding_box: </span><span class="si">{</span><span class="n">bb</span><span class="si">}</span><span class="s2">. Upper bounds must exceed lower bounds."</span>
+                <span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">axis</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"x"</span><span class="p">,</span> <span class="s2">"y"</span><span class="p">)</span> <span class="o">+</span> <span class="p">((</span><span class="s2">"z"</span><span class="p">,)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">3</span> <span class="k">else</span> <span class="p">()):</span>
+            <span class="k">for</span> <span class="n">side</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"negative"</span><span class="p">,</span> <span class="s2">"positive"</span><span class="p">):</span>
+                <span class="n">val</span> <span class="o">=</span> <span class="n">b</span><span class="p">[</span><span class="s2">"bc"</span><span class="p">][</span><span class="n">axis</span><span class="p">][</span><span class="n">side</span><span class="p">]</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">val</span> <span class="o">==</span> <span class="s2">"stress_free"</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">))):</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">"Invalid BC value for </span><span class="si">{</span><span class="n">axis</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">side</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">val</span><span class="si">!r}</span><span class="s2">. "</span>
+                        <span class="s2">"Must be either 'stress_free' or a numeric value."</span>
+                    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="CPFESimulation.write_bc_file">
+<a class="viewcode-back" href="../../api/run_cpfe_simulation.html#graintrace.run_cpfe_simulation.CPFESimulation.write_bc_file">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">write_bc_file</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Write boundary_conditions.i and return the fix/roll node coordinates."""</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">validate_geometry_and_bcs</span><span class="p">()</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s2">"boundary"</span><span class="p">]</span>
+        <span class="n">sim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s2">"simulation_parameters"</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="n">xlo</span><span class="p">,</span> <span class="n">_xhi</span><span class="p">,</span> <span class="n">ylo</span><span class="p">,</span> <span class="n">yhi</span><span class="p">,</span> <span class="n">zlo</span><span class="p">,</span> <span class="n">_zhi</span> <span class="o">=</span> <span class="n">b</span><span class="p">[</span><span class="s2">"bounding_box"</span><span class="p">]</span>
+            <span class="n">xbufflo</span><span class="p">,</span> <span class="n">_xbuffhi</span><span class="p">,</span> <span class="n">ybufflo</span><span class="p">,</span> <span class="n">ybuffhi</span><span class="p">,</span> <span class="n">zbufflo</span><span class="p">,</span> <span class="n">_zbuffhi</span> <span class="o">=</span> <span class="n">b</span><span class="p">[</span>
+                <span class="s2">"bounding_box_buffer"</span>
+            <span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">xlo</span><span class="p">,</span> <span class="n">_xhi</span><span class="p">,</span> <span class="n">ylo</span><span class="p">,</span> <span class="n">yhi</span> <span class="o">=</span> <span class="n">b</span><span class="p">[</span><span class="s2">"bounding_box"</span><span class="p">]</span>
+            <span class="n">xbufflo</span><span class="p">,</span> <span class="n">_xbuffhi</span><span class="p">,</span> <span class="n">ybufflo</span><span class="p">,</span> <span class="n">ybuffhi</span> <span class="o">=</span> <span class="n">b</span><span class="p">[</span><span class="s2">"bounding_box_buffer"</span><span class="p">]</span>
+            <span class="n">zlo</span><span class="p">,</span> <span class="n">_zhi</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span>
+            <span class="n">zbufflo</span><span class="p">,</span> <span class="n">_zbuffhi</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span>
+
+        <span class="n">fixnode_x</span><span class="p">,</span> <span class="n">fixnode_y</span><span class="p">,</span> <span class="n">fixnode_z</span> <span class="o">=</span> <span class="n">xlo</span> <span class="o">+</span> <span class="n">xbufflo</span><span class="p">,</span> <span class="n">ylo</span> <span class="o">+</span> <span class="n">ybufflo</span><span class="p">,</span> <span class="n">zlo</span> <span class="o">+</span> <span class="n">zbufflo</span>
+        <span class="n">yroll_x</span><span class="p">,</span> <span class="n">yroll_y</span><span class="p">,</span> <span class="n">yroll_z</span> <span class="o">=</span> <span class="n">xlo</span> <span class="o">+</span> <span class="n">xbufflo</span><span class="p">,</span> <span class="n">yhi</span> <span class="o">+</span> <span class="n">ybuffhi</span><span class="p">,</span> <span class="n">zlo</span> <span class="o">+</span> <span class="n">zbufflo</span>
+
+        <span class="n">coupled_axes</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+
+        <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">save_simulation_folder</span> <span class="o">/</span> <span class="s2">"boundary_conditions.i"</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="s2">"w"</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"[BCs]</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"    ## BCs for all stages</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+
+            <span class="c1"># Shared fixed BCs</span>
+            <span class="n">shared_blocks</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="p">(</span><span class="s2">"fixnode_x"</span><span class="p">,</span> <span class="s2">"disp_x"</span><span class="p">,</span> <span class="s2">"fixnode"</span><span class="p">),</span>
+                <span class="p">(</span><span class="s2">"fixnode_y"</span><span class="p">,</span> <span class="s2">"disp_y"</span><span class="p">,</span> <span class="s2">"fixnode"</span><span class="p">),</span>
+                <span class="p">(</span><span class="s2">"fixnode_z"</span><span class="p">,</span> <span class="s2">"disp_z"</span><span class="p">,</span> <span class="s2">"fixnode"</span><span class="p">),</span>
+                <span class="p">(</span><span class="s2">"yrollnode_x"</span><span class="p">,</span> <span class="s2">"disp_x"</span><span class="p">,</span> <span class="s2">"yrollnode"</span><span class="p">),</span>
+                <span class="p">(</span><span class="s2">"yrollnode_z"</span><span class="p">,</span> <span class="s2">"disp_z"</span><span class="p">,</span> <span class="s2">"yrollnode"</span><span class="p">),</span>
+            <span class="p">]</span>
+            <span class="k">for</span> <span class="n">label</span><span class="p">,</span> <span class="n">var</span><span class="p">,</span> <span class="n">boundary</span> <span class="ow">in</span> <span class="n">shared_blocks</span><span class="p">:</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"    [</span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2">]</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"        type = DirichletBC</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"        variable = </span><span class="si">{</span><span class="n">var</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"        boundary = </span><span class="si">{</span><span class="n">boundary</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"        value = 0</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"    []</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+
+            <span class="c1"># User-defined BCs</span>
+            <span class="n">coupled_bcs</span> <span class="o">=</span> <span class="p">[]</span>
+
+            <span class="k">for</span> <span class="n">axis</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"x"</span><span class="p">,</span> <span class="s2">"y"</span><span class="p">,</span> <span class="s2">"z"</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">3</span> <span class="k">else</span> <span class="p">(</span><span class="s2">"x"</span><span class="p">,</span> <span class="s2">"y"</span><span class="p">):</span>
+                <span class="k">for</span> <span class="n">side</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"negative"</span><span class="p">,</span> <span class="s2">"positive"</span><span class="p">):</span>
+                    <span class="n">val</span> <span class="o">=</span> <span class="n">b</span><span class="p">[</span><span class="s2">"bc"</span><span class="p">][</span><span class="n">axis</span><span class="p">][</span><span class="n">side</span><span class="p">]</span>
+                    <span class="k">if</span> <span class="n">val</span> <span class="o">==</span> <span class="s2">"stress_free"</span><span class="p">:</span>
+                        <span class="k">continue</span>
+                    <span class="n">boundary_name</span> <span class="o">=</span> <span class="p">{</span>
+                        <span class="p">(</span><span class="s2">"x"</span><span class="p">,</span> <span class="s2">"negative"</span><span class="p">):</span> <span class="s2">"left"</span><span class="p">,</span>
+                        <span class="p">(</span><span class="s2">"x"</span><span class="p">,</span> <span class="s2">"positive"</span><span class="p">):</span> <span class="s2">"right"</span><span class="p">,</span>
+                        <span class="p">(</span><span class="s2">"y"</span><span class="p">,</span> <span class="s2">"negative"</span><span class="p">):</span> <span class="s2">"bottom"</span><span class="p">,</span>
+                        <span class="p">(</span><span class="s2">"y"</span><span class="p">,</span> <span class="s2">"positive"</span><span class="p">):</span> <span class="s2">"top"</span><span class="p">,</span>
+                        <span class="p">(</span><span class="s2">"z"</span><span class="p">,</span> <span class="s2">"negative"</span><span class="p">):</span> <span class="s2">"back"</span><span class="p">,</span>
+                        <span class="p">(</span><span class="s2">"z"</span><span class="p">,</span> <span class="s2">"positive"</span><span class="p">):</span> <span class="s2">"front"</span><span class="p">,</span>
+                    <span class="p">}[(</span><span class="n">axis</span><span class="p">,</span> <span class="n">side</span><span class="p">)]</span>
+
+                    <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">val</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">1e-15</span><span class="p">:</span>
+                        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"    [</span><span class="si">{</span><span class="n">boundary_name</span><span class="si">}</span><span class="s2">_boundary]</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"        type = DirichletBC</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"        variable = disp_</span><span class="si">{</span><span class="n">axis</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"        boundary = </span><span class="si">{</span><span class="n">boundary_name</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"        value = 0</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"    []</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                        <span class="k">continue</span>
+
+                    <span class="c1"># Nonzero numeric BC (ramped), per boundary</span>
+                    <span class="n">func_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"ramping_load_</span><span class="si">{</span><span class="n">axis</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">boundary_name</span><span class="si">}</span><span class="s2">"</span>
+                    <span class="n">coupled_axes</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">axis</span><span class="p">)</span>
+                    <span class="n">coupled_bcs</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">axis</span><span class="p">,</span> <span class="n">boundary_name</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">val</span><span class="p">)))</span>
+
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"    # only turn on during the loading state</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"    [</span><span class="si">{</span><span class="n">boundary_name</span><span class="si">}</span><span class="s2">_boundary]</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"        type = CoupledDirichletBC</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"        variable = disp_</span><span class="si">{</span><span class="n">axis</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"        boundary = </span><span class="si">{</span><span class="n">boundary_name</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"        coupled_variable = disp_</span><span class="si">{</span><span class="n">axis</span><span class="si">}</span><span class="s2">_residual</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"        function = </span><span class="si">{</span><span class="n">func_name</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"        enable = false</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"    []</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"    #</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"[]</span><span class="se">\n\n</span><span class="s2">"</span><span class="p">)</span>
+
+            <span class="c1"># [Functions]: per-axis ramping functions</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"[Functions]</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">axis</span><span class="p">,</span> <span class="n">boundary_name</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">coupled_bcs</span><span class="p">:</span>
+                <span class="n">func_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"ramping_load_</span><span class="si">{</span><span class="n">axis</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">boundary_name</span><span class="si">}</span><span class="s2">"</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"    [</span><span class="si">{</span><span class="n">func_name</span><span class="si">}</span><span class="s2">]</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"        type = ParsedFunction</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span>
+                    <span class="s2">"        expression = "</span>
+                    <span class="sa">f</span><span class="s2">"'if(t &lt;= </span><span class="si">{</span><span class="n">sim</span><span class="p">[</span><span class="s1">'initialize_time'</span><span class="p">]</span><span class="si">:</span><span class="s2">.12g</span><span class="si">}</span><span class="s2">, 0, "</span>
+                    <span class="sa">f</span><span class="s2">"if(t &lt; </span><span class="si">{</span><span class="n">sim</span><span class="p">[</span><span class="s1">'total_time'</span><span class="p">]</span><span class="si">:</span><span class="s2">.12g</span><span class="si">}</span><span class="s2">, "</span>
+                    <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">val</span><span class="si">:</span><span class="s2">.12g</span><span class="si">}</span><span class="s2"> * (t - </span><span class="si">{</span><span class="n">sim</span><span class="p">[</span><span class="s1">'initialize_time'</span><span class="p">]</span><span class="si">:</span><span class="s2">.12g</span><span class="si">}</span><span class="s2">) / "</span>
+                    <span class="sa">f</span><span class="s2">"(</span><span class="si">{</span><span class="n">sim</span><span class="p">[</span><span class="s1">'total_time'</span><span class="p">]</span><span class="si">:</span><span class="s2">.12g</span><span class="si">}</span><span class="s2"> - </span><span class="si">{</span><span class="n">sim</span><span class="p">[</span><span class="s1">'initialize_time'</span><span class="p">]</span><span class="si">:</span><span class="s2">.12g</span><span class="si">}</span><span class="s2">), "</span>
+                    <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">val</span><span class="si">:</span><span class="s2">.12g</span><span class="si">}</span><span class="s2">))'</span><span class="se">\n</span><span class="s2">"</span>
+                <span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"    []</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"[]</span><span class="se">\n\n</span><span class="s2">"</span><span class="p">)</span>
+
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"[AuxVariables]</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">axis</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">coupled_axes</span><span class="p">):</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"    [disp_</span><span class="si">{</span><span class="n">axis</span><span class="si">}</span><span class="s2">_residual]</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"        order = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">element_order</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"        family = LAGRANGE</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"    []</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"[]</span><span class="se">\n\n</span><span class="s2">"</span><span class="p">)</span>
+
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"[AuxKernels]</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">axis</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">coupled_axes</span><span class="p">):</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"    [disp_</span><span class="si">{</span><span class="n">axis</span><span class="si">}</span><span class="s2">_residual]</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"        type = CopyValueAux</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"        variable = disp_</span><span class="si">{</span><span class="n">axis</span><span class="si">}</span><span class="s2">_residual</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"        source = disp_</span><span class="si">{</span><span class="n">axis</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"        enable = true</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"    []</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"[]</span><span class="se">\n\n</span><span class="s2">"</span><span class="p">)</span>
+
+            <span class="c1"># Front face flat constraint</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"[Constraints]</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"    [zface_flat]</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"        type = EqualValueBoundaryConstraint</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"        secondary = 'front'</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"        variable = disp_z</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"        penalty = 1e6</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"        enable = true</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"    []</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"[]</span><span class="se">\n\n</span><span class="s2">"</span><span class="p">)</span>
+
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"[Controls]</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"    [switch_loading]</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"        type = TimePeriod</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"        start_time = </span><span class="si">{</span><span class="n">sim</span><span class="p">[</span><span class="s1">'initialize_time'</span><span class="p">]</span><span class="si">:</span><span class="s2">.12g</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"        end_time = </span><span class="si">{</span><span class="p">(</span><span class="n">sim</span><span class="p">[</span><span class="s1">'total_time'</span><span class="p">]</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span><span class="si">:</span><span class="s2">.12g</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+
+            <span class="n">enable_objs</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">"BCs::</span><span class="si">{</span><span class="n">bname</span><span class="si">}</span><span class="s2">_boundary"</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">bname</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">coupled_bcs</span><span class="p">]</span>
+            <span class="n">disable_objs</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="sa">f</span><span class="s2">"AuxKernels::disp_</span><span class="si">{</span><span class="n">axis</span><span class="si">}</span><span class="s2">_residual"</span> <span class="k">for</span> <span class="n">axis</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">coupled_bcs</span>
+            <span class="p">]</span>
+
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"        enable_objects = '</span><span class="si">{</span><span class="s1">' '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">enable_objs</span><span class="p">)</span><span class="si">}</span><span class="s2">'</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"        disable_objects = '</span><span class="si">{</span><span class="s1">' '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">disable_objs</span><span class="p">)</span><span class="si">}</span><span class="s2">'</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"        execute_on = 'TIMESTEP_BEGIN'</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"    []</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"[]</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">fixnode_x</span><span class="p">,</span> <span class="n">fixnode_y</span><span class="p">,</span> <span class="n">fixnode_z</span><span class="p">,</span> <span class="n">yroll_x</span><span class="p">,</span> <span class="n">yroll_y</span><span class="p">,</span> <span class="n">yroll_z</span></div>
+
+
+<div class="viewcode-block" id="CPFESimulation.write_postprocess_file">
+<a class="viewcode-back" href="../../api/run_cpfe_simulation.html#graintrace.run_cpfe_simulation.CPFESimulation.write_postprocess_file">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">write_postprocess_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ncell</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Generate grain_average_postprocessor.i."""</span>
+
+        <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">save_simulation_folder</span> <span class="o">/</span> <span class="s2">"grain_average_postprocessor.i"</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">eeres_file</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">ncell</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ncell</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">"ncell must be provided as an integer when eeres_file is None"</span>
+                <span class="p">)</span>
+
+            <span class="c1"># 12 columns (x, y, z + 9 strain), all zero: matches the nprop=12</span>
+            <span class="c1"># PropertyReadFile in initial_conditions[_ff].i (block read -&gt; row</span>
+            <span class="c1"># maps to grain, coords unused), giving zero residual strain.</span>
+            <span class="n">ee_file</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">save_simulation_folder</span> <span class="o">/</span> <span class="s2">"zero_initial_strain.ee"</span>
+            <span class="n">strain_data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">ncell</span><span class="p">,</span> <span class="mi">12</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">savetxt</span><span class="p">(</span><span class="n">ee_file</span><span class="p">,</span> <span class="n">strain_data</span><span class="p">,</span> <span class="n">fmt</span><span class="o">=</span><span class="s2">"</span><span class="si">%.12g</span><span class="s2">"</span><span class="p">)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">eeres_file</span> <span class="o">=</span> <span class="n">ee_file</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ncell_ff</span> <span class="o">=</span> <span class="n">ncell</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">eeres_file</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="sa">r</span><span class="s2">"[,\s]+"</span><span class="p">,</span> <span class="n">engine</span><span class="o">=</span><span class="s2">"python"</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="kc">None</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ncell_ff</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">shutil</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">eeres_file</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">save_simulation_folder</span> <span class="o">/</span> <span class="n">Path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">eeres_file</span><span class="p">)</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="s2">"w"</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"[Postprocessors]</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"    # Automatically generated strain postprocessors</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+
+            <span class="n">components</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"xx"</span><span class="p">,</span> <span class="s2">"yy"</span><span class="p">,</span> <span class="s2">"zz"</span><span class="p">,</span> <span class="s2">"xy"</span><span class="p">,</span> <span class="s2">"yz"</span><span class="p">,</span> <span class="s2">"xz"</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">comp</span> <span class="ow">in</span> <span class="n">components</span><span class="p">:</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"    # --- strain_</span><span class="si">{</span><span class="n">comp</span><span class="si">}</span><span class="s2"> ---</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">ncell</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"    [strain_</span><span class="si">{</span><span class="n">comp</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">]</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"        type = ElementAverageValue</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"        variable = strain_</span><span class="si">{</span><span class="n">comp</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"        block = </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"    []</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"    # --- ee_</span><span class="si">{</span><span class="n">comp</span><span class="si">}</span><span class="s2"> ---</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">ncell</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"    [ee_</span><span class="si">{</span><span class="n">comp</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">]</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"        type = ElementAverageValue</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"        variable = ee_</span><span class="si">{</span><span class="n">comp</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"        block = </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"    []</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"    # --- cauchy_stress_</span><span class="si">{</span><span class="n">comp</span><span class="si">}</span><span class="s2"> ---</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">ncell</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"    [cauchy_stress_</span><span class="si">{</span><span class="n">comp</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">]</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"        type = ElementAverageValue</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"        variable = cauchy_stress_</span><span class="si">{</span><span class="n">comp</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"        block = </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"    []</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+
+            <span class="n">components</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"11"</span><span class="p">,</span> <span class="s2">"12"</span><span class="p">,</span> <span class="s2">"13"</span><span class="p">,</span> <span class="s2">"21"</span><span class="p">,</span> <span class="s2">"22"</span><span class="p">,</span> <span class="s2">"23"</span><span class="p">,</span> <span class="s2">"31"</span><span class="p">,</span> <span class="s2">"32"</span><span class="p">,</span> <span class="s2">"33"</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">comp</span> <span class="ow">in</span> <span class="n">components</span><span class="p">:</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"    # --- nye_tensor_</span><span class="si">{</span><span class="n">comp</span><span class="si">}</span><span class="s2"> ---</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">ncell</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"    [nye_tensor_</span><span class="si">{</span><span class="n">comp</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">]</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"        type = ElementAverageValue</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"        variable = nye_tensor_</span><span class="si">{</span><span class="n">comp</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"        block = </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"    []</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+
+            <span class="n">components</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"x"</span><span class="p">,</span> <span class="s2">"y"</span><span class="p">,</span> <span class="s2">"z"</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">comp</span> <span class="ow">in</span> <span class="n">components</span><span class="p">:</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"    # --- centroid_</span><span class="si">{</span><span class="n">comp</span><span class="si">}</span><span class="s2"> ---</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">ncell</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"    [centroid_</span><span class="si">{</span><span class="n">comp</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">]</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"        type = FunctionElementAverage</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"        function = coord_</span><span class="si">{</span><span class="n">comp</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"        use_displaced_mesh = True</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"        block = </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"    []</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"    # --- ori_rodrigues_</span><span class="si">{</span><span class="n">comp</span><span class="si">}</span><span class="s2"> ---</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">ncell</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"    [ori_rodrigues_</span><span class="si">{</span><span class="n">comp</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">]</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"        type = ElementAverageValue</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"        variable = ori_rodrigues_</span><span class="si">{</span><span class="n">comp</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"        block = </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"    []</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"    # --- volume ---</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">ncell</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"    [volume_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">]</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"        type = ElementAverageValue</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"        variable = volume</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"        use_displaced_mesh = True</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"        block = </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"    []</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"[]</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="CPFESimulation.write_orientation_file">
+<a class="viewcode-back" href="../../api/run_cpfe_simulation.html#graintrace.run_cpfe_simulation.CPFESimulation.write_orientation_file">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">write_orientation_file</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Write mrps_orientation.csv from the orientation file; return grain count."""</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ori_file</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="sa">r</span><span class="s2">"[,\s]+"</span><span class="p">,</span> <span class="n">engine</span><span class="o">=</span><span class="s2">"python"</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+
+        <span class="c1"># 9 columns = rotation matrix</span>
+        <span class="k">if</span> <span class="n">df</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">9</span><span class="p">:</span>
+
+            <span class="n">mrps</span> <span class="o">=</span> <span class="n">load_orientations</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">field</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+
+            <span class="n">np</span><span class="o">.</span><span class="n">savetxt</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">save_simulation_folder</span> <span class="o">/</span> <span class="s2">"mrps_orientation.csv"</span><span class="p">,</span>
+                <span class="n">mrps</span><span class="o">.</span><span class="n">numpy</span><span class="p">(),</span>
+                <span class="n">delimiter</span><span class="o">=</span><span class="s2">","</span><span class="p">,</span>
+                <span class="n">comments</span><span class="o">=</span><span class="s2">""</span><span class="p">,</span>
+                <span class="n">fmt</span><span class="o">=</span><span class="s2">"</span><span class="si">%.12g</span><span class="s2">"</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="c1"># 3 columns = MRPs, copy as-is</span>
+        <span class="k">elif</span> <span class="n">df</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="c1"># pylint: disable=import-outside-toplevel  # torch is a heavy optional dep</span>
+            <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+
+            <span class="n">shutil</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">ori_file</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">save_simulation_folder</span> <span class="o">/</span> <span class="s2">"mrps_orientation.csv"</span>
+            <span class="p">)</span>
+            <span class="n">mrps</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"Orientation file must have either 3 (MRPs) or 9 (rotation matrix) columns."</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">mrps</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_compile_device_set</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Devices to build AOTI packages for. None -&gt; {cpu|cuda} from `device`."""</span>
+        <span class="n">sim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s2">"simulation_parameters"</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">sim</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"compile_devices"</span><span class="p">):</span>
+            <span class="k">return</span> <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">d</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">sim</span><span class="p">[</span><span class="s2">"compile_devices"</span><span class="p">]]</span>
+        <span class="n">dev</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">sim</span><span class="p">[</span><span class="s2">"device"</span><span class="p">])</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="k">return</span> <span class="p">[</span><span class="s2">"cuda"</span><span class="p">]</span> <span class="k">if</span> <span class="s2">"cuda"</span> <span class="ow">in</span> <span class="n">dev</span> <span class="k">else</span> <span class="p">[</span><span class="s2">"cpu"</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_neml2_load_files</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Locate the neml2-compile `--load` extensions (R2IncrementToRate.py)."""</span>
+        <span class="n">sim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s2">"simulation_parameters"</span><span class="p">]</span>
+        <span class="n">loads</span> <span class="o">=</span> <span class="n">sim</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"neml2_load_files"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">loads</span><span class="p">:</span>
+            <span class="n">files</span> <span class="o">=</span> <span class="p">[</span><span class="n">Path</span><span class="p">(</span><span class="n">f</span><span class="p">)</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">loads</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">rel</span> <span class="o">=</span> <span class="s2">"modules/solid_mechanics/data/neml2/R2IncrementToRate.py"</span>
+            <span class="n">candidates</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">moose_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"MOOSE_DIR"</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">moose_dir</span><span class="p">:</span>
+                <span class="n">candidates</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">moose_dir</span><span class="p">)</span> <span class="o">/</span> <span class="n">rel</span><span class="p">)</span>
+            <span class="c1"># sibling moose checkout</span>
+            <span class="n">candidates</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">moose_run_file</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="s2">"moose"</span> <span class="o">/</span> <span class="n">rel</span><span class="p">)</span>
+            <span class="n">files</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">candidates</span> <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">exists</span><span class="p">()][:</span><span class="mi">1</span><span class="p">]</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">files</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span>
+                    <span class="s2">"Could not locate R2IncrementToRate.py for `neml2-compile --load`. "</span>
+                    <span class="s2">"Set simulation_parameters['neml2_load_files'] or export MOOSE_DIR."</span>
+                <span class="p">)</span>
+            <span class="n">need_puma_ext</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="kn">import</span><span class="w"> </span><span class="nn">neml2</span>  <span class="c1"># pylint: disable=import-outside-toplevel</span>
+
+                <span class="n">registry</span> <span class="o">=</span> <span class="n">neml2</span><span class="o">.</span><span class="n">factory</span><span class="o">.</span><span class="n">_registry</span>  <span class="c1"># pylint: disable=protected-access</span>
+                <span class="n">need_puma_ext</span> <span class="o">=</span> <span class="s2">"R2LinearCombination"</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">registry</span>
+            <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+                <span class="k">pass</span>
+            <span class="k">if</span> <span class="n">need_puma_ext</span><span class="p">:</span>
+                <span class="n">pkg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">moose_run_file</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="s2">"neml2_models"</span> <span class="o">/</span> <span class="s2">"python"</span>
+                <span class="k">if</span> <span class="n">pkg</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+                    <span class="n">files</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pkg</span><span class="p">)</span>
+        <span class="n">missing</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">files</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">f</span><span class="o">.</span><span class="n">exists</span><span class="p">()]</span>
+        <span class="k">if</span> <span class="n">missing</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"neml2_load_files not found: </span><span class="si">{</span><span class="n">missing</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">resolve</span><span class="p">())</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">files</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_bake_neml2_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">src</span><span class="p">,</span> <span class="n">dst</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Substitute @BAKE-marked material params into the model .i for AOTI compile."""</span>
+        <span class="n">text</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">src</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">)</span>
+        <span class="n">m</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s2">"material"</span><span class="p">]</span>
+        <span class="n">enu_g</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">m</span><span class="p">[</span><span class="s1">'elastic_E'</span><span class="p">]</span><span class="si">:</span><span class="s2">.12g</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">m</span><span class="p">[</span><span class="s1">'elastic_nu'</span><span class="p">]</span><span class="si">:</span><span class="s2">.12g</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">m</span><span class="p">[</span><span class="s1">'elastic_G'</span><span class="p">]</span><span class="si">:</span><span class="s2">.12g</span><span class="si">}</span><span class="s2">"</span>
+        <span class="n">text</span><span class="p">,</span> <span class="n">n</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">subn</span><span class="p">(</span>
+            <span class="sa">r</span><span class="s2">"(coefficients = ')[^']*(')(\s*#\s*@BAKE E nu G)"</span><span class="p">,</span>
+            <span class="sa">rf</span><span class="s2">"\g&lt;1&gt;</span><span class="si">{</span><span class="n">enu_g</span><span class="si">}</span><span class="s2">\g&lt;2&gt;\g&lt;3&gt;"</span><span class="p">,</span>
+            <span class="n">text</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">n</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">"Failed to bake 'E nu G' @BAKE marker in neml2_cpfe.i"</span><span class="p">)</span>
+        <span class="n">singles</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">"power_slip_n"</span><span class="p">:</span> <span class="n">m</span><span class="p">[</span><span class="s2">"power_slip_n"</span><span class="p">],</span>
+            <span class="s2">"power_slip_g0"</span><span class="p">:</span> <span class="n">m</span><span class="p">[</span><span class="s2">"power_slip_g0"</span><span class="p">],</span>
+            <span class="s2">"slip_constant_strength"</span><span class="p">:</span> <span class="n">m</span><span class="p">[</span><span class="s2">"slip_constant_strength"</span><span class="p">],</span>
+            <span class="s2">"voce_hardening_initial_slope"</span><span class="p">:</span> <span class="n">m</span><span class="p">[</span><span class="s2">"voce_hardening_initial_slope"</span><span class="p">],</span>
+            <span class="s2">"voce_hardening_saturation"</span><span class="p">:</span> <span class="n">m</span><span class="p">[</span><span class="s2">"voce_hardening_saturation"</span><span class="p">],</span>
+        <span class="p">}</span>
+        <span class="k">for</span> <span class="n">marker</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">singles</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">text</span><span class="p">,</span> <span class="n">n</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">subn</span><span class="p">(</span>
+                <span class="sa">rf</span><span class="s2">"(=\s*)\S+(\s*#\s*@BAKE </span><span class="si">{</span><span class="n">re</span><span class="o">.</span><span class="n">escape</span><span class="p">(</span><span class="n">marker</span><span class="p">)</span><span class="si">}</span><span class="s2">\b)"</span><span class="p">,</span>
+                <span class="sa">rf</span><span class="s2">"\g&lt;1&gt;</span><span class="si">{</span><span class="nb">float</span><span class="p">(</span><span class="n">val</span><span class="p">)</span><span class="si">:</span><span class="s2">.12g</span><span class="si">}</span><span class="s2">\g&lt;2&gt;"</span><span class="p">,</span>
+                <span class="n">text</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">n</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Failed to bake '@BAKE </span><span class="si">{</span><span class="n">marker</span><span class="si">}</span><span class="s2">' in neml2_cpfe.i"</span><span class="p">)</span>
+        <span class="n">Path</span><span class="p">(</span><span class="n">dst</span><span class="p">)</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">text</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_compile_neml2_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_i</span><span class="p">,</span> <span class="n">out_dir</span><span class="p">,</span> <span class="n">devices</span><span class="p">,</span> <span class="n">load_files</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Run `neml2-compile` to produce the AOTI package + stub; return the stub."""</span>
+        <span class="n">out_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">out_dir</span><span class="p">)</span>
+        <span class="n">out_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="s2">"neml2-compile"</span><span class="p">,</span>
+            <span class="nb">str</span><span class="p">(</span><span class="n">model_i</span><span class="p">),</span>
+            <span class="s2">"--model"</span><span class="p">,</span>
+            <span class="s2">"model"</span><span class="p">,</span>
+            <span class="s2">"--dtype"</span><span class="p">,</span>
+            <span class="s2">"float64"</span><span class="p">,</span>
+            <span class="s2">"--device"</span><span class="p">,</span>
+            <span class="o">*</span><span class="n">devices</span><span class="p">,</span>
+            <span class="s2">"--output-dir"</span><span class="p">,</span>
+            <span class="nb">str</span><span class="p">(</span><span class="n">out_dir</span><span class="p">),</span>
+            <span class="s2">"-d"</span><span class="p">,</span>
+            <span class="s2">"neml2_stress:spatial_deformation_gradient_increment"</span><span class="p">,</span>
+        <span class="p">]</span>
+        <span class="k">for</span> <span class="n">lf</span> <span class="ow">in</span> <span class="n">load_files</span><span class="p">:</span>
+            <span class="n">cmd</span> <span class="o">+=</span> <span class="p">[</span><span class="s2">"--load"</span><span class="p">,</span> <span class="n">lf</span><span class="p">]</span>
+
+        <span class="n">env</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">env</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">"CC"</span><span class="p">,</span> <span class="s2">"x86_64-conda-linux-gnu-gcc"</span><span class="p">)</span>
+        <span class="n">env</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">"CXX"</span><span class="p">,</span> <span class="s2">"x86_64-conda-linux-gnu-g++"</span><span class="p">)</span>
+        <span class="c1"># AOTI cuda packages link against libcuda; use the CUDA driver stub.</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="s2">"cuda"</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">d</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">devices</span><span class="p">):</span>
+            <span class="n">stub</span> <span class="o">=</span> <span class="s2">"/usr/local/cuda/lib64/stubs"</span>
+            <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">stub</span><span class="p">):</span>
+                <span class="n">env</span><span class="p">[</span><span class="s2">"LIBRARY_PATH"</span><span class="p">]</span> <span class="o">=</span> <span class="n">stub</span> <span class="o">+</span> <span class="n">os</span><span class="o">.</span><span class="n">pathsep</span> <span class="o">+</span> <span class="n">env</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"LIBRARY_PATH"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span>
+
+        <span class="n">log</span> <span class="o">=</span> <span class="n">out_dir</span> <span class="o">/</span> <span class="s2">"neml2_compile.log"</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">==&gt; neml2-compile (</span><span class="si">{</span><span class="s1">' '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">devices</span><span class="p">)</span><span class="si">}</span><span class="s2">) -&gt; </span><span class="si">{</span><span class="n">out_dir</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">log</span><span class="p">,</span> <span class="s2">"w"</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">)</span> <span class="k">as</span> <span class="n">lf</span><span class="p">:</span>
+            <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+                <span class="n">cmd</span><span class="p">,</span>
+                <span class="n">cwd</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">save_simulation_folder</span><span class="p">,</span>
+                <span class="n">env</span><span class="o">=</span><span class="n">env</span><span class="p">,</span>
+                <span class="n">stdout</span><span class="o">=</span><span class="n">lf</span><span class="p">,</span>
+                <span class="n">stderr</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">STDOUT</span><span class="p">,</span>
+                <span class="n">check</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="n">stub</span> <span class="o">=</span> <span class="n">out_dir</span> <span class="o">/</span> <span class="s2">"model_aoti.i"</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">stub</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"neml2-compile produced no stub at </span><span class="si">{</span><span class="n">stub</span><span class="si">}</span><span class="s2">; see </span><span class="si">{</span><span class="n">log</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">stub</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_package_lib_dirs</span><span class="p">():</span>
+<span class="w">        </span><span class="sd">"""Lib dirs of the installed neml2 + torch packages.</span>
+
+<span class="sd">        These hold ``libneml2_eager.so`` / ``libtorch`` that ``puma-opt`` links, so</span>
+<span class="sd">        adding them lets the binary resolve them regardless of the build layout.</span>
+<span class="sd">        """</span>
+        <span class="n">dirs</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">mod</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"neml2"</span><span class="p">,</span> <span class="s2">"torch"</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">pkg</span> <span class="o">=</span> <span class="n">importlib</span><span class="o">.</span><span class="n">import_module</span><span class="p">(</span><span class="n">mod</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">lib</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">pkg</span><span class="o">.</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="s2">"lib"</span>
+            <span class="k">if</span> <span class="n">lib</span><span class="o">.</span><span class="n">is_dir</span><span class="p">():</span>
+                <span class="n">dirs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">lib</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">dirs</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_runtime_env</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Env for the puma-opt run: add libtorch + PETSc lib dirs to LD_LIBRARY_PATH.</span>
+
+<span class="sd">        Auto-derives from the moose_run_file repo layout, or override via</span>
+<span class="sd">        simulation_parameters['extra_ld_library_paths']. The installed neml2 + torch</span>
+<span class="sd">        package lib dirs are always added so puma-opt resolves libneml2_eager.so /</span>
+<span class="sd">        libtorch regardless of the build layout.</span>
+<span class="sd">        """</span>
+        <span class="n">env</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">sim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s2">"simulation_parameters"</span><span class="p">]</span>
+        <span class="n">paths</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">extra</span> <span class="o">=</span> <span class="n">sim</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"extra_ld_library_paths"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">extra</span><span class="p">:</span>
+            <span class="n">paths</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">extra</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">root</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">moose_run_file</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">parent</span>
+            <span class="k">for</span> <span class="n">cand</span> <span class="ow">in</span> <span class="p">(</span>
+                <span class="n">root</span> <span class="o">/</span> <span class="s2">"libtorch"</span> <span class="o">/</span> <span class="s2">"lib"</span><span class="p">,</span>
+                <span class="n">root</span> <span class="o">/</span> <span class="s2">"moose"</span> <span class="o">/</span> <span class="s2">"petsc"</span> <span class="o">/</span> <span class="s2">"arch-moose"</span> <span class="o">/</span> <span class="s2">"lib"</span><span class="p">,</span>
+            <span class="p">):</span>
+                <span class="k">if</span> <span class="n">cand</span><span class="o">.</span><span class="n">is_dir</span><span class="p">():</span>
+                    <span class="n">paths</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">cand</span><span class="p">))</span>
+        <span class="n">paths</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_package_lib_dirs</span><span class="p">())</span>
+        <span class="k">if</span> <span class="n">paths</span><span class="p">:</span>
+            <span class="n">existing</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"LD_LIBRARY_PATH"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span>
+            <span class="n">env</span><span class="p">[</span><span class="s2">"LD_LIBRARY_PATH"</span><span class="p">]</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">pathsep</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                <span class="n">paths</span> <span class="o">+</span> <span class="p">([</span><span class="n">existing</span><span class="p">]</span> <span class="k">if</span> <span class="n">existing</span> <span class="k">else</span> <span class="p">[])</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">env</span>
+
+<div class="viewcode-block" id="CPFESimulation.run">
+<a class="viewcode-back" href="../../api/run_cpfe_simulation.html#graintrace.run_cpfe_simulation.CPFESimulation.run">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ncore</span><span class="o">=</span><span class="mi">8</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Prepare the input decks, AOTI-compile the NEML2 model, and launch puma-opt.</span>
+
+<span class="sd">        Copies the cpfe_base templates into save_simulation_folder, writes the run-specific</span>
+<span class="sd">        boundary/orientation/postprocessor decks, bakes the material parameters into the NEML2</span>
+<span class="sd">        model and neml2-compiles it (unless a cached AOTI package exists and recompile is False),</span>
+<span class="sd">        then starts puma-opt as a detached background process. Only dim=3 is supported.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            ncore: Number of MPI ranks to launch (passed as -n to the launcher). For multi-GPU runs set this to the number of GPUs in the device list. Default 8.</span>
+<span class="sd">        """</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">validate_geometry_and_bcs</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+                <span class="s2">"Input file generation for dim=2 is not yet implemented. "</span>
+                <span class="s2">"Currently only dim=3 simulations are supported."</span>
+            <span class="p">)</span>
+
+        <span class="c1"># cpfe_base is a reserved folder containing base files</span>
+        <span class="n">cpfe_base</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="s2">"cpfe_base"</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">cpfe_base</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="s2">"cpfe_base folder not found."</span><span class="p">)</span>
+
+        <span class="c1"># shared base files</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_ff_initial_field</span><span class="p">:</span>
+            <span class="n">base_files</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="s2">"initial_conditions_ff.i"</span><span class="p">,</span>
+                <span class="s2">"neml2_cpfe.i"</span><span class="p">,</span>
+                <span class="s2">"run_cpfe.i"</span><span class="p">,</span>
+                <span class="s2">"grid_file.i"</span><span class="p">,</span>
+                <span class="s2">"transfer.i"</span><span class="p">,</span>
+            <span class="p">]</span>
+            <span class="n">initial_conditions_file</span> <span class="o">=</span> <span class="s2">"initial_conditions_ff.i"</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">base_files</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="s2">"initial_conditions.i"</span><span class="p">,</span>
+                <span class="s2">"neml2_cpfe.i"</span><span class="p">,</span>
+                <span class="s2">"run_cpfe.i"</span><span class="p">,</span>
+                <span class="s2">"grid_file.i"</span><span class="p">,</span>
+                <span class="s2">"transfer.i"</span><span class="p">,</span>
+            <span class="p">]</span>
+            <span class="n">initial_conditions_file</span> <span class="o">=</span> <span class="s2">"initial_conditions.i"</span>
+
+        <span class="k">for</span> <span class="n">fname</span> <span class="ow">in</span> <span class="n">base_files</span><span class="p">:</span>
+            <span class="n">src</span> <span class="o">=</span> <span class="n">cpfe_base</span> <span class="o">/</span> <span class="n">fname</span>
+            <span class="n">dst</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">save_simulation_folder</span> <span class="o">/</span> <span class="n">fname</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">src</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+                <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Required base file missing: </span><span class="si">{</span><span class="n">src</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+            <span class="n">shutil</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">dst</span><span class="p">)</span>
+
+        <span class="n">shutil</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mesh_file</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">save_simulation_folder</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">mesh_file</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+
+        <span class="c1"># generate the run-specific input files</span>
+        <span class="n">fixnode_x</span><span class="p">,</span> <span class="n">fixnode_y</span><span class="p">,</span> <span class="n">fixnode_z</span><span class="p">,</span> <span class="n">yroll_x</span><span class="p">,</span> <span class="n">yroll_y</span><span class="p">,</span> <span class="n">yroll_z</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">write_bc_file</span><span class="p">()</span>
+        <span class="p">)</span>
+        <span class="n">ncells</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">write_orientation_file</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">write_postprocess_file</span><span class="p">(</span><span class="n">ncell</span><span class="o">=</span><span class="n">ncells</span><span class="p">)</span>
+
+        <span class="c1"># Bake material params into the model and AOTI-compile it; produces</span>
+        <span class="c1"># aoti/model_aoti.i, referenced by run_cpfe.i via ${neml2_stub}.</span>
+        <span class="n">sim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s2">"simulation_parameters"</span><span class="p">]</span>
+        <span class="n">model_src</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">save_simulation_folder</span> <span class="o">/</span> <span class="s2">"neml2_cpfe.i"</span>
+        <span class="n">baked_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">save_simulation_folder</span> <span class="o">/</span> <span class="s2">"neml2_cpfe_baked.i"</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_bake_neml2_model</span><span class="p">(</span><span class="n">model_src</span><span class="p">,</span> <span class="n">baked_model</span><span class="p">)</span>
+        <span class="n">aoti_dir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">save_simulation_folder</span> <span class="o">/</span> <span class="s2">"aoti"</span>
+        <span class="n">neml2_stub</span> <span class="o">=</span> <span class="s2">"aoti/model_aoti.i"</span>
+        <span class="k">if</span> <span class="n">sim</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"recompile"</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="p">(</span><span class="n">aoti_dir</span> <span class="o">/</span> <span class="s2">"model_aoti.i"</span><span class="p">)</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_compile_neml2_model</span><span class="p">(</span>
+                <span class="n">baked_model</span><span class="p">,</span>
+                <span class="n">aoti_dir</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_compile_device_set</span><span class="p">(),</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_neml2_load_files</span><span class="p">(),</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_ff_initial_field</span><span class="p">:</span>
+            <span class="n">ncell_args</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">"ncell=</span><span class="si">{</span><span class="n">ncells</span><span class="si">}</span><span class="s2">"</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">ncell_args</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">"ncell=</span><span class="si">{</span><span class="n">ncells</span><span class="si">:</span><span class="s2">.12g</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"ncell_ff=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">ncell_ff</span><span class="si">:</span><span class="s2">.12g</span><span class="si">}</span><span class="s2">"</span><span class="p">]</span>
+
+        <span class="n">grid_info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s2">"grid_properties"</span><span class="p">]</span>
+        <span class="n">ncell_x</span><span class="p">,</span> <span class="n">ncell_y</span><span class="p">,</span> <span class="n">ncell_z</span> <span class="o">=</span> <span class="n">grid_info</span><span class="p">[</span><span class="s2">"number_of_elements"</span><span class="p">]</span>
+        <span class="n">grid_bbox</span> <span class="o">=</span> <span class="n">grid_info</span><span class="p">[</span><span class="s2">"bounding_box"</span><span class="p">]</span>
+
+        <span class="n">vol_correction_cond</span> <span class="o">=</span> <span class="s2">"true"</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">element_order</span> <span class="o">==</span> <span class="s2">"FIRST"</span> <span class="k">else</span> <span class="s2">"false"</span>
+
+        <span class="n">sim_p</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s2">"simulation_parameters"</span><span class="p">]</span>
+        <span class="n">grid_transfer</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">sim_p</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"grid_transfer"</span><span class="p">,</span> <span class="s2">"final"</span><span class="p">))</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="n">grid_exec</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">"final"</span><span class="p">:</span> <span class="s2">"FINAL"</span><span class="p">,</span>
+            <span class="s2">"per_step"</span><span class="p">:</span> <span class="s2">"INITIAL TIMESTEP_END"</span><span class="p">,</span>
+            <span class="s2">"off"</span><span class="p">:</span> <span class="s2">"NONE"</span><span class="p">,</span>
+        <span class="p">}</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">grid_transfer</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">grid_exec</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Invalid grid_transfer </span><span class="si">{</span><span class="n">grid_transfer</span><span class="si">!r}</span><span class="s2">. Must be 'final', 'per_step', or 'off'."</span>
+            <span class="p">)</span>
+        <span class="n">exodus_output</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">sim_p</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"exodus_output"</span><span class="p">,</span> <span class="s2">"sync"</span><span class="p">))</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">exodus_output</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"sync"</span><span class="p">,</span> <span class="s2">"per_step"</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Invalid exodus_output </span><span class="si">{</span><span class="n">exodus_output</span><span class="si">!r}</span><span class="s2">. Must be 'sync' or 'per_step'."</span>
+            <span class="p">)</span>
+        <span class="n">exodus_sync_only</span> <span class="o">=</span> <span class="s2">"true"</span> <span class="k">if</span> <span class="n">exodus_output</span> <span class="o">==</span> <span class="s2">"sync"</span> <span class="k">else</span> <span class="s2">"false"</span>
+        <span class="n">mesh_csv</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">sim_p</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"mesh_csv"</span><span class="p">,</span> <span class="s2">"sync"</span><span class="p">))</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">mesh_csv</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"sync"</span><span class="p">,</span> <span class="s2">"per_step"</span><span class="p">,</span> <span class="s2">"off"</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Invalid mesh_csv </span><span class="si">{</span><span class="n">mesh_csv</span><span class="si">!r}</span><span class="s2">. Must be 'sync', 'per_step', or 'off'."</span>
+            <span class="p">)</span>
+        <span class="n">mesh_sampler_execute_on</span> <span class="o">=</span> <span class="s2">"NONE"</span> <span class="k">if</span> <span class="n">mesh_csv</span> <span class="o">==</span> <span class="s2">"off"</span> <span class="k">else</span> <span class="s2">"TIMESTEP_END"</span>
+        <span class="n">mesh_csv_sync_only</span> <span class="o">=</span> <span class="s2">"true"</span> <span class="k">if</span> <span class="n">mesh_csv</span> <span class="o">==</span> <span class="s2">"sync"</span> <span class="k">else</span> <span class="s2">"false"</span>
+
+        <span class="n">log_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">save_simulation_folder</span> <span class="o">/</span> <span class="s2">"cpfe_run.log"</span>
+        <span class="n">launcher</span> <span class="o">=</span> <span class="n">shlex</span><span class="o">.</span><span class="n">split</span><span class="p">(</span>
+            <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s2">"simulation_parameters"</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"launcher"</span><span class="p">,</span> <span class="s2">"mpiexec"</span><span class="p">))</span>
+        <span class="p">)</span>
+        <span class="n">argv</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="s2">"nohup"</span><span class="p">,</span>
+            <span class="o">*</span><span class="n">launcher</span><span class="p">,</span>
+            <span class="s2">"-n"</span><span class="p">,</span>
+            <span class="nb">str</span><span class="p">(</span><span class="n">ncore</span><span class="p">),</span>
+            <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">moose_run_file</span><span class="p">),</span>
+            <span class="s2">"-i"</span><span class="p">,</span>
+            <span class="s2">"run_cpfe.i"</span><span class="p">,</span>
+            <span class="s2">"boundary_conditions.i"</span><span class="p">,</span>
+            <span class="n">initial_conditions_file</span><span class="p">,</span>
+            <span class="s2">"grain_average_postprocessor.i"</span><span class="p">,</span>
+            <span class="s2">"transfer.i"</span><span class="p">,</span>
+            <span class="s2">"orientation_file=mrps_orientation.csv"</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">"neml2_stub=</span><span class="si">{</span><span class="n">neml2_stub</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">"sync_times=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">'simulation_parameters'</span><span class="p">][</span><span class="s1">'sync_times'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">"device_neml2=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">'simulation_parameters'</span><span class="p">][</span><span class="s1">'device'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">"device_neml2_batch=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">'simulation_parameters'</span><span class="p">][</span><span class="s1">'device_batch'</span><span class="p">]</span><span class="si">:</span><span class="s2">.12g</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">"mesh_file=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">mesh_file</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">"residual_strain_file=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">eeres_file</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">"base_folder=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">'simulation_parameters'</span><span class="p">][</span><span class="s1">'base_folder'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">"dt=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">'simulation_parameters'</span><span class="p">][</span><span class="s1">'dt'</span><span class="p">]</span><span class="si">:</span><span class="s2">.12g</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">"total_time=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">'simulation_parameters'</span><span class="p">][</span><span class="s1">'total_time'</span><span class="p">]</span><span class="si">:</span><span class="s2">.12g</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">"strain_unit_conversion=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">'simulation_parameters'</span><span class="p">][</span><span class="s1">'strain_unit_conversion'</span><span class="p">]</span><span class="si">:</span><span class="s2">.12g</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="c1"># burger_scale is the only material param still passed at runtime.</span>
+            <span class="sa">f</span><span class="s2">"burger_scale=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">'material'</span><span class="p">][</span><span class="s1">'burger_scale'</span><span class="p">]</span><span class="si">:</span><span class="s2">.12g</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">"fixnode_x=</span><span class="si">{</span><span class="n">fixnode_x</span><span class="si">:</span><span class="s2">.12g</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">"fixnode_y=</span><span class="si">{</span><span class="n">fixnode_y</span><span class="si">:</span><span class="s2">.12g</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">"fixnode_z=</span><span class="si">{</span><span class="n">fixnode_z</span><span class="si">:</span><span class="s2">.12g</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">"yroll_x=</span><span class="si">{</span><span class="n">yroll_x</span><span class="si">:</span><span class="s2">.12g</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">"yroll_y=</span><span class="si">{</span><span class="n">yroll_y</span><span class="si">:</span><span class="s2">.12g</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">"yroll_z=</span><span class="si">{</span><span class="n">yroll_z</span><span class="si">:</span><span class="s2">.12g</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">"vol_lock_correction_cond=</span><span class="si">{</span><span class="n">vol_correction_cond</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">"grid_transfer_execute_on=</span><span class="si">{</span><span class="n">grid_exec</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">"exodus_sync_only=</span><span class="si">{</span><span class="n">exodus_sync_only</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">"mesh_sampler_execute_on=</span><span class="si">{</span><span class="n">mesh_sampler_execute_on</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">"mesh_csv_sync_only=</span><span class="si">{</span><span class="n">mesh_csv_sync_only</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">"grid_nx=</span><span class="si">{</span><span class="n">ncell_x</span><span class="si">:</span><span class="s2">.12g</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">"grid_ny=</span><span class="si">{</span><span class="n">ncell_y</span><span class="si">:</span><span class="s2">.12g</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">"grid_nz=</span><span class="si">{</span><span class="n">ncell_z</span><span class="si">:</span><span class="s2">.12g</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">"grid_xmin=</span><span class="si">{</span><span class="n">grid_bbox</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2">.12g</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">"grid_xmax=</span><span class="si">{</span><span class="n">grid_bbox</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">.12g</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">"grid_ymin=</span><span class="si">{</span><span class="n">grid_bbox</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="si">:</span><span class="s2">.12g</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">"grid_ymax=</span><span class="si">{</span><span class="n">grid_bbox</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="si">:</span><span class="s2">.12g</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">"grid_zmin=</span><span class="si">{</span><span class="n">grid_bbox</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span><span class="si">:</span><span class="s2">.12g</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">"grid_zmax=</span><span class="si">{</span><span class="n">grid_bbox</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span><span class="si">:</span><span class="s2">.12g</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+        <span class="p">]</span> <span class="o">+</span> <span class="n">ncell_args</span>
+
+        <span class="c1"># Run as a persistent background process</span>
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">==&gt; Running CPFE simulation in </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">save_simulation_folder</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">Path</span><span class="p">(</span><span class="n">log_path</span><span class="p">)</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">log_path</span><span class="p">,</span> <span class="s2">"w"</span><span class="p">,</span> <span class="n">buffering</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">)</span> <span class="k">as</span> <span class="n">lf</span><span class="p">:</span>
+            <span class="c1"># pylint: disable=consider-using-with  # persistent detached background run</span>
+            <span class="n">proc</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">Popen</span><span class="p">(</span>
+                <span class="n">argv</span><span class="p">,</span>
+                <span class="n">cwd</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">save_simulation_folder</span><span class="p">,</span>
+                <span class="n">env</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_runtime_env</span><span class="p">(),</span>
+                <span class="n">stdin</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">DEVNULL</span><span class="p">,</span>
+                <span class="n">stdout</span><span class="o">=</span><span class="n">lf</span><span class="p">,</span>
+                <span class="n">stderr</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">STDOUT</span><span class="p">,</span>
+                <span class="n">text</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">start_new_session</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">close_fds</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"CPFE simulation started, PID=</span><span class="si">{</span><span class="n">proc</span><span class="o">.</span><span class="n">pid</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Argonne National Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

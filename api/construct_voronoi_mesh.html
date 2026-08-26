@@ -1,0 +1,356 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>graintrace.construct_voronoi_mesh &mdash; graintrace 0.1.2</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=92734c54"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=96c007af"></script>
+      <script src="../_static/design-tabs.js?v=f930bc37"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="graintrace.construct_nf_mesh" href="construct_nf_mesh.html" />
+    <link rel="prev" title="API reference" href="api.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            graintrace
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts.html">Concepts &amp; data formats</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../configuration.html">Configuration reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../mcp.html">MCP server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../benchmarks.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pitfalls.html">Common pitfalls</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Tutorials &amp; examples</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/tutorials.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="api.html">API reference</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">graintrace.construct_voronoi_mesh</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#graintrace.construct_voronoi_mesh.VoronoiMeshBuilder"><code class="docutils literal notranslate"><span class="pre">VoronoiMeshBuilder</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#graintrace.construct_voronoi_mesh.VoronoiMeshBuilder.check_dependencies"><code class="docutils literal notranslate"><span class="pre">VoronoiMeshBuilder.check_dependencies()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#graintrace.construct_voronoi_mesh.VoronoiMeshBuilder.read_input"><code class="docutils literal notranslate"><span class="pre">VoronoiMeshBuilder.read_input()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#graintrace.construct_voronoi_mesh.VoronoiMeshBuilder.rotate"><code class="docutils literal notranslate"><span class="pre">VoronoiMeshBuilder.rotate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#graintrace.construct_voronoi_mesh.VoronoiMeshBuilder.compute_principal_axes"><code class="docutils literal notranslate"><span class="pre">VoronoiMeshBuilder.compute_principal_axes()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#graintrace.construct_voronoi_mesh.VoronoiMeshBuilder.plot_centroids"><code class="docutils literal notranslate"><span class="pre">VoronoiMeshBuilder.plot_centroids()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#graintrace.construct_voronoi_mesh.VoronoiMeshBuilder.remove_outside_points"><code class="docutils literal notranslate"><span class="pre">VoronoiMeshBuilder.remove_outside_points()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#graintrace.construct_voronoi_mesh.VoronoiMeshBuilder.validate_bounding_box"><code class="docutils literal notranslate"><span class="pre">VoronoiMeshBuilder.validate_bounding_box()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#graintrace.construct_voronoi_mesh.VoronoiMeshBuilder.build_voronoi"><code class="docutils literal notranslate"><span class="pre">VoronoiMeshBuilder.build_voronoi()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#graintrace.construct_voronoi_mesh.VoronoiMeshBuilder.build_graph"><code class="docutils literal notranslate"><span class="pre">VoronoiMeshBuilder.build_graph()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#graintrace.construct_voronoi_mesh.VoronoiMeshBuilder.apply_rotation_to_properties"><code class="docutils literal notranslate"><span class="pre">VoronoiMeshBuilder.apply_rotation_to_properties()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#graintrace.construct_voronoi_mesh.VoronoiMeshBuilder.generate_mesh"><code class="docutils literal notranslate"><span class="pre">VoronoiMeshBuilder.generate_mesh()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#graintrace.construct_voronoi_mesh.VoronoiMeshBuilder.export_cell_properties"><code class="docutils literal notranslate"><span class="pre">VoronoiMeshBuilder.export_cell_properties()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#graintrace.construct_voronoi_mesh.VoronoiMeshBuilder.evaluate_output_voronoi"><code class="docutils literal notranslate"><span class="pre">VoronoiMeshBuilder.evaluate_output_voronoi()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#graintrace.construct_voronoi_mesh.VoronoiMeshBuilder.reformat_tesr_file"><code class="docutils literal notranslate"><span class="pre">VoronoiMeshBuilder.reformat_tesr_file()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="construct_nf_mesh.html">graintrace.construct_nf_mesh</a></li>
+<li class="toctree-l2"><a class="reference internal" href="construct_voxel_mesh.html">graintrace.construct_voxel_mesh</a></li>
+<li class="toctree-l2"><a class="reference internal" href="nf_grid_conversion.html">graintrace.nf_grid_conversion</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generate_random_crystal.html">graintrace.generate_random_crystal</a></li>
+<li class="toctree-l2"><a class="reference internal" href="synthetic_hedm_generator.html">graintrace.synthetic_hedm_generator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="neper_env.html">graintrace.neper_env</a></li>
+<li class="toctree-l2"><a class="reference internal" href="scan_stitching_comparison.html">graintrace.scan_stitching_comparison</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hedm_stitching_techniques.html">graintrace.hedm_stitching_techniques</a></li>
+<li class="toctree-l2"><a class="reference internal" href="run_cpfe_simulation.html">graintrace.run_cpfe_simulation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="grid_resampling.html">graintrace.grid_resampling</a></li>
+<li class="toctree-l2"><a class="reference internal" href="material_calibration.html">graintrace.material_calibration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="taylor.html">graintrace.taylor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="base_material_approximation.html">graintrace.base_material_approximation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="experiment_rotation_helper.html">graintrace.experiment_rotation_helper</a></li>
+<li class="toctree-l2"><a class="reference internal" href="orientation_helper.html">graintrace.orientation_helper</a></li>
+<li class="toctree-l2"><a class="reference internal" href="simulation_postprocessing.html">graintrace.simulation_postprocessing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="experiment_postprocessing.html">graintrace.experiment_postprocessing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="plot_postprocessing.html">graintrace.plot_postprocessing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ipf_postprocess.html">graintrace.ipf_postprocess</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rare_cluster_indicator.html">graintrace.rare_cluster_indicator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="graph_spatial_cluster.html">graintrace.graph_spatial_cluster</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cluster_indicator.html">graintrace.cluster_indicator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="similarity_metric_library.html">graintrace.similarity_metric_library</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rare_criteria_selection_library.html">graintrace.rare_criteria_selection_library</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rei_comparison.html">graintrace.rei_comparison</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user_data_class.html">graintrace.user_data_class</a></li>
+<li class="toctree-l2"><a class="reference internal" href="grain_graph_matching.html">graintrace.grain_graph_matching</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tess_to_gnn.html">graintrace.tess_to_gnn</a></li>
+<li class="toctree-l2"><a class="reference internal" href="nf.html">graintrace.nf</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../development.html">Building &amp; testing the docs</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">graintrace</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="api.html">API reference</a></li>
+      <li class="breadcrumb-item active">graintrace.construct_voronoi_mesh</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api/construct_voronoi_mesh.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-graintrace.construct_voronoi_mesh">
+<span id="graintrace-construct-voronoi-mesh"></span><h1>graintrace.construct_voronoi_mesh<a class="headerlink" href="#module-graintrace.construct_voronoi_mesh" title="Link to this heading"></a></h1>
+<p>Reconstruct FF-HEDM microstructures via NEPER Voronoi tessellation (VoronoiMeshBuilder).</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="graintrace.construct_voronoi_mesh.VoronoiMeshBuilder">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">graintrace.construct_voronoi_mesh.</span></span><span class="sig-name descname"><span class="pre">VoronoiMeshBuilder</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_csv</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_dir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bounding_box</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weighted</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">auto_fix_bbox</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bbox_fix_mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bbox_tolerance</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">auto_rotate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rotate_angles</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(0,</span> <span class="pre">0,</span> <span class="pre">0)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rotate_convention</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'xyz'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">angle_identifier</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">orientation_descriptor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'euler-bunge'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">orientation_active_convention</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">unit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'deg'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">elastic_strain_identifier</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ori_rotmat_identifier</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">strain_unit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'microstrain'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">env</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">neper_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">auto_install</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/graintrace/construct_voronoi_mesh.html#VoronoiMeshBuilder"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#graintrace.construct_voronoi_mesh.VoronoiMeshBuilder" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Reconstruct a 3D microstructure from far-field (FF) HEDM grain centroids.</p>
+<p>Wraps NEPER (Voronoi/CVT tessellation) and optionally GMSH to turn a per-grain FF
+CSV (positions, Euler orientations, elastic strains) into a <code class="docutils literal notranslate"><span class="pre">.tess</span></code>/<code class="docutils literal notranslate"><span class="pre">.msh</span></code> mesh,
+per-grain orientation and initial elastic-strain files, and a voxelized
+reconstruction: the inputs for a CPFE run or a grain graph. See
+<code class="docutils literal notranslate"><span class="pre">examples/demonstrate_farfield.py</span></code> and the <code class="docutils literal notranslate"><span class="pre">/ff-reconstruction</span></code> skill.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="graintrace.construct_voronoi_mesh.VoronoiMeshBuilder.check_dependencies">
+<span class="sig-name descname"><span class="pre">check_dependencies</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">neper_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">auto_install</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/graintrace/construct_voronoi_mesh.html#VoronoiMeshBuilder.check_dependencies"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#graintrace.construct_voronoi_mesh.VoronoiMeshBuilder.check_dependencies" title="Link to this definition"></a></dt>
+<dd><p>Locate NEPER (user-installed) and build its subprocess environment.</p>
+<p>gmsh ships with graintrace via pip, so no gmsh handling is needed here.
+Returns <code class="docutils literal notranslate"><span class="pre">(neper_bin,</span> <span class="pre">env)</span></code>. Raises <code class="docutils literal notranslate"><span class="pre">RuntimeError</span></code> with install
+guidance when NEPER cannot be found and <code class="docutils literal notranslate"><span class="pre">auto_install</span></code> is False.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="graintrace.construct_voronoi_mesh.VoronoiMeshBuilder.read_input">
+<span class="sig-name descname"><span class="pre">read_input</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/graintrace/construct_voronoi_mesh.html#VoronoiMeshBuilder.read_input"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#graintrace.construct_voronoi_mesh.VoronoiMeshBuilder.read_input" title="Link to this definition"></a></dt>
+<dd><p>Read/validate input CSV: spatial coords, optional GrainRadius, angles, strain.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="graintrace.construct_voronoi_mesh.VoronoiMeshBuilder.rotate">
+<span class="sig-name descname"><span class="pre">rotate</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/graintrace/construct_voronoi_mesh.html#VoronoiMeshBuilder.rotate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#graintrace.construct_voronoi_mesh.VoronoiMeshBuilder.rotate" title="Link to this definition"></a></dt>
+<dd><p>Align data to PCA principal axes (auto_rotate) or apply explicit xyz Euler rotation.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="graintrace.construct_voronoi_mesh.VoronoiMeshBuilder.compute_principal_axes">
+<span class="sig-name descname"><span class="pre">compute_principal_axes</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/graintrace/construct_voronoi_mesh.html#VoronoiMeshBuilder.compute_principal_axes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#graintrace.construct_voronoi_mesh.VoronoiMeshBuilder.compute_principal_axes" title="Link to this definition"></a></dt>
+<dd><p>Compute PCA principal axes (2D/3D, right-handed). Returns (eigenvectors, eigenvalues).</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="graintrace.construct_voronoi_mesh.VoronoiMeshBuilder.plot_centroids">
+<span class="sig-name descname"><span class="pre">plot_centroids</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">plot_box</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'centroid_plot.png'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/graintrace/construct_voronoi_mesh.html#VoronoiMeshBuilder.plot_centroids"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#graintrace.construct_voronoi_mesh.VoronoiMeshBuilder.plot_centroids" title="Link to this definition"></a></dt>
+<dd><p>Plot centroid data in three orthogonal views (XY, YZ, XZ).</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="graintrace.construct_voronoi_mesh.VoronoiMeshBuilder.remove_outside_points">
+<span class="sig-name descname"><span class="pre">remove_outside_points</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bbox</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tolerance</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/graintrace/construct_voronoi_mesh.html#VoronoiMeshBuilder.remove_outside_points"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#graintrace.construct_voronoi_mesh.VoronoiMeshBuilder.remove_outside_points" title="Link to this definition"></a></dt>
+<dd><p>Remove out-of-bounds points and their associated per-grain data from self.data.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="graintrace.construct_voronoi_mesh.VoronoiMeshBuilder.validate_bounding_box">
+<span class="sig-name descname"><span class="pre">validate_bounding_box</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/graintrace/construct_voronoi_mesh.html#VoronoiMeshBuilder.validate_bounding_box"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#graintrace.construct_voronoi_mesh.VoronoiMeshBuilder.validate_bounding_box" title="Link to this definition"></a></dt>
+<dd><p>Validate or correct the bounding box (remove_points or extend_bounding_box).</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="graintrace.construct_voronoi_mesh.VoronoiMeshBuilder.build_voronoi">
+<span class="sig-name descname"><span class="pre">build_voronoi</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">option</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'voronoi'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">generate_mesh</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">relative_el_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">morphoalgo</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'praxis'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mesh_quality_min</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.9</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tesr_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">CVT_iter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/graintrace/construct_voronoi_mesh.html#VoronoiMeshBuilder.build_voronoi"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#graintrace.construct_voronoi_mesh.VoronoiMeshBuilder.build_voronoi" title="Link to this definition"></a></dt>
+<dd><p>Build a Voronoi (or Laguerre) tessellation using Neper.</p>
+<p>Reads the input CSV (if not already loaded), validates/fixes the bounding box, runs NEPER to produce the tessellation, applies the rotation to the cell
+orientations and strains, evaluates the output, optionally meshes it, and writes the reformatted voxel reconstruction CSV/VTK plus the CPFE strain files.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>option</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Tessellation seeding mode: “voronoi” (Poisson-Voronoi), “centroid”/”centroidal” (fit cell centroids to the input coordinates), or “centroidsize” (fit centroid and size, requires GrainRadius).</p></li>
+<li><p><strong>generate_mesh</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – If True, also generate a NEPER/GMSH tet (or tri) .msh mesh; this is a fallback only, the default CPFE mesh is SCULPT hex.</p></li>
+<li><p><strong>relative_el_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Mesh element size relative to grain size, passed to generate_mesh; defaults to 1.0 when None.</p></li>
+<li><p><strong>morphoalgo</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – NEPER morphology optimization algorithm, e.g. “praxis”, “subplex”, or “lloyd”.</p></li>
+<li><p><strong>mesh_quality_min</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Minimum acceptable mesh element quality, passed to generate_mesh.</p></li>
+<li><p><strong>tesr_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – Voxel raster resolution [nx, ny, nz] for the .tesr output; defaults to [20, 20, 20] when None.</p></li>
+<li><p><strong>CVT_iter</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Number of CVT/morphology optimization iterations.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="graintrace.construct_voronoi_mesh.VoronoiMeshBuilder.build_graph">
+<span class="sig-name descname"><span class="pre">build_graph</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'cpu'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">option</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'centroid'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">CVT_iter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">morphoalgo</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'praxis'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">visualize2D</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">visualize3D</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/graintrace/construct_voronoi_mesh.html#VoronoiMeshBuilder.build_graph"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#graintrace.construct_voronoi_mesh.VoronoiMeshBuilder.build_graph" title="Link to this definition"></a></dt>
+<dd><p>Build a Voronoi tessellation and convert it to a graph representation.</p>
+<p>Runs build_voronoi (no mesh) then parses the resulting .tess into a per-cell graph via NeperTessToGraphNN, registering the loaded dataframe features on it.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>device</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Torch device for the graph tensors, e.g. “cpu” or “cuda”.</p></li>
+<li><p><strong>option</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Tessellation seeding mode passed to build_voronoi: “voronoi”, “centroid”, or “centroidsize”.</p></li>
+<li><p><strong>CVT_iter</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Number of CVT/morphology optimization iterations passed to build_voronoi.</p></li>
+<li><p><strong>morphoalgo</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – NEPER morphology optimization algorithm passed to build_voronoi.</p></li>
+<li><p><strong>visualize2D</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – If True, save a 2D rendering of the graph under output_dir/figures/gnn.</p></li>
+<li><p><strong>visualize3D</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – If True, save a 3D rendering of the graph under output_dir/figures/gnn.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The per-cell graph object produced by NeperTessToGraphNN.build_cell_graph.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="graintrace.construct_voronoi_mesh.VoronoiMeshBuilder.apply_rotation_to_properties">
+<span class="sig-name descname"><span class="pre">apply_rotation_to_properties</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tess_file</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/graintrace/construct_voronoi_mesh.html#VoronoiMeshBuilder.apply_rotation_to_properties"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#graintrace.construct_voronoi_mesh.VoronoiMeshBuilder.apply_rotation_to_properties" title="Link to this definition"></a></dt>
+<dd><p>Apply the rotation matrix to cell orientations (and strains) in the .tess file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>tess_file</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="graintrace.construct_voronoi_mesh.VoronoiMeshBuilder.generate_mesh">
+<span class="sig-name descname"><span class="pre">generate_mesh</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tess_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'voronoi'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">format_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">('msh4',)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">relative_cl</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mesh_quality_min</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.9</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interface_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'continuous'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">partition</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">16</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/graintrace/construct_voronoi_mesh.html#VoronoiMeshBuilder.generate_mesh"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#graintrace.construct_voronoi_mesh.VoronoiMeshBuilder.generate_mesh" title="Link to this definition"></a></dt>
+<dd><p>Generate an FE mesh from a Neper .tess (tri for 2D, tet for 3D, 2nd order).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>tess_file</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+<li><p><strong>output_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+<li><p><strong>relative_cl</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>mesh_quality_min</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>interface_type</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+<li><p><strong>partition</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="graintrace.construct_voronoi_mesh.VoronoiMeshBuilder.export_cell_properties">
+<span class="sig-name descname"><span class="pre">export_cell_properties</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tess_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_cell</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'id,vol,w,x,y,z,radeq'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'id,w,x,y,z'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/graintrace/construct_voronoi_mesh.html#VoronoiMeshBuilder.export_cell_properties"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#graintrace.construct_voronoi_mesh.VoronoiMeshBuilder.export_cell_properties" title="Link to this definition"></a></dt>
+<dd><p>Compute Neper cell/seed stats, merge them, and export CPFE strain files.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>tess_file</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="graintrace.construct_voronoi_mesh.VoronoiMeshBuilder.evaluate_output_voronoi">
+<span class="sig-name descname"><span class="pre">evaluate_output_voronoi</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tess_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">length_norm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/graintrace/construct_voronoi_mesh.html#VoronoiMeshBuilder.evaluate_output_voronoi"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#graintrace.construct_voronoi_mesh.VoronoiMeshBuilder.evaluate_output_voronoi" title="Link to this definition"></a></dt>
+<dd><p>Evaluate Neper Voronoi output: compare cell vs seed props, save figures.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>tess_file</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+<li><p><strong>length_norm</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="graintrace.construct_voronoi_mesh.VoronoiMeshBuilder.reformat_tesr_file">
+<span class="sig-name descname"><span class="pre">reformat_tesr_file</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tesr_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">orientation_file</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/graintrace/construct_voronoi_mesh.html#VoronoiMeshBuilder.reformat_tesr_file"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#graintrace.construct_voronoi_mesh.VoronoiMeshBuilder.reformat_tesr_file" title="Link to this definition"></a></dt>
+<dd><p>Output CSV columns:
+X, Y, Z, CellID, Eul0, Eul1, Eul2</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>tesr_file</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+<li><p><strong>orientation_file</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="api.html" class="btn btn-neutral float-left" title="API reference" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="construct_nf_mesh.html" class="btn btn-neutral float-right" title="graintrace.construct_nf_mesh" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Argonne National Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

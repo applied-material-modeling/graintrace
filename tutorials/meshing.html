@@ -1,0 +1,509 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Meshing a grain grid into hex &mdash; graintrace 0.1.2</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=92734c54"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=96c007af"></script>
+      <script src="../_static/design-tabs.js?v=f930bc37"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Registering FF data to the sim frame" href="experiment-rotation.html" />
+    <link rel="prev" title="Voxel segmentation and meshing" href="voxel-segmentation-mesh.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            graintrace
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts.html">Concepts &amp; data formats</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../configuration.html">Configuration reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../mcp.html">MCP server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../benchmarks.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pitfalls.html">Common pitfalls</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Tutorials &amp; examples</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="tutorials.html">Tutorials</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="hedm-stitching.html">HEDM scan simulation and stitching</a></li>
+<li class="toctree-l2"><a class="reference internal" href="microstructure-generation.html">Microstructure generation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ff-reconstruction.html">FF Voronoi reconstruction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="nf-reconstruction.html">NF mesh reconstruction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="voxel-segmentation-mesh.html">Voxel segmentation and meshing</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Meshing a grain grid into hex</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#inputs">Inputs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#sculpt-conformal-mesh">SCULPT conformal mesh</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#direct-voxel-dump">Direct voxel dump</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#outputs">Outputs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#gotchas">Gotchas</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#full-example">Full example</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="experiment-rotation.html">Registering FF data to the sim frame</a></li>
+<li class="toctree-l2"><a class="reference internal" href="material-calibration.html">Material calibration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cpfe-simulation.html">CPFE simulation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cpfe-nf-ff.html">CPFE (NF geometry + FF initial strain)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="post-processing.html">Post-CPFE analysis &amp; plotting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rare-event-identification.html">Rare-event identification (REI)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rei-comparison.html">REI comparison</a></li>
+<li class="toctree-l2"><a class="reference internal" href="grain-tracking.html">Grain tracking across load steps</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../api/api.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../development.html">Building &amp; testing the docs</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">graintrace</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="tutorials.html">Tutorials</a></li>
+      <li class="breadcrumb-item active">Meshing a grain grid into hex</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/tutorials/meshing.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="meshing-a-grain-grid-into-hex">
+<h1>Meshing a grain grid into hex<a class="headerlink" href="#meshing-a-grain-grid-into-hex" title="Link to this heading"></a></h1>
+<p>Turn a voxel or tessellation grain grid into a hexahedral CPFE mesh with
+<code class="xref py py-class docutils literal notranslate"><span class="pre">VoxelMeshBuilder</span></code>. Two paths are available through
+<code class="docutils literal notranslate"><span class="pre">VoxelMeshBuilder.mesh()</span></code>: <code class="docutils literal notranslate"><span class="pre">mesher=&quot;sculpt&quot;</span></code> builds a conformal hex mesh
+with CUBIT/SCULPT, and <code class="docutils literal notranslate"><span class="pre">mesher=&quot;voxel&quot;</span></code> writes a direct voxel-to-Exodus dump
+with no external tools. The recommendations below come from a 12-case
+microstructure study.</p>
+<p><strong>Needs:</strong> CUBIT/SCULPT for the <code class="docutils literal notranslate"><span class="pre">sculpt</span></code> path (the <code class="docutils literal notranslate"><span class="pre">voxel</span></code> path needs no
+external tools).</p>
+<section id="inputs">
+<h2>Inputs<a class="headerlink" href="#inputs" title="Link to this heading"></a></h2>
+<p>A segmented grain grid (from a reconstruction or generation step) plus the
+Euler columns and crystal symmetry. The same <code class="docutils literal notranslate"><span class="pre">mesh()</span></code> entry point is shared by
+<code class="xref py py-class docutils literal notranslate"><span class="pre">NearFieldMeshBuilder</span></code> and by
+<code class="xref py py-class docutils literal notranslate"><span class="pre">VoronoiMeshBuilder</span></code> (<code class="docutils literal notranslate"><span class="pre">build_voronoi(generate_mesh=True)</span></code>).
+Grid generation lives in <a class="reference internal" href="../concepts.html"><span class="doc">Concepts &amp; data formats</span></a>; see also <a class="reference internal" href="ff-reconstruction.html"><span class="doc">FF Voronoi reconstruction</span></a>
+for producing <code class="docutils literal notranslate"><span class="pre">reconstruction_reformatted.csv</span></code>.</p>
+</section>
+<section id="sculpt-conformal-mesh">
+<h2>SCULPT conformal mesh<a class="headerlink" href="#sculpt-conformal-mesh" title="Link to this heading"></a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">graintrace.construct_voxel_mesh</span><span class="w"> </span><span class="kn">import</span> <span class="n">VoxelMeshBuilder</span>
+
+<span class="n">builder</span> <span class="o">=</span> <span class="n">VoxelMeshBuilder</span><span class="p">(</span>
+    <span class="n">file_path</span><span class="o">=</span><span class="s2">"voronoi.csv"</span><span class="p">,</span> <span class="n">save_dir</span><span class="o">=</span><span class="s2">"out/mesh"</span><span class="p">,</span>
+    <span class="n">euler_cols</span><span class="o">=</span><span class="p">[</span><span class="s2">"Eul0"</span><span class="p">,</span> <span class="s2">"Eul1"</span><span class="p">,</span> <span class="s2">"Eul2"</span><span class="p">],</span>
+    <span class="n">angle_convention</span><span class="o">=</span><span class="s2">"bunge"</span><span class="p">,</span> <span class="n">angle_type</span><span class="o">=</span><span class="s2">"degrees"</span><span class="p">,</span> <span class="n">symmetry</span><span class="o">=</span><span class="s2">"432"</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">builder</span><span class="o">.</span><span class="n">mesh</span><span class="p">(</span>
+    <span class="n">sculpt_config</span><span class="o">=</span><span class="p">{</span>
+        <span class="s2">"psculpt"</span><span class="p">:</span> <span class="s2">"/path/to/cubit/bin/psculpt"</span><span class="p">,</span>
+        <span class="s2">"epu"</span><span class="p">:</span>     <span class="s2">"/path/to/cubit/bin/epu"</span><span class="p">,</span>
+        <span class="s2">"nprocs"</span><span class="p">:</span>  <span class="mi">4</span><span class="p">,</span>                    <span class="c1"># &lt;= physical cores</span>
+    <span class="p">},</span>
+    <span class="n">sculpt_options</span><span class="o">=</span><span class="n">SCULPT_OPTS</span><span class="p">,</span>          <span class="c1"># one of the two configs below</span>
+    <span class="n">merged_grid</span><span class="o">=</span><span class="n">merged_grid_path</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>Only two <code class="docutils literal notranslate"><span class="pre">sculpt_options</span></code> configs are recommended, both keeping <code class="docutils literal notranslate"><span class="pre">-df</span> <span class="pre">1</span></code>
+(defeaturing) safe. See <a class="reference internal" href="../configuration.html"><span class="doc">Configuration reference</span></a> for the full <code class="docutils literal notranslate"><span class="pre">sculpt_config</span></code>
+and <code class="docutils literal notranslate"><span class="pre">sculpt_options</span></code> reference.</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">adapt4</span></code>: <code class="docutils literal notranslate"><span class="pre">(&quot;-A&quot;,</span> <span class="pre">&quot;4&quot;,</span> <span class="pre">&quot;-df&quot;,</span> <span class="pre">&quot;1&quot;,</span> <span class="pre">&quot;-S&quot;,</span> <span class="pre">&quot;2&quot;,</span> <span class="pre">&quot;-CS&quot;,</span> <span class="pre">&quot;4&quot;)</span></code>. Grain
+preservation at or above 98 percent, positive Scaled Jacobian. Adapt-type 4
+refines without triggering aggressive small-grain absorption.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">df1</span></code>: <code class="docutils literal notranslate"><span class="pre">(&quot;-df&quot;,</span> <span class="pre">&quot;1&quot;,</span> <span class="pre">&quot;-mvs&quot;,</span> <span class="pre">&quot;2&quot;,</span> <span class="pre">&quot;-S&quot;,</span> <span class="pre">&quot;2&quot;,</span> <span class="pre">&quot;-CS&quot;,</span> <span class="pre">&quot;5&quot;)</span></code>. Grain
+preservation at or above 95 percent, positive Scaled Jacobian. <code class="docutils literal notranslate"><span class="pre">-mvs</span> <span class="pre">2</span></code>
+(minimum voxel size for defeaturing) prevents <code class="docutils literal notranslate"><span class="pre">-df</span> <span class="pre">1</span></code> from swallowing
+larger grains.</p></li>
+</ul>
+</section>
+<section id="direct-voxel-dump">
+<h2>Direct voxel dump<a class="headerlink" href="#direct-voxel-dump" title="Link to this heading"></a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">builder</span><span class="o">.</span><span class="n">mesh</span><span class="p">(</span><span class="n">mesher</span><span class="o">=</span><span class="s2">"voxel"</span><span class="p">,</span> <span class="n">merged_grid</span><span class="o">=</span><span class="n">merged_grid_path</span><span class="p">)</span>
+<span class="c1"># -&gt; mesh.e (HEX8, one block per grain, ids 1..N) + &lt;orientations&gt;.csv (MRP)</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>One axis-aligned cube hex per voxel. Scaled Jacobian is 1 everywhere, so there
+are no inverted or sliver elements and grain preservation is 100 percent by
+construction. Needs no <code class="docutils literal notranslate"><span class="pre">sculpt_config</span></code> or CUBIT.</p></li>
+<li><p>Trade-offs: stair-stepped grain boundaries (not smoothed) and a fixed one hex
+per filled voxel (element count equals voxel count). Control resolution
+through the tesr/grid size.</p></li>
+<li><p>Use it when SCULPT smoothing produces bad elements (junction slivers) or when
+a guaranteed-clean mesh matters more than boundary smoothness.</p></li>
+</ul>
+</section>
+<section id="outputs">
+<h2>Outputs<a class="headerlink" href="#outputs" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">mesh.e</span></code> — Exodus hex mesh, one block per grain.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&lt;mapped_orientations&gt;.csv</span></code> — per-element MRP orientations for CPFE.</p></li>
+</ul>
+</section>
+<section id="gotchas">
+<h2>Gotchas<a class="headerlink" href="#gotchas" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>Verify before running CPFE. For the SCULPT path, check all three; the voxel
+path guarantees the first two by construction, so only the last matters there:</p>
+<ol class="arabic simple">
+<li><p>Grain preservation: <code class="docutils literal notranslate"><span class="pre">N_mesh</span> <span class="pre">/</span> <span class="pre">N_tess</span></code> at or above 98 percent for
+<code class="docutils literal notranslate"><span class="pre">adapt4</span></code>, 95 percent for <code class="docutils literal notranslate"><span class="pre">df1</span></code>. Lower means defeaturing has silently
+absorbed grains.</p></li>
+<li><p>Minimum Scaled Jacobian above 0, not just the mean. A single negative-SJ
+element will crash the MOOSE simulation.</p></li>
+<li><p>Mesh-vs-tess grain-size distribution check.</p></li>
+</ol>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">-df</span> <span class="pre">1</span></code> on its own eats grains. Without <code class="docutils literal notranslate"><span class="pre">-A</span> <span class="pre">4</span></code> or <code class="docutils literal notranslate"><span class="pre">-mvs</span> <span class="pre">2</span></code> it silently
+absorbs a large fraction of grains at 100 cubed voxels.</p></li>
+<li><p>Do not override the smoothing method (<code class="docutils literal notranslate"><span class="pre">-S</span></code>) on irregular voxel meshes.
+Forcing smoothing after guaranteed-quality smoothing can diverge (minimum SJ
+driven to -1) and segfault SCULPT. Prefer the two configs above, or use
+<code class="docutils literal notranslate"><span class="pre">mesher=&quot;voxel&quot;</span></code>.</p></li>
+<li><p>Use the minimum number of grains that faithfully represents the target
+distribution. Fewer grains means fewer elements and a tractable CPFE
+wall-clock; add grains only when the distribution or the CPFE quantity of
+interest does not converge.</p></li>
+</ul>
+</section>
+<section id="full-example">
+<h2>Full example<a class="headerlink" href="#full-example" title="Link to this heading"></a></h2>
+<div class="literal-block-wrapper docutils container" id="id1">
+<div class="code-block-caption"><span class="caption-text">examples/demonstrate_synthetic_cpfe.py</span><a class="headerlink" href="#id1" title="Link to this code"></a></div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Copyright 2026, UChicago Argonne, LLC</span>
+<span class="c1"># All Rights Reserved</span>
+<span class="c1"># Software Name: graintrace</span>
+<span class="c1"># By: Argonne National Laboratory</span>
+<span class="c1"># OPEN SOURCE LICENSE (MIT)</span>
+<span class="c1">#</span>
+<span class="c1"># Permission is hereby granted, free of charge, to any person obtaining a copy</span>
+<span class="c1"># of this software and associated documentation files (the "Software"), to deal</span>
+<span class="c1"># in the Software without restriction, including without limitation the rights</span>
+<span class="c1"># to use, copy, modify, merge, publish, distribute, sublicense, and/or sell</span>
+<span class="c1"># copies of the Software, and to permit persons to whom the Software is</span>
+<span class="c1"># furnished to do so, subject to the following conditions:</span>
+<span class="c1">#</span>
+<span class="c1"># The above copyright notice and this permission notice shall be included in</span>
+<span class="c1"># all copies or substantial portions of the Software.</span>
+<span class="c1">#</span>
+<span class="c1"># THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR</span>
+<span class="c1"># IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,</span>
+<span class="c1"># FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE</span>
+<span class="c1"># AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER</span>
+<span class="c1"># LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,</span>
+<span class="c1"># OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN</span>
+<span class="c1"># THE SOFTWARE.</span>
+
+<span class="sd">"""End-to-end synthetic CPFE demo: generate a microstructure and drive it to CPFE.</span>
+
+<span class="sd">Pipeline:</span>
+<span class="sd">  1. CrystalGenerator     -&gt; voronoi.tess + voronoi.ori + voronoi.tesr (voxelized in</span>
+<span class="sd">                             the same neper call by adding tesr to -format)</span>
+<span class="sd">  2. reformat_tesr_file   -&gt; voronoi_reformatted.csv (X,Y,Z,CellID,Eul0,Eul1,Eul2)</span>
+<span class="sd">  3. VoxelMeshBuilder     -&gt; hex mesh + per-element MRP orientations, either:</span>
+<span class="sd">                             3a. mesher="sculpt" -&gt; conformal (smoothed) SCULPT mesh</span>
+<span class="sd">                             3b. mesher="voxel"  -&gt; one cube hex per voxel, no SCULPT,</span>
+<span class="sd">                                 zero inverted elements (stair-stepped boundaries)</span>
+<span class="sd">Then two extensions off the same microstructure:</span>
+<span class="sd">  A. NeperTessToGraphNN   -&gt; cell graph (nodes = grains, edges = shared faces)</span>
+<span class="sd">  B. CPFESimulation       -&gt; MOOSE/PUMA crystal-plasticity run (NEML2 v3 AOTI)</span>
+
+<span class="sd">Because NEPER hands us exact per-voxel grain IDs (CellID), we pass cell_id_col and</span>
+<span class="sd">VoxelMeshBuilder SKIPS segmentation entirely. Drop cell_id_col to instead segment the</span>
+<span class="sd">raster Euler field (see the commented segmentation_prop block below).</span>
+<span class="sd">"""</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">graintrace.generate_random_crystal</span><span class="w"> </span><span class="kn">import</span> <span class="n">CrystalGenerator</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">graintrace.construct_voronoi_mesh</span><span class="w"> </span><span class="kn">import</span> <span class="n">VoronoiMeshBuilder</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">graintrace.construct_voxel_mesh</span><span class="w"> </span><span class="kn">import</span> <span class="n">VoxelMeshBuilder</span>
+
+
+<span class="c1">## INPUTS ---------------------------------------------------</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
+
+    <span class="n">box</span> <span class="o">=</span> <span class="mf">1000.0</span>
+    <span class="n">grains</span> <span class="o">=</span> <span class="mi">100</span>
+    <span class="n">z_aspect</span> <span class="o">=</span> <span class="mf">1.0</span>
+
+    <span class="n">tesr_res</span> <span class="o">=</span> <span class="p">[</span><span class="mi">100</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">100</span><span class="p">]</span>
+    <span class="n">ncore</span> <span class="o">=</span> <span class="mi">10</span>
+
+    <span class="n">output_dir</span> <span class="o">=</span> <span class="s2">"uniform"</span>
+    <span class="n">bounding_box</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">box</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">box</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">box</span><span class="p">]</span>
+
+    <span class="n">sculpt_config</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">"launcher"</span><span class="p">:</span> <span class="s2">"/path/to/cubit/bin/mpi/bin/mpiexec"</span><span class="p">,</span>
+        <span class="s2">"psculpt"</span><span class="p">:</span> <span class="s2">"/path/to/cubit/bin/psculpt"</span><span class="p">,</span>
+        <span class="s2">"epu"</span><span class="p">:</span> <span class="s2">"/path/to/cubit/bin/epu"</span><span class="p">,</span>
+        <span class="s2">"nprocs"</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">ncore</span><span class="p">),</span>
+        <span class="s2">"environment"</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">"OPAL_LIBDIR"</span><span class="p">:</span> <span class="s2">"/path/to/cubit/bin/mpi/lib"</span><span class="p">,</span>
+            <span class="s2">"OPAL_PREFIX"</span><span class="p">:</span> <span class="s2">"/path/to/cubit/bin/mpi"</span><span class="p">,</span>
+        <span class="p">},</span>
+    <span class="p">}</span>
+    <span class="n">sculpt_options</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"--void_mat"</span><span class="p">,</span> <span class="s2">"0"</span><span class="p">)</span>
+
+    <span class="c1">## 1. Generate the tessellation</span>
+    <span class="n">cg</span> <span class="o">=</span> <span class="n">CrystalGenerator</span><span class="p">(</span>
+        <span class="n">output_dir</span><span class="o">=</span><span class="n">output_dir</span><span class="p">,</span>
+        <span class="n">bounding_box</span><span class="o">=</span><span class="n">bounding_box</span><span class="p">,</span>
+        <span class="n">dim</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+        <span class="n">env</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">cg</span><span class="o">.</span><span class="n">generate_tessellation</span><span class="p">(</span>
+        <span class="n">morpho_args</span><span class="o">=</span><span class="p">{</span>
+            <span class="s2">"type"</span><span class="p">:</span> <span class="s2">"raw"</span><span class="p">,</span>
+            <span class="s2">"morpho_str"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"diameq:lognormal(130, 5),aspratio(1, 1, </span><span class="si">{</span><span class="n">z_aspect</span><span class="si">}</span><span class="s2">)"</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="n">iterations</span><span class="o">=</span><span class="mi">20000</span><span class="p">,</span>
+        <span class="n">extra_neper_args</span><span class="o">=</span><span class="p">[</span>
+            <span class="s2">"-reg"</span><span class="p">,</span>
+            <span class="s2">"1"</span><span class="p">,</span>
+            <span class="s2">"-format"</span><span class="p">,</span>
+            <span class="s2">"tess,geo,ori,tesr"</span><span class="p">,</span>
+            <span class="s2">"-tesrsize"</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">tesr_res</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">,</span><span class="si">{</span><span class="n">tesr_res</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">,</span><span class="si">{</span><span class="n">tesr_res</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="s2">"-tesrformat"</span><span class="p">,</span>
+            <span class="s2">"ascii"</span><span class="p">,</span>
+        <span class="p">],</span>
+    <span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">"(nominal target grains ~= </span><span class="si">{</span><span class="n">grains</span><span class="si">}</span><span class="s2">; actual count set by diameq distribution)"</span>
+    <span class="p">)</span>
+
+    <span class="n">ori_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="s2">"voronoi.ori"</span><span class="p">)</span>  <span class="c1"># per-cell Euler-bunge, degrees</span>
+    <span class="n">tesr_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="s2">"voronoi.tesr"</span><span class="p">)</span>
+
+    <span class="c1">## 2. Reformat .tesr -&gt; per-voxel CSV (X,Y,Z,CellID,Eul0,Eul1,Eul2)</span>
+    <span class="n">reformatter</span> <span class="o">=</span> <span class="n">VoronoiMeshBuilder</span><span class="p">(</span>
+        <span class="n">input_csv</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">output_dir</span><span class="o">=</span><span class="n">output_dir</span><span class="p">,</span>
+        <span class="n">bounding_box</span><span class="o">=</span><span class="n">bounding_box</span><span class="p">,</span>
+        <span class="n">dim</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+        <span class="n">env</span><span class="o">=</span><span class="n">cg</span><span class="o">.</span><span class="n">env</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">reformatter</span><span class="o">.</span><span class="n">reformat_tesr_file</span><span class="p">(</span><span class="n">tesr_file</span><span class="o">=</span><span class="n">tesr_file</span><span class="p">,</span> <span class="n">orientation_file</span><span class="o">=</span><span class="n">ori_file</span><span class="p">)</span>
+    <span class="n">voxel_csv</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="s2">"voronoi_reformatted.csv"</span><span class="p">)</span>
+
+    <span class="c1">## 3. Voxel meshing pathway</span>
+    <span class="n">builder</span> <span class="o">=</span> <span class="n">VoxelMeshBuilder</span><span class="p">(</span>
+        <span class="n">file_path</span><span class="o">=</span><span class="n">voxel_csv</span><span class="p">,</span>
+        <span class="n">save_dir</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="s2">"mesh"</span><span class="p">),</span>
+        <span class="n">euler_cols</span><span class="o">=</span><span class="p">(</span><span class="s2">"Eul0"</span><span class="p">,</span> <span class="s2">"Eul1"</span><span class="p">,</span> <span class="s2">"Eul2"</span><span class="p">),</span>
+        <span class="n">cell_id_col</span><span class="o">=</span><span class="s2">"CellID"</span><span class="p">,</span>
+        <span class="n">angle_convention</span><span class="o">=</span><span class="s2">"bunge"</span><span class="p">,</span>
+        <span class="n">angle_type</span><span class="o">=</span><span class="s2">"degrees"</span><span class="p">,</span>
+        <span class="n">symmetry</span><span class="o">=</span><span class="s2">"432"</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">merged_grid</span> <span class="o">=</span> <span class="n">builder</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">(</span><span class="n">apply_smoothing</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">Reconstruction complete: </span><span class="si">{</span><span class="n">merged_grid</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+
+    <span class="n">mesh_path</span> <span class="o">=</span> <span class="n">builder</span><span class="o">.</span><span class="n">mesh</span><span class="p">(</span>
+        <span class="n">sculpt_config</span><span class="o">=</span><span class="n">sculpt_config</span><span class="p">,</span>
+        <span class="n">sculpt_options</span><span class="o">=</span><span class="n">sculpt_options</span><span class="p">,</span>
+        <span class="n">merged_grid</span><span class="o">=</span><span class="n">merged_grid</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">ori_csv</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">builder</span><span class="o">.</span><span class="n">mapped_orientations_path</span><span class="si">}</span><span class="s2">.csv"</span>  <span class="c1"># per-element MRP orientations</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Meshing complete: </span><span class="si">{</span><span class="n">mesh_path</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Per-element orientations (MRP): </span><span class="si">{</span><span class="n">ori_csv</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+    <span class="c1">## 3b. ALTERNATIVE mesh: direct voxel -&gt; Exodus (no SCULPT, zero bad elements)</span>
+    <span class="c1"># mesher="voxel" dumps one perfect cube hex per voxel: stair-stepped boundaries</span>
+    <span class="c1"># but scaled Jacobian = 1 everywhere (no inverted/sliver elements). Use this</span>
+    <span class="c1"># mesh + orientations for CPFE if the SCULPT mesh has bad elements.</span>
+    <span class="n">voxel_mesh</span> <span class="o">=</span> <span class="n">builder</span><span class="o">.</span><span class="n">mesh</span><span class="p">(</span>
+        <span class="n">mesher</span><span class="o">=</span><span class="s2">"voxel"</span><span class="p">,</span>
+        <span class="n">merged_grid</span><span class="o">=</span><span class="n">merged_grid</span><span class="p">,</span>
+        <span class="n">mesh_path</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="s2">"mesh"</span><span class="p">,</span> <span class="s2">"mesh_voxel.e"</span><span class="p">),</span>
+        <span class="n">mapped_orientations_path</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="s2">"mesh"</span><span class="p">,</span> <span class="s2">"orientations_voxel"</span><span class="p">),</span>
+    <span class="p">)</span>
+    <span class="n">voxel_ori</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="s2">"mesh"</span><span class="p">,</span> <span class="s2">"orientations_voxel.csv"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Voxel Exodus: </span><span class="si">{</span><span class="n">voxel_mesh</span><span class="si">}</span><span class="s2">  (orientations: </span><span class="si">{</span><span class="n">voxel_ori</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
+
+    <span class="c1">## EXTENSION A: build a cell graph directly from the tessellation -----------</span>
+    <span class="c1"># Independent of the mesh; reads voronoi.tess (nodes = grains, edges = shared</span>
+    <span class="c1"># faces, node orientations returned as neml2 v3 MRP -&gt; needs neml2 + torch_geometric).</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">graintrace.tess_to_gnn</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+        <span class="n">NeperTessToGraphNN</span><span class="p">,</span>
+    <span class="p">)</span>  <span class="c1"># pylint: disable=import-outside-toplevel</span>
+
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">NeperTessToGraphNN</span><span class="p">(</span>
+        <span class="n">tess_path</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="s2">"voronoi.tess"</span><span class="p">),</span> <span class="n">device</span><span class="o">=</span><span class="s2">"cpu"</span>
+    <span class="p">)</span>
+    <span class="n">graph</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">build_cell_graph</span><span class="p">()</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">Graph built: </span><span class="si">{</span><span class="n">graph</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+    <span class="c1">## EXTENSION B: run a CPFE simulation on the meshed microstructure ----------</span>
+    <span class="c1"># Consumes the SCULPT mesh + the per-element MRP orientations written above.</span>
+    <span class="c1"># (eeres_file=None -&gt; zero initial elastic strain; this is a purely synthetic</span>
+    <span class="c1">#  microstructure with no far-field residual-strain field.)</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>  <span class="c1"># pylint: disable=import-outside-toplevel</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">graintrace.run_cpfe_simulation</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+        <span class="n">CPFESimulation</span><span class="p">,</span>
+    <span class="p">)</span>  <span class="c1"># pylint: disable=import-outside-toplevel</span>
+
+    <span class="c1"># EDIT: path to your built PUMA binary (e.g. external/puma/puma-opt).</span>
+    <span class="n">moose_run_file</span> <span class="o">=</span> <span class="s2">"external/puma/puma-opt"</span>
+    <span class="n">device</span> <span class="o">=</span> <span class="s2">"cuda:0"</span> <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span> <span class="k">else</span> <span class="s2">"cpu"</span>  <span class="c1"># GPU if present</span>
+
+    <span class="n">total_strain</span> <span class="o">=</span> <span class="mf">0.002</span>  <span class="c1"># applied axial (z) engineering strain</span>
+    <span class="n">grid_elements</span> <span class="o">=</span> <span class="p">[</span><span class="mi">50</span><span class="p">,</span> <span class="mi">50</span><span class="p">,</span> <span class="mi">50</span><span class="p">]</span>  <span class="c1"># field-output grid resolution</span>
+
+    <span class="n">sim</span> <span class="o">=</span> <span class="n">CPFESimulation</span><span class="p">(</span>
+        <span class="n">mesh_file</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">mesh_path</span><span class="p">),</span>
+        <span class="n">save_simulation_folder</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="s2">"simulation"</span><span class="p">),</span>
+        <span class="n">moose_run_file</span><span class="o">=</span><span class="n">moose_run_file</span><span class="p">,</span>
+        <span class="n">element_order</span><span class="o">=</span><span class="s2">"FIRST"</span><span class="p">,</span>  <span class="c1"># SCULPT hex meshes are linear (FIRST) order</span>
+        <span class="n">eeres_file</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>  <span class="c1"># no FF residual strain -&gt; zero_initial_strain.ee</span>
+        <span class="n">ori_file</span><span class="o">=</span><span class="n">ori_csv</span><span class="p">,</span>  <span class="c1"># already MRP from the mesh step (no conversion needed)</span>
+        <span class="n">dim</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+        <span class="n">use_ff_initial_field</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>  <span class="c1"># voxel mesh, not co-registered FF strain</span>
+    <span class="p">)</span>
+
+    <span class="n">sim</span><span class="o">.</span><span class="n">set_parameters</span><span class="p">(</span>
+        <span class="s2">"material"</span><span class="p">,</span>
+        <span class="n">slip_constant_strength</span><span class="o">=</span><span class="mf">130.0</span><span class="p">,</span>
+        <span class="n">voce_hardening_initial_slope</span><span class="o">=</span><span class="mf">1556.09</span><span class="p">,</span>
+        <span class="n">voce_hardening_saturation</span><span class="o">=</span><span class="mf">100.0</span><span class="p">,</span>
+        <span class="n">power_slip_n</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+        <span class="n">power_slip_g0</span><span class="o">=</span><span class="mf">0.0001</span><span class="p">,</span>
+        <span class="n">elastic_E</span><span class="o">=</span><span class="mf">209016.0</span><span class="p">,</span>
+        <span class="n">elastic_nu</span><span class="o">=</span><span class="mf">0.307</span><span class="p">,</span>
+        <span class="n">elastic_G</span><span class="o">=</span><span class="mf">60355.0</span><span class="p">,</span>
+        <span class="n">burger_scale</span><span class="o">=</span><span class="mf">2.22</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">sim</span><span class="o">.</span><span class="n">set_parameters</span><span class="p">(</span>
+        <span class="s2">"simulation_parameters"</span><span class="p">,</span>
+        <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+        <span class="n">device_batch</span><span class="o">=</span><span class="mi">20000</span><span class="p">,</span>
+        <span class="n">dt</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+        <span class="n">total_time</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span>
+        <span class="n">initialize_time</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+        <span class="n">sync_times</span><span class="o">=</span><span class="s2">"2.0"</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">displace</span> <span class="o">=</span> <span class="n">total_strain</span> <span class="o">*</span> <span class="p">(</span><span class="n">bounding_box</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span> <span class="o">-</span> <span class="n">bounding_box</span><span class="p">[</span><span class="mi">4</span><span class="p">])</span>
+    <span class="n">sim</span><span class="o">.</span><span class="n">set_parameters</span><span class="p">(</span>
+        <span class="s2">"boundary"</span><span class="p">,</span>
+        <span class="n">bounding_box</span><span class="o">=</span><span class="n">bounding_box</span><span class="p">,</span>
+        <span class="n">bc</span><span class="o">=</span><span class="p">{</span>
+            <span class="s2">"x"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"negative"</span><span class="p">:</span> <span class="s2">"stress_free"</span><span class="p">,</span> <span class="s2">"positive"</span><span class="p">:</span> <span class="s2">"stress_free"</span><span class="p">},</span>
+            <span class="s2">"y"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"negative"</span><span class="p">:</span> <span class="s2">"stress_free"</span><span class="p">,</span> <span class="s2">"positive"</span><span class="p">:</span> <span class="s2">"stress_free"</span><span class="p">},</span>
+            <span class="s2">"z"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"negative"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">"positive"</span><span class="p">:</span> <span class="n">displace</span><span class="p">},</span>
+        <span class="p">},</span>
+    <span class="p">)</span>
+
+    <span class="n">grid_bb</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">bounding_box</span><span class="p">)</span>  <span class="c1"># inset the grid box to avoid boundary voxels</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span>
+        <span class="n">grid_bb</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+=</span> <span class="mf">1e-4</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span>
+        <span class="n">grid_bb</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-=</span> <span class="mf">1e-4</span>
+    <span class="n">sim</span><span class="o">.</span><span class="n">set_parameters</span><span class="p">(</span>
+        <span class="s2">"grid_properties"</span><span class="p">,</span> <span class="n">number_of_elements</span><span class="o">=</span><span class="n">grid_elements</span><span class="p">,</span> <span class="n">bounding_box</span><span class="o">=</span><span class="n">grid_bb</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Bakes material params -&gt; neml2-compile -&gt; AOTI package -&gt; launches puma-opt.</span>
+    <span class="n">sim</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">ncore</span><span class="o">=</span><span class="n">ncore</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Simulation complete: </span><span class="si">{</span><span class="n">sim</span><span class="o">.</span><span class="n">save_simulation_folder</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">"__main__"</span><span class="p">:</span>
+    <span class="n">main</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="voxel-segmentation-mesh.html" class="btn btn-neutral float-left" title="Voxel segmentation and meshing" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="experiment-rotation.html" class="btn btn-neutral float-right" title="Registering FF data to the sim frame" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Argonne National Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
