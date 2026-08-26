@@ -171,6 +171,12 @@ linkcheck_anchors_ignore_for_url = [
     r"https://docs\.pytorch\.org/.*",
     r"https://pytorch\.org/.*",
 ]
+# Publisher sites that return 403 to the link checker (bots blocked) even though
+# the DOI resolves in a browser. Wiley (10.1002/...) blocks the checker; skip it.
+linkcheck_ignore = [
+    r"https://doi\.org/10\.1002/.*",
+    r"https://onlinelibrary\.wiley\.com/.*",
+]
 linkcheck_timeout = 15
 linkcheck_retries = 2
 
