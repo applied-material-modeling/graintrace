@@ -74,9 +74,10 @@ examples = ["meshio>=5.0"]
 # so the docs build needs none of NEML2/MOOSE/NEPER/CUBIT.
 docs = [
     "sphinx>=7.0",
-    "sphinx-rtd-theme>=2.0",
+    "pydata-sphinx-theme>=0.15",
     "nbsphinx>=0.9",
     "ipython",
+    "ipykernel",
     "sphinx-copybutton>=0.5",
     "sphinx-design>=0.5",
 ]

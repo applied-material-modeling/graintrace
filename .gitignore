@@ -87,3 +87,10 @@ rei_comparison_out/
 
 # Sphinx documentation build output
 docs/_build/
+
+# Scratch artifacts written by executed doc notebooks (docs/tutorials/*.ipynb)
+docs/tutorials/*.csv
+docs/tutorials/*.vtk
+docs/tutorials/rei_cmp_out/
+docs/tutorials/out/
+docs/tutorials/*_reduced.csv

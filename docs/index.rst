@@ -24,36 +24,42 @@ Some features are pure Python and run from a plain ``pip install`` (stitching,
 post-processing, rare-event identification). Others need parts of the compiled
 stack (calibration needs NEML2 + pyzag; CPFE needs MOOSE/PUMA; meshing needs
 CUBIT/SCULPT). ``import graintrace`` lazy-imports the heavy dependencies, so the
-pure-Python subset works without the native build. See :doc:`install` for the
-three installation tiers.
+pure-Python subset works without the native build.
+
+.. grid:: 2
+   :gutter: 3
+
+   .. grid-item-card:: Getting started
+      :link: getting_started
+      :link-type: doc
+
+      Install (three tiers), a pure-Python quickstart, and the pipeline and
+      data formats.
+
+   .. grid-item-card:: Tutorials
+      :link: tutorials/tutorials
+      :link-type: doc
+
+      One runnable notebook per workflow stage — reconstruction, calibration,
+      CPFE, and analysis.
+
+   .. grid-item-card:: Algorithms & theory
+      :link: algorithms/index
+      :link-type: doc
+
+      The model and algorithm behind each stage, with equations and references.
+
+   .. grid-item-card:: API reference
+      :link: api/api
+      :link-type: doc
+
+      Every public module, grouped by workflow stage.
 
 .. toctree::
-   :maxdepth: 1
-   :caption: Getting started
+   :hidden:
 
-   install
-   quickstart
-   concepts
-
-.. toctree::
-   :maxdepth: 1
-   :caption: Guides
-
-   configuration
-   mcp
-   benchmarks
-   pitfalls
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Tutorials & examples
-
+   getting_started
    tutorials/tutorials
-   examples
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Reference
-
+   algorithms/index
+   guides
    api/api
-   development

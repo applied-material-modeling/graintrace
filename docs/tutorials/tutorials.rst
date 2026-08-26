@@ -1,9 +1,14 @@
 Tutorials
 =========
 
-One guide per workflow stage. Each distills the recipe and embeds the matching
-runnable script from ``examples/``. The **Needs** in each guide states which
-external tools it requires; several run from a plain ``pip install`` alone.
+One notebook per workflow stage. Each has a short walkthrough with the code and,
+where the stage is pure Python, executed output (those also carry an "Open in
+Colab" badge). Stages that need the native stack (NEPER, CUBIT/SCULPT,
+MOOSE/PUMA, NEML2) state so at the top and are not runnable in Colab or CI —
+their outputs are generated in a configured environment.
+
+Each tutorial links to the matching :doc:`algorithm page </algorithms/index>`
+and API reference.
 
 .. toctree::
    :maxdepth: 1
@@ -31,5 +36,13 @@ external tools it requires; several run from a plain ``pip install`` alone.
 
    post-processing
    rare-event-identification
+   rei-example-2d
+   rei-example-3d
    rei-comparison
    grain-tracking
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Reference
+
+   /examples
