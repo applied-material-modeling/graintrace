@@ -11,7 +11,7 @@ sculpt_config
 -------------
 
 Required for any builder step that calls ``builder.mesh(sculpt_config=...)``.
-Takes executable paths only — no license tokens.
+It takes executable paths only, no license tokens.
 
 .. code-block:: python
 
@@ -65,7 +65,7 @@ Segmentation
 
 Two methods are available for voxel segmentation (EBSD / NF-as-voxel).
 
-Flood fill — simpler and faster:
+Flood fill (simpler and faster):
 
 .. code-block:: python
 
@@ -81,7 +81,7 @@ Flood fill — simpler and faster:
        },
    }
 
-Graph-based — better for complex textures:
+Graph-based (better for complex textures):
 
 .. code-block:: python
 
@@ -139,11 +139,11 @@ CPFE parameters
 :meth:`~graintrace.CPFESimulation.set_parameters` takes named groups. The main
 groups and common keys:
 
-**material** — ``slip_constant_strength``, ``voce_hardening_initial_slope``,
+**material**: ``slip_constant_strength``, ``voce_hardening_initial_slope``,
 ``voce_hardening_saturation``, ``power_slip_n``, ``power_slip_g0``, ``elastic_E``,
 ``elastic_nu``, ``elastic_G``, ``burger_scale``.
 
-**simulation_parameters** — ``dt``, ``total_time``, ``initialize_time`` (load
+**simulation_parameters**: ``dt``, ``total_time``, ``initialize_time`` (load
 ramps from ``initialize_time`` to ``total_time``), ``device`` (``"cpu"``,
 ``"cuda:N"``, or a space-separated list), ``device_batch`` (per-device NEML2
 chunk), ``sync_times`` (space-separated grid-output times). Output-frequency
@@ -156,19 +156,19 @@ knobs:
    * - Knob
      - Values
    * - ``grid_transfer``
-     - ``"final"`` (default) | ``"per_step"`` | ``"off"`` — regular-grid MultiApp transfer
+     - ``"final"`` (default) | ``"per_step"`` | ``"off"`` (regular-grid MultiApp transfer)
    * - ``exodus_output``
      - ``"sync"`` (default, only at ``sync_times``) | ``"per_step"``
    * - ``mesh_csv``
-     - ``"sync"`` (default) | ``"per_step"`` | ``"off"`` — per-element CSV on the true mesh
+     - ``"sync"`` (default) | ``"per_step"`` | ``"off"`` (per-element CSV on the true mesh)
 
 The defaults are the cheap settings; the per-step grid transfer dominates wall
 time. Three sources of REI field data are described in
 :doc:`tutorials/rare-event-identification`.
 
-**boundary** — ``bounding_box`` and the ``bc`` dict (above).
+**boundary**: ``bounding_box`` and the ``bc`` dict (above).
 
-**grid_properties** — ``number_of_elements`` and ``bounding_box``. The grid box
+**grid_properties**: ``number_of_elements`` and ``bounding_box``. The grid box
 should be inset by a small amount on each face to avoid mesh-boundary issues:
 
 .. code-block:: python

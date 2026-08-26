@@ -2,7 +2,7 @@ Benchmarks
 ==========
 
 The ``benchmark/`` folder holds standalone performance / scaling scripts for the
-three heaviest graintrace paths — graph segmentation, CPFE, and material
+three heaviest graintrace paths: graph segmentation, CPFE, and material
 calibration. They measure wall-clock timing and scaling **on your machine**, so
 you can size a run, pick thread counts and device batches, and see how cost grows
 with problem size before committing to a large job.
@@ -18,7 +18,7 @@ flag list and defaults.
 Graph segmentation
 ------------------
 
-``bench_graph_segmentation.py`` — **pure Python (numba / networkit / numpy); no
+``bench_graph_segmentation.py``: **pure Python (numba / networkit / numpy); no
 NEPER, SCULPT, MOOSE, or GPU, so it runs anywhere.**
 
 *What it measures.* Thread scaling of the two parallel kernels that dominate the
@@ -53,12 +53,12 @@ low thread counts that flattens out marks the useful maximum for your machine.
 CPFE
 ----
 
-``bench_cpfe.py`` — **requires the full PUMA stack:** ``puma-opt``
+``bench_cpfe.py`` **requires the full PUMA stack:** ``puma-opt``
 (``--puma-bin``), ``neml2-compile`` plus a C/C++ toolchain, ``mpiexec``, and a
 CUDA GPU. Skips cleanly if any is missing.
 
 *What it measures.* It generates a cube microstructure in memory, dumps it
-straight to an Exodus hex mesh with the voxel mesher (one HEX8 per voxel — no
+straight to an Exodus hex mesh with the voxel mesher (one HEX8 per voxel, no
 SCULPT/CUBIT/NEPER), then runs CPFE on the GPU and times it along two axes:
 
 - **resolution** → element count (``nx·ny·nz`` HEX8 elements), via
@@ -72,7 +72,7 @@ solve throughput from the one-time compile.
 
 *Why it matters.* Element count drives memory and solve time; ``device_batch``
 trades GPU memory for throughput. The sweep finds the largest batch that fits and
-the point where more elements stop scaling on your GPU — the inputs to
+the point where more elements stop scaling on your GPU: the inputs to
 ``number_of_elements`` and ``device_batch`` in :doc:`/tutorials/cpfe-simulation`.
 
 *Run.*
@@ -97,7 +97,7 @@ count.
 Material calibration
 --------------------
 
-``bench_calibration.py`` — **in-process only (NEML2 v3 + pyzag + torch); no
+``bench_calibration.py`` **in-process only (NEML2 v3 + pyzag + torch); no
 external binaries, but the env must have a working NEML2 v3 + pyzag.** Use
 ``--probe`` first to check whether the current environment can run a calibration
 at all (exit 0 = ok, 1 = broken) before a full sweep.
@@ -130,11 +130,11 @@ Output
 
 Each run creates ``benchmark/results/<host>_<timestamp>/<name>/`` containing:
 
-- ``<name>.csv`` — one row per swept configuration (the timing columns above),
-- ``<name>.json`` — the same rows plus run metadata (host, CPU/GPU, git commit,
+- ``<name>.csv``, one row per swept configuration (the timing columns above),
+- ``<name>.json``, the same rows plus run metadata (host, CPU/GPU, git commit,
   and the resolved arguments), so a result is self-describing, and
 - a speedup PNG for ``bench_graph_segmentation.py --plot``.
 
 Because the metadata records the host and git commit, results from different
-machines or builds stay comparable only within the same environment — treat
+machines or builds stay comparable only within the same environment: treat
 absolute numbers as machine-specific and compare trends, not headline figures.

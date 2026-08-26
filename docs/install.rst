@@ -5,12 +5,12 @@ Requirements
 ------------
 
 - Python **>= 3.10**, with pip (conda recommended for the native stack).
-- gmsh and pyzag 2.0.0 — installed automatically with graintrace via pip.
-- NEPER — bring your own; install from https://neper.info and point graintrace
+- gmsh and pyzag 2.0.0: installed automatically with graintrace via pip.
+- NEPER: bring your own. Install from https://neper.info and point graintrace
   at it (see :ref:`neper-gmsh`).
-- CUBIT/SCULPT — Coreform license required, for hex meshing.
-- NEML2 v3 (Python) — built by PUMA, for calibration and pole figures.
-- MOOSE + PUMA (``puma-opt``), linked with NEML2 v3 + libtorch — for CPFE.
+- CUBIT/SCULPT: for hex meshing; Coreform license required.
+- NEML2 v3 (Python): for calibration and pole figures; built by PUMA.
+- MOOSE + PUMA (``puma-opt``): for CPFE; linked with NEML2 v3 + libtorch.
 
 Installation is organized in three tiers by capability. Each higher tier adds
 the PUMA-built native stack on top of the pip install.
@@ -34,7 +34,7 @@ similarity metrics. No conda or native build needed:
    pip install "graintrace[dev]"       # test/lint/build tooling
    pip install "graintrace[docs]"      # documentation build (Sphinx)
 
-``import graintrace`` works with no NEML2 present — the compiled stack is
+``import graintrace`` works with no NEML2 present. The compiled stack is
 lazy-imported. This tier also installs ``pyzag``.
 
 To run the examples or benchmarks, clone the repo and install from the checkout.

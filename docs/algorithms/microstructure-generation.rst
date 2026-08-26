@@ -39,12 +39,12 @@ Parameters that matter
 ----------------------
 See :doc:`/configuration` for the full list.
 
-- ``bounding_box`` and ``dim`` -- domain extent and dimensionality (2 or 3).
+- ``bounding_box`` and ``dim``: domain extent and dimensionality (2 or 3).
 - Morphology type and its distribution parameters (``diameq``/``size`` distribution + params,
   ``aspratio`` for elongation, ``lamellar``/``columnar``/``bamboo`` ``n``/``v``, or a ``raw``
   ``morpho_str``).
 - Iteration budget for the morphology optimization (higher = closer distribution match, slower).
-- ``seed`` -- reproducibility of the random tessellation.
+- ``seed``: reproducibility of the random tessellation.
 
 Further details
 ---------------

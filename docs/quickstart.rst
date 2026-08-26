@@ -2,7 +2,7 @@ Quickstart
 ==========
 
 This walks through a pure-Python path that runs from ``pip install graintrace``
-alone — no NEML2, MOOSE, NEPER, or CUBIT. It uses the sample data under
+alone (no NEML2, MOOSE, NEPER, or CUBIT). It uses the sample data under
 ``mwe_data/``, so clone the repo (the PyPI package does not ship the datasets):
 
 .. code-block:: bash
@@ -63,6 +63,6 @@ See :doc:`tutorials/rare-event-identification` for the full walk-through.
 Next steps
 ----------
 
-- :doc:`install` — add the native stack for calibration, meshing, and CPFE.
-- :doc:`concepts` — the data formats and the reconstruct → simulate → analyze pipeline.
-- :doc:`tutorials/tutorials` — one guide per workflow stage.
+- :doc:`install`: add the native stack for calibration, meshing, and CPFE.
+- :doc:`concepts`: the data formats and the reconstruct → simulate → analyze pipeline.
+- :doc:`tutorials/tutorials`: one guide per workflow stage.

@@ -42,11 +42,11 @@ Parameters that matter
 ----------------------
 See :doc:`/configuration` for the full list.
 
-- ``mesher`` -- ``sculpt`` (conformal hex) vs. ``voxel`` (one cube per voxel, no external
+- ``mesher``: ``sculpt`` (conformal hex) vs. ``voxel`` (one cube per voxel, no external
   tools).
-- ``sculpt_config`` -- required keys ``psculpt``, ``epu``, ``nprocs``; plus ``launcher`` and
+- ``sculpt_config``: required keys ``psculpt``, ``epu``, ``nprocs``; plus ``launcher`` and
   ``environment`` for MPI execution.
-- ``sculpt_options`` -- SCULPT CLI flags (adaptation ``-A``, dilation ``-df``, smoothing
+- ``sculpt_options``: SCULPT CLI flags (adaptation ``-A``, dilation ``-df``, smoothing
   ``-S`` / ``-CS``, ``--void_mat``); use the vetted safe configs.
 - Segmentation settings that set the grain field being meshed.
 

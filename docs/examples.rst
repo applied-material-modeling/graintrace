@@ -27,7 +27,7 @@ need the external tool(s) shown.
      - EBSD/gridded-NF voxel graph-segmentation + SCULPT hex mesh
      - CUBIT/SCULPT
    * - ``demonstrate_synthetic_cpfe.py``
-     - meshing options — SCULPT flags and the no-CUBIT voxel-hex dump
+     - meshing options: SCULPT flags and the no-CUBIT voxel-hex dump
      - NEPER, CUBIT/SCULPT
    * - ``demonstrate_material_calibration.py``
      - pyzag-adjoint Taylor calibration of 6 crystal-plasticity params
@@ -61,4 +61,4 @@ the script to match your machine.
 
 ``examples/run_experiment_*.py`` are real-experiment driver templates (FF-only,
 NF+FF, the AFRL dataset, stitching comparison, crystal reconstruction) that read
-your own scan data — copy and adapt one rather than running it as-is.
+your own scan data; copy and adapt one rather than running it as-is.

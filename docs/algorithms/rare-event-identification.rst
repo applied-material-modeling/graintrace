@@ -42,7 +42,7 @@ small, spatially compact clusters. Each cluster is reduced to its feature means.
 merged super-clusters. The cophenetic correlation of the linkage is reported as a quality check.
 
 **Stage 3 (select).** A :class:`~graintrace.RareCriteria` selector picks which merged clusters are
-rare — e.g. the top-:math:`k` by mean Nye-norm via
+rare, e.g. the top-:math:`k` by mean Nye-norm via
 :func:`graintrace.rare_criteria_selection_library.select_highest_scalar`, or the built-in bottom
 size-quantile default. Selected clusters receive distinct block ids (background id first, then one
 per rare cluster) and are written to a STRUCTURED_GRID or POLYDATA VTK, optionally with a rare

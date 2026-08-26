@@ -47,13 +47,13 @@ Parameters that matter
 ----------------------
 See :doc:`/configuration` for the full list.
 
-- ``bounding_box`` and ``auto_fix_bbox`` / ``bbox_fix_mode`` -- reconstruction domain and how
+- ``bounding_box`` and ``auto_fix_bbox`` / ``bbox_fix_mode``: reconstruction domain and how
   out-of-box points are handled.
-- ``weighted`` -- Voronoi vs. Laguerre (size-weighted) tessellation.
-- ``option`` (``voronoi`` | ``centroid`` | ``centroidsize``) and ``CVT_iter`` / ``morphoalgo``
-  -- how seeds are relaxed to match measured centroids/sizes.
-- ``tesr_size`` -- voxel grid resolution of the reconstruction.
-- ``rotate_angles`` / ``auto_rotate`` and ``unit`` -- sample-frame alignment; ``unit`` must
+- ``weighted``: Voronoi vs. Laguerre (size-weighted) tessellation.
+- ``option`` (``voronoi`` | ``centroid`` | ``centroidsize``) and ``CVT_iter`` / ``morphoalgo``:
+  how seeds are relaxed to match measured centroids/sizes.
+- ``tesr_size``: voxel grid resolution of the reconstruction.
+- ``rotate_angles`` / ``auto_rotate`` and ``unit``: sample-frame alignment; ``unit`` must
   match the data.
 
 Further details

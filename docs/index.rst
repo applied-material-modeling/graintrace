@@ -9,11 +9,11 @@ and post-processes the results to identify rare events for targeted measurement.
 
 graintrace is the Python orchestration layer over a compiled scientific stack:
 
-- **MOOSE / PUMA** — finite element framework and solver.
-- **NEML2 v3** — crystal-plasticity constitutive models, AOTI compiled, GPU capable.
-- **pyzag** — analytic adjoint gradients used for material calibration.
-- **NEPER** — Voronoi/CVT tessellation for far-field reconstruction.
-- **Coreform CUBIT/SCULPT** — conformal hex meshing for FF/NF/EBSD (a NEPER/gmsh
+- **MOOSE / PUMA**: finite element framework and solver.
+- **NEML2 v3**: crystal-plasticity constitutive models, AOTI compiled, GPU capable.
+- **pyzag**: analytic adjoint gradients for material calibration.
+- **NEPER**: Voronoi/CVT tessellation for far-field reconstruction.
+- **Coreform CUBIT/SCULPT**: conformal hex meshing for FF/NF/EBSD (a NEPER/gmsh
   tet mesh is available as a fallback).
 
 The pipeline runs in four stages: reconstruct a microstructure, calibrate the
@@ -40,7 +40,7 @@ pure-Python subset works without the native build.
       :link: tutorials/tutorials
       :link-type: doc
 
-      One runnable notebook per workflow stage — reconstruction, calibration,
+      One runnable notebook per workflow stage: reconstruction, calibration,
       CPFE, and analysis.
 
    .. grid-item-card:: Algorithms & theory

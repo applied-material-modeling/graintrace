@@ -93,8 +93,8 @@ Install
    pip install "graintrace[mcp]"      # or: pip install -e ".[mcp]" from a checkout
 
 The compiled stack is not on PyPI; build it separately (see :doc:`install`). The
-MCP server runs without it; tools that need a missing piece just report so. Run
-it standalone to sanity-check:
+MCP server runs without it; tools that need a missing piece report so. Run it
+standalone to sanity-check:
 
 .. code-block:: bash
 
@@ -135,7 +135,7 @@ transport; point it at the ``graintrace-mcp`` command (stdio) or
 Notes
 -----
 
-- The job registry is in-memory and lives with the server process — fine for a
+- The job registry is in-memory and lives with the server process, fine for a
   single-user session driving one machine; it is not a distributed queue.
 - ``run_cpfe`` distinguishes ``neml2`` (importable) from ``neml2-aoti`` (the
   compiled runtime CPFE needs to load ``.pt2`` models); calibration only needs

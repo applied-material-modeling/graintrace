@@ -3,11 +3,11 @@ REI comparison
 
 Overview
 --------
-REI comparison quantifies the spatial overlap between two rare-event point clouds — two metrics,
+REI comparison quantifies the spatial overlap between two rare-event point clouds: two metrics,
 two thresholds, two methods, or a prediction against a reference. It is implemented by
 :class:`~graintrace.REIComparison`, which voxelizes both regions onto a common lattice, computes
 volumetric overlap metrics (IoU, Dice, containment), pairs their clusters one-to-one, and writes
-a classified point cloud. It is pure NumPy/SciPy — no KD-tree, alpha-shape, or marching cubes.
+a classified point cloud. It is pure NumPy/SciPy: no KD-tree, alpha-shape, or marching cubes.
 
 Method
 ------
@@ -57,7 +57,7 @@ Algorithm
 Parameters that matter
 ----------------------
 - ``spacing_1`` / ``spacing_2``: per-grid voxel size (scalar or ``[dx, dy, dz]``); ``None``
-  auto-detects from coordinate steps (unsafe for sparse clouds — pass explicit spacing then).
+  auto-detects from coordinate steps (unsafe for sparse clouds; pass explicit spacing then).
 - ``s_ref`` / ``supersample``: the common fine lattice; ``supersample > 1`` refines boundary
   accuracy at higher cost.
 - ``cluster_col``: enables the per-cluster correspondence and split/merge detection; ``None``
