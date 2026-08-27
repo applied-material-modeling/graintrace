@@ -738,7 +738,6 @@ class CPFESimulation:
         if self.use_ff_initial_field:
             base_files = [
                 "initial_conditions_ff.i",
-                "neml2_cpfe.i",
                 "run_cpfe.i",
                 "grid_file.i",
                 "transfer.i",
@@ -747,7 +746,6 @@ class CPFESimulation:
         else:
             base_files = [
                 "initial_conditions.i",
-                "neml2_cpfe.i",
                 "run_cpfe.i",
                 "grid_file.i",
                 "transfer.i",
@@ -770,12 +768,12 @@ class CPFESimulation:
         ncells = self.write_orientation_file()
         self.write_postprocess_file(ncell=ncells)
 
-        # Bake material params into the model and AOTI-compile it; produces
+        # Bake material params from the cpfe_base template directly into a single
+        # neml2_cpfe.i in the run folder, then AOTI-compile it; produces
         # aoti/model_aoti.i, referenced by run_cpfe.i via ${neml2_stub}.
         sim = self.params["simulation_parameters"]
-        model_src = self.save_simulation_folder / "neml2_cpfe.i"
-        baked_model = self.save_simulation_folder / "neml2_cpfe_baked.i"
-        self._bake_neml2_model(model_src, baked_model)
+        baked_model = self.save_simulation_folder / "neml2_cpfe.i"
+        self._bake_neml2_model(cpfe_base / "neml2_cpfe.i", baked_model)
         aoti_dir = self.save_simulation_folder / "aoti"
         neml2_stub = "aoti/model_aoti.i"
         if sim.get("recompile", True) or not (aoti_dir / "model_aoti.i").exists():

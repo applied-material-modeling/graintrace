@@ -66,15 +66,19 @@ from _harness import (  # type: ignore
     write_results,
 )
 
+# Gentle crystal-plasticity params from the neml2 crystal_approximated.i example
+# (rate exponent n=6). A timing benchmark cares about convergence robustness, not a
+# specific alloy: the stiff n=25 power law overflowed the AOTI return map (non-finite
+# residual) on large strain increments at scale, so the sweep never completed.
 MATERIAL = {
-    "slip_constant_strength": 100.0,
-    "voce_hardening_initial_slope": 1650.0,
-    "voce_hardening_saturation": 220.0,
-    "power_slip_n": 25,
+    "slip_constant_strength": 180.0,
+    "voce_hardening_initial_slope": 2000.0,
+    "voce_hardening_saturation": 500.0,
+    "power_slip_n": 6,
     "power_slip_g0": 1e-4,
-    "elastic_E": 109000.0,
+    "elastic_E": 209016.0,
     "elastic_nu": 0.307,
-    "elastic_G": 41700.0,
+    "elastic_G": 60355.0,
     "burger_scale": 2.54,
 }
 
