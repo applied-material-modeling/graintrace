@@ -324,6 +324,7 @@ def bench(args) -> None:
             grid_transfer=args.grid_transfer,
             exodus_output=args.exodus_output,
             mesh_csv=args.mesh_csv,
+            distributed_mesh=args.distributed_mesh,
         )
 
         if args.neml2_load_file:
@@ -358,6 +359,7 @@ def bench(args) -> None:
                     "grid_transfer": args.grid_transfer,
                     "exodus_output": args.exodus_output,
                     "mesh_csv": args.mesh_csv,
+                    "distributed_mesh": args.distributed_mesh,
                     "recompile": i == 0,
                     "setup_s": round(setup_s, 2),
                     "solve_s": round(solve_s, 2),
@@ -464,6 +466,12 @@ def main() -> None:
         choices=("sync", "per_step", "off"),
         dest="mesh_csv",
         help="CPFE-mesh element-centroid CSV frequency (default: sync)",
+    )
+    p.add_argument(
+        "--distributed-mesh",
+        action="store_true",
+        dest="distributed_mesh",
+        help="pre-split the mesh (--split-mesh) and run --use-split (distributed mesh); needs ncore>=2",
     )
     p.add_argument("--n-grains", type=int, default=50, dest="n_grains")
     p.add_argument("--spacing", type=float, default=5.0, help="voxel size (um)")

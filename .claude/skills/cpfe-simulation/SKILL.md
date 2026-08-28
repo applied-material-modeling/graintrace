@@ -47,9 +47,10 @@ sim.set_parameters("material", slip_constant_strength=130.0,
     elastic_G=60355.0, burger_scale=2.22)
 sim.set_parameters("simulation_parameters", device="cuda:0", device_batch=20000,
     dt=0.5, total_time=2.0, initialize_time=1.0, sync_times="2.0",
-    grid_transfer="final", exodus_output="sync")   # defaults; cheap. "per_step" for every-step
+    grid_transfer="final", exodus_output="sync",   # defaults; cheap. "per_step" for every-step
     # grid REI output / Exodus. With grid_transfer!="per_step", regenerate grid CSVs offline
     # via graintrace.grid_resampling.GridResampler (see /post-processing).
+    distributed_mesh=False)   # True -> pre-split (--split-mesh) + --use-split for large meshes (ncore>=2)
 
 disp = 0.002 * (bbox[5] - bbox[4])
 sim.set_parameters("boundary", bounding_box=bbox, bc={
@@ -69,6 +70,9 @@ sim.run(ncore=4)   # ncore == mpiexec -n; also spreads a device list over ranks
 - `device_batch`: per-device NEML2 chunk (quad pts/call); a finite value caps GPU memory
   (0 = whole batch → OOM risk on large meshes).
 - `initialize_time`: load ramps from `initialize_time`→`total_time`; `sync_times` = grid-output times.
+- `distributed_mesh`: `True` pre-splits the mesh (`--split-mesh ncore`) and runs `--use-split` so each
+  rank reads only its partition (low per-rank memory for large meshes). Pre-split only; needs `ncore>=2`
+  and a puma-opt build with the EqualValueBoundaryConstraint distributed-mesh fix. Default `False`.
 - `use_ff_initial_field=True` + real `eeres_file` = FF residual strain (12-col x,y,z+9);
   `eeres_file=None` writes a 12-col zero ee.
 - AOTI: material params are **baked** into the model .i and `neml2-compile`d on `run()`;

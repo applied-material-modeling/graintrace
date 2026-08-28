@@ -11,6 +11,7 @@ defaults:
   device: "cuda:0"
   device_batch: 20000
   ncore: 8
+  distributed_mesh: false
   use_ff_initial_field: true
 ---
 
@@ -44,8 +45,8 @@ returns `needs_input` (otherwise CPFE would silently use a unit-cube domain).
 **simulation_parameters**: `dt`, `total_time`, `initialize_time` (load ramps
 from `initialize_time`→`total_time`), `device` (`"cpu"`, `"cuda:0"`, or a
 space-separated list for multi-GPU = MPI ranks), `device_batch`, `sync_times`,
-`grid_transfer`, `exodus_output`, `mesh_csv`. Pass any of these via
-`parameters={"simulation_parameters": {...}}`.
+`grid_transfer`, `exodus_output`, `mesh_csv`, `distributed_mesh`. Pass any of these via
+`parameters={"simulation_parameters": {...}}` (or `distributed_mesh` via its dedicated arg).
 
 > **Output-frequency knobs (default to cheap).** `mesh_csv` — CPFE-mesh
 > element-centroid CSV → `mesh_out/`: `"sync"` (default) | `"per_step"` | `"off"`.
@@ -60,6 +61,13 @@ space-separated list for multi-GPU = MPI ranks), `device_batch`, `sync_times`,
 > (needs `puma-opt`, no NEML2/AOTI) — but that resample is a **smoothed
 > approximation** (FIRST-MONOMIAL fields stored nodally in the Exodus), so for
 > fidelity prefer `mesh_out/` or `grid_transfer="per_step"`.
+
+> **Distributed mesh for large problems (`distributed_mesh`, default `false`).** `true`
+> pre-splits the mesh once (`--split-mesh ncore`) and runs `--use-split`, so each rank reads
+> only its partition — low per-rank memory. Use it when a replicated mesh OOMs (~1M+ elements).
+> Distributed mesh is **pre-split only** (no in-situ option) and **requires `ncore >= 2`**.
+> Outputs are unchanged: single `sim_output.e` (via gather), complete `mesh_out/` + `grid_out/`
+> CSVs. Needs a `puma-opt` build with the EqualValueBoundaryConstraint distributed-mesh fix.
 
 > **GPU policy: if a GPU is available, always use it.** Set `device="cuda:0"`
 > (or `"cuda:0 cuda:1"` for multi-GPU). CPFE is neml2-dominated and far slower on

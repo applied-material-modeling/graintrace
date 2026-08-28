@@ -59,6 +59,9 @@ ncore = 4
 # Per-device NEML2 batch chunk (quad points per call). 0 = whole batch; a finite
 # value caps GPU memory by chunking.
 device_batch = 20000
+# Distributed mesh (pre-split): False keeps a replicated mesh (this small demo). Set True
+# for large meshes to pre-split into `ncore` partitions and run --use-split (needs ncore>=2).
+distributed_mesh = False
 
 total_strain = 0.002  # applied axial (z) engineering strain
 dt = 0.5
@@ -136,6 +139,10 @@ sim.set_parameters(
     mesh_csv="sync",
     grid_transfer="final",
     exodus_output="sync",
+    # Distributed mesh for large problems: True pre-splits the mesh (--split-mesh) and runs
+    # --use-split so each rank reads only its partition (low per-rank memory). Pre-split only;
+    # requires ncore>=2 and a puma-opt build with the EqualValueBoundaryConstraint distributed fix.
+    distributed_mesh=distributed_mesh,
 )
 
 displace = total_strain * (bbox[5] - bbox[4])

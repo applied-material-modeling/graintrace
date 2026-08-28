@@ -88,6 +88,13 @@ class CPFESimulation:
             #   "off" -> not written. Crisp true-mesh fields (no transfer/resampling)
             #   for full-mesh REI.
             "mesh_csv": "sync",
+            # Distributed mesh for large problems. False (default) -> replicated mesh
+            #   (every rank holds the full mesh). True -> pre-split the mesh once
+            #   (`--split-mesh ncore`) and run with `--use-split` so each rank reads
+            #   only its partition (low per-rank memory). Distributed mesh is pre-split
+            #   ONLY (no in-situ option) and requires ncore >= 2. Needs a puma-opt build
+            #   with the EqualValueBoundaryConstraint distributed-mesh fix.
+            "distributed_mesh": False,
         },
         "material": {
             "slip_constant_strength": 130.0,
@@ -192,6 +199,7 @@ class CPFESimulation:
         device ("cpu"/"cuda:N"/space-separated list), device_batch (per-device NEML2 chunk size; 0 = whole batch),
         sync_times (space-separated string of MOOSE grid-output times), grid_transfer ("final"|"per_step"|"off"),
         exodus_output ("sync"|"per_step"), mesh_csv ("sync"|"per_step"|"off"), launcher ("mpiexec"|"srun"),
+        distributed_mesh (bool; True pre-splits the mesh to ncore and runs --use-split, requires ncore>=2),
         recompile, compile_devices, neml2_load_files, extra_ld_library_paths, base_folder, strain_unit_conversion.
 
         "boundary": bounding_box ([xlo,xhi,ylo,yhi,zlo,zhi]), bc (per-axis dict of "negative"/"positive" values, each "stress_free" or a numeric displacement), fix_tolerance, bounding_box_buffer.
@@ -709,6 +717,44 @@ class CPFESimulation:
             )
         return env
 
+    @staticmethod
+    def _split_command(
+        moose_run_file, deck_and_args, ncore, split_file="mesh_split.cpr"
+    ):
+        """Build the one-time ``--split-mesh`` pre-split command for a distributed run.
+
+        Partitions the mesh into ``ncore`` pieces (written to ``split_file``) so the solve
+        can then run with ``--use-split`` and each rank reads only its partition (low
+        per-rank memory). ``deck_and_args`` is the ``-i <decks> <key=value args>`` tail of
+        the solve argv, reused verbatim so the split builds the same mesh (including the
+        BC-node coordinates the mesh generators need). Distributed mesh is pre-split only
+        and requires at least two ranks.
+
+        Args:
+            moose_run_file: path to the puma-opt binary.
+            deck_and_args: the ``["-i", <decks...>, <key=value args...>]`` argv tail.
+            ncore: number of MPI ranks / split partitions (must be >= 2).
+            split_file: name of the split file/dir (relative to the run folder).
+
+        Returns:
+            list[str]: the ``puma-opt ... --split-mesh <ncore> --split-file <name>`` command.
+
+        Raises:
+            ValueError: if ``ncore < 2``.
+        """
+        if int(ncore) < 2:
+            raise ValueError(
+                "distributed_mesh requires ncore >= 2; use a replicated mesh for a single rank."
+            )
+        return [
+            str(moose_run_file),
+            *deck_and_args,
+            "--split-mesh",
+            str(int(ncore)),
+            "--split-file",
+            split_file,
+        ]
+
     def run(self, ncore=8):
         """Prepare the input decks, AOTI-compile the NEML2 model, and launch puma-opt.
 
@@ -717,8 +763,14 @@ class CPFESimulation:
         model and neml2-compiles it (unless a cached AOTI package exists and recompile is False),
         then starts puma-opt as a detached background process. Only dim=3 is supported.
 
+        When simulation_parameters['distributed_mesh'] is True, the mesh is first pre-split
+        into ncore partitions (a one-time synchronous `--split-mesh` step) and the solve runs
+        with `--use-split` so each rank reads only its partition (low per-rank memory for large
+        meshes). This requires ncore >= 2 and a puma-opt build with the
+        EqualValueBoundaryConstraint distributed-mesh fix.
+
         Args:
-            ncore: Number of MPI ranks to launch (passed as -n to the launcher). For multi-GPU runs set this to the number of GPUs in the device list. Default 8.
+            ncore: Number of MPI ranks to launch (passed as -n to the launcher). For multi-GPU runs set this to the number of GPUs in the device list. With distributed_mesh=True this must be >= 2. Default 8.
         """
 
         self.validate_geometry_and_bcs()
@@ -819,6 +871,7 @@ class CPFESimulation:
             )
         mesh_sampler_execute_on = "NONE" if mesh_csv == "off" else "TIMESTEP_END"
         mesh_csv_sync_only = "true" if mesh_csv == "sync" else "false"
+        distributed_mesh = bool(sim_p.get("distributed_mesh", False))
 
         log_path = self.save_simulation_folder / "cpfe_run.log"
         launcher = shlex.split(
@@ -870,6 +923,29 @@ class CPFESimulation:
             f"grid_zmin={grid_bbox[4]:.12g}",
             f"grid_zmax={grid_bbox[5]:.12g}",
         ] + ncell_args
+
+        # Distributed mesh: pre-split the mesh once (--split-mesh), then run with
+        # --use-split so each rank reads only its partition (low per-rank memory).
+        # Pre-split is the only distributed path (no in-situ --distributed-mesh); the
+        # split reuses the exact -i decks + args so it builds the same mesh + BC nodesets.
+        if distributed_mesh:
+            split_file = "mesh_split.cpr"
+            deck_and_args = argv[argv.index("-i") :]
+            split_cmd = self._split_command(
+                self.moose_run_file, deck_and_args, ncore, split_file
+            )
+            print(f"\n==> Pre-splitting mesh {ncore} ways -> {split_file}", flush=True)
+            split_log = self.save_simulation_folder / "cpfe_split.log"
+            with open(split_log, "w", encoding="utf-8") as sf:
+                subprocess.run(
+                    split_cmd,
+                    cwd=self.save_simulation_folder,
+                    env=self._runtime_env(),
+                    stdout=sf,
+                    stderr=subprocess.STDOUT,
+                    check=True,
+                )
+            argv += ["--use-split", "--split-file", split_file]
 
         # Run as a persistent background process
         print(

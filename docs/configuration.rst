@@ -161,10 +161,20 @@ knobs:
      - ``"sync"`` (default, only at ``sync_times``) | ``"per_step"``
    * - ``mesh_csv``
      - ``"sync"`` (default) | ``"per_step"`` | ``"off"`` (per-element CSV on the true mesh)
+   * - ``distributed_mesh``
+     - ``False`` (default, replicated) | ``True`` — pre-split the mesh to ``ncore`` and run
+       ``--use-split`` (distributed mesh; low per-rank memory for large meshes; requires ``ncore >= 2``)
 
 The defaults are the cheap settings; the per-step grid transfer dominates wall
 time. Three sources of REI field data are described in
 :doc:`tutorials/rare-event-identification`.
+
+Set ``distributed_mesh=True`` for large meshes that exhaust memory as a replicated
+mesh: it pre-splits the mesh once (``--split-mesh ncore``) and runs ``--use-split``
+so each rank reads only its partition. It is pre-split only (no in-situ option),
+requires ``ncore >= 2``, and needs a ``puma-opt`` build with the
+``EqualValueBoundaryConstraint`` distributed-mesh fix. Outputs are unchanged (a
+single ``sim_output.e`` via gather, plus complete ``mesh_out/`` and ``grid_out/`` CSVs).
 
 **boundary**: ``bounding_box`` and the ``bc`` dict (above).
 

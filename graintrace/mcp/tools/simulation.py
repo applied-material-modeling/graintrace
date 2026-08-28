@@ -32,6 +32,7 @@ def run_cpfe(
     parameters: Optional[Dict[str, Dict[str, Any]]] = None,
     init_params: Optional[Dict[str, Any]] = None,
     ncore: int = 4,
+    distributed_mesh: bool = False,
     confirm: bool = False,
 ) -> dict:
     """Run a crystal-plasticity FE simulation with NEML2 v3 + MOOSE/PUMA
@@ -60,6 +61,10 @@ def run_cpfe(
         you provide here overrides the auto-built sections.
     init_params : CPFESimulation overrides (element_order, dim, use_ff_initial_field).
     ncore : MPI ranks (== number of GPUs for a device list).
+    distributed_mesh : if True, pre-split the mesh (`--split-mesh ncore`) and run
+        `--use-split` so each rank reads only its partition (low per-rank memory for
+        large meshes). Distributed mesh is pre-split only and requires ncore >= 2, plus
+        a puma-opt build with the EqualValueBoundaryConstraint distributed-mesh fix.
 
     Needs `puma-opt` (MOOSE/PUMA) and a working NEML2 v3 build.
     """
@@ -127,6 +132,11 @@ def run_cpfe(
         sp = sections.setdefault("simulation_parameters", {})
         sp.setdefault("device", deps.default_cpfe_device())
 
+    # Distributed mesh (pre-split + --use-split); opt-in via the dedicated arg.
+    sections.setdefault("simulation_parameters", {}).setdefault(
+        "distributed_mesh", distributed_mesh
+    )
+
     suggestions = {}
     if missing:
         suggestions = {
@@ -146,6 +156,7 @@ def run_cpfe(
         "loaded_axis": loaded_axis,
         "parameters": sections,
         "ncore": ncore,
+        "distributed_mesh": distributed_mesh,
     }
 
     def _run():

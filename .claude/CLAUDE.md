@@ -248,6 +248,9 @@ sim.set_parameters("simulation_parameters",
                                      # sync_times) | "per_step"
     mesh_csv="sync",                 # CPFE-mesh element CSV -> mesh_out/: "sync" (default) |
                                      # "per_step" | "off". Crisp full-mesh REI (no smoothing)
+    distributed_mesh=False,          # True -> pre-split (--split-mesh ncore) + --use-split so each
+                                     # rank reads only its partition (large-mesh memory). Pre-split
+                                     # ONLY; needs ncore>=2 + a puma-opt with the EVBC distributed fix
     # AOTI (v3): material params are BAKED into the model .i and neml2-compile'd on run().
     # recompile=True (default) rebuilds the .pt2 when params change; compile_devices/
     # neml2_load_files/extra_ld_library_paths auto-derive from moose_run_file's repo layout.
@@ -920,6 +923,20 @@ reports the visible GPUs.
 `nsys.to(device)` before wrapping it in the pyzag factory. `factory.to(device)` alone leaves the
 model's crystal-geometry buffers (Schmid tensors) on CPU → a cuda/cpu mismatch that surfaces as
 a silent `loss=inf`.
+
+### `distributed_mesh` is pre-split only, needs ncore>=2 + the EVBC-fixed puma
+`sim.set_parameters("simulation_parameters", distributed_mesh=True)` is the memory lever for
+large meshes (replicated mesh = full mesh on every rank → OOM at ~1M+ elements). It is
+**pre-split ONLY**: `run()` runs a one-time `puma-opt --split-mesh ncore --split-file
+mesh_split.cpr` (logged to `cpfe_split.log`), then launches the solve with `--use-split` so each
+rank reads only its partition — there is no in-situ `--distributed-mesh` option. It **requires
+`ncore>=2`** (raises `ValueError` otherwise) and a `puma-opt` built with the MOOSE
+`EqualValueBoundaryConstraint` distributed-mesh fix (gather + `add_extra_ghost_elem` of the
+primary element on BOTH the reference and displaced meshes) — without that fix a distributed run
+segfaults in `MooseMesh::updateActiveSemiLocalNodeRange`. Outputs are unchanged: the `[Outputs]`
+Exodus still gathers to a single `sim_output.e` (no Nemesis parts), and `mesh_out/`/`grid_out/`
+CSVs come out complete, so REI/post-processing are unaffected. Orthogonal to
+`grid_transfer`/`exodus_output`/`mesh_csv`.
 
 ### `orientation_tolerance` units must match `ori_units`
 When `ori_units="radians"`, convert `orientation_tolerance` before passing to `RegionBaseStitching`:
