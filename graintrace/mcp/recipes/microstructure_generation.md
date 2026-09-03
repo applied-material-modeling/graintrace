@@ -20,6 +20,9 @@ synthetic microstructure with NEPER. In the MCP the morpho string feeds
 
 ## Usage
 
+`seed` defaults to `None` → a fresh random microstructure each run (the drawn seed is printed so
+the run can be reproduced). Pass an explicit `seed` (as below) for a reproducible tessellation.
+
 ```python
 from graintrace.generate_random_crystal import CrystalGenerator
 

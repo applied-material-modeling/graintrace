@@ -63,3 +63,19 @@ def test_split_command_requires_at_least_two_ranks(ncore):
     """Distributed mesh is pointless on a single rank -> hard error."""
     with pytest.raises(ValueError, match="ncore >= 2"):
         CPFESimulation._split_command("puma-opt", ["-i", "d.i"], ncore)
+
+
+def test_run_cpfe_deck_disables_residual_and_jacobian_together():
+    """The CPFE deck must keep residual_and_jacobian_together=false.
+
+    The flat loading-face BC is an EqualValueBoundaryConstraint (a NodalConstraint), and newer
+    MOOSE hard-errors on residual_and_jacobian_together=true when nodal constraints are present
+    (MOOSE issue 33531). Guard against a regression back to true.
+    """
+    from pathlib import Path
+    import graintrace.run_cpfe_simulation as rcs
+
+    deck = Path(rcs.__file__).parent / "cpfe_base" / "run_cpfe.i"
+    text = deck.read_text(encoding="utf-8")
+    assert "residual_and_jacobian_together = false" in text
+    assert "residual_and_jacobian_together = true" not in text

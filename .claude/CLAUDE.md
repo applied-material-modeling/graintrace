@@ -870,6 +870,14 @@ neper.info. An opt-in `auto_install=True` performs a Linux `~/.local` source bui
 so the builders take no gmsh arguments. `scan_tessellation.default_neper_env()`
 delegates to the same resolver.
 
+### `CrystalGenerator` seed is random by default
+`CrystalGenerator(seed=None)` (the default) draws a fresh random seed on every instantiation and
+prints it (`using random seed=<N>`), so each unseeded run is a *different* microstructure. Pass an
+explicit `seed=<int>` for a reproducible tessellation (the printed value reproduces a given run).
+NEPER honors `-id` (verified: different seed → different grains, same seed → byte-identical). Note
+the FF *reconstruction* path `VoronoiMeshBuilder` (`centroid`/`centroidsize`) is data-seeded via
+`-morphooptiini`, so its seed is inert there — grains come from the measured centroids.
+
 ### cpfe_base path
 Always derive the cpfe_base path dynamically, do not hardcode it:
 ```python
@@ -937,6 +945,17 @@ segfaults in `MooseMesh::updateActiveSemiLocalNodeRange`. Outputs are unchanged:
 Exodus still gathers to a single `sim_output.e` (no Nemesis parts), and `mesh_out/`/`grid_out/`
 CSVs come out complete, so REI/post-processing are unaffected. Orthogonal to
 `grid_transfer`/`exodus_output`/`mesh_csv`.
+
+### `residual_and_jacobian_together` must be `false` (nodal-constraint loading BC)
+`cpfe_base/run_cpfe.i` sets `residual_and_jacobian_together = false` in `[Executioner]`. This is
+**required**, not a tuning choice: the flat loading-face BC is written as an
+`EqualValueBoundaryConstraint` (a `NodalConstraint`), and newer MOOSE (the
+`neml2-v3-migration-rebase` stack) hard-errors on `residual_and_jacobian_together = true` when any
+nodal constraint is present — *"does not yet support nodal constraints. Their contributions would be
+silently dropped"* (MOOSE issue 33531) — aborting at the first Newton solve. Older MOOSE had no such
+guard so `true` used to work. Cost: `false` roughly doubles NEML2 model evaluations per Newton
+assembly (residual and Jacobian computed in separate passes) vs the combined path — a real hit on
+the NEML2/GPU-bound CPFE, accepted here for correctness with the flat-face BC.
 
 ### `orientation_tolerance` units must match `ori_units`
 When `ori_units="radians"`, convert `orientation_tolerance` before passing to `RegionBaseStitching`:

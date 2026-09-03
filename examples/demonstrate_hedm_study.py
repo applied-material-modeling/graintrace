@@ -191,6 +191,7 @@ if test:
     cg = CrystalGenerator(
         output_dir=output_dir,
         bounding_box=bounding_box,
+        seed=42,
     )
 
     for m in tests:

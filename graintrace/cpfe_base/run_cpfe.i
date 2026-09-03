@@ -141,7 +141,11 @@
     reuse_preconditioner = true
     reuse_preconditioner_max_linear_its = 20
 
-    residual_and_jacobian_together = true
+    # Must be false: the flat loading-face BC is written as an EqualValueBoundaryConstraint
+    # (a NodalConstraint), and newer MOOSE errors on residual_and_jacobian_together=true with
+    # nodal constraints (their contribution would be silently dropped; MOOSE issue 33531).
+    # Trade-off: ~2x NEML2 model evaluations per Newton assembly vs the combined path.
+    residual_and_jacobian_together = false
 
     line_search = none
 
