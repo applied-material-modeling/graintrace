@@ -297,6 +297,21 @@ sync_times = np.asarray(sync_strain) / total_strain * (total_time - initialize_t
 string_sync_times = " ".join(map(str, sync_times))
 ```
 
+**Running on HPC.** Combine the scheduler launcher with the memory-lean solver; add the
+distributed mesh only when the replicated mesh OOMs:
+```python
+sim.set_parameters("simulation_parameters",
+    solver_route="hpc_memory",   # iterative fgmres + GAMG (low, scalable memory)
+    launcher="srun",             # Slurm/Cray; default "mpiexec" elsewhere
+    distributed_mesh=True,       # large meshes only (~1M+ elements); needs ncore>=2 + EVBC-fixed puma
+    device="cuda:0 cuda:1 cuda:2 cuda:3",  # GPU: cuda list, one entry per GPU; ncore == #GPUs
+    device_batch=20000)          # finite -> caps per-GPU memory
+sim.run(ncore=4)                 # GPU: ncore == #GPUs; CPU: device="cpu", ncore == srun -n ranks
+```
+`solver_route="hpc_memory"` and `distributed_mesh=True` are orthogonal but pair naturally (GAMG
+avoids the LU fill-in blow-up; the distributed mesh avoids holding the full mesh per rank).
+`hpc_memory` is safe at any size; enable `distributed_mesh` only when replicated OOMs. See §10.
+
 ---
 
 ## 4. NF-Only Workflow

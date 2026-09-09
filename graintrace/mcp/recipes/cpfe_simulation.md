@@ -80,6 +80,14 @@ via their dedicated args).
 > linear iterations. Both keep `residual_and_jacobian_together = false` (required by the
 > nodal-constraint loading BC; MOOSE issue 33531).
 
+> **Running on HPC (combined settings).** For a cluster run set `launcher="srun"` (Slurm/Cray;
+> default `mpiexec` elsewhere) and `solver_route="hpc_memory"` (memory-lean GAMG). Add
+> `distributed_mesh=true` only once the replicated mesh OOMs (~1M+ elements; needs `ncore>=2` and
+> the EVBC-fixed `puma-opt`). GPU node: `device="cuda:0 cuda:1 ..."` (one entry per GPU) with
+> `ncore` == number of GPUs and a finite `device_batch` to cap per-GPU memory. CPU node:
+> `device="cpu"` with `ncore` == MPI ranks (`srun -n`). Pass these via
+> `parameters={"simulation_parameters": {...}}` (or the `distributed_mesh` / `solver_route` args).
+
 > **GPU policy: if a GPU is available, always use it.** Set `device="cuda:0"`
 > (or `"cuda:0 cuda:1"` for multi-GPU). CPFE is neml2-dominated and far slower on
 > CPU. `run_cpfe` auto-fills `device` with the first GPU when one is present and

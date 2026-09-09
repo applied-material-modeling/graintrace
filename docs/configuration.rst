@@ -189,6 +189,36 @@ requires ``ncore >= 2``, and needs a ``puma-opt`` build with the
 ``EqualValueBoundaryConstraint`` distributed-mesh fix. Outputs are unchanged (a
 single ``sim_output.e`` via gather, plus complete ``mesh_out/`` and ``grid_out/`` CSVs).
 
+Running on HPC
+~~~~~~~~~~~~~~
+
+For a cluster run, combine the memory-lean solver with the scheduler launcher, and
+add the distributed mesh only when the replicated mesh no longer fits:
+
+.. code-block:: python
+
+   sim.set_parameters(
+       "simulation_parameters",
+       solver_route="hpc_memory",   # iterative fgmres + GAMG (low, scalable memory)
+       launcher="srun",             # Slurm/Cray; default "mpiexec" elsewhere
+       distributed_mesh=True,       # large meshes only (~1M+ elements); needs ncore >= 2
+       device="cuda:0 cuda:1 cuda:2 cuda:3",  # GPU: a cuda list, one entry per GPU on the node
+       device_batch=20000,          # finite chunk caps per-GPU memory (0 risks OOM)
+   )
+   sim.run(ncore=4)                 # GPU: ncore == number of GPUs in the device list
+
+- **GPU node:** ``device`` is a space-separated cuda list and ``ncore`` equals the
+  number of GPUs; fewer, larger ranks give better GPU utilisation for the
+  NEML2-dominated solve. Keep ``device_batch`` finite to bound per-GPU memory.
+- **CPU node:** set ``device="cpu"`` and ``ncore`` to the number of MPI ranks
+  (``srun -n``); ``distributed_mesh=True`` is what keeps per-rank memory bounded as
+  the mesh grows.
+- ``solver_route="hpc_memory"`` and ``distributed_mesh=True`` are independent levers
+  but pair naturally: GAMG avoids the LU factorisation blow-up, the distributed mesh
+  avoids holding the full mesh per rank. Enable ``distributed_mesh`` only for meshes
+  that OOM as replicated (it needs the EVBC-fixed ``puma-opt``); ``hpc_memory`` is
+  safe to use at any size.
+
 **boundary**: ``bounding_box`` and the ``bc`` dict (above).
 
 **grid_properties**: ``number_of_elements`` and ``bounding_box``. The grid box
