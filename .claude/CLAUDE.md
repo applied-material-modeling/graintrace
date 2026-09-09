@@ -219,7 +219,8 @@ sim = CPFESimulation(
     eeres_file="out/FF/reconstruction_cpfe_ee.csv",
     ori_file="out/FF/orientations_MRP.dat",
     dim=3,
-    moose_run_file="external/puma/puma-opt",   # your built PUMA binary (see README/submodules)
+    moose_run_file="/path/to/puma-opt",   # your built PUMA binary; resolved from deploy/tools.json
+                                          # ("puma_opt" key) when omitted via the MCP layer
     use_ff_initial_field=True,       # True when mesh and ee file are co-registered FF
 )
 # eeres_file=None -> a 12-col zero zero_initial_strain.ee is written (no residual strain).
@@ -251,6 +252,10 @@ sim.set_parameters("simulation_parameters",
     distributed_mesh=False,          # True -> pre-split (--split-mesh ncore) + --use-split so each
                                      # rank reads only its partition (large-mesh memory). Pre-split
                                      # ONLY; needs ncore>=2 + a puma-opt with the EVBC distributed fix
+    solver_route="timestep_optimized",  # linear-solver/Executioner deck: "timestep_optimized"
+                                     # (default, direct LU/superlu_dist + preconditioner reuse;
+                                     # robust, memory-heavy) | "hpc_memory" (iterative fgmres+GAMG;
+                                     # low/scalable memory for large HPC meshes; pair w/ distributed_mesh)
     # AOTI (v3): material params are BAKED into the model .i and neml2-compile'd on run().
     # recompile=True (default) rebuilds the .pt2 when params change; compile_devices/
     # neml2_load_files/extra_ld_library_paths auto-derive from moose_run_file's repo layout.
@@ -471,7 +476,7 @@ gr = GridResampler(
     save_dir="out/simulation/simulation_out",   # writes grid_out/out_element_centroid_<idx4>.csv
     number_of_elements=[100, 100, 100],
     bounding_box=grid_bb,                        # same inset grid box used for the run
-    moose_run_file="external/puma/puma-opt",
+    moose_run_file="/path/to/puma-opt",          # deploy/tools.json "puma_opt" key resolves it
     launcher="mpiexec",                          # or "srun" on Cray/Slurm
 )
 gr.resample(timesteps="all")   # or a list of 1-based Exodus timestep indices
@@ -944,18 +949,36 @@ primary element on BOTH the reference and displaced meshes) — without that fix
 segfaults in `MooseMesh::updateActiveSemiLocalNodeRange`. Outputs are unchanged: the `[Outputs]`
 Exodus still gathers to a single `sim_output.e` (no Nemesis parts), and `mesh_out/`/`grid_out/`
 CSVs come out complete, so REI/post-processing are unaffected. Orthogonal to
-`grid_transfer`/`exodus_output`/`mesh_csv`.
+`grid_transfer`/`exodus_output`/`mesh_csv`. Its natural solver partner is
+`solver_route="hpc_memory"` (see below) — GAMG keeps per-rank memory low as the mesh grows.
+
+### `solver_route`: two Executioner decks (direct LU vs iterative GAMG)
+`[Executioner]` no longer lives in `cpfe_base/run_cpfe.i`; it is a separate, selectable deck merged
+in at the `-i` level. `sim.set_parameters("simulation_parameters", solver_route=...)` picks one
+(mapped by `CPFESimulation.SOLVER_ROUTE_DECKS`):
+- `"timestep_optimized"` (default) → `cpfe_base/executioner_timestep_optimized.i`: **direct** LU
+  (`pc_type lu` + `superlu_dist`) with `reuse_preconditioner`. Robust, iteration-cheap, but the
+  factorization fill-in makes it **memory-bound on large meshes** — best for small/medium problems.
+- `"hpc_memory"` → `cpfe_base/executioner_hpc_memory.i`: **iterative** `fgmres` + **GAMG** algebraic
+  multigrid (looser `nl_rel_tol=1e-5`, `l_tol=1e-3`, `automatic_scaling`). No global factorization →
+  **low, scalable memory** for large HPC meshes; the recommended partner of `distributed_mesh=True`,
+  at the cost of more/looser linear iterations.
+The default stays `timestep_optimized`, so existing scripts are unchanged. To add a route, drop a
+new deck in `cpfe_base/` and register it in `SOLVER_ROUTE_DECKS`.
 
 ### `residual_and_jacobian_together` must be `false` (nodal-constraint loading BC)
-`cpfe_base/run_cpfe.i` sets `residual_and_jacobian_together = false` in `[Executioner]`. This is
-**required**, not a tuning choice: the flat loading-face BC is written as an
-`EqualValueBoundaryConstraint` (a `NodalConstraint`), and newer MOOSE (the
-`neml2-v3-migration-rebase` stack) hard-errors on `residual_and_jacobian_together = true` when any
-nodal constraint is present — *"does not yet support nodal constraints. Their contributions would be
-silently dropped"* (MOOSE issue 33531) — aborting at the first Newton solve. Older MOOSE had no such
-guard so `true` used to work. Cost: `false` roughly doubles NEML2 model evaluations per Newton
-assembly (residual and Jacobian computed in separate passes) vs the combined path — a real hit on
-the NEML2/GPU-bound CPFE, accepted here for correctness with the flat-face BC.
+**Both** Executioner decks (`executioner_timestep_optimized.i`, `executioner_hpc_memory.i`) set
+`residual_and_jacobian_together = false`. This is **required**, not a tuning choice: the flat
+loading-face BC is written as an `EqualValueBoundaryConstraint` (a `NodalConstraint`), and newer
+MOOSE (the `neml2-v3-migration-rebase` build) hard-errors on `residual_and_jacobian_together = true`
+when any nodal constraint is present — *"does not yet support nodal constraints. Their contributions
+would be silently dropped"* (MOOSE issue 33531) — aborting at the first Newton solve. (Verified
+2026-09-09: the guard is still an unconditional `mooseDocumentedError` at
+`framework/src/systems/NonlinearSystemBase.C:1984-1990` in the `neml2-v3-migration-rebase` checkout,
+at the tip of its remote; the older `neml2-v3-migration` build that `deploy/tools.json` points at has
+no such guard, so `false` is correct for either binary.) Cost: `false` roughly doubles NEML2 model
+evaluations per Newton assembly vs the combined path — a real hit on the NEML2/GPU-bound CPFE,
+accepted here for correctness with the flat-face BC.
 
 ### `orientation_tolerance` units must match `ori_units`
 When `ori_units="radians"`, convert `orientation_tolerance` before passing to `RegionBaseStitching`:

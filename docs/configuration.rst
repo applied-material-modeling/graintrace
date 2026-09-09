@@ -164,10 +164,23 @@ knobs:
    * - ``distributed_mesh``
      - ``False`` (default, replicated) | ``True`` — pre-split the mesh to ``ncore`` and run
        ``--use-split`` (distributed mesh; low per-rank memory for large meshes; requires ``ncore >= 2``)
+   * - ``solver_route``
+     - ``"timestep_optimized"`` (default) | ``"hpc_memory"`` — swaps the linear solver / Executioner deck
 
 The defaults are the cheap settings; the per-step grid transfer dominates wall
 time. Three sources of REI field data are described in
 :doc:`tutorials/rare-event-identification`.
+
+The ``solver_route`` selects one of two Executioner decks merged into the run.
+``"timestep_optimized"`` (default) uses a **direct** LU factorization
+(``superlu_dist``) with preconditioner reuse — robust and iteration-cheap, but the
+factorization fill-in makes it memory-bound on large meshes; best for small/medium
+problems. ``"hpc_memory"`` uses an **iterative** ``fgmres`` solve preconditioned by
+**GAMG** algebraic multigrid — no global factorization, so the memory footprint stays
+low and scales across ranks; it is the recommended partner of ``distributed_mesh=True``
+for large HPC meshes, at the cost of looser and more numerous linear iterations. Both
+decks keep ``residual_and_jacobian_together = false`` (required by the nodal-constraint
+loading BC; MOOSE issue 33531).
 
 Set ``distributed_mesh=True`` for large meshes that exhaust memory as a replicated
 mesh: it pre-splits the mesh once (``--split-mesh ncore``) and runs ``--use-split``
