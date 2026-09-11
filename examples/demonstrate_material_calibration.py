@@ -124,7 +124,9 @@ if run_calibration:
     )
 
     n_used = calib.experiment_data["exp_texture"][0].shape[0]
-    print(f"Loaded {n_used} grains, {calib.strain_stress.shape[0]} stress-strain points.")
+    print(
+        f"Loaded {n_used} grains, {calib.strain_stress.shape[0]} stress-strain points."
+    )
     print(f"Initial objective (L2): {calib.objective():.4f}\n")
 
     # Experimental pole figures + initial stress-strain curve.

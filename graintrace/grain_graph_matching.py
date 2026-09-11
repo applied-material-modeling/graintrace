@@ -29,6 +29,7 @@ from __future__ import annotations
 import json
 import math
 import os
+from functools import partial
 from typing import Any, Dict
 
 import pandas as pd
@@ -36,7 +37,7 @@ import torch
 import tqdm
 from torch_geometric.data import Data
 
-from .orientation_helper import mrp_to_matrix, misorientation_matrix
+from .orientation_helper import euler_to_matrix, misorientation_matrix
 
 
 class GraphGrainMatcher:
@@ -61,8 +62,16 @@ class GraphGrainMatcher:
         neighbor_selection_cost_function=None,
         message_passing_iter: int = 6,
         neighbor_selection_param: dict = None,
+        angle_convention: str = "bunge",
+        angle_type: str = "degrees",
+        symmetry: str = "432",
     ):
-        """Run message passing on both graphs, select matches, write and return results."""
+        """Run message passing on both graphs, select matches, write and return results.
+
+        ``angle_convention``/``angle_type``/``symmetry`` describe the graph node Euler
+        features and are threaded into the default message-passing scheme. Defaults
+        match ``VoronoiMeshBuilder.build_graph`` output (Bunge, degrees).
+        """
         if neighbor_selection_param is None:
             neighbor_selection_param = {
                 "lambda": 0.125,
@@ -71,8 +80,11 @@ class GraphGrainMatcher:
             }
 
         if message_passing_function is None:
-            message_passing_function = (
-                GraphGrainMatcher.default_message_passing_function
+            message_passing_function = partial(
+                GraphGrainMatcher.default_message_passing_function,
+                angle_convention,
+                angle_type,
+                symmetry,
             )
             use_default = True
             print("Using default message passing function.\n")
@@ -444,8 +456,8 @@ class GraphGrainMatcher:
 
     @staticmethod
     def default_message_passing_function(
-        angle_convention="kocks",  # pylint: disable=unused-argument  # kept for interface parity
-        angle_type="radians",
+        angle_convention="bunge",
+        angle_type="degrees",
         symmetry="432",
     ):
         """Return (spec, phi_operator) for the default misorientation message-passing scheme."""
@@ -477,10 +489,10 @@ class GraphGrainMatcher:
                 e1 = euler[src]
                 e2 = euler[dst]
 
-                # Assumes graintrace MRP (Gibbs) params; for Euler input swap in
-                # euler_to_matrix(e, angle_convention, angle_type) below.
-                R1 = mrp_to_matrix(e1)
-                R2 = mrp_to_matrix(e2)
+                # Graph node features Eul0/1/2 are Euler angles (Bunge, degrees by
+                # default -- see VoronoiMeshBuilder.build_graph); convert to matrices.
+                R1 = euler_to_matrix(e1, angle_convention, angle_type)
+                R2 = euler_to_matrix(e2, angle_convention, angle_type)
 
                 rad_mis = misorientation_matrix(R1, R2, symmetry, angle_type="radians")
                 if rad_mis.ndim == 1:

@@ -162,13 +162,15 @@ def postprocess(
     block_csv : per-grain block CSV (out.csv).
     field_dir : directory of per-element grid_out CSVs.
     plots : any of ['stress_strain', 'ee_distribution', 'nye_distribution',
-        'pole_figure']. Default ['stress_strain'].
+        'pole_figure', 'ipf_tracking']. Default ['stress_strain'].
     time : sync time for distribution/pole-figure plots.
     output_folder : where PNGs go (defaults under the MCP workdir).
     field_naming : overrides for FieldFileNaming (prefix, index_width, sep, suffix).
-    params : extra plot options (e.g. direction, crystal_symmetry for pole figure).
+    params : extra plot options (e.g. direction, crystal_symmetry for pole figure;
+        grain_ids, steps for ipf_tracking).
 
-    'pole_figure' needs NEML2 v3 bindings; the others do not.
+    'pole_figure' and 'ipf_tracking' need NEML2 v3 bindings; the others do not.
+    'ipf_tracking' plots per-grain reorientation trajectories in the IPF triangle.
     """
     # Lazy: heavy graintrace submodules, imported only when the tool runs.
     # pylint: disable=import-outside-toplevel
@@ -196,7 +198,7 @@ def postprocess(
         "field_naming": fn,
         "params": extra,
     }
-    needs = ["neml2"] if "pole_figure" in plots else []
+    needs = ["neml2"] if ({"pole_figure", "ipf_tracking"} & set(plots)) else []
 
     def _run():
         res = SimulationResults(
@@ -240,6 +242,24 @@ def postprocess(
                 construct_odf=extra.get("construct_odf", False),
             )
             made.append("pole_figure")
+        if "ipf_tracking" in plots:
+            # pylint: disable=import-outside-toplevel
+            from graintrace.ipf_orientation_tracking import OrientationTracker
+
+            tracks = OrientationTracker().simulation_grain_tracks(
+                res,
+                grain_ids=extra.get("grain_ids"),
+                steps=extra.get("steps"),
+            )
+            pp.plot_ipf_orientation_tracking(
+                tracks,
+                angle_convention="mrp",
+                direction=extra.get("direction", [0, 0, 1]),
+                crystal_symmetry=extra.get("crystal_symmetry", "432"),
+                output_folder=output_folder,
+                savefig_name="ipf_orientation_tracking.png",
+            )
+            made.append("ipf_tracking")
         return {"output_folder": output_folder, "plots_made": made}
 
     # Preview (confirm=false) goes through the standard gate.
@@ -414,4 +434,302 @@ def identify_rare_events(
         run=_run,
         background=True,
         notes="Graph clustering can be slow on large grids; runs in background.",
+    )
+
+
+# ---- reorientation as an REI criterion ---------------------------------------
+
+
+@mcp.tool()
+def reorientation_rei(
+    block_csv: str,
+    field_dir: str,
+    output_dir: Optional[str] = None,
+    params: Optional[Dict[str, Any]] = None,
+    confirm: bool = False,
+) -> dict:
+    """Flag regions that have REORIENTED the most under load as rare events.
+
+    Writes a per-element misorientation-from-initial field (``reorientation_deg``)
+    between a reference and a loaded step, then runs the standard REI pipeline with
+    the ``abs_scalar_diff`` metric (wraps ``fragmentation.write_reorientation_field``
+    + ``IdentifyRareClusters``). Standalone by default; pass ``extra_cols`` to carry
+    nye/stress through for a combined criterion. Pure Python (neml2 + networkit).
+
+    Parameters (all in ``params``, optional)
+    ----------------------------------------
+    step : field-step index to measure (default: last field step).
+    ref_step : reference step (default: first field step).
+    symmetry : crystal symmetry (default '432').
+    k : number of rare clusters to keep (default 5).
+    gamma : Leiden resolution (default 1.0). graph_mode 'knn' (mesh_out) by default.
+    extra_cols : additional feature columns to combine (default none = standalone).
+    """
+    # pylint: disable=import-outside-toplevel
+    from graintrace.simulation_postprocessing import SimulationResults, FieldFileNaming
+    from graintrace.fragmentation import FragmentationAnalyzer
+    from graintrace.rare_cluster_indicator import IdentifyRareClusters
+    from graintrace.similarity_metric_library import SimilarityMetricLibrary
+    from graintrace.user_data_class import WeightConfig, RareCriteria
+    from graintrace import rare_criteria_selection_library as rcs
+
+    if output_dir is None:
+        output_dir = str(workdir() / "reorientation_rei")
+    p = {
+        "step": None,
+        "ref_step": None,
+        "symmetry": "432",
+        "k": 5,
+        "gamma": 1.0,
+        "graph_mode": "knn",
+        "extra_cols": [],
+        "n_jobs": 12,
+        "seed": 42,
+        **(params or {}),
+    }
+    resolved = {
+        "block_csv": block_csv,
+        "field_dir": field_dir,
+        "output_dir": output_dir,
+        **p,
+    }
+
+    def _run():
+        os.makedirs(output_dir, exist_ok=True)
+        naming = FieldFileNaming(
+            prefix="out_element_centroid", index_width=4, sep="_", suffix=".csv"
+        )
+        res = SimulationResults(block_csv, field_dir, field_naming=naming)
+        steps = sorted(res.field_files.keys())
+        step = p["step"] if p["step"] is not None else steps[-1]
+        reo_csv = os.path.join(output_dir, "reorientation_field.csv")
+        FragmentationAnalyzer(symmetry=p["symmetry"]).write_reorientation_field(
+            res,
+            step,
+            reo_csv,
+            ref_step=p["ref_step"],
+            extra_cols=p["extra_cols"],
+        )
+        lib = SimilarityMetricLibrary()
+        spec = lib.abs_scalar_diff(["reorientation_deg"])
+        spec_reduced = lib.abs_scalar_diff(["reorientation_deg_mean"])
+        scalar_col = "reorientation_deg_mean_mean"
+        base = os.path.join(output_dir, "reo")
+        irc = IdentifyRareClusters(
+            input_csv_path=reo_csv, id_col="id", coord_cols=("x", "y", "z")
+        )
+        gsc, indicator = irc.make_stage_objects(graph_cluster_out=base + "_reduced.csv")
+        weight_cfg = WeightConfig(
+            mode="rbf",
+            power=2.0,
+            sigma=None,
+            sigma_auto={
+                "sample_size": 200_000,
+                "random_state": p["seed"],
+                "quantile": 0.5,
+            },
+        )
+        bundle = irc.run_clustering(
+            gsc=gsc,
+            indicator=indicator,
+            reduced_csv_path=base + "_reduced.csv",
+            gsc_run_kwargs={
+                "spec": spec,
+                "graph_mode": p["graph_mode"],
+                "k": 16,
+                "n_jobs": p["n_jobs"],
+                "segmenter": "leiden",
+                "seed": p["seed"],
+                "weight_cfg": weight_cfg,
+                "reduce_edges_topweights_k": 16,
+                "networkit_kwargs": {"gamma": p["gamma"]},
+            },
+            indicator_run_kwargs={
+                "method_type": "scipy_hierarchical",
+                "spec": spec_reduced,
+                "threshold": 0.5,
+                "method": "average",
+                "criterion": "distance",
+                "dendrogram_path": base + "_dendrogram.png",
+            },
+        )
+        rare_criteria = RareCriteria(
+            selector=lambda df: rcs.select_highest_scalar(
+                df, k=p["k"], required_cols=scalar_col, min_size=1
+            )
+        )
+        irc.run_get_rare_cluster(
+            bundle=bundle,
+            criteria=rare_criteria,
+            output_vtk_path=base + "_rare.vtk",
+            export_control="auto",
+            background_block_id=1,
+            first_rare_block_id=2,
+            also_write_final_label=True,
+        )
+        return {
+            "output_dir": output_dir,
+            "reorientation_field": reo_csv,
+            "rare_vtk": base + "_rare.vtk",
+            "combined": bool(p["extra_cols"]),
+        }
+
+    return gate(
+        tool="reorientation_rei",
+        confirm=confirm,
+        resolved_params=resolved,
+        needs=[],
+        will_write=[output_dir],
+        run=_run,
+        background=True,
+        notes="Writes the reorientation field then runs REI; runs in background.",
+    )
+
+
+# ---- simulation intragranular fragmentation ----------------------------------
+
+
+@mcp.tool()
+def sim_fragmentation(
+    block_csv: str,
+    field_dir: str,
+    mesh_file: Optional[str] = None,
+    output_dir: Optional[str] = None,
+    params: Optional[Dict[str, Any]] = None,
+    confirm: bool = False,
+) -> dict:
+    """Analyse simulation intragranular fragmentation at a loaded step.
+
+    Re-segments each ORIGINAL grain's elements by orientation into sub-grains
+    (keeping the parent id), reports per-grain fragment count + sizes, and, if a
+    SCULPT-hex ``mesh_file`` (.e) is given, annotates copies with a per-element
+    ``fragment_label`` scalar (``sim_output_fragments.e``) and a per-element RGB in a
+    dark categorical palette (``sim_output_fragments_rgb.e``; ParaView: map ``rgb_*`` to
+    color) so a grain's sub-grains contrast. For meaningful colors the ``mesh_file`` must
+    be the ANALYZED mesh (the loaded run's own ``sim_output.e``/``mesh.e``). Wraps
+    ``FragmentationAnalyzer.grain_fragments`` + ``IPFProcessor.add_element_field_to_exodus``
+    / ``add_element_rgb_to_exodus``. neml2 + networkit.
+
+    Parameters (all in ``params``, optional)
+    ----------------------------------------
+    step : field-step index (default: last field step).
+    tol_deg : sub-grain misorientation tolerance (default 5.0).
+    gamma : Leiden resolution for sub-grain segmentation (default 0.25). Lower
+        under-splits (0.1 leaves grains whole); raise it to resolve finer sub-grains.
+    min_subgrain_miso_deg : minimum misorientation (deg) between sub-grains to keep
+        them distinct (default 1.0). After Leiden, fragments closer than this are
+        merged, so a smooth intragranular gradient is not chopped into fake fragments;
+        0 disables the merge.
+    """
+    # pylint: disable=import-outside-toplevel
+    from graintrace.simulation_postprocessing import SimulationResults, FieldFileNaming
+    from graintrace.fragmentation import FragmentationAnalyzer
+
+    if output_dir is None:
+        output_dir = str(workdir() / "sim_fragmentation")
+    p = {
+        "step": None,
+        "tol_deg": 5.0,
+        "gamma": 0.25,
+        "min_subgrain_miso_deg": 1.0,
+        **(params or {}),
+    }
+    resolved = {
+        "block_csv": block_csv,
+        "field_dir": field_dir,
+        "mesh_file": mesh_file,
+        "output_dir": output_dir,
+        **p,
+    }
+
+    def _run():
+        os.makedirs(output_dir, exist_ok=True)
+        naming = FieldFileNaming(
+            prefix="out_element_centroid", index_width=4, sep="_", suffix=".csv"
+        )
+        res = SimulationResults(block_csv, field_dir, field_naming=naming)
+        step = (
+            p["step"] if p["step"] is not None else sorted(res.field_files.keys())[-1]
+        )
+        frags_df, per_elem = FragmentationAnalyzer().grain_fragments(
+            res,
+            step,
+            tol_deg=p["tol_deg"],
+            min_subgrain_miso_deg=p["min_subgrain_miso_deg"],
+            seg_kwargs={"gamma": p["gamma"]},
+        )
+        counts_csv = os.path.join(output_dir, "fragment_counts.csv")
+        frags_df.to_csv(counts_csv, index=False)
+        result = {
+            "output_dir": output_dir,
+            "fragment_counts": counts_csv,
+            "n_grains": int(len(frags_df)),
+            "n_fragmented": int((frags_df["n_fragments"] > 1).sum()),
+        }
+        if mesh_file is not None:
+            import numpy as np  # pylint: disable=import-outside-toplevel
+            from matplotlib.colors import (
+                to_rgb,
+            )  # pylint: disable=import-outside-toplevel
+
+            from graintrace.ipf_postprocess import IPFProcessor
+
+            df = res.load_field_data(step)
+            ids = df["id"].to_numpy()
+            codes = np.array(
+                [
+                    (
+                        float(per_elem[int(i)].split(".")[0])
+                        + float(per_elem[int(i)].split(".")[1]) / 100.0
+                        if int(i) in per_elem
+                        else 0.0
+                    )
+                    for i in ids
+                ]
+            )
+            centroids = df[["x", "y", "z"]].to_numpy(dtype=float)
+            ipf = IPFProcessor(
+                crystal_symmetry="432", sample_symmetry="1", save_dir=output_dir
+            )
+            out_e = ipf.add_element_field_to_exodus(
+                mesh_file,
+                centroids,
+                codes,
+                field_name="fragment_label",
+                output_file="sim_output_fragments.e",
+            )
+            result["annotated_exodus"] = str(out_e)
+            # RGB copy: fragments in a dark categorical palette (a grain's sub-grains
+            # contrast), matching the branching-IPF figure. ParaView: map rgb_* to color.
+            blk = np.rint(df["block_id"].to_numpy()).astype(int)
+            palette = ["#1b9e77", "#d95f02", "#7570b3", "#e7298a", "#66a61e", "#a6761d"]
+            frag_color = {}
+            for g in np.unique(blk):
+                labs = sorted(
+                    lab for lab in per_elem.values() if lab.startswith(f"{int(g)}.")
+                )
+                frag_color[int(g)] = {
+                    lab: palette[i % len(palette)] for i, lab in enumerate(labs)
+                }
+            rgb = np.array(
+                [
+                    to_rgb(frag_color[int(b)].get(per_elem.get(int(i)), "0.35"))
+                    for i, b in zip(ids, blk)
+                ]
+            )
+            out_rgb = ipf.add_element_rgb_to_exodus(
+                mesh_file, centroids, rgb, output_file="sim_output_fragments_rgb.e"
+            )
+            result["annotated_exodus_rgb"] = str(out_rgb)
+        return result
+
+    return gate(
+        tool="sim_fragmentation",
+        confirm=confirm,
+        resolved_params=resolved,
+        needs=[],
+        will_write=[output_dir],
+        run=_run,
+        background=True,
+        notes="Per-grain sub-grain segmentation; runs in background.",
     )

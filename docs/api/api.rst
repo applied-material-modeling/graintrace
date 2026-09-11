@@ -44,6 +44,7 @@ top-level names (importable as ``graintrace.<Name>``) are defined by
    experiment_postprocessing
    plot_postprocessing
    ipf_postprocess
+   ipf_orientation_tracking
 
 .. toctree::
    :maxdepth: 1
@@ -59,10 +60,11 @@ top-level names (importable as ``graintrace.<Name>``) are defined by
 
 .. toctree::
    :maxdepth: 1
-   :caption: Grain tracking
+   :caption: Grain tracking & fragmentation
 
    grain_graph_matching
    tess_to_gnn
+   fragmentation
 
 .. toctree::
    :maxdepth: 1

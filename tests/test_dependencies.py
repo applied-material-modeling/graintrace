@@ -25,7 +25,10 @@
 """Check that optional heavy dependencies are available."""
 from __future__ import annotations
 
+import json
 import os
+from pathlib import Path
+
 import pytest
 
 
@@ -78,32 +81,73 @@ def test_pyzag_backend_available():
     assert hasattr(neml2, "compile")
 
 
+def _resolved_sculpt_config():
+    """CUBIT/SCULPT config from a tools.json.
+
+    Tries the canonical graintrace resolver (env var / ``graintrace_tools.json`` /
+    ``~/.config``) first, then this repo's dev ``deploy/tools.json`` as a fallback.
+    Returns None when nothing resolves (the tests then skip).
+    """
+    try:
+        from graintrace.mcp import tool_paths  # pylint: disable=import-outside-toplevel
+
+        cfg = tool_paths.sculpt_config()
+        if cfg:
+            return cfg
+    except Exception:  # pylint: disable=broad-exception-caught
+        pass
+    deploy = Path(__file__).parent.parent / "deploy" / "tools.json"
+    if deploy.is_file():
+        try:
+            cfg = json.loads(deploy.read_text(encoding="utf-8")).get("sculpt_config")
+            if isinstance(cfg, dict) and cfg.get("psculpt"):
+                return cfg
+        except Exception:  # pylint: disable=broad-exception-caught
+            return None
+    return None
+
+
 def test_cubit_psculpt_exists():
     """psculpt binary (Coreform CUBIT/SCULPT) must exist and be executable.
 
-    CUBIT is proprietary and machine-specific, so point the test at your install
-    via the PSCULPT env var (or CUBIT_BIN_DIR); the test skips when it is unset.
+    CUBIT is proprietary and machine-specific. The test resolves it from the
+    ``PSCULPT``/``CUBIT_BIN_DIR`` env var or, failing that, from a configured
+    ``tools.json`` (``sculpt_config``); it skips only when none resolve.
     """
-    psculpt = os.environ.get("PSCULPT") or (
-        os.path.join(os.environ["CUBIT_BIN_DIR"], "psculpt")
-        if os.environ.get("CUBIT_BIN_DIR")
-        else None
+    cfg = _resolved_sculpt_config()
+    psculpt = (
+        os.environ.get("PSCULPT")
+        or (
+            os.path.join(os.environ["CUBIT_BIN_DIR"], "psculpt")
+            if os.environ.get("CUBIT_BIN_DIR")
+            else None
+        )
+        or (cfg.get("psculpt") if cfg else None)
     )
     if not psculpt:
-        pytest.skip("Set PSCULPT or CUBIT_BIN_DIR to test the CUBIT/SCULPT install")
+        pytest.skip("No CUBIT/SCULPT install (set PSCULPT/CUBIT_BIN_DIR or tools.json)")
     assert os.path.isfile(psculpt), f"psculpt not found at {psculpt}"
     assert os.access(psculpt, os.X_OK), f"psculpt not executable: {psculpt}"
 
 
 def test_cubit_mpiexec_exists():
-    """mpiexec for CUBIT must exist. Set CUBIT_MPIEXEC (skips when unset)."""
-    mpiexec = os.environ.get("CUBIT_MPIEXEC") or (
-        os.path.join(os.environ["CUBIT_BIN_DIR"], "mpi", "bin", "mpiexec")
-        if os.environ.get("CUBIT_BIN_DIR")
-        else None
+    """mpiexec for CUBIT must exist.
+
+    Resolved from ``CUBIT_MPIEXEC``/``CUBIT_BIN_DIR`` or a configured ``tools.json``
+    (``sculpt_config``'s ``launcher``); skips only when none resolve.
+    """
+    cfg = _resolved_sculpt_config()
+    mpiexec = (
+        os.environ.get("CUBIT_MPIEXEC")
+        or (
+            os.path.join(os.environ["CUBIT_BIN_DIR"], "mpi", "bin", "mpiexec")
+            if os.environ.get("CUBIT_BIN_DIR")
+            else None
+        )
+        or (cfg.get("launcher") if cfg else None)
     )
     if not mpiexec:
-        pytest.skip("Set CUBIT_MPIEXEC or CUBIT_BIN_DIR to test the CUBIT mpiexec")
+        pytest.skip("No CUBIT mpiexec (set CUBIT_MPIEXEC/CUBIT_BIN_DIR or tools.json)")
     assert os.path.isfile(mpiexec), f"mpiexec not found at {mpiexec}"
     assert os.access(mpiexec, os.X_OK), f"mpiexec not executable: {mpiexec}"
 

@@ -550,11 +550,21 @@ class CPFESimulation:
                 comments="",
                 fmt="%.12g",
             )
-        # 3 columns = MRPs, copy as-is
+        # 3 columns = neml2 MRPs, copy as-is
         elif df.shape[1] == 3:
             # pylint: disable=import-outside-toplevel  # torch is a heavy optional dep
             import torch
 
+            # neml2 MRP = tan(theta/4)*axis, so |component| <= 1 in the fundamental
+            # zone. Much larger values almost always mean Euler angles (deg or rad)
+            # were passed by mistake -- convert them with euler_to_mrp first.
+            if np.abs(df.values).max() > 3.0:
+                raise ValueError(
+                    f"3-column ori_file '{self.ori_file}' has values up to "
+                    f"{np.abs(df.values).max():.3g}, too large for neml2 MRP "
+                    "(|component| <~ 1). Did you pass Euler angles? Convert with "
+                    "orientation_helper.euler_to_mrp before use."
+                )
             shutil.copy(
                 self.ori_file, self.save_simulation_folder / "mrps_orientation.csv"
             )

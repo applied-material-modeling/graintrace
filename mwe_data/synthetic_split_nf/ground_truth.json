@@ -1,0 +1,27 @@
+{
+  "multiplicities": {
+    "1": 1,
+    "2": 2,
+    "3": 3,
+    "4": 1,
+    "5": 2
+  },
+  "n_splitting_grains": 3,
+  "split_step": 2,
+  "thetas_deg": [
+    0.0,
+    3.0,
+    6.0,
+    9.0,
+    12.0
+  ],
+  "misorientation_tol_deg": 5.0,
+  "step_dirs": [
+    "mwe_data/synthetic_split_nf/step00",
+    "mwe_data/synthetic_split_nf/step01",
+    "mwe_data/synthetic_split_nf/step02",
+    "mwe_data/synthetic_split_nf/step03",
+    "mwe_data/synthetic_split_nf/step04"
+  ],
+  "exp_file_token": "layer"
+}

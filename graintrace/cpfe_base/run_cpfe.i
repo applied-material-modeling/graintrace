@@ -164,7 +164,8 @@
         sort_by = id
         execute_on = '${mesh_sampler_execute_on}'
         outputs = 'mesh_csv'
-        variable = 'ee_xx ee_yy ee_zz ee_yz ee_xz ee_xy
+        variable = 'block_id
+                    ee_xx ee_yy ee_zz ee_yz ee_xz ee_xy
                     ori_rodrigues_x ori_rodrigues_y ori_rodrigues_z
                     strain_xx strain_yy strain_zz strain_yz strain_xz strain_xy
                     Fe_11 Fe_12 Fe_13 Fe_21 Fe_22 Fe_23 Fe_31 Fe_32 Fe_33
@@ -177,8 +178,20 @@
 []
 
 [AuxVariables]
+    # Per-element subdomain (block) id == grain id. 'subdomain_id' is MOOSE's
+    # reserved extra-element-id name, so this needs no mesh extra integer. Emitted
+    # in mesh_out/*.csv as the 'block_id' column so post-processing can select all
+    # elements of a grain (e.g. intragranular fragmentation) without the mesh file.
+    [block_id]
+        order = CONSTANT
+        family = MONOMIAL
+        [AuxKernel]
+            type = ExtraElementIDAux
+            extra_id_name = 'subdomain_id'
+        []
+    []
     [ori_rodrigues_x]
-        order = FIRST 
+        order = FIRST
         family = MONOMIAL
         [AuxKernel]
             type = MaterialRealVectorValueAux
@@ -349,13 +362,13 @@
         []
     []
     [nye_tensor_11]
-        order = FIRST 
+        order = FIRST
         family = MONOMIAL
         [AuxKernel]
             type = MaterialRankTwoTensorAux
             property = 'nye_tensor'
             i = 0
-            j = 1
+            j = 0
         []
     []
     [nye_tensor_12]

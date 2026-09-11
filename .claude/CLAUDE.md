@@ -360,6 +360,32 @@ Key outputs in `save_dir`:
 - `mesh.e`: Exodus mesh file for CPFE
 - `orientations.csv`: per-element MRP orientations
 
+### Recommended graph (Leiden) segmentation settings (NF/EBSD) — the DEFAULT/better pathway
+
+Graph/Leiden is the default and better segmentation for NF/EBSD; **flood over-merges into
+percolating grains**. Use `method="graph"` (§9 `segmentation_prop`). Vetted recipe (validated
+on Fe-9Cr NF reconstruction), in `FragmentationAnalyzer.segment` + its staticmethods
+`gamma_sweep_leiden`, `pick_gamma_by_percolation`, `absorb_fragments`, `adjacency_remerge`:
+
+| Knob | Value | Why |
+|---|---|---|
+| misorientation cutoff (`max_edge_distance`) | **5°** hard | removes boundary edges → no percolation across grains |
+| `manhattan_radius` | **2** (18-neighbor) | denser intra-grain links |
+| RBF sigma (`weight_cfg`) | **fixed ≈ ½ cutoff (~2.5°)**, `sigma_auto=None` | `sigma_auto` collapses to ~0.1° and shatters grains into noise |
+| `weight_cfg` | `mode="rbf", power=2.0` | bounded 0..1 weights (not `inverse`'s 1e8 dynamic range) |
+| `reduce_edges_topweights_k` | **12** | sparser graph, faster Leiden |
+| in-plane `downsample` | `(2,2,1)` (large NF only) | NF grid is finer than needed for ~40µm grains |
+| Leiden `gamma` | **sweep `[0.5,1,2,4,8]`, pick by PERCOLATION** | smallest gamma whose biggest grain < 3% of solid (`pick_gamma_by_percolation`) |
+| absorb (`grain_threshold_final`) | **30 vox** | merge sub-threshold fragments into largest-contact neighbor |
+| adjacency re-merge (`REMERGE_MISO_DEG`) | **~3°**, adjacency-ONLY, size-capped | coalesce Leiden-split fragments without re-percolating (global merge collapsed 596→90) |
+
+**Scale caveat:** gamma-by-percolation (3%-of-solid cap) is for **large, many-grain** NF/EBSD.
+For **small / few-grain** data (a legit grain is a large fraction of solid) or **intragranular
+sub-grain** segmentation (§7 sim fragmentation), the percolation pick misfires (falls back to the
+highest gamma → shatters) — pass a **fixed low `gamma`** instead (~0.1 for few-grain data;
+for **intragranular sub-grains** ~0.25 — 0.1 under-splits/leaves grains whole, higher resolves
+finer sub-grains; calibrate against the per-element spread).
+
 ---
 
 ## 5. EBSD Workflow
@@ -474,7 +500,8 @@ bounding_box_nf = [x_min, x_max, y_min, y_max, z_min, z_max]
 - **`mesh_out/out_element_centroid_*.csv`** — the DEFAULT (`mesh_csv="sync"`). Crisp
   per-element fields sampled on the true CPFE mesh (no transfer, no smoothing). Point REI /
   `SimulationResults(field_dir=".../mesh_out")` here for full-fidelity full-mesh REI (kNN
-  path; one row per element).
+  path; one row per element). Includes a `block_id` column (element subdomain id == grain id)
+  for selecting all elements of a grain (e.g. fragmentation IPF tracking) without the mesh file.
 - **`grid_out/…`** — a regular grid; written during the run only if `grid_transfer="per_step"`
   (crisp, fast grid path, but pays the per-step transfer), or regenerated offline (below).
 - **GridResampler** — regenerate `grid_out/` from the Exodus after a cheap run.
@@ -584,6 +611,41 @@ ipf.add_block_rgb_to_vtk(
 )
 ```
 
+### IPF orientation tracking (reorientation across load steps)
+Plot how orientations *move in the IPF* over the load: one triangle, per entity an
+IPF-colored start dot, a black line through its per-step orientations (small step markers),
+and an arrowhead at the final step. Build tracks with
+`graintrace.ipf_orientation_tracking`, plot with
+`plot_postprocessing.plot_ipf_orientation_tracking`. Dot color = the fixed standard IPF color
+key (`IPFProcessor.get_ipf_color`); positions = `IPFProcessor.get_ipf_points` (order-preserving,
+one representative per orientation — unlike neml2's ragged `inverse_pole_figure_points`).
+```python
+from graintrace.ipf_orientation_tracking import OrientationTracker
+from graintrace import plot_postprocessing as pp
+
+tracker = OrientationTracker()   # holds ori_tensor / block_id_col / eul_cols conventions
+
+# (a) simulation per-grain average (ori_rodrigues = neml2 MRP; grain id stable in time)
+tracks = tracker.simulation_grain_tracks(res, grain_ids=[1,2,3], steps=range(1, res.n_steps))
+pp.plot_ipf_orientation_tracking(tracks, angle_convention="mrp", crystal_symmetry="432",
+                                 output_folder="out/ipf", savefig_name="grain_avg.png")
+
+# (b) intragranular fragmentation: all elements of one grain (needs the mesh_out block_id col)
+etracks = tracker.simulation_element_tracks(res, block_id=1)   # or element_ids=[...]
+pp.plot_ipf_orientation_tracking(etracks, angle_convention="mrp", crystal_symmetry="432", ...)
+
+# (c) experiment: stable grain_id -> by id; renumbered grains -> graph matching
+etracks = tracker.experiment_grain_tracks_by_id(step_csvs, seed_grain_ids=[1,2,3])
+# etracks = tracker.experiment_grain_tracks(graphs, seed_grain_ids=..., ...)  # GraphGrainMatcher,
+#   composes pairwise a_to_b across arbitrary steps (OrientationTracker.compose_tracks)
+pp.plot_ipf_orientation_tracking(etracks, angle_convention="bunge", angle_type="radians", ...)
+```
+`get_reduced_ipf_directions`/`get_ipf_points`/`get_ipf_color` include the crystal **inversion**
+(full point group, e.g. 48 ops for m-3m); without it deformed orientations can have no
+fundamental-sector representative. Reorientation magnitude is problem-dependent; visible
+intragranular fragmentation needs a fine-mesh polycrystal or NF-HEDM (a coarse mesh under
+uniform load rotates each grain nearly rigidly).
+
 ### Rare event identification (REI): IdentifyRareClusters
 Takes the last grid output CSV (from `grid_out/`) and identifies spatially coherent rare regions.
 
@@ -688,6 +750,83 @@ Outputs in `output_dir`: `overlap_metrics.json` (IoU/Dice/`containment_1`/`conta
 counts/volumes), `overlap_cloud.vtk` (scalar `membership` 1=only-1/2=only-2/3=both, plus
 `cluster_id_1`/`cluster_id_2`), and `cluster_match.csv` (1-to-1 Hungarian cluster pairing by
 overlap volume, label-agnostic; unmatched flagged `-1`; split/merge counts).
+
+### Reorientation as an REI criterion (`graintrace/fragmentation.py`)
+Per-element misorientation-from-initial (how far each element's crystal orientation has
+rotated from the reference step) as a rare-event scalar, standalone OR combined with
+nye/stress (the caller's choice, like any multi-metric REI). See `/reorientation-fragmentation`.
+```python
+from graintrace.fragmentation import FragmentationAnalyzer
+analyzer = FragmentationAnalyzer(symmetry="432")   # holds symmetry / ori_cols / coord_cols
+ids, deg = analyzer.reorientation_from_reference(res, step, ref_step=None)  # (ids, deg)
+analyzer.write_reorientation_field(res, step, "reo.csv", ref_step=None,
+                                   extra_cols=["nye_tensor_11"])  # id,x,y,z,reorientation_deg[,extra]
+```
+Then feed `reo.csv` to `IdentifyRareClusters` (§7) with the **new** metric
+`SimilarityMetricLibrary().abs_scalar_diff(["reorientation_deg"])` (standalone) or a
+multi-feature `SimilarityMetric` over `["reorientation_deg", "nye_tensor_*"/stress]`
+(combined). `abs_scalar_diff` = |Δ| of one scalar; valid in both GSC and indicator stages.
+`ori_rodrigues` is neml2 MRP (mapped via `mrp_to_matrix` + symmetry-aware `misorientation_matrix`).
+
+### Simulation intragranular fragmentation + annotated Exodus (`fragmentation.py`, `ipf_postprocess.py`)
+Re-segment each ORIGINAL grain's elements by orientation into sub-grains (keep the parent id),
+count/size fragments, and annotate the SCULPT-hex `sim_output.e` per element. See `/reorientation-fragmentation`.
+```python
+from graintrace.fragmentation import FragmentationAnalyzer
+frags_df, per_elem = FragmentationAnalyzer().grain_fragments(res, step, tol_deg=5.0,
+                    min_subgrain_miso_deg=1.0, seg_kwargs={"gamma": 0.25})  # knn sub-grain seg
+# fragments_df: grain_id, n_fragments, fragment_sizes, n_elements; per_elem: id -> "{grain}.{k}"
+# gamma=0.25 sets raw resolution (0.1 UNDER-splits/leaves grains whole); min_subgrain_miso_deg=1.0
+# then MERGES sub-grains closer than 1deg so a smooth gradient is not chopped into fake fragments —
+# only sub-grains past a real low-angle sub-boundary survive (verify vs the per-element spread).
+from graintrace.ipf_postprocess import IPFProcessor
+# NB: use kwargs — IPFProcessor's 1st positional arg is `reduction`, not crystal_symmetry
+ipf = IPFProcessor(crystal_symmetry="432", sample_symmetry="1", save_dir="out")
+ipf.add_element_field_to_exodus(  # per-element SCALAR fragment code
+    "sim_output.e", centroids, codes, field_name="fragment_label", output_file="frags.e")
+ipf.add_element_rgb_to_exodus(  # per-element RGB — match the branching-IPF figure palette
+    "sim_output.e", centroids, rgb_per_elem, output_file="frags_rgb.e")  # rgb (N,3) in [0,1]
+```
+`add_element_field_to_exodus` (scalar) and `add_element_rgb_to_exodus` (RGB triple `rgb_x/y/z`)
+both fill each element (not block-constant) via a centroid KD-tree (cf. `add_block_rgb_to_exodus`);
+open in ParaView. Encode `"{grain}.{k}"` as a float for the scalar; for RGB pass one color per
+element from the SAME fragment palette as the figure (in ParaView map `rgb_x/y/z` to color with
+scalar mapping off) — needs the Exodus of the ANALYZED mesh (a co-registered loaded run's
+`sim_output.e`/`mesh.e`), not a bare mesh of a different microstructure.
+
+### Grain fragmentation (split) detection: FF/NF/EBSD (`FragmentationAnalyzer.detect_splits`)
+Cross-step graph + connected components detects one grain splitting into several (beyond the
+strictly 1-to-1 `GraphGrainMatcher`). See `/reorientation-fragmentation`.
+```python
+from graintrace.fragmentation import FragmentationAnalyzer
+res = FragmentationAnalyzer(symmetry="432").detect_splits(
+    nodes_a, nodes_b, d_tol=20.0, theta_tol_deg=15.0,
+    angle_convention="bunge", angle_type="degrees", adjacency_b=None)
+# res["n_splits"], res["split_correspondences"] (parent_a, children_b, n_children), + merges/births/deaths
+```
+`nodes_*` are per-grain tables (`grain_id,X,Y,Z,GrainRadius,Eul0/1/2`). FF supplies them
+directly; **NF/EBSD** reach the SAME detector through `FragmentationAnalyzer.segment`
+(graph/Leiden) + `FragmentationAnalyzer.seg_to_grain_table` (the seg→centroid grain-table bridge —
+proper quaternion mean orientation, equivalent-sphere radius). Shipped synthetic split datasets
+`mwe_data/synthetic_split_{ff,nf,ebsd}/` (+ ground truth) come from the test helper
+`tests/synthetic_fragmentation.py`.
+
+### Branching IPF plot (1→many fragmentation)
+`plot_postprocessing.plot_ipf_fragmentation_tracking(branches, angle_convention=...)` draws a
+parent trajectory forking at its split point into N child arrows (`branches = [(parent_track,
+[child_track, ...])]`, MRP or Euler). Complements `plot_ipf_orientation_tracking` (independent
+per-entity tracks). Both plotters share styling knobs: `arrow_color` (single, per-entity, or the
+sentinel `"ipf_final"` = tint each track/fork by the IPF color of its FINAL orientation, no legend),
+`start_color` (dot color; `None`=initial IPF, `"black"`=neutral), `line_style` (per-track) /
+`child_line_styles` (per-child) + `parent_line_style`, `child_colors` (per-child colors) +
+`parent_color` (fragmentation plot — give a grain's sub-grains contrasting categorical colors),
+`line_width`, `start_size`, `step_size`, `arrow_scale`, `show_arrow` (`False`=headless lines),
+`label_fontsize`, and a shared `ax` (returns the ax, no save). The signature 1×2 figure links its
+panels on TWO channels keyed to the per-grain fragment index: a **dark categorical color** (Dark2;
+a grain's sub-grains contrast — grains told apart by IPF position) via per-element `arrow_color` +
+per-child `child_colors`, AND a shared `{grain}.{k}` → line-style map; black start dots, gray parent
+(`parent_color`). LEFT = every element (thin, headless); RIGHT = forks (small arrows). See
+`examples/demonstrate_reorientation_fragmentation.py`.
 
 ---
 
@@ -876,9 +1015,49 @@ weight_cfg = WeightConfig(
 )
 ```
 
+### Fragmentation options (§7 features)
+All on `FragmentationAnalyzer(symmetry="432", ori_cols=…, coord_cols=…)`:
+- `.segment(coords, mrp, misori_tol_deg=5.0, graph_mode="grid"|"knn", gamma=None|<float>,
+  gamma_sweep=(0.5,1,2,4,8), rbf_sigma_deg=None, manhattan_radius=2, reduce_topk=12,
+  grain_threshold_final=30, remerge_miso_deg=3.0, percolation_max_frac=0.03)` —
+  `graph_mode="grid"` for voxel grids (NF/EBSD), `"knn"` for scattered mesh elements.
+  `gamma=None` runs the percolation sweep (large NF); pass a fixed low gamma for
+  few-grain (~0.1) or intragranular sub-grain (~0.25; 0.1 under-splits) data.
+- `.grain_fragments(res, step, tol_deg=5.0, block_id_col="block_id", min_fragment_elems=5,
+  min_subgrain_miso_deg=1.0, seg_kwargs={...})` — `seg_kwargs` forwards to `.segment` (e.g.
+  `{"gamma": 0.25}`). Sub-grain segmentation runs with the segmenter's `remerge_miso_deg=0` (OFF:
+  the adjacency re-merge's percolation size-cap is meaningless on one grain's ~100 elements — inert
+  or chaining), and instead applies **`min_subgrain_miso_deg`** — the minimum misorientation
+  between two sub-grains to keep them distinct. After Leiden, fragments whose (symmetry-aware) mean
+  orientations are closer than this are merged agglomeratively (closest-pair first, means recomputed
+  → no chaining), so a smooth intragranular gradient chopped into near-identical Leiden communities
+  collapses to one fragment while genuine sub-grains (a real low-angle sub-boundary) survive. `gamma`
+  sets the raw resolution; `min_subgrain_miso_deg` sets the physical sub-grain threshold (0 disables).
+- `.merge_fragments_by_misorientation(mrp, labels, tol_deg, symmetry)` (staticmethod) —
+  the agglomerative orientation-only merge behind `min_subgrain_miso_deg`.
+- `.mean_orientation_mrp(mrp, symmetry="1")` (staticmethod) — quaternion eigenvector (Markley) mean;
+  pass `symmetry` (e.g. `"432"`) to fold variants first so a variant-straddling set averages
+  correctly (default `"1"` = plain mean; no-op on coherent data, but a footgun if left off on data
+  that crosses a symmetry boundary).
+- `.detect_splits(nodes_a, nodes_b, d_tol, theta_tol_deg, angle_convention="bunge",
+  angle_type="degrees", top_k=8, adjacency_b=None)` — `d_tol` at grain scale,
+  `theta_tol_deg` generous (~15°); uses the instance's `symmetry`.
+- Synthetic splits: `tests/synthetic_fragmentation.generate_{ff,nf,ebsd}_split(out_dir,
+  n_steps=5, theta_max_deg=12.0, misorientation_tol_deg=5.0, ...)` — the shipped
+  `mwe_data/synthetic_split_*` + `ground_truth.json` (test helper, not a package module).
+
 ---
 
 ## 10. Common Pitfalls
+
+### `ori_rodrigues_*` is neml2 MRP, not classical Rodrigues (misnomer)
+The CPFE aux/CSV output `ori_rodrigues_{x,y,z}` holds the model's `orientation` state,
+which is **neml2 v3 MRP** (`tan(θ/4)·axis`), NOT classical Rodrigues (`tan(θ/2)`). All
+in-repo consumers treat it as MRP correctly (`plot_pole_figure`/`plot_ipf_orientation_tracking`
+use `orientation_type/angle_convention="mrp"` → `mrp_to_matrix`; `simulation_*_tracks` feed it
+as MRP). Do NOT feed these columns to a tool expecting true Rodrigues. A rename to
+`ori_mrp_*` (aux vars + `initial_conditions*.i` `rodrigues_*` functions + all consumers) is a
+**deferred follow-up** — the blast radius is wide, so it is documented rather than done.
 
 ### NEPER is bring-your-own
 `VoronoiMeshBuilder` and `CrystalGenerator` resolve a **user-installed** NEPER via
@@ -1043,6 +1222,43 @@ Three checkpointing levels in order of priority:
 2. `FINAL_CLUSTERING_RESTART`: load reduced CSV + GSC labels numpy
 3. `GRAPH_SEGMENTATION_RESTART`: load graph edges/weights/meta from `_gsc_ckpt.*`
 
+### Orientation segmentation: flood over-merges; `sigma_auto` shatters; gamma scale matters
+- **Use graph/Leiden, not flood.** Flood fill over-merges into percolating grains; graph
+  segmentation (`FragmentationAnalyzer.segment`, or `method="graph"` in `segmentation_prop`) is
+  the default/better pathway (§4). Everything runs in moose-src (has networkit).
+- **Fixed broad RBF sigma, not `sigma_auto`.** On near-identical intra-grain edges `sigma_auto`
+  collapses to ~0.1° and shatters grains into noise; use `sigma ≈ ½` the misorientation cutoff.
+- **gamma-by-percolation is for large, many-grain data.** Its 3%-of-solid cap misfires on
+  few-grain / small grids and on intragranular sub-grain segmentation (a legit grain is a large
+  fraction of solid) → it falls back to the highest gamma and shatters. Pass a **fixed low gamma**
+  there (~0.1 few-grain; ~0.25 intragranular sub-grains — 0.1 under-splits, calibrate against the
+  per-element spread); keep the percolation sweep for NF/EBSD reconstructions (§4).
+
+### Fragmentation detector: `d_tol` scale and cross-step `theta_tol`
+`FragmentationAnalyzer.detect_splits` links a grain to its next-step lineage by centroid distance AND
+misorientation. Set `d_tol` to grain scale — too large chains distinct neighboring grains into
+one "complex" component. Set `theta_tol_deg` GENEROUS (e.g. 15°): children keep diverging across
+steps, so a tight cutoff misses the split. Different base grains stay separate only because they
+are far in orientation (the misorientation filter), so ensure real grains are well-separated.
+
+### Reorientation REI: reference step + `ori_rodrigues` is MRP
+`FragmentationAnalyzer.reorientation_from_reference`/`.write_reorientation_field` default
+`ref_step` to the FIRST field step; pass `ref_step` for a pairwise comparison. `ori_rodrigues` is neml2 v3 MRP (misnamed) —
+the code maps it via `mrp_to_matrix`, NOT as Gibbs/Rodrigues. `abs_scalar_diff` requires exactly
+one feature column. Field-step indices are the CSV indices (may be non-contiguous with sync
+times); index into `sorted(res.field_files.keys())`.
+
+### Annotated Exodus: fragment_label must be numeric; RGB needs the analyzed mesh
+`add_element_field_to_exodus` writes a float element variable; encode `"{grain}.{k}"` as a float
+(e.g. `grain + k/100`). It maps incoming per-element values to mesh elements by centroid KD-tree,
+so pass element centroids aligned to the values. Use a SCULPT **hex** mesh (`sim_output.e`/`mesh.e`).
+`add_element_rgb_to_exodus` is the RGB counterpart (writes `rgb_x/y/z`, ParaView: map to color,
+scalar mapping OFF) for coloring fragments to match the figure. Consistency caveat: the colors are
+only meaningful on the **analyzed** mesh — annotate a co-registered loaded run's Exodus (its
+`mesh.e`/`sim_output.e` beside the `mesh_out` you segmented), NOT a bare mesh of a *different*
+microstructure (e.g. the shipped `cpfe_hex_fragmentation/mesh.e` is unrelated to the tet
+`cpfe_ff_fragmentation` analysis — the example colors it by block id only as a writer demo).
+
 ---
 
 ## 11. Module Map
@@ -1058,12 +1274,15 @@ graintrace/
   grid_resampling.py           GridResampler         : offline resample of a CPFE Exodus -> grid CSV
   simulation_postprocessing.py SimulationResults     : Load/query CPFE output CSVs
   experiment_postprocessing.py ExperimentResults     : Load experimental data
-  plot_postprocessing.py       plot_*                : Distribution/stress-strain/pole figures
-  ipf_postprocess.py           IPFProcessor          : IPF coloring on mesh
+  plot_postprocessing.py       plot_*                : Distribution/stress-strain/pole figures/IPF reorientation
+  ipf_postprocess.py           IPFProcessor          : IPF coloring on mesh; get_ipf_points/get_ipf_color; add_element_field_to_exodus (per-elem scalar) / add_element_rgb_to_exodus (per-elem RGB)
+  ipf_orientation_tracking.py  OrientationTracker : per-entity orientation tracks for IPF reorientation plots (simulation_grain_tracks/simulation_element_tracks/experiment_grain_tracks[_by_id]/compose_tracks)
+  fragmentation.py             FragmentationAnalyzer : reorientation REI criterion (reorientation_from_reference/write_reorientation_field), orientation segmentation + grain-table bridge (segment/seg_to_grain_table), sim intragranular fragments (grain_fragments, with min_subgrain_miso_deg merge via merge_fragments_by_misorientation), FF/NF/EBSD cross-step split detection (detect_splits), symmetry-aware mean_orientation_mrp
+    (synthetic split datasets are generated by the test helper tests/synthetic_fragmentation.py, not a graintrace module)
   rare_cluster_indicator.py    IdentifyRareClusters  : REI full pipeline
   graph_spatial_cluster.py     GraphSpatialCluster   : Graph segmentation of field data
   cluster_indicator.py         ClusterAnalysisIndicator : Hierarchical clustering stage
-  similarity_metric_library.py SimilarityMetricLibrary  : Built-in feature metrics
+  similarity_metric_library.py SimilarityMetricLibrary  : Built-in feature metrics (von_mises_stress/misorientation/nye_tensor_norm/abs_scalar_diff)
   rare_criteria_selection_library.py                 : select_highest_scalar, etc.
   material_calibration.py      MaterialCalibration   : Taylor model parameter fitting
   taylor.py                    TaylorModel           : NEML2 Taylor model wrapper
@@ -1111,9 +1330,17 @@ standard graintrace env (graintrace pip-installed editable; neml2 v3.0.7 + pyzag
 | `rare-event-identification` | graph cluster → hierarchical → rare VTK | demonstrate_rei_pipeline.py (+2D/3D) | mwe_data/synthetic_vms.csv (regen) |
 | `rei-comparison` | compare two REI point clouds → overlap metrics + classified VTK | demonstrate_rei_comparison.py | synthetic (generated on demand) |
 | `grain-tracking` | grain graph matching across load steps | demonstrate_graintracking.py | mwe_data/synthetic_load_exp |
+| `reorientation-fragmentation` | one flow: IPF tracking → sim intragranular fragmentation (1×2 reorientation-vs-segmentation + annotated hex Exodus) → FF/NF/EBSD split detection → REI (grains that split the most) | demonstrate_reorientation_fragmentation.py | mwe_data/cpfe_ff_fragmentation (+ cpfe_hex_fragmentation mesh.e) + synthetic_split_{ff,nf,ebsd} |
 
 **Shippable `mwe_data/` datasets:** `ff_calibration/` (calibration + FF recon), `cpfe_ff/`
 (10-grain `reconstruction.msh` + `orientations.dat`), `out.csv` + `grid_out/` (CPFE post-proc),
+`cpfe_ff_fragmentation/` (real true-mesh tet `mesh_out` w/ `block_id`, 10 diverse grains — the
+reorientation-tracking + sim-fragmentation analysis + the 1×2 figure all run on this),
+`cpfe_hex_fragmentation/mesh.e` (a real SCULPT-**hex** mesh for the annotated-Exodus writer/test;
+a full loaded per-step hex CPFE run must be regenerated on a GPU/compute node via the standard CPFE
+flow (§3/§5, SCULPT-hex path) — it did not complete on this login node),
+`synthetic_split_{ff,nf,ebsd}/` (synthetic mixed-multiplicity grain splits, 1→1/1→2/1→3 + ground
+truth; generated by the test helper `tests/synthetic_fragmentation.py`),
 `synthetic_load_exp/` (grain tracking; load-step FF CSVs), `synthetic_vms.csv` (REI seed).
 
 **External-tool matrix:** NEPER → ff-reconstruction, nf/ff/hedm synthetic; CUBIT/`sculpt_config`

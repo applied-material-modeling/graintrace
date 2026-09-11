@@ -28,9 +28,12 @@ your chat client (brings the LLM + key)
 | `voxel_mesh` | EBSD/gridded segmentation + mesh | CUBIT/SCULPT (mesh only) |
 | `calibrate_material` | Taylor-model parameter fit | NEML2 v3 + pyzag |
 | `run_cpfe` | MOOSE/PUMA CPFE run | `puma-opt` + NEML2 AOTI |
-| `postprocess` | distributions / stress-strain / pole figure | (NEML2 for pole figure) |
+| `postprocess` | distributions / stress-strain / pole figure / IPF reorientation tracking | (NEML2 for pole figure & ipf_tracking) |
 | `identify_rare_events` | REI graph clustering → VTK | none |
+| `reorientation_rei` | reorientation (misorientation-from-initial) as an REI criterion → VTK | none (neml2+networkit) |
+| `sim_fragmentation` | sim intragranular fragmentation: sub-grain counts + annotated hex Exodus | none (neml2+networkit) |
 | `track_grains` | grain matching across load steps | NEPER + torch-geometric |
+| `detect_fragmentation` | grain split/merge/birth/death across load steps (FF/NF/EBSD) | none (neml2) |
 | `dependency_status`, `list_recommended_recipes`, `get_recommended_parameters`, `job_status`, `list_jobs`, `job_log`, `list_outputs` | introspection / recipes / jobs | none |
 
 Two built-in safety behaviors:

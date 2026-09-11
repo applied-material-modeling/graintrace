@@ -117,6 +117,20 @@ For :meth:`~graintrace.NearFieldMeshBuilder.reconstruct`, the ``segmentation``
 argument is a flat dict (no ``method``/``params`` nesting), with
 ``misorientation_tol`` in radians.
 
+**Graph/Leiden is the default and better pathway** for NF/EBSD; flood over-merges
+into percolating grains. The vetted recipe (validated on Fe-9Cr NF
+reconstruction): hard 5° misorientation cutoff; ``manhattan_radius=2``;
+a **fixed broad RBF sigma ≈ half the cutoff** (``sigma_auto`` collapses to ~0.1° and
+shatters grains); ``reduce_edges_topweights_k=12``; optional ``downsample=(2,2,1)``;
+Leiden ``gamma`` chosen by **percolation** (smallest gamma whose biggest grain is
+below ~3% of solid) over a sweep ``[0.5, 1, 2, 4, 8]``; then absorb sub-30-voxel
+fragments and an adjacency-only re-merge (~3°). This recipe is promoted into the
+library as :meth:`graintrace.fragmentation.FragmentationAnalyzer.segment` and its
+staticmethods (``gamma_sweep_leiden``, ``pick_gamma_by_percolation``,
+``absorb_fragments``, ``adjacency_remerge``). The percolation gamma-pick is for large, many-grain data;
+for few-grain or intragranular sub-grain segmentation pass a fixed low ``gamma``
+(~0.1).
+
 WeightConfig
 ------------
 
@@ -170,6 +184,91 @@ knobs:
 The defaults are the cheap settings; the per-step grid transfer dominates wall
 time. Three sources of REI field data are described in
 :doc:`tutorials/rare-event-identification`.
+
+The per-element ``mesh_out`` CSVs also carry a ``block_id`` column (the element
+subdomain id == grain id). It lets post-processing select all elements of a
+grain without the mesh file &mdash; e.g. intragranular reorientation /
+fragmentation via
+:meth:`graintrace.ipf_orientation_tracking.OrientationTracker.simulation_element_tracks` (see
+:doc:`tutorials/reorientation-fragmentation`).
+
+Fragmentation & reorientation analysis
+--------------------------------------
+
+Reorientation-driven REI and grain fragmentation (see
+:doc:`tutorials/reorientation-fragmentation`) add these options:
+
+**Reorientation REI**
+(:meth:`graintrace.fragmentation.FragmentationAnalyzer.write_reorientation_field`): ``step`` and
+``ref_step`` (field-step indices; ``ref_step`` defaults to the first field step),
+``symmetry`` (default ``"432"``), and ``extra_cols`` (feature columns to carry
+through for a *combined* criterion). The rare-event scalar is compared with the
+new :meth:`~graintrace.similarity_metric_library.SimilarityMetricLibrary.abs_scalar_diff`
+metric (exactly one feature column).
+
+**Orientation segmentation**
+(:meth:`graintrace.fragmentation.FragmentationAnalyzer.segment`): ``misori_tol_deg``
+(hard edge cutoff, default 5°), ``graph_mode`` (``"grid"`` for voxel grids,
+``"knn"`` for scattered mesh elements), ``gamma`` (fixed Leiden resolution; when
+``None`` a percolation-picked sweep over ``gamma_sweep`` runs), ``rbf_sigma_deg``
+(fixed broad RBF sigma, default ≈ half the cutoff — **not** ``sigma_auto``, which
+shatters grains), ``manhattan_radius``, ``reduce_topk``, ``grain_threshold_final``
+(absorb threshold), ``remerge_miso_deg`` (adjacency re-merge), and
+``percolation_max_frac``. Graph/Leiden is the default/better pathway; flood
+over-merges into percolating grains. The gamma-by-percolation sweep is for large,
+many-grain NF/EBSD; for few-grain or intragranular sub-grain segmentation pass a
+fixed low ``gamma`` (~0.25 for the shipped CPFE data — ``gamma=0.1`` under-splits and
+leaves most grains whole; raise ``gamma`` to resolve finer sub-grains).
+
+For intragranular sub-grain segmentation,
+:meth:`~graintrace.fragmentation.FragmentationAnalyzer.grain_fragments` adds
+``min_subgrain_miso_deg`` (default 1°) — a **minimum sub-grain misorientation** applied after
+Leiden: fragments whose symmetry-aware mean orientations are closer than this are merged
+agglomeratively (closest-pair first, means recomputed each step, so no single-linkage chaining),
+via :meth:`~graintrace.fragmentation.FragmentationAnalyzer.merge_fragments_by_misorientation`.
+``gamma`` sets the raw resolution; ``min_subgrain_miso_deg`` sets the physical threshold so a
+smooth intragranular gradient is not chopped into near-identical fragments (0 disables it). The
+fragment means (and the branching-IPF fork endpoints) use
+:meth:`~graintrace.fragmentation.FragmentationAnalyzer.mean_orientation_mrp`, a symmetry-aware
+quaternion mean: pass ``symmetry`` (e.g. ``"432"``) so a set whose members are reported in
+different symmetry variants still averages correctly (the default ``"1"`` is the plain mean).
+
+**Split detection**
+(:meth:`graintrace.fragmentation.FragmentationAnalyzer.detect_splits`): ``d_tol``
+(cross-step centroid distance, at grain scale), ``theta_tol_deg`` (cross-step
+misorientation link, generous ~15°), ``top_k``, and an optional ``adjacency_b`` to
+reject a spurious split child. The same detector serves FF, NF, and EBSD; NF/EBSD
+reach it through ``segment`` +
+:meth:`graintrace.fragmentation.FragmentationAnalyzer.seg_to_grain_table`.
+
+**Annotated Exodus**
+(:meth:`~graintrace.ipf_postprocess.IPFProcessor.add_element_field_to_exodus` and
+:meth:`~graintrace.ipf_postprocess.IPFProcessor.add_element_rgb_to_exodus`): write a
+per-element (not block-constant) field into an Exodus copy, mapping values to elements
+by a centroid KD-tree. The first writes a float scalar (encode the ``"{grain}.{k}"``
+``fragment_label`` as a float); the second writes an RGB triple (``rgb_x``/``rgb_y``/``rgb_z``)
+so ParaView can show the fragments in the **same colors as the branching-IPF figure** (map the
+3-component array to color with scalar mapping off). Pass one color per element from the shared
+fragment palette; for a consistent result annotate the Exodus of the *analyzed* mesh (a
+co-registered loaded run's ``sim_output.e``/``mesh.e``), not a bare mesh of a different
+microstructure.
+
+**IPF trajectory plot styling**
+(:func:`~graintrace.plot_postprocessing.plot_ipf_orientation_tracking` and
+:func:`~graintrace.plot_postprocessing.plot_ipf_fragmentation_tracking`): both take a
+shared ``ax`` (returning it instead of saving, for a side-by-side 1x2 figure) and the
+styling knobs ``arrow_color`` (single color, a per-entity sequence, or the sentinel
+``"ipf_final"`` — tint each track/fork by the IPF color of its final-stage orientation,
+which reads as "where it ended up" and needs no legend), ``start_color`` (start-dot color;
+``None`` = the initial-orientation IPF color, or e.g. ``"black"`` for a neutral origin),
+``line_style`` / ``child_line_styles`` + ``parent_line_style`` (per-track / per-child
+linestyles), ``child_colors`` + ``parent_color`` (per-child colors and the parent color on the
+fragmentation plot, so a grain's sub-grains can be given contrasting categorical colors),
+``line_width``, ``start_size``, ``step_size``, ``arrow_scale`` (arrowhead size), ``show_arrow``
+(``False`` draws headless lines to declutter a crowded panel), and ``label_fontsize``. The
+signature 1x2 figure links its panels on two channels keyed to a per-grain *fragment* index: a
+dark categorical color (a grain's sub-grains contrast; grains told apart by IPF position) and a
+shared *fragment -> line-style* map, with black start dots and a gray parent trajectory.
 
 The ``solver_route`` selects one of two Executioner decks merged into the run.
 ``"timestep_optimized"`` (default) uses a **direct** LU factorization

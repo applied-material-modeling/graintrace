@@ -39,7 +39,9 @@ def track_grains(
     build_params : overrides for build_graph(...): option, CVT_iter,
         morphoalgo, device.
     match_params : overrides for match_grains(...): message_passing_iter,
-        neighbor_selection_param.
+        neighbor_selection_param, and angle_convention / angle_type / symmetry
+        (describe the graph Euler features; default Bunge/degrees/432, matching
+        build_graph output).
 
     Needs NEPER (graph build) and torch-geometric. Runs as a background job;
     writes the matched correspondence under output_dir.
@@ -91,6 +93,92 @@ def track_grains(
         confirm=confirm,
         resolved_params=resolved,
         needs=["neper", "torch_geometric"],
+        will_write=[output_dir],
+        run=_run,
+        background=True,
+    )
+
+
+@mcp.tool()
+def detect_fragmentation(
+    nodes_a: str,
+    nodes_b: str,
+    output_dir: Optional[str] = None,
+    params: Optional[Dict[str, Any]] = None,
+    confirm: bool = False,
+) -> dict:
+    """Detect grain fragmentation (one grain splitting into several) between two
+    load steps, beyond the strictly 1-to-1 `track_grains`. Cross-step graph +
+    connected components (centroid distance + misorientation); classifies each
+    lineage as match / split / merge / birth / death (wraps
+    `FragmentationAnalyzer.detect_splits`). Pure NumPy+SciPy (+neml2 for the
+    orientation math).
+
+    Inputs are per-grain node tables (CSV) for the two steps:
+    `grain_id, X, Y, Z, GrainRadius, Eul0/1/2`. FF supplies these directly; NF/EBSD
+    reach the same detector by segmenting each step (graph/Leiden) then reducing to
+    a grain table with `FragmentationAnalyzer.seg_to_grain_table`.
+
+    Parameters (all in `params`, optional)
+    --------------------------------------
+    d_tol : max centroid distance for a cross-step lineage edge (default 20.0).
+    theta_tol_deg : max misorientation for a lineage edge (default 15.0; generous).
+    symmetry : crystal symmetry (default '432').
+    angle_convention / angle_type : 'bunge'/'degrees' (or 'mrp').
+    top_k : nearest B centroids probed per A grain (default 8).
+    """
+    # pylint: disable=import-outside-toplevel
+    from graintrace.fragmentation import FragmentationAnalyzer
+
+    if output_dir is None:
+        output_dir = str(workdir() / "grain_fragmentation")
+    p = {
+        "d_tol": 20.0,
+        "theta_tol_deg": 15.0,
+        "symmetry": "432",
+        "angle_convention": "bunge",
+        "angle_type": "degrees",
+        "top_k": 8,
+        **(params or {}),
+    }
+    resolved = {
+        "nodes_a": nodes_a,
+        "nodes_b": nodes_b,
+        "output_dir": output_dir,
+        **p,
+    }
+
+    def _run():
+        import os  # pylint: disable=import-outside-toplevel
+
+        os.makedirs(output_dir, exist_ok=True)
+        out = FragmentationAnalyzer(symmetry=p["symmetry"]).detect_splits(
+            nodes_a,
+            nodes_b,
+            d_tol=p["d_tol"],
+            theta_tol_deg=p["theta_tol_deg"],
+            angle_convention=p["angle_convention"],
+            angle_type=p["angle_type"],
+            top_k=p["top_k"],
+            out_csv=os.path.join(output_dir, "split_correspondences.csv"),
+        )
+        return {
+            "output_dir": output_dir,
+            "split_correspondences": os.path.join(
+                output_dir, "split_correspondences.csv"
+            ),
+            "n_splits": out["n_splits"],
+            "n_merges": out["n_merges"],
+            "n_matches": out["n_matches"],
+            "n_births": out["n_births"],
+            "n_deaths": out["n_deaths"],
+        }
+
+    return gate(
+        tool="detect_fragmentation",
+        confirm=confirm,
+        resolved_params=resolved,
+        needs=[],
         will_write=[output_dir],
         run=_run,
         background=True,

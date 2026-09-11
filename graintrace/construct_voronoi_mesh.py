@@ -281,6 +281,16 @@ class VoronoiMeshBuilder:
         df = df[used_cols]
 
         if angle_cols and self.unit == "rad":
+            # Guard the classic unit-mismatch bug: if data declared "rad" is really
+            # in degrees, np.degrees() double-converts (e.g. 30 -> 1718.87). Radian
+            # Euler angles are <= 2*pi, so anything well beyond that means the data
+            # was actually degrees and `unit` is wrong.
+            max_abs = float(np.abs(df[angle_cols].to_numpy()).max())
+            if max_abs > 2 * np.pi + 1e-6:
+                raise ValueError(
+                    f"unit='rad' but orientation angles reach {max_abs:.4g} "
+                    f"(> 2*pi). The data looks like degrees -- set unit='deg'."
+                )
             print("Converting orientation angles from radians to degrees.")
             df[angle_cols] = np.degrees(df[angle_cols])
 
@@ -905,6 +915,14 @@ class VoronoiMeshBuilder:
             tess_file=tess_name + ".tess",
         )
 
+        # apply_rotation_to_properties rotates coords + the .tess/.ori matrices, but
+        # orientations.dat (written above) and the reformatted Euler are still in the
+        # unrotated frame. When a sample rotation is applied, re-derive them so the
+        # orientations.dat consumers (CPFE via euler_to_mrp, VoxelMeshBuilder) share
+        # the rotated mesh frame. No-op when no rotation is applied.
+        if self.angle_id is not None and not np.allclose(self.rotate_matrix, np.eye(3)):
+            self._rewrite_orientations_dat_rotated(orientation_path)
+
         self.evaluate_output_voronoi(tess_name + ".tess")
 
         if generate_mesh:
@@ -984,6 +1002,32 @@ class VoronoiMeshBuilder:
             )
 
         return graph
+
+    def _rewrite_orientations_dat_rotated(self, orientation_path: str):
+        """Rewrite orientations.dat (Euler, degrees) in the rotated sample frame.
+
+        Mirrors the rotation ``apply_rotation_to_properties`` applies to the matrices,
+        but stays entirely in the ``orientation_helper`` convention that the
+        orientations.dat consumers use, so no NEPER matrix-convention dependency
+        enters. ``self.data`` Euler are degrees after ``read_input``.
+        """
+        # pylint: disable=import-outside-toplevel  # heavy/optional deps
+        import torch
+
+        from .orientation_helper import euler_to_matrix, matrix_to_euler
+
+        convention = self.ori_descriptor.replace("euler-", "")
+        euler = self.data[self.angle_id].to_numpy(dtype=float)
+        g0 = euler_to_matrix(torch.tensor(euler), convention, "degrees")
+        Rr = torch.tensor(self.rotate_matrix, dtype=g0.dtype)
+        if self.orientation_active_convention:
+            g_rot = torch.einsum("ij,njk->nik", Rr, g0)  # Rr @ g
+        else:
+            g_rot = torch.einsum("nij,kj->nik", g0, Rr)  # g @ Rr^T
+        new_euler = matrix_to_euler(g_rot, convention, "degrees").numpy()
+        self.data[self.angle_id] = new_euler
+        np.savetxt(orientation_path, new_euler, fmt="%.10g")
+        print(f"Rewrote {orientation_path} in the rotated sample frame.")
 
     def apply_rotation_to_properties(self, tess_file: str):
         """Apply the rotation matrix to cell orientations (and strains) in the .tess file."""

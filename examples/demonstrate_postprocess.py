@@ -54,13 +54,13 @@ test_sim = True
 grain_folder = "mwe_data/synthetic_load_exp"
 
 exp_field_naming = ExpFieldFileNaming(
-    prefix="expsyn",     # files: expsyn_<t>time.csv -> id captured between sep and suffix
+    prefix="expsyn",  # files: expsyn_<t>time.csv -> id captured between sep and suffix
     index_width=3,
     sep="_",
     suffix="time.csv",
 )
 
-test_tim_exp = 100       # available times are even values 100..160
+test_tim_exp = 100  # available times are even values 100..160
 test_exp = True
 
 # Main ---------------------------------------------------

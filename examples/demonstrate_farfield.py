@@ -26,7 +26,10 @@ from graintrace.construct_voronoi_mesh import VoronoiMeshBuilder
 from graintrace.run_cpfe_simulation import CPFESimulation
 from graintrace.tess_to_gnn import NeperTessToGraphNN
 from graintrace.material_calibration import MaterialCalibration
-from graintrace.experiment_rotation_helper import update_experiments, collect_experiment_files
+from graintrace.experiment_rotation_helper import (
+    update_experiments,
+    collect_experiment_files,
+)
 from graintrace.taylor import TaylorModel
 
 import numpy as np
@@ -36,7 +39,8 @@ import torch
 import os
 from pathlib import Path
 import graintrace as _gt
-_cpfe_base = str(Path(_gt.__file__).parent / 'cpfe_base')
+
+_cpfe_base = str(Path(_gt.__file__).parent / "cpfe_base")
 
 fsize = 14
 plt.rcParams.update(
