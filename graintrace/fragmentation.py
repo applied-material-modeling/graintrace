@@ -358,9 +358,9 @@ class FragmentationAnalyzer:
                 for u in uniq
             }
             best_pair, best_deg = None, float("inf")
-            for i in range(len(uniq)):
+            for i, ui in enumerate(uniq):
                 for j in range(i + 1, len(uniq)):
-                    a, b = int(uniq[i]), int(uniq[j])
+                    a, b = int(ui), int(uniq[j])
                     deg = float(
                         misorientation_matrix(
                             mrp_to_matrix(

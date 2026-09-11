@@ -21,6 +21,7 @@ The pipeline runs reconstruct, calibrate, simulate (CPFE), then analyze and iden
 - **Virtual microstructure generation**: synthesize microstructures faithful to input grain size and orientation distributions via NEPER morphology control, accounting for HEDM scanning strategies. *See `examples/demonstrate_hedm_study.py`.*
 - **GPU CPFE and fast calibration**: run CPFE with NEML2 AOTI compiled crystal plasticity models on GPU; calibrate the material to a macroscopic stress vs strain curve with a pyzag analytic adjoint Taylor model, in under 30 minutes for 100+ grains. *See `examples/demonstrate_cpfe.py`, `examples/demonstrate_material_calibration.py`.*
 - **Grain tracking**: match grains across load steps by building a grain graph from each reconstruction and matching via message passing. *See `examples/demonstrate_graintracking.py`.*
+- **Reorientation & fragmentation**: track how grains reorient in the IPF across load steps, re-segment each grain into orientation sub-grains (intragranular fragmentation, with a minimum sub-grain misorientation), detect grains that split across steps (FF/NF/EBSD), and flag the grains that fragment/reorient the most as rare events — reorientation-from-initial doubles as a standalone or combined REI criterion. *See `examples/demonstrate_reorientation_fragmentation.py`.*
 - **Rare event identification (REI)**: locate spatially coherent rare regions in CPFE fields via graph spatial clustering (Leiden) with hierarchical merging, flagging grains and locations for targeted measurement; scales to tens of millions of query points in under an hour. Runs on the crisp true-mesh element fields (`mesh_out/`) or a regular grid (`grid_out/`, online or resampled offline via `GridResampler`). *See `examples/demonstrate_rei_pipeline.py`.*
 
 Analysis (field distributions, macroscopic stress vs strain, pole figures, IPF coloring) rounds out the pipeline. *See `examples/demonstrate_postprocess.py`.*
@@ -54,6 +55,7 @@ a feature raises a clear error only when a tool it needs is missing.
 | Rare-event identification (REI) + REI comparison | ✅ | | | | |
 | HEDM stitching, similarity metrics | ✅ | | | | |
 | FF Voronoi reconstruction, grain tracking | ✅ | | | ✅ | |
+| Reorientation & fragmentation analysis | ✅ | ✅² | | | |
 | NF / EBSD segmentation + hex meshing | ✅ | | | | ✅ |
 | Material calibration | ✅ | ✅ | | | |
 | Pole figures / orientation math | ✅ | ✅ | | | |
@@ -62,6 +64,10 @@ a feature raises a clear error only when a tool it needs is missing.
 ¹ CPFE needs a mesh: by default all of FF/NF/EBSD are meshed to hex with CUBIT/SCULPT (FF also
 uses NEPER for the tessellation). A no-CUBIT voxel-hex dump and a NEPER/gmsh tet mesh (which CPFE
 also runs on) are fallbacks.
+
+² Reorientation tracking, sub-grain segmentation, and orientation averaging use NEML2 (Python) for
+the orientation math (and networkit for Leiden); the cross-step grain-split detector core is pure
+NumPy/SciPy.
 
 `pyzag` is installed automatically by `pip install graintrace` (it is pure-Python and on PyPI). The
 **NEML2 (Python)** column is the `neml2` package built by PUMA (see [Install](#install)); **PUMA
@@ -247,6 +253,7 @@ the rest need the external tool(s) shown (see the [capabilities table](#capabili
 | `demonstrate_rei_example_2D.py`, `..._3D.py` | REI on 2D / 3D synthetic fields | pip only |
 | `demonstrate_rei_comparison.py` | compare two REI point clouds → overlap metrics + classified VTK | pip only |
 | `demonstrate_graintracking.py` | match grains across load steps via a grain graph | NEPER |
+| `demonstrate_reorientation_fragmentation.py` | IPF reorientation tracking → intragranular fragmentation (1×2 figure + annotated Exodus) → FF/NF/EBSD split detection → rare (most-fragmented) grains | NEML2 |
 
 *full stack* = NEML2 + `puma-opt` + NEPER + CUBIT/SCULPT. The minimum end-to-end check is
 `demonstrate_cpfe_nfff.py`; before running, edit the `sculpt_config`, `moose_run_file`, `ncore`,
