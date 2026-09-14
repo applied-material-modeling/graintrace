@@ -95,6 +95,14 @@ class CPFESimulation:
             #   ONLY (no in-situ option) and requires ncore >= 2. Needs a puma-opt build
             #   with the EqualValueBoundaryConstraint distributed-mesh fix.
             "distributed_mesh": False,
+            # Executioner / linear-solver route (swaps the merged Executioner deck):
+            #   "timestep_optimized" (default) -> direct LU (superlu_dist) with
+            #     preconditioner reuse; robust and iteration-cheap, but memory-bound on
+            #     large meshes (factorization fill-in). Best for small/medium meshes.
+            #   "hpc_memory" -> iterative fgmres + GAMG algebraic multigrid; low,
+            #     scalable memory (no global factorization) for large HPC meshes; the
+            #     natural partner of distributed_mesh=True. Looser/more linear iterations.
+            "solver_route": "timestep_optimized",
         },
         "material": {
             "slip_constant_strength": 130.0,
@@ -128,6 +136,12 @@ class CPFESimulation:
             "number_of_elements": [20, 20, 20],
             "bounding_box": [0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
         },
+    }
+
+    # solver_route -> the cpfe_base Executioner deck merged into the run.
+    SOLVER_ROUTE_DECKS = {
+        "timestep_optimized": "executioner_timestep_optimized.i",
+        "hpc_memory": "executioner_hpc_memory.i",
     }
 
     def __init__(
@@ -200,6 +214,9 @@ class CPFESimulation:
         sync_times (space-separated string of MOOSE grid-output times), grid_transfer ("final"|"per_step"|"off"),
         exodus_output ("sync"|"per_step"), mesh_csv ("sync"|"per_step"|"off"), launcher ("mpiexec"|"srun"),
         distributed_mesh (bool; True pre-splits the mesh to ncore and runs --use-split, requires ncore>=2),
+        solver_route ("timestep_optimized" (default) = direct LU/superlu_dist with preconditioner reuse, robust
+        and iteration-cheap but memory-bound on large meshes; "hpc_memory" = iterative fgmres + GAMG algebraic
+        multigrid, low/scalable memory for large HPC meshes and the recommended partner of distributed_mesh=True),
         recompile, compile_devices, neml2_load_files, extra_ld_library_paths, base_folder, strain_unit_conversion.
 
         "boundary": bounding_box ([xlo,xhi,ylo,yhi,zlo,zhi]), bc (per-axis dict of "negative"/"positive" values, each "stress_free" or a numeric displacement), fix_tolerance, bounding_box_buffer.
@@ -533,11 +550,21 @@ class CPFESimulation:
                 comments="",
                 fmt="%.12g",
             )
-        # 3 columns = MRPs, copy as-is
+        # 3 columns = neml2 MRPs, copy as-is
         elif df.shape[1] == 3:
             # pylint: disable=import-outside-toplevel  # torch is a heavy optional dep
             import torch
 
+            # neml2 MRP = tan(theta/4)*axis, so |component| <= 1 in the fundamental
+            # zone. Much larger values almost always mean Euler angles (deg or rad)
+            # were passed by mistake -- convert them with euler_to_mrp first.
+            if np.abs(df.values).max() > 3.0:
+                raise ValueError(
+                    f"3-column ori_file '{self.ori_file}' has values up to "
+                    f"{np.abs(df.values).max():.3g}, too large for neml2 MRP "
+                    "(|component| <~ 1). Did you pass Euler angles? Convert with "
+                    "orientation_helper.euler_to_mrp before use."
+                )
             shutil.copy(
                 self.ori_file, self.save_simulation_folder / "mrps_orientation.csv"
             )
@@ -786,6 +813,20 @@ class CPFESimulation:
         if not cpfe_base.exists():
             raise FileNotFoundError("cpfe_base folder not found.")
 
+        # Executioner deck for the selected solver route (merged in at the -i level;
+        # run_cpfe.i itself carries no [Executioner]).
+        solver_route = str(
+            self.params["simulation_parameters"].get(
+                "solver_route", "timestep_optimized"
+            )
+        )
+        executioner_file = self.SOLVER_ROUTE_DECKS.get(solver_route)
+        if executioner_file is None:
+            raise ValueError(
+                f"Invalid solver_route {solver_route!r}. Must be one of "
+                f"{sorted(self.SOLVER_ROUTE_DECKS)}."
+            )
+
         # shared base files
         if self.use_ff_initial_field:
             base_files = [
@@ -803,6 +844,8 @@ class CPFESimulation:
                 "transfer.i",
             ]
             initial_conditions_file = "initial_conditions.i"
+
+        base_files.append(executioner_file)
 
         for fname in base_files:
             src = cpfe_base / fname
@@ -885,6 +928,7 @@ class CPFESimulation:
             str(self.moose_run_file),
             "-i",
             "run_cpfe.i",
+            executioner_file,
             "boundary_conditions.i",
             initial_conditions_file,
             "grain_average_postprocessor.i",

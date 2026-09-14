@@ -128,50 +128,6 @@
     []
 []
 
-[Executioner]
-    type = Transient
-    solve_type = NEWTON
-    petsc_options = '-ksp_converged_reason'
-
-    petsc_options_iname = '-pc_type -pc_factor_mat_solver_package -ksp_type'
-    petsc_options_value = 'lu superlu_dist gmres'
-
-    automatic_scaling = true
-
-    reuse_preconditioner = true
-    reuse_preconditioner_max_linear_its = 20
-
-    residual_and_jacobian_together = true
-
-    line_search = none
-
-    nl_abs_tol = 1e-06
-    nl_rel_tol = 1e-08
-    nl_max_its = 10
-
-    l_max_its = 100
-
-    end_time = ${total_time}
-    dtmax = '${fparse 10*dt}'
-
-    [TimeStepper]
-        type = IterationAdaptiveDT
-        dt = ${dt} #s
-        optimal_iterations = 7
-        iteration_window = 2
-        cutback_factor = 0.2
-        cutback_factor_at_failure = 0.1
-        growth_factor = 2
-        linear_iteration_ratio = 1000
-    []
-
-    [Predictor]
-        type = SimplePredictor
-        scale = 1.0
-        skip_after_failed_timestep = true
-    []
-[]
-
 # OUTPUT
 [Outputs]
     file_base = '${base_folder}/sim_output'
@@ -208,7 +164,8 @@
         sort_by = id
         execute_on = '${mesh_sampler_execute_on}'
         outputs = 'mesh_csv'
-        variable = 'ee_xx ee_yy ee_zz ee_yz ee_xz ee_xy
+        variable = 'block_id
+                    ee_xx ee_yy ee_zz ee_yz ee_xz ee_xy
                     ori_rodrigues_x ori_rodrigues_y ori_rodrigues_z
                     strain_xx strain_yy strain_zz strain_yz strain_xz strain_xy
                     Fe_11 Fe_12 Fe_13 Fe_21 Fe_22 Fe_23 Fe_31 Fe_32 Fe_33
@@ -221,8 +178,20 @@
 []
 
 [AuxVariables]
+    # Per-element subdomain (block) id == grain id. 'subdomain_id' is MOOSE's
+    # reserved extra-element-id name, so this needs no mesh extra integer. Emitted
+    # in mesh_out/*.csv as the 'block_id' column so post-processing can select all
+    # elements of a grain (e.g. intragranular fragmentation) without the mesh file.
+    [block_id]
+        order = CONSTANT
+        family = MONOMIAL
+        [AuxKernel]
+            type = ExtraElementIDAux
+            extra_id_name = 'subdomain_id'
+        []
+    []
     [ori_rodrigues_x]
-        order = FIRST 
+        order = FIRST
         family = MONOMIAL
         [AuxKernel]
             type = MaterialRealVectorValueAux
@@ -393,13 +362,13 @@
         []
     []
     [nye_tensor_11]
-        order = FIRST 
+        order = FIRST
         family = MONOMIAL
         [AuxKernel]
             type = MaterialRankTwoTensorAux
             property = 'nye_tensor'
             i = 0
-            j = 1
+            j = 0
         []
     []
     [nye_tensor_12]

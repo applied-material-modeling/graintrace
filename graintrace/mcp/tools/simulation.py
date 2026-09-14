@@ -33,6 +33,7 @@ def run_cpfe(
     init_params: Optional[Dict[str, Any]] = None,
     ncore: int = 4,
     distributed_mesh: bool = False,
+    solver_route: str = "timestep_optimized",
     confirm: bool = False,
 ) -> dict:
     """Run a crystal-plasticity FE simulation with NEML2 v3 + MOOSE/PUMA
@@ -65,6 +66,11 @@ def run_cpfe(
         `--use-split` so each rank reads only its partition (low per-rank memory for
         large meshes). Distributed mesh is pre-split only and requires ncore >= 2, plus
         a puma-opt build with the EqualValueBoundaryConstraint distributed-mesh fix.
+    solver_route : linear-solver / Executioner route. "timestep_optimized" (default)
+        = direct LU (superlu_dist) with preconditioner reuse; robust and iteration-cheap
+        but memory-bound on large meshes. "hpc_memory" = iterative fgmres + GAMG algebraic
+        multigrid; low, scalable memory for large HPC meshes and the recommended partner of
+        distributed_mesh=True, at the cost of more/looser linear iterations.
 
     Needs `puma-opt` (MOOSE/PUMA) and a working NEML2 v3 build.
     """
@@ -137,6 +143,11 @@ def run_cpfe(
         "distributed_mesh", distributed_mesh
     )
 
+    # Solver route (Executioner deck): direct LU vs iterative GAMG (low memory).
+    sections.setdefault("simulation_parameters", {}).setdefault(
+        "solver_route", solver_route
+    )
+
     suggestions = {}
     if missing:
         suggestions = {
@@ -157,6 +168,7 @@ def run_cpfe(
         "parameters": sections,
         "ncore": ncore,
         "distributed_mesh": distributed_mesh,
+        "solver_route": solver_route,
     }
 
     def _run():

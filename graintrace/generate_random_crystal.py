@@ -72,11 +72,20 @@ class CrystalGenerator:
         output_dir,
         bounding_box,
         dim=3,
-        seed=12345,
+        seed=None,
         env=None,
         neper_path=None,
         auto_install=False,
     ):
+        """Configure a NEPER tessellation generator.
+
+        Args:
+            seed: RNG seed passed to NEPER as ``-id``. ``None`` (default) draws a fresh
+                random seed on every instantiation, so each run is a different
+                microstructure; the drawn value is stored on ``self.seed`` and printed so
+                the run can be reproduced by passing that value back as ``seed=``. Pass an
+                int for a deterministic microstructure.
+        """
 
         self.output_dir = os.path.abspath(output_dir)
         os.makedirs(self.output_dir, exist_ok=True)
@@ -95,7 +104,16 @@ class CrystalGenerator:
             )
 
         self.dim = int(dim)
-        self.seed = int(seed)
+        # seed=None -> a fresh random microstructure each run; the drawn value is stored on
+        # self.seed and printed so the run can still be reproduced by passing that seed back.
+        if seed is None:
+            self.seed = int(np.random.default_rng().integers(1, 2**31 - 1))
+            print(
+                f"CrystalGenerator: no seed provided; using random seed={self.seed} "
+                f"(pass seed={self.seed} to reproduce this microstructure)."
+            )
+        else:
+            self.seed = int(seed)
 
         if env is None:
             self.neper_bin, self.env = self.check_dependencies(

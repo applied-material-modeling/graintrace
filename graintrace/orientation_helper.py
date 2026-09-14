@@ -138,7 +138,9 @@ def matrix_to_euler(
     phi1 = torch.atan2(M[..., 2, 0], -M[..., 2, 1])
     phi2 = torch.atan2(M[..., 0, 2], M[..., 1, 2])
 
-    # Gimbal lock (Phi ~ 0 or pi): only phi1 + phi2 is defined; put it all in phi1.
+    # Gimbal lock (Phi ~ 0 or pi): only phi1 +/- phi2 is defined; put it all in phi1.
+    # atan2(M01, M00) recovers phi1+phi2 at Phi=0 and phi1-phi2 at Phi=pi; both rebuild
+    # the same matrix, so the round-trip stays exact.
     gimbal = sP.abs() < 1e-8
     if torch.any(gimbal):
         phi1_g = torch.atan2(M[..., 0, 1], M[..., 0, 0])
@@ -394,7 +396,7 @@ def average_orientation(
 def misorientation(
     e1: Union[np.ndarray, list],
     e2: Union[np.ndarray, list],
-    angle_convention: str = "kocks",
+    angle_convention: str = "bunge",
     angle_type: str = "degrees",
     symmetry: str = "1",
 ) -> torch.Tensor:
@@ -426,68 +428,22 @@ def misorientation(
     return misorientation_matrix(R1, R2, symmetry, angle_type=angle_type)
 
 
-if __name__ == "__main__":
-
-    def check(e1, e2, expected, tol=1e-3):
-        """Self-test: assert misorientation(e1, e2) matches the expected angle."""
-        angle = misorientation(
-            e1,
-            e2,
-            angle_convention="bunge",
-            angle_type="degrees",
-            symmetry="432",
-        )
-
-        angle = angle.item() if isinstance(angle, torch.Tensor) else angle
-
-        print(f"e1={e1}, e2={e2} -> {angle:.4f} deg")
-
-        if expected is not None:
-            assert (
-                abs(angle - expected) < tol
-            ), f"Expected {expected} deg, got {angle} deg"
-
-    check([0, 0, 0], [0, 0, 0], 0.0)
-    check([0, 0, 0], [90, 0, 0], 0.0)
-    check([0, 0, 0], [5, 0, 0], 5.0)
-    check([12.0, 0, 27.0], [102.0, 0, 27.0], 0.0)
-
-    val = misorientation(
-        [10, 20, 30],
-        [40, 50, 60],
-        angle_convention="kocks",
-        angle_type="degrees",
-        symmetry="432",
-    )
-    val = val.item() if isinstance(val, torch.Tensor) else val
-    print(f"random -> {val:.4f} deg")
-    assert val > 0.0, "Random orientations should not give zero misorientation"
-
-    val = misorientation(
-        [0, 0, 0],
-        [45.0, 45.0, 0.0],
-        angle_convention="kocks",
-        angle_type="degrees",
-        symmetry="432",
-    )
-    val = val.item() if isinstance(val, torch.Tensor) else val
-    print(f"max test -> {val:.4f} deg")
-    assert 62.5 <= val <= 63.0, "Cubic max misorientation out of range"
-
-    print("\nAll misorientation tests PASSED.")
-
-
 def load_orientation_matrices(
     df: "pd.DataFrame",
     field: Optional[str] = "O",
 ) -> torch.Tensor:
     """Load per-row rotation matrices (..., 3, 3) from a dataframe.
 
+    Storage is assumed **row-major**: ``{field}{i}{j}`` maps to ``M[i-1, j-1]``
+    (and the ``field=None`` positional path reshapes the first 9 columns row-major).
+    All in-repo producers (NEPER ``reconstruction.ori``, ``experiment_rotation_helper``)
+    write row-major; a column-major producer would silently yield the transpose.
+
     Args:
         df (pd.DataFrame): Dataframe containing orientation data.
         field (str, optional): Column prefix for the 3x3 orientation matrix
-            (columns ``{field}{i}{j}``). If ``None``, the first 9 columns are
-            used positionally. Defaults to 'O'.
+            (columns ``{field}{i}{j}``, row-major). If ``None``, the first 9 columns
+            are used positionally (row-major). Defaults to 'O'.
 
     Returns:
         torch.Tensor: (n, 3, 3) rotation matrices.
@@ -550,7 +506,7 @@ def load_strains(
     Args:
         df (pd.DataFrame): Dataframe containing strain data.
         field (str, optional): Column name for strain data. Defaults to 'eKen'.
-        factor (float, optional): Conversion factor. Defaults to 1e6.
+        factor (float, optional): Conversion factor (microstrain->strain). Defaults to 1e-6.
 
     Returns:
         torch.Tensor: Tensor containing strain data.
@@ -579,3 +535,54 @@ def load_weights(
     """
     weights = torch.tensor(df[field].dropna().values) ** 3.0
     return weights / torch.sum(weights)
+
+
+if __name__ == "__main__":
+
+    def check(e1, e2, expected, tol=1e-3):
+        """Self-test: assert misorientation(e1, e2) matches the expected angle."""
+        angle = misorientation(
+            e1,
+            e2,
+            angle_convention="bunge",
+            angle_type="degrees",
+            symmetry="432",
+        )
+
+        angle = angle.item() if isinstance(angle, torch.Tensor) else angle
+
+        print(f"e1={e1}, e2={e2} -> {angle:.4f} deg")
+
+        if expected is not None:
+            assert (
+                abs(angle - expected) < tol
+            ), f"Expected {expected} deg, got {angle} deg"
+
+    check([0, 0, 0], [0, 0, 0], 0.0)
+    check([0, 0, 0], [90, 0, 0], 0.0)
+    check([0, 0, 0], [5, 0, 0], 5.0)
+    check([12.0, 0, 27.0], [102.0, 0, 27.0], 0.0)
+
+    val = misorientation(
+        [10, 20, 30],
+        [40, 50, 60],
+        angle_convention="kocks",
+        angle_type="degrees",
+        symmetry="432",
+    )
+    val = val.item() if isinstance(val, torch.Tensor) else val
+    print(f"random -> {val:.4f} deg")
+    assert val > 0.0, "Random orientations should not give zero misorientation"
+
+    val = misorientation(
+        [0, 0, 0],
+        [45.0, 45.0, 0.0],
+        angle_convention="kocks",
+        angle_type="degrees",
+        symmetry="432",
+    )
+    val = val.item() if isinstance(val, torch.Tensor) else val
+    print(f"max test -> {val:.4f} deg")
+    assert 62.5 <= val <= 63.0, "Cubic max misorientation out of range"
+
+    print("\nAll misorientation tests PASSED.")

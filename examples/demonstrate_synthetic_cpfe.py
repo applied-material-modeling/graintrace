@@ -78,6 +78,7 @@ def main():
         output_dir=output_dir,
         bounding_box=bounding_box,
         dim=3,
+        seed=42,
         env=None,
     )
     cg.generate_tessellation(

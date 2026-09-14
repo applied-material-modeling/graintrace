@@ -1,0 +1,41 @@
+{
+  "multiplicities": {
+    "1": 1,
+    "2": 2,
+    "3": 3,
+    "4": 1,
+    "5": 2
+  },
+  "n_splitting_grains": 3,
+  "split_step": 2,
+  "thetas_deg": [
+    0.0,
+    3.0,
+    6.0,
+    9.0,
+    12.0
+  ],
+  "misorientation_tol_deg": 5.0,
+  "step_csvs": [
+    "mwe_data/synthetic_split_ff/ff_step00.csv",
+    "mwe_data/synthetic_split_ff/ff_step01.csv",
+    "mwe_data/synthetic_split_ff/ff_step02.csv",
+    "mwe_data/synthetic_split_ff/ff_step03.csv",
+    "mwe_data/synthetic_split_ff/ff_step04.csv"
+  ],
+  "parent_children": {
+    "2": [
+      2,
+      6
+    ],
+    "3": [
+      3,
+      7,
+      8
+    ],
+    "5": [
+      5,
+      9
+    ]
+  }
+}

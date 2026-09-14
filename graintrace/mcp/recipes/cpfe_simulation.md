@@ -12,6 +12,7 @@ defaults:
   device_batch: 20000
   ncore: 8
   distributed_mesh: false
+  solver_route: timestep_optimized
   use_ff_initial_field: true
 ---
 
@@ -45,8 +46,9 @@ returns `needs_input` (otherwise CPFE would silently use a unit-cube domain).
 **simulation_parameters**: `dt`, `total_time`, `initialize_time` (load ramps
 from `initialize_time`→`total_time`), `device` (`"cpu"`, `"cuda:0"`, or a
 space-separated list for multi-GPU = MPI ranks), `device_batch`, `sync_times`,
-`grid_transfer`, `exodus_output`, `mesh_csv`, `distributed_mesh`. Pass any of these via
-`parameters={"simulation_parameters": {...}}` (or `distributed_mesh` via its dedicated arg).
+`grid_transfer`, `exodus_output`, `mesh_csv`, `distributed_mesh`, `solver_route`. Pass any of
+these via `parameters={"simulation_parameters": {...}}` (or `distributed_mesh` / `solver_route`
+via their dedicated args).
 
 > **Output-frequency knobs (default to cheap).** `mesh_csv` — CPFE-mesh
 > element-centroid CSV → `mesh_out/`: `"sync"` (default) | `"per_step"` | `"off"`.
@@ -68,6 +70,23 @@ space-separated list for multi-GPU = MPI ranks), `device_batch`, `sync_times`,
 > Distributed mesh is **pre-split only** (no in-situ option) and **requires `ncore >= 2`**.
 > Outputs are unchanged: single `sim_output.e` (via gather), complete `mesh_out/` + `grid_out/`
 > CSVs. Needs a `puma-opt` build with the EqualValueBoundaryConstraint distributed-mesh fix.
+
+> **Solver route (`solver_route`, default `timestep_optimized`).** Swaps the Executioner deck /
+> linear solver. `timestep_optimized` = **direct** LU (`superlu_dist`) with preconditioner reuse:
+> robust and iteration-cheap, but the factorization fill-in makes it memory-bound on large meshes
+> (best for small/medium problems). `hpc_memory` = **iterative** `fgmres` + **GAMG** algebraic
+> multigrid: no global factorization, so memory stays low and scales across ranks — the
+> recommended partner of `distributed_mesh=true` for large HPC meshes, at the cost of more/looser
+> linear iterations. Both keep `residual_and_jacobian_together = false` (required by the
+> nodal-constraint loading BC; MOOSE issue 33531).
+
+> **Running on HPC (combined settings).** For a cluster run set `launcher="srun"` (Slurm/Cray;
+> default `mpiexec` elsewhere) and `solver_route="hpc_memory"` (memory-lean GAMG). Add
+> `distributed_mesh=true` only once the replicated mesh OOMs (~1M+ elements; needs `ncore>=2` and
+> the EVBC-fixed `puma-opt`). GPU node: `device="cuda:0 cuda:1 ..."` (one entry per GPU) with
+> `ncore` == number of GPUs and a finite `device_batch` to cap per-GPU memory. CPU node:
+> `device="cpu"` with `ncore` == MPI ranks (`srun -n`). Pass these via
+> `parameters={"simulation_parameters": {...}}` (or the `distributed_mesh` / `solver_route` args).
 
 > **GPU policy: if a GPU is available, always use it.** Set `device="cuda:0"`
 > (or `"cuda:0 cuda:1"` for multi-GPU). CPFE is neml2-dominated and far slower on

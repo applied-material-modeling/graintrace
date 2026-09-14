@@ -148,12 +148,27 @@ class IPFProcessor:
         axis_labels=("100", "110", "111"),
         ngrid=100,
         nline=100,
+        fill=True,
+        ax=None,
+        label_fontsize=None,
     ):
-        """Render the IPF color legend triangle, save it, and return the axes."""
-        colorizer = self.IPFColorScheme(
-            self.reduction.v[0], self.reduction.v[1], self.reduction.v[2]
-        )
+        """Render the IPF triangle and return its axes.
 
+        Args:
+            savefig_name: output image path (relative to ``save_dir``). If
+                ``None``, the figure is not saved (useful when drawing the
+                triangle as a background for an overlay).
+            axis_labels: labels for the three corners (100, 110, 111).
+            ngrid: resolution of the color-fill grid.
+            nline: resolution for drawing the great-circle triangle edges.
+            fill: when ``True`` (default) fill the triangle with the IPF color
+                key; when ``False`` draw only the triangle outline (white
+                interior), e.g. as a background behind an orientation overlay.
+            ax: existing matplotlib axes to draw into; a new figure/axes is
+                created when ``None``.
+            label_fontsize: font size for the three corner labels; ``None`` uses
+                the matplotlib default.
+        """
         projection = self._get_projection()
 
         v0 = self.reduction.v[0].data
@@ -164,34 +179,74 @@ class IPFProcessor:
         xmin, xmax = tri2d[:, 0].min(), tri2d[:, 0].max()
         ymin, ymax = tri2d[:, 1].min(), tri2d[:, 1].max()
 
-        xrang = torch.linspace(xmin, xmax, ngrid)
-        yrang = torch.linspace(ymin, ymax, ngrid)
-        X, Y = torch.meshgrid(xrang, yrang, indexing="xy")
-        XY = torch.stack([X, Y], dim=-1)
+        if ax is None:
+            plt.figure()
+            ax = plt.subplot(111)
 
-        dirs = projection.inverse(XY)
-        dirs[..., 2] = torch.abs(dirs[..., 2])
+        im = None
+        if fill:
+            colorizer = self.IPFColorScheme(
+                self.reduction.v[0], self.reduction.v[1], self.reduction.v[2]
+            )
+            xrang = torch.linspace(xmin, xmax, ngrid)
+            yrang = torch.linspace(ymin, ymax, ngrid)
+            X, Y = torch.meshgrid(xrang, yrang, indexing="xy")
+            XY = torch.stack([X, Y], dim=-1)
 
-        rgb = colorizer(dirs)
+            dirs = projection.inverse(XY)
+            dirs[..., 2] = torch.abs(dirs[..., 2])
 
-        fig = plt.figure()
-        ax = plt.subplot(111)
-        im = ax.imshow(
-            rgb.cpu().numpy(),
-            extent=[
-                xrang[0].item(),
-                xrang[-1].item(),
-                yrang[0].item(),
-                yrang[-1].item(),
-            ],
-            origin="lower",
-        )
+            rgb = colorizer(dirs)
+            im = ax.imshow(
+                rgb.cpu().numpy(),
+                extent=[
+                    xrang[0].item(),
+                    xrang[-1].item(),
+                    yrang[0].item(),
+                    yrang[-1].item(),
+                ],
+                origin="lower",
+            )
+        else:
+            # No fill: keep the triangle bounds so the outline is framed.
+            pad_x = 0.05 * (xmax - xmin).item()
+            pad_y = 0.05 * (ymax - ymin).item()
+            ax.set_xlim(xmin.item() - pad_x, xmax.item() + pad_x)
+            ax.set_ylim(ymin.item() - pad_y, ymax.item() + pad_y)
+            ax.set_aspect("equal")
+
         ax.axis("off")
 
         if axis_labels:
-            plt.text(0.1, 0.11, axis_labels[0], transform=fig.transFigure)
-            plt.text(0.86, 0.11, axis_labels[1], transform=fig.transFigure)
-            plt.text(0.74, 0.88, axis_labels[2], transform=fig.transFigure)
+            # Anchor labels to THIS axes (not the figure) so they sit at the triangle
+            # corners for both single-axes and multi-panel (subplot) figures.
+            ax.text(
+                0.0,
+                0.0,
+                axis_labels[0],
+                transform=ax.transAxes,
+                ha="right",
+                va="top",
+                fontsize=label_fontsize,
+            )
+            ax.text(
+                1.0,
+                0.0,
+                axis_labels[1],
+                transform=ax.transAxes,
+                ha="left",
+                va="top",
+                fontsize=label_fontsize,
+            )
+            ax.text(
+                0.9,
+                1.0,
+                axis_labels[2],
+                transform=ax.transAxes,
+                ha="left",
+                va="bottom",
+                fontsize=label_fontsize,
+            )
 
         net_pts = []
         for i, j in ((0, 1), (1, 2), (2, 0)):
@@ -205,11 +260,13 @@ class IPFProcessor:
 
         poly = Polygon(net_pts, closed=True, edgecolor="k", fill=False)
         ax.add_patch(poly)
-        im.set_clip_path(poly)
+        if im is not None:
+            im.set_clip_path(poly)
 
-        savefig_path = self._resolve_path(savefig_name)
-        plt.savefig(savefig_path, dpi=300)
-        plt.close()
+        if savefig_name is not None:
+            savefig_path = self._resolve_path(savefig_name)
+            plt.savefig(savefig_path, dpi=300)
+            plt.close()
 
         return ax
 
@@ -225,8 +282,15 @@ class IPFProcessor:
             .data.reshape(-1, 3, 3)
             .to(O)
         )  # (Ss, 3, 3)
+        # Include the inversion so the crystal operators form the complete point
+        # group (e.g. 48 ops for m-3m, not just the 24 proper rotations). Without
+        # it the images do not tile the sphere into copies of the standard IPF
+        # triangle, and general (deformed) orientations can have NO representative
+        # in the fundamental sector.
         Rcry = (
-            symmetry_operators_as_R2(self.crystal_symmetry, device=O.device)
+            symmetry_operators_as_R2(
+                self.crystal_symmetry, device=O.device, include_inversion=True
+            )
             .data.reshape(-1, 3, 3)
             .to(O)
         )  # (Sc, 3, 3)
@@ -272,6 +336,28 @@ class IPFProcessor:
             self.reduction.v[0], self.reduction.v[1], self.reduction.v[2]
         )
         return colorizer(dirs)
+
+    def get_ipf_points(self, orientations, direction):
+        """Return per-orientation 2D IPF-triangle coordinates ``(N, 2)``.
+
+        Chains :meth:`get_reduced_ipf_directions` (order-preserving, one
+        fundamental-sector representative per orientation) with the configured
+        stereographic/Lambert projection, so the returned points share the exact
+        frame drawn by :meth:`ipf_color_chart`. Unlike
+        ``neml2.texture.inverse_pole_figure_points`` (whose ragged
+        fundamental-region reduction drops/reorders points and cannot be mapped
+        back to inputs), this preserves the input count and order -- required for
+        plotting per-entity trajectories.
+
+        Args:
+            orientations: ``(N, 3, 3)`` crystal->sample rotation matrices.
+            direction: length-3 sample direction to project.
+
+        Returns:
+            torch.Tensor: ``(N, 2)`` projected IPF coordinates, one per input.
+        """
+        dirs = self.get_reduced_ipf_directions(orientations, direction)
+        return self._get_projection()(dirs)
 
     def add_block_rgb_to_exodus(
         self,
@@ -349,6 +435,175 @@ class IPFProcessor:
                             ("time_step", f"num_el_in_blk{blk_idx + 1}"),
                         )
                     f.variables[vname][0, :] = np.full(n_elem, val, dtype=np.float64)
+
+        return output_path
+
+    def add_element_field_to_exodus(
+        self,
+        mesh_file,
+        element_centroids,
+        values,
+        field_name="fragment_label",
+        output_file="mesh_field.e",
+    ):
+        """Write a per-element scalar field into an Exodus mesh copy.
+
+        Unlike :meth:`add_block_rgb_to_exodus` (block-constant), this fills each
+        element individually. Incoming ``values`` are aligned to
+        ``element_centroids`` and mapped onto the mesh's elements by a centroid
+        KD-tree, so the caller can pass per-element data keyed by centroid (e.g.
+        ``fragment_label`` codes from ``mesh_out`` CSV rows). The result opens in
+        ParaView with ``field_name`` as an element variable.
+
+        Args:
+            mesh_file: source Exodus (``.e``) mesh path.
+            element_centroids: ``(N, 3)`` centroids for the incoming values.
+            values: ``(N,)`` numeric per-element values aligned to the centroids.
+            field_name: element-variable name to write.
+            output_file: output Exodus path (relative to ``save_dir``).
+
+        Returns:
+            The output Exodus path.
+        """
+        # pylint: disable=import-outside-toplevel
+        from scipy.spatial import cKDTree
+
+        output_path = self._resolve_path(output_file)
+        shutil.copyfile(mesh_file, output_path)
+
+        centroids = np.asarray(element_centroids, dtype=np.float64)
+        vals = np.asarray(values, dtype=np.float64).reshape(-1)
+        if centroids.shape[0] != vals.shape[0]:
+            raise ValueError("element_centroids and values must have equal length")
+        kd = cKDTree(centroids)
+
+        with sio.netcdf_file(output_path, "a") as f:
+            coords = np.stack(
+                [
+                    f.variables["coordx"][:],
+                    f.variables["coordy"][:],
+                    f.variables["coordz"][:],
+                ],
+                axis=1,
+            )
+            num_el_blk = int(f.dimensions["num_el_blk"])
+
+            if "time_step" not in f.dimensions:
+                f.createDimension("time_step", None)
+            if "time_whole" not in f.variables:
+                t = f.createVariable("time_whole", "f8", ("time_step",))
+                t[0] = 0.0
+            elif len(f.variables["time_whole"].data) == 0:
+                f.variables["time_whole"][0] = 0.0
+
+            if "num_elem_var" not in f.dimensions:
+                f.createDimension("num_elem_var", 1)
+            self._write_exodus_names_char_array(f, "name_elem_var", [field_name])
+            if "elem_var_tab" not in f.variables:
+                tab = f.createVariable(
+                    "elem_var_tab", "i4", ("num_el_blk", "num_elem_var")
+                )
+                tab[:] = np.ones((num_el_blk, 1), dtype=np.int32)
+
+            for blk_idx in range(num_el_blk):
+                connect = f.variables[f"connect{blk_idx + 1}"][:]
+                elem_coords = coords[connect - 1, :].mean(axis=1)
+                _, idx = kd.query(elem_coords)
+                vname = f"vals_elem_var1eb{blk_idx + 1}"
+                if vname not in f.variables:
+                    f.createVariable(
+                        vname, "f8", ("time_step", f"num_el_in_blk{blk_idx + 1}")
+                    )
+                f.variables[vname][0, :] = vals[idx].astype(np.float64)
+
+        return output_path
+
+    def add_element_rgb_to_exodus(
+        self,
+        mesh_file,
+        element_centroids,
+        rgb,
+        output_file="mesh_rgb.e",
+        var_names=("rgb_x", "rgb_y", "rgb_z"),
+    ):
+        """Write a per-element RGB color into an Exodus mesh copy.
+
+        Like :meth:`add_block_rgb_to_exodus` but per-element (not block-constant)
+        and from an arbitrary color array rather than an IPF map: the caller passes
+        one RGB triple per element (e.g. a categorical fragment palette), aligned to
+        ``element_centroids``, and each mesh element is filled by a centroid KD-tree
+        (cf. :meth:`add_element_field_to_exodus`). This lets a ParaView view of the
+        fragments use the *same* colors as the branching IPF figure. The result has
+        three float element variables (``var_names``); render true color by mapping
+        that 3-component array to RGB in ParaView (turn scalar mapping off).
+
+        Args:
+            mesh_file: source Exodus (``.e``) mesh path.
+            element_centroids: ``(N, 3)`` centroids for the incoming colors.
+            rgb: ``(N, 3)`` RGB(A) values in ``[0, 1]`` aligned to the centroids
+                (a 4th alpha column, if present, is ignored).
+            output_file: output Exodus path (relative to ``save_dir``).
+            var_names: the three element-variable names to write.
+
+        Returns:
+            The output Exodus path.
+        """
+        # pylint: disable=import-outside-toplevel
+        from scipy.spatial import cKDTree
+
+        output_path = self._resolve_path(output_file)
+        shutil.copyfile(mesh_file, output_path)
+
+        centroids = np.asarray(element_centroids, dtype=np.float64)
+        colors = np.asarray(rgb, dtype=np.float64)
+        if colors.ndim != 2 or colors.shape[1] < 3:
+            raise ValueError("rgb must have shape (N, 3) or (N, 4)")
+        colors = colors[:, :3]
+        if centroids.shape[0] != colors.shape[0]:
+            raise ValueError("element_centroids and rgb must have equal length")
+        if len(var_names) != 3:
+            raise ValueError("var_names must name exactly three element variables")
+        kd = cKDTree(centroids)
+
+        with sio.netcdf_file(output_path, "a") as f:
+            coords = np.stack(
+                [
+                    f.variables["coordx"][:],
+                    f.variables["coordy"][:],
+                    f.variables["coordz"][:],
+                ],
+                axis=1,
+            )
+            num_el_blk = int(f.dimensions["num_el_blk"])
+
+            if "time_step" not in f.dimensions:
+                f.createDimension("time_step", None)
+            if "time_whole" not in f.variables:
+                t = f.createVariable("time_whole", "f8", ("time_step",))
+                t[0] = 0.0
+            elif len(f.variables["time_whole"].data) == 0:
+                f.variables["time_whole"][0] = 0.0
+
+            if "num_elem_var" not in f.dimensions:
+                f.createDimension("num_elem_var", 3)
+            self._write_exodus_names_char_array(f, "name_elem_var", list(var_names))
+            if "elem_var_tab" not in f.variables:
+                tab = f.createVariable(
+                    "elem_var_tab", "i4", ("num_el_blk", "num_elem_var")
+                )
+                tab[:] = np.ones((num_el_blk, 3), dtype=np.int32)
+
+            for blk_idx in range(num_el_blk):
+                connect = f.variables[f"connect{blk_idx + 1}"][:]
+                elem_coords = coords[connect - 1, :].mean(axis=1)
+                _, idx = kd.query(elem_coords)
+                for var_idx in range(3):
+                    vname = f"vals_elem_var{var_idx + 1}eb{blk_idx + 1}"
+                    if vname not in f.variables:
+                        f.createVariable(
+                            vname, "f8", ("time_step", f"num_el_in_blk{blk_idx + 1}")
+                        )
+                    f.variables[vname][0, :] = colors[idx, var_idx].astype(np.float64)
 
         return output_path
 

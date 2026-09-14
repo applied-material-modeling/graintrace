@@ -27,6 +27,9 @@ Example: `examples/demonstrate_hedm_anisotropic.py` (12-case anisotropic study);
 
 **Usage:**
 
+`seed` defaults to `None` → a fresh random microstructure each run (the drawn seed is printed so
+you can reproduce it). Pass an explicit `seed` (as below) for a reproducible tessellation.
+
 ```python
 from graintrace.generate_random_crystal import CrystalGenerator
 

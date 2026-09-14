@@ -222,6 +222,20 @@ def diff_norm_3x3_batch(X: np.ndarray, edges: np.ndarray) -> np.ndarray:
     return diff_norm
 
 
+def abs_scalar_diff_distance(u: np.ndarray, v: np.ndarray) -> float:
+    """Absolute difference between two single-component scalar feature vectors."""
+    return float(abs(np.asarray(u).reshape(-1)[0] - np.asarray(v).reshape(-1)[0]))
+
+
+def abs_scalar_diff_batch(X: np.ndarray, edges: np.ndarray) -> np.ndarray:
+    """Vectorized absolute difference of a single scalar feature over all edges."""
+    I = edges[:, 0]
+    J = edges[:, 1]
+
+    D = X[I] - X[J]
+    return np.abs(D).reshape(D.shape[0], -1)[:, 0]
+
+
 class SimilarityMetricLibrary:
     """Metrics returning SimilarityMetric objects (distance functions where smaller = more similar).
 
@@ -279,6 +293,29 @@ class SimilarityMetricLibrary:
                 output_unit=output_unit,
                 device=device,
             ),
+        )
+
+    def abs_scalar_diff(self, cols: List[str]) -> SimilarityMetric:
+        """SimilarityMetric for the absolute difference of a single scalar feature.
+
+        Use for a per-node scalar rare-event field such as misorientation-from-initial
+        (``reorientation_deg``): a smaller absolute difference = more similar.
+        Compatible with both the
+        GSC stage (``dist_edges``) and the indicator stage (``func``).
+
+        Parameters
+        ----------
+        cols
+            Exactly one feature column name (the scalar field).
+        """
+        if len(cols) != 1:
+            raise ValueError("abs_scalar_diff requires exactly 1 feature column")
+
+        return SimilarityMetric(
+            name="abs_scalar_diff",
+            feature_cols=list(cols),
+            func=abs_scalar_diff_distance,
+            dist_edges=abs_scalar_diff_batch,
         )
 
     def nye_tensor_norm(self, cols: Optional[List[str]] = None) -> SimilarityMetric:

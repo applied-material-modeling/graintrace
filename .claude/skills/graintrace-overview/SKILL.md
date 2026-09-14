@@ -32,6 +32,7 @@ Full API reference: `.claude/CLAUDE.md`.
 | Post-processing / plots / IPF | `/post-processing` | demonstrate_postprocess.py | mwe_data/out.csv+grid_out |
 | Rare-event identification | `/rare-event-identification` | demonstrate_rei_pipeline.py | mwe_data/synthetic_vms.csv |
 | Grain tracking across loads | `/grain-tracking` | demonstrate_graintracking.py | mwe_data/synthetic_load_exp |
+| Reorientation → fragmentation → rare events (tracking, sim fragmentation 1×2, FF/NF/EBSD splits, REI) | `/reorientation-fragmentation` | demonstrate_reorientation_fragmentation.py | mwe_data/cpfe_ff_fragmentation + synthetic_split_{ff,nf,ebsd} |
 
 ## Typical pipelines
 - **Experimental FF → CPFE:** stitch (`/hedm-stitching` techniques) → `/ff-reconstruction`
@@ -45,7 +46,9 @@ Full API reference: `.claude/CLAUDE.md`.
   voxel-segmentation-mesh, cpfe-nf-ff.
 - **MOOSE `puma-opt` + `neml2-compile`** (AOTI): cpfe-simulation, cpfe-nf-ff.
 - **NEML2 v3 only** (no MOOSE): material-calibration.
-- **None** (pure Python): post-processing, rare-event-identification, grain-tracking.
+- **None** (pure Python): post-processing, rare-event-identification, grain-tracking,
+  reorientation-fragmentation (the split detector core is pure NumPy+SciPy; tracking / sim
+  fragmentation / NF-EBSD segmentation need neml2+networkit; annotated Exodus needs a mesh .e).
 
 ## Orientation convention (important)
 All orientations communicate as **neml2 v3 MRP** (`tan(θ/4)·axis`). Convert via

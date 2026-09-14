@@ -30,7 +30,8 @@ Algorithm
 1. Validate the requested morphology type and its distribution parameters against the schema.
 2. Assemble the NEPER ``-morpho`` string (and iteration budget) and the domain bounding box.
 3. Invoke NEPER (``neper -T``) to tessellate the domain to the target morphology, using the
-   configured random ``seed`` for reproducibility.
+   ``seed`` as NEPER's ``-id`` (``None`` by default draws a fresh random one, printed for
+   reproducibility).
 4. Collect the tessellation and per-grain orientations; optionally derive HEDM-like z-scan CSVs
    for stitching/reconstruction studies.
 5. Recommended check: compare the realized grain-size/shape distribution against the request.
@@ -44,7 +45,8 @@ See :doc:`/configuration` for the full list.
   ``aspratio`` for elongation, ``lamellar``/``columnar``/``bamboo`` ``n``/``v``, or a ``raw``
   ``morpho_str``).
 - Iteration budget for the morphology optimization (higher = closer distribution match, slower).
-- ``seed``: reproducibility of the random tessellation.
+- ``seed``: ``None`` (default) draws a fresh random seed each run (printed, so a run can be
+  reproduced); pass an int for a reproducible tessellation.
 
 Further details
 ---------------

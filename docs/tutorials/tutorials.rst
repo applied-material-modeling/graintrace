@@ -35,6 +35,7 @@ and API reference.
    :caption: Analysis
 
    post-processing
+   reorientation-fragmentation
    rare-event-identification
    rei-example-2d
    rei-example-3d

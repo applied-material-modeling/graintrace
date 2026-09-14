@@ -10,6 +10,17 @@ explicit ``neper_path=``/``env=`` → ``NEPER`` env var → ``graintrace_tools.j
 ``"neper"`` key → ``neper`` on ``PATH``. If none resolve, the builder raises a
 clear error. On Linux, ``auto_install=True`` performs a ``~/.local`` source build.
 
+CrystalGenerator seed is random by default
+------------------------------------------
+
+:class:`~graintrace.CrystalGenerator` defaults to ``seed=None``, which draws a fresh
+random seed on every instantiation (printed to stdout), so each unseeded run is a
+*different* microstructure. Pass an explicit ``seed=<int>`` for a reproducible
+tessellation; the printed value reproduces a given run. (NEPER honors ``-id``: different
+seed gives different grains, the same seed is byte-identical. The FF *reconstruction* path
+:class:`~graintrace.VoronoiMeshBuilder` ``centroid``/``centroidsize`` is data-seeded via
+``-morphooptiini``, so its seed is inert — grains come from the measured centroids.)
+
 Derive the cpfe_base path dynamically
 -------------------------------------
 

@@ -29,6 +29,8 @@ import numpy as np
 import pytest
 from graintrace.similarity_metric_library import (
     SimilarityMetricLibrary,
+    abs_scalar_diff_batch,
+    abs_scalar_diff_distance,
     diff_norm_3x3,
     diff_norm_3x3_batch,
     von_mises_stress_distance,
@@ -142,3 +144,30 @@ class TestSimilarityMetricLibrary:
         assert isinstance(m, SimilarityMetric)
         assert m.name == "nye_tensor_norm"
         assert len(m.feature_cols) == 9
+
+    def test_abs_scalar_diff_returns_metric(self):
+        m = self.lib.abs_scalar_diff(["reorientation_deg"])
+        assert isinstance(m, SimilarityMetric)
+        assert m.name == "abs_scalar_diff"
+        assert m.feature_cols == ["reorientation_deg"]
+
+    def test_abs_scalar_diff_requires_one_col(self):
+        with pytest.raises(ValueError):
+            self.lib.abs_scalar_diff(["a", "b"])
+
+
+class TestAbsScalarDiff:
+    def test_scalar_abs_difference(self):
+        u = np.array([3.0])
+        v = np.array([7.5])
+        assert abs_scalar_diff_distance(u, v) == pytest.approx(4.5)
+        assert abs_scalar_diff_distance(u, u) == pytest.approx(0.0)
+
+    def test_batch_consistent_with_scalar(self):
+        rng = np.random.default_rng(1)
+        X = rng.normal(0, 10, (12, 1))
+        edges = np.array([[i, j] for i in range(4) for j in range(i + 1, 4)])
+        batch_vals = abs_scalar_diff_batch(X, edges)
+        assert batch_vals.shape == (len(edges),)
+        for k, (i, j) in enumerate(edges):
+            assert batch_vals[k] == pytest.approx(abs_scalar_diff_distance(X[i], X[j]))
