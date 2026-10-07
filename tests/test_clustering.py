@@ -100,6 +100,80 @@ class TestClusterAnalysisIndicator:
         with pytest.raises(ValueError, match="Unknown method"):
             ind.run(method_type="bad_method", spec=spec)
 
+    @staticmethod
+    def _write_offset_feature_csv(path):
+        """CSV whose first feature column is deliberately outside the metric.
+
+        The stock fixture lists exactly the metric's columns in the metric's
+        order, so a positional name/column drift cannot show up there.
+        """
+        n = 24
+        rng = np.random.default_rng(3)
+        df = pd.DataFrame(
+            {
+                "id": np.arange(1, n + 1),
+                "x": np.tile(np.arange(6, dtype=float), 4),
+                "y": np.repeat(np.arange(4, dtype=float), 6),
+                "z": np.zeros(n),
+                # Far away from the stresses, so a swap is unmistakable.
+                "temperature": rng.normal(800.0, 1.0, n),
+                "sxx": rng.normal(100.0, 1.0, n),
+                "syy": rng.normal(50.0, 1.0, n),
+            }
+        )
+        df.to_csv(path, index=False)
+        return df
+
+    def test_dbscan_summary_names_match_their_columns(self, tmp_path):
+        # run_sklearn_dbscan summarised the full feature matrix but labelled it
+        # with the metric's subset, so every *_sum/_sumsq/_mean was published
+        # under the wrong physical quantity.
+        pytest.importorskip("sklearn")
+        from graintrace.cluster_indicator import ClusterAnalysisIndicator
+        from graintrace.user_data_class import SimilarityMetric
+
+        csv_path = tmp_path / "offset_features.csv"
+        df = self._write_offset_feature_csv(csv_path)
+
+        spec = SimilarityMetric(
+            name="sxx_only",
+            feature_cols=["sxx", "syy"],
+            func=lambda u, v: float(abs(u[0] - v[0])),
+        )
+        ind = ClusterAnalysisIndicator(str(csv_path), coord_cols=("x", "y", "z"))
+        result = ind.run(
+            method_type="sklearn_dbscan",
+            spec=spec,
+            eps=1e9,  # one cluster containing every point
+            min_samples=2,
+        )
+        clusters = result["clusters"]
+        assert len(clusters) == 1
+
+        # Every feature column present in the CSV must be summarised, each
+        # under its own name.
+        for col in ("temperature", "sxx", "syy"):
+            assert f"{col}_mean" in clusters.columns, f"{col} missing from summary"
+            assert clusters[f"{col}_mean"].iloc[0] == pytest.approx(
+                df[col].mean()
+            ), f"{col}_mean does not hold {col}"
+
+    def test_cluster_summary_rejects_name_column_mismatch(self):
+        from graintrace.cluster_indicator import ClusterAnalysisIndicator
+
+        ind = ClusterAnalysisIndicator.__new__(ClusterAnalysisIndicator)
+        labels = np.array([0, 0, 1, 1])
+        coords = np.zeros((4, 3))
+        feats = np.zeros((4, 3))
+        with pytest.raises(ValueError, match="paired by position"):
+            ind._build_cluster_summaries_from_arrays(
+                labels=labels,
+                coords=coords,
+                feats=feats,
+                coord_names=["x", "y", "z"],
+                feat_names=["a", "b"],  # 2 names for 3 columns
+            )
+
 
 class TestGraphSpatialCluster:
     def _make_grid_csv(self, path, nx=8, ny=8, seed=0):
