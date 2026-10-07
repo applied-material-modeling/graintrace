@@ -539,12 +539,21 @@ class GraphSpatialCluster:
         # pylint: disable=import-outside-toplevel  # scipy imported lazily
         from scipy.spatial import cKDTree
 
+        N = coords.shape[0]
+
+        # A point set of N points has at most N-1 distinct neighbours. Querying
+        # more makes cKDTree pad the result with the sentinel index N, which is
+        # out of bounds for every downstream lookup, so clamp instead. Mirrors
+        # the `min(..., len(coords))` guard the fragmentation helpers already use.
+        k_eff = min(k, N - 1)
+        if k_eff < 1:
+            return np.empty((0, 2), dtype=np.int64)
+
         tree = cKDTree(coords)
-        _, idx = tree.query(coords, k=k + 1, workers=-1)
+        _, idx = tree.query(coords, k=k_eff + 1, workers=-1)
         nbrs = idx[:, 1:]
 
-        N = coords.shape[0]
-        src = np.repeat(np.arange(N, dtype=np.int64), k)
+        src = np.repeat(np.arange(N, dtype=np.int64), k_eff)
         dst = nbrs.reshape(-1).astype(np.int64)
 
         nbrs_sorted = np.sort(nbrs, axis=1)
