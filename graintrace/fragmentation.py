@@ -564,8 +564,11 @@ class FragmentationAnalyzer:
         gsc = GraphSpatialCluster(
             csv_path=csv_path, id_col="id", coord_cols=("x", "y", "z")
         )
-        ckpt_exists = os.path.exists(ckpt_base + ".edges.npy") and os.path.exists(
-            ckpt_base + ".weights.npy"
+        # _load_checkpoint requires the meta file too, so a partially written
+        # checkpoint must read as absent rather than crashing the resume.
+        ckpt_exists = all(
+            os.path.exists(ckpt_base + suffix)
+            for suffix in (".edges.npy", ".weights.npy", ".meta.json")
         )
         results: List[dict] = []
         for i, g in enumerate(gammas):

@@ -26,9 +26,11 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
+import warnings
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -182,6 +184,25 @@ class GraphSpatialCluster:
                     "Checkpoint n_nodes does not match current CSV row count"
                 )
 
+            # The resume path skips graph building, distance filtering, sigma
+            # estimation and top-k pruning outright, so a checkpoint written
+            # under different settings would be returned as if it answered the
+            # current question. Compare everything that shaped those edges.
+            self._check_checkpoint_compatible(
+                meta,
+                coords=coords,
+                X=X,
+                spec=spec,
+                graph_mode=graph_mode,
+                k=k,
+                manhattan_radius=manhattan_radius,
+                grid_tol=grid_tol,
+                weight_cfg=weight_cfg,
+                max_edge_distance=max_edge_distance,
+                reduce_edges_topweights_k=reduce_edges_topweights_k,
+                n_edges=int(edges.shape[0]),
+            )
+
             mode = "checkpoint"
         else:
             mode = graph_mode.lower()
@@ -277,6 +298,7 @@ class GraphSpatialCluster:
                 "max_edge_distance": (
                     float(max_edge_distance) if max_edge_distance is not None else None
                 ),
+                "data_sha256": self._data_fingerprint(coords, X),
             }
             print(f"Saving checkpoint: {checkpoint_base_path} (edges/weights/meta)")
             self._save_checkpoint(
@@ -902,6 +924,103 @@ class GraphSpatialCluster:
             "weights": base_path + ".weights.npy",
             "meta": base_path + ".meta.json",
         }
+
+    @staticmethod
+    def _data_fingerprint(coords: np.ndarray, X: np.ndarray) -> str:
+        """Content hash of the arrays a checkpoint was built from.
+
+        n_nodes alone cannot tell two different CSVs of equal length apart.
+        """
+        h = hashlib.sha256()
+        for arr in (coords, X):
+            a = np.ascontiguousarray(arr, dtype=np.float64)
+            h.update(str(a.shape).encode("utf-8"))
+            h.update(a.tobytes())
+        return h.hexdigest()
+
+    def _check_checkpoint_compatible(
+        self,
+        meta: Dict[str, Any],
+        *,
+        coords: np.ndarray,
+        X: np.ndarray,
+        spec: SimilarityMetric,
+        graph_mode: str,
+        k: int,
+        manhattan_radius: int,
+        grid_tol: float,
+        weight_cfg: WeightConfig,
+        max_edge_distance: Optional[float],
+        reduce_edges_topweights_k: Optional[int],
+        n_edges: int,
+    ) -> None:
+        """Raise if a checkpoint was built under different graph settings.
+
+        Only parameters that change the stored edges/weights are compared.
+        ``segmenter`` and the NetworKit options are deliberately excluded:
+        they act after the graph is loaded, which is what makes reusing one
+        graph across a gamma sweep worthwhile.
+        """
+        resolved_mode = graph_mode.lower()
+        if resolved_mode == "auto":
+            resolved_mode = "grid" if self._detect_grid(coords, tol=grid_tol) else "knn"
+        elif resolved_mode not in ("knn", "grid"):
+            raise ValueError("graph_mode must be one of {'auto','knn','grid'}")
+
+        expected: Dict[str, Any] = {
+            "metric": spec.name,
+            "weight_mode": weight_cfg.mode,
+            "graph_mode": resolved_mode,
+            "max_edge_distance": (
+                float(max_edge_distance) if max_edge_distance is not None else None
+            ),
+            "reduced_topk": (
+                int(reduce_edges_topweights_k)
+                if reduce_edges_topweights_k is not None
+                else None
+            ),
+            "n_edges": int(n_edges),
+            "data_sha256": self._data_fingerprint(coords, X),
+        }
+        # Connectivity parameters only matter for the mode that uses them.
+        if resolved_mode == "knn":
+            expected["k"] = int(k)
+        else:
+            expected["manhattan_radius"] = int(manhattan_radius)
+            expected["grid_tol"] = float(grid_tol)
+
+        mismatches = []
+        unverifiable = []
+        for key, want in expected.items():
+            if key not in meta:
+                unverifiable.append(key)
+                continue
+            got = meta[key]
+            if isinstance(want, float) and isinstance(got, (int, float)):
+                same = float(got) == want
+            else:
+                same = got == want
+            if not same:
+                mismatches.append(f"{key}: checkpoint={got!r}, requested={want!r}")
+
+        if mismatches:
+            raise ValueError(
+                "Checkpoint was built with different graph-affecting parameters, "
+                "so resuming would return a graph that does not match the "
+                "current request:\n  "
+                + "\n  ".join(mismatches)
+                + "\nRebuild with resume_from_checkpoint=False, or point "
+                "checkpoint_base_path at a different file."
+            )
+
+        if unverifiable:
+            warnings.warn(
+                "Checkpoint metadata is missing "
+                f"{sorted(unverifiable)}; those parameters could not be "
+                "verified against the current request. It was probably "
+                "written by an older version of graintrace.",
+                RuntimeWarning,
+            )
 
     @staticmethod
     def _save_checkpoint(
