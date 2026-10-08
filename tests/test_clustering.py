@@ -517,3 +517,46 @@ class TestGraphSpatialClusterFixes:
         # exercises GraphFromCoo + getVector + n_threads plumbing together
         assert labels.shape == (n,)
         assert labels.min() >= 0
+
+    @pytest.mark.parametrize("n_points", [1, 2, 5, 10, 12, 16, 17, 30])
+    def test_mutual_knn_handles_n_at_or_below_k(self, n_points):
+        # k+1 > N made cKDTree return N as a missing-neighbour sentinel, which
+        # then indexed one past the end of nbrs_sorted. Grains of 10-16 elements
+        # hit this at the default k=16.
+        pytest.importorskip("scipy")
+        from graintrace.graph_spatial_cluster import GraphSpatialCluster
+
+        gsc = GraphSpatialCluster.__new__(GraphSpatialCluster)
+        rng = np.random.default_rng(5)
+        coords = rng.normal(0.0, 1.0, size=(n_points, 3))
+
+        edges = gsc._build_mutual_knn_edges(coords, k=16)
+
+        assert edges.ndim == 2 and edges.shape[1] == 2
+        assert edges.dtype == np.int64
+        if edges.shape[0]:
+            assert edges.min() >= 0
+            assert edges.max() < n_points
+            assert np.all(edges[:, 0] < edges[:, 1]), "edges must be upper-triangular"
+            assert np.unique(edges, axis=0).shape[0] == edges.shape[0]
+
+    def test_mutual_knn_clamped_k_matches_explicit_k(self):
+        # Clamping to N-1 must give exactly the graph an explicit k=N-1 gives.
+        pytest.importorskip("scipy")
+        from graintrace.graph_spatial_cluster import GraphSpatialCluster
+
+        gsc = GraphSpatialCluster.__new__(GraphSpatialCluster)
+        rng = np.random.default_rng(9)
+        coords = rng.normal(0.0, 1.0, size=(12, 3))
+
+        clamped = gsc._build_mutual_knn_edges(coords, k=16)
+        explicit = gsc._build_mutual_knn_edges(coords, k=11)
+        assert np.array_equal(clamped, explicit)
+
+    def test_mutual_knn_still_rejects_bad_k(self):
+        from graintrace.graph_spatial_cluster import GraphSpatialCluster
+
+        gsc = GraphSpatialCluster.__new__(GraphSpatialCluster)
+        coords = np.zeros((5, 3))
+        with pytest.raises(ValueError, match="k must be >= 1"):
+            gsc._build_mutual_knn_edges(coords, k=0)
