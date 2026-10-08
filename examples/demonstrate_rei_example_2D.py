@@ -36,10 +36,13 @@ from graintrace.similarity_metric_library import SimilarityMetricLibrary
 
 ## INPUTS ---------------------------------------------------
 
-filename = "mwe_data/synthetic_vms.csv"
+# Everything this example writes goes under its own untracked folder, so that
+# running it never overwrites the shipped mwe_data/ sample data and never
+# collides with the other REI examples, which generate different datasets.
+output_folder = "rei_2d_out"
+filename = "rei_2d_out/synthetic_vms_2d.csv"
 generate_synthetic = True
 
-output_folder = "rei_2d_out"
 os.makedirs(output_folder, exist_ok=True)
 
 if generate_synthetic:

@@ -35,7 +35,11 @@ from graintrace.rare_cluster_indicator import IdentifyRareClusters
 from graintrace.cluster_indicator import ClusterAnalysisIndicator
 
 # INPUT
-filename = "mwe_data/synthetic_vms.csv"
+# Everything this example writes goes under its own untracked folder, so that
+# running it never overwrites the shipped mwe_data/ sample data and never
+# collides with the other REI examples, which generate different datasets.
+output_folder = "test_rei_pipeline"
+filename = "test_rei_pipeline/synthetic_vms_pipeline.csv"
 
 # graph spatial cluster parameters
 gsc_csv_path = filename
@@ -87,7 +91,7 @@ rare_criteria = RareCriteria(
     max_rare=None,
 )
 
-os.makedirs(os.path.dirname(vtk_out), exist_ok=True)
+os.makedirs(output_folder, exist_ok=True)
 
 
 # Synthetic data generation
@@ -217,7 +221,7 @@ def generate_layered_vms_csv(
 
 # Main
 
-os.makedirs(os.path.dirname(filename), exist_ok=True)
+os.makedirs(output_folder, exist_ok=True)
 
 if generate_synthetic:
     print("Generating synthetic VMS data...")

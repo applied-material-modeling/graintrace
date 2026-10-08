@@ -42,7 +42,11 @@ import time
 
 ## INPUTS ---------------------------------------------------
 
-filename = "mwe_data/synthetic_vms.csv"
+# Everything this example writes goes under its own untracked folder, so that
+# running it never overwrites the shipped mwe_data/ sample data and never
+# collides with the other REI examples, which generate different datasets.
+output_folder = "rei_3d_out"
+filename = "rei_3d_out/synthetic_vms_3d.csv"
 
 if_plot = True
 second_step = True
@@ -93,7 +97,7 @@ radius_elements_range = (6, 16)
 if nz > 1:
     if_plot = False
 
-os.makedirs(os.path.dirname(filename), exist_ok=True)
+os.makedirs(output_folder, exist_ok=True)
 
 if generate_synthetic:
     ## generate synthetic cluster data for testing purpose
@@ -317,7 +321,7 @@ if second_step:
         threshold=threshold,
         method="average",
         criterion="distance",
-        dendrogram_path=os.path.join(os.path.dirname(filename), "dendrogram.png"),
+        dendrogram_path=os.path.join(output_folder, "dendrogram.png"),
         minimal_return=False,
     )
 
@@ -400,6 +404,4 @@ if if_plot:
     axes[2].set_title("Final (post-merge) colored by dendrogram leaves")
 
     plt.tight_layout()
-    plt.savefig(
-        os.path.join(os.path.dirname(filename), "gsc_cluster_labels_check.png"), dpi=300
-    )
+    plt.savefig(os.path.join(output_folder, "gsc_cluster_labels_check.png"), dpi=300)
