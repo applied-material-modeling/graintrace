@@ -1182,6 +1182,16 @@ if ori_units == "radians":
     sample_rotate_angle = np.deg2rad(sample_rotate_angle)
 ```
 
+### NF Exodus extents are voxel FACES, not voxel centres
+Fixed-grid channels 4:7 are voxel **centres**, so the meshed domain runs
+`center_min - d/2 .. center_max + d/2` and its extent is `n*d`, not `(n-1)*d`. Both NF Exodus
+writers now share `nf.mesh.voxel_spacing(grid) -> (dx,dy,dz)` (median of `np.diff` on the
+centres; `1.0` on a single-voxel axis) and the face convention: `rescale_exodus_mesh` (SCULPT
+path) and `write_voxel_exodus` (direct path) bound the same domain for the same grid. Before
+this, `rescale_exodus_mesh` mapped onto the raw centre min/max and shrank every axis by one
+voxel — a silent `(n-1)/n` error in engineering strain and in the ramp rate written by
+`run_cpfe_simulation.py` (2% at `nx=50`).
+
 ### FF output orientations are always in degrees
 `VoronoiMeshBuilder.build_voronoi()` always writes `orientations.dat` in degrees regardless of input units. When feeding to `VoxelMeshBuilder` afterward:
 ```python

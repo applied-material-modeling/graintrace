@@ -79,3 +79,19 @@ NF reconstruction (``graintrace/nf/convert.py``) uses ``multiprocess.Pool``, so
 scripts that call it must be under an ``if __name__ == "__main__":`` guard. The
 graph-clustering / REI pipeline does not require the guard, but keeping it is good
 practice.
+
+NF Exodus meshes are bounded by voxel faces, not voxel centres
+--------------------------------------------------------------
+
+Channels 4:7 of a fixed grid hold voxel *centres*, but a mesh's outer faces
+bound the voxels, so the physical domain runs from ``center_min - d/2`` to
+``center_max + d/2`` and its extent is ``n * d``, not ``(n - 1) * d``.
+
+:func:`graintrace.nf.mesh.rescale_exodus_mesh` used to map the SCULPT mesh onto
+the raw centre min/max, placing the boundary faces on the centres of the
+boundary voxels and shrinking every axis by one voxel. Every quantity that
+depends on gauge length was scaled by ``(n - 1) / n`` -- 2% at ``nx = 50``, and
+entirely silent, because the mesh looks correct on inspection. Both writers now
+share :func:`graintrace.nf.mesh.voxel_spacing` and the voxel-face convention, so
+``rescale_exodus_mesh`` and :func:`graintrace.nf.mesh.write_voxel_exodus` bound
+the same domain for the same grid.

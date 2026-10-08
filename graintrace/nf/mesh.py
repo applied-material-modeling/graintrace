@@ -184,21 +184,60 @@ def mesh_sculpt(
         )
 
 
+def voxel_spacing(data):
+    """Per-axis voxel spacing from a fixed grid's stored voxel-center coordinates.
+
+    Args:
+        data: (nx, ny, nz, 7) array [phase, Eul1, Eul2, Eul3, X, Y, Z] (torch or
+            numpy); channels 4:7 are voxel centers.
+
+    Returns:
+        tuple ``(dx, dy, dz)`` of floats. An axis with a single voxel has no
+        measurable spacing and falls back to ``1.0``.
+    """
+    grid = data.cpu().numpy() if hasattr(data, "cpu") else np.asarray(data)
+    nx, ny, nz = grid.shape[:3]
+    centers = (grid[:, 0, 0, 4], grid[0, :, 0, 5], grid[0, 0, :, 6])
+    return tuple(
+        float(np.median(np.diff(c))) if n > 1 else 1.0
+        for c, n in zip(centers, (nx, ny, nz))
+    )
+
+
 def rescale_exodus_mesh(exo_file, data):
     """Rescale Exodus mesh coordinates to match those in a fixed grid.
 
+    The grid's channels 4:7 hold voxel *centers*, but the mesh's outer faces
+    bound the voxels, so the physical domain runs from ``center_min - d/2`` to
+    ``center_max + d/2`` -- an extent of ``n * d``, not ``(n - 1) * d``. Mapping
+    onto the raw center min/max would place the boundary faces on the centers of
+    the boundary voxels and shrink every axis by one voxel, scaling every
+    gauge-length-dependent quantity by ``(n - 1) / n``. ``write_voxel_exodus``
+    in this module uses the same voxel-face convention.
+
     Args:
         exo_file (str): path to Exodus mesh file
-        data (np.ndarray): nx x ny x nz x 7 array [phase, Eul1, Eul2, Eul3, X, Y, Z]
+        data (np.ndarray): nx x ny x nz x 7 array [phase, Eul1, Eul2, Eul3, X, Y, Z];
+            channels 4:7 are voxel centers.
     """
+    spacing = voxel_spacing(data)
     with sio.netcdf_file(exo_file, "a") as f:
         for i, coord in enumerate(["coordx", "coordy", "coordz"]):
             coords = f.variables[coord][:]
-            min_coord = data[..., 4 + i].min()
-            max_coord = data[..., 4 + i].max()
+            half = spacing[i] / 2.0
+            # voxel faces, not voxel centers
+            min_coord = data[..., 4 + i].min() - half
+            max_coord = data[..., 4 + i].max() + half
             coords_min = coords.min()
             coords_max = coords.max()
-            scaled_coords = (coords - coords_min) / (coords_max - coords_min)
+            span = coords_max - coords_min
+            if span == 0:
+                # degenerate axis: the mesh is flat here, so centre it in the slab
+                f.variables[coord][:] = np.full_like(
+                    coords, (min_coord + max_coord) / 2.0
+                )
+                continue
+            scaled_coords = (coords - coords_min) / span
             new_coords = scaled_coords * (max_coord - min_coord) + min_coord
             f.variables[coord][:] = new_coords
 
@@ -299,15 +338,14 @@ def write_voxel_exodus(
         dict: {'nodes', 'elements', 'blocks'} counts.
     """
     grid = data.cpu().numpy() if hasattr(data, "cpu") else np.asarray(data)
-    nx, ny, nz = grid.shape[:3]
+    nx, ny = grid.shape[:2]
     ids = grid[..., 0].astype(np.int64)
     euler = grid[..., 1:4].astype(np.float64)
 
-    # voxel spacing / origin from the stored voxel-center coordinates
+    # voxel spacing / origin from the stored voxel-center coordinates; the origin
+    # is the first voxel's outer FACE (shared with rescale_exodus_mesh)
     xs, ys, zs = grid[:, 0, 0, 4], grid[0, :, 0, 5], grid[0, 0, :, 6]
-    dx = float(np.median(np.diff(xs))) if nx > 1 else 1.0
-    dy = float(np.median(np.diff(ys))) if ny > 1 else 1.0
-    dz = float(np.median(np.diff(zs))) if nz > 1 else 1.0
+    dx, dy, dz = voxel_spacing(grid)
     x0, y0, z0 = float(xs[0]) - dx / 2, float(ys[0]) - dy / 2, float(zs[0]) - dz / 2
 
     fi = np.argwhere(ids != background_id)
