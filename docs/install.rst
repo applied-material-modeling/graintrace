@@ -40,6 +40,12 @@ similarity metrics. No conda or native build needed:
 ``import graintrace`` works with no NEML2 present. The compiled stack is
 lazy-imported. This tier also installs ``pyzag``.
 
+Accessing a symbol whose dependency is missing raises a ``ModuleNotFoundError``
+that names the symbol, the dependency, and the remedy -- the extras group for a
+pip-installable one (for example ``pip install "graintrace[gnn]"`` for
+``GraphGrainMatcher``), or the tier 2/3 PUMA build for NEML2 -- and links back
+to this page.
+
 To run the examples or benchmarks, clone the repo and install from the checkout.
 The PyPI package ships only the ``graintrace`` library, not ``examples/``,
 ``benchmark/``, or the ``mwe_data/`` sample datasets:

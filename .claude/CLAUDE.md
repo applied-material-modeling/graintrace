@@ -1062,6 +1062,15 @@ as MRP). Do NOT feed these columns to a tool expecting true Rodrigues. A rename 
 `ori_mrp_*` (aux vars + `initial_conditions*.i` `rodrigues_*` functions + all consumers) is a
 **deferred follow-up** — the blast radius is wide, so it is documented rather than done.
 
+### A missing optional dependency is reported by the lazy `__getattr__`
+`graintrace/__init__.py` wraps its PEP 562 lazy import, so accessing a symbol whose dependency
+is absent raises a `ModuleNotFoundError` naming the symbol, the submodule, the missing module
+and the remedy (`pip install "graintrace[gnn]"` for `torch_geometric`; the PUMA tier 2/3 build
+for `neml2`), plus the install-docs URL. `exc.name` still carries the real missing module. A
+missing *graintrace* submodule is re-raised unchanged — that is a packaging bug, not a tier
+problem. Add a new extras-backed dependency to `_EXTRA_FOR_DEPENDENCY`, a new compiled-tier one
+to `_COMPILED_TIER_DEPENDENCIES`.
+
 ### NEPER is bring-your-own
 `VoronoiMeshBuilder` and `CrystalGenerator` resolve a **user-installed** NEPER via
 `graintrace/neper_env.py` (`resolve_neper_env`): precedence is explicit

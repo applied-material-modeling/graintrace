@@ -81,12 +81,66 @@ _LAZY_EXPORTS = {
 
 __all__ = sorted(_LAZY_EXPORTS) + ["__version__"]
 
+_INSTALL_DOCS = "https://applied-material-modeling.github.io/graintrace/install.html"
+
+# Top-level distribution that provides each optional import, mapped to the
+# extras group that installs it. Anything not listed here and not part of the
+# PUMA-built compiled tier falls back to a plain `pip install <dist>` hint.
+_EXTRA_FOR_DEPENDENCY = {
+    "torch_geometric": "gnn",
+    "mcp": "mcp",
+    "meshio": "examples",
+}
+
+# Provided by the PUMA build, not by pip: there is no extras group to suggest.
+_COMPILED_TIER_DEPENDENCIES = {"neml2"}
+
+
+def _missing_dependency_message(name, module, missing):
+    """Build an actionable message for a lazy import that hit a missing dependency.
+
+    Args:
+        name (str): the public graintrace symbol that was requested
+        module (str): the graintrace submodule that defines it
+        missing (str): the top-level third-party module that could not be imported
+
+    Returns:
+        str: a message naming the symbol, the missing dependency, the remedy,
+        and the install documentation.
+    """
+    extra = _EXTRA_FOR_DEPENDENCY.get(missing)
+    if extra is not None:
+        remedy = f'install it with: pip install "graintrace[{extra}]"'
+    elif missing in _COMPILED_TIER_DEPENDENCIES:
+        remedy = (
+            "it is part of the compiled tier and is not on PyPI: build it from "
+            "PUMA's pinned submodule (install tier 2 or 3)"
+        )
+    else:
+        remedy = f"install it with: pip install {missing}"
+    return (
+        f"graintrace.{name} is provided by graintrace.{module}, which requires "
+        f"the optional dependency {missing!r}. {missing!r} is not installed; "
+        f"{remedy}. See the graintrace install tiers at {_INSTALL_DOCS}."
+    )
+
 
 def __getattr__(name: str):
     module = _LAZY_EXPORTS.get(name)
     if module is None:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-    obj = getattr(import_module(f".{module}", __name__), name)
+    try:
+        submodule = import_module(f".{module}", __name__)
+    except ModuleNotFoundError as exc:
+        missing = (exc.name or "").split(".")[0]
+        # A missing graintrace submodule is a packaging bug, not a missing
+        # optional dependency; let it surface unchanged.
+        if not missing or missing == __name__:
+            raise
+        raise ModuleNotFoundError(
+            _missing_dependency_message(name, module, missing), name=missing
+        ) from exc
+    obj = getattr(submodule, name)
     globals()[name] = obj  # cache so subsequent lookups skip __getattr__
     return obj
 
