@@ -146,6 +146,41 @@ class TestDetectGrainSplits:
         )
         assert children == {11, 12}
 
+    def test_adjacency_keeps_best_candidate_when_no_pair_is_adjacent(self):
+        pytest.importorskip("neml2")
+        from graintrace.fragmentation import FragmentationAnalyzer
+
+        # Grain 1 has two compatible candidates (11, 12) that are NOT adjacent to
+        # each other. There is no split to reject, so the parent must keep its best
+        # candidate and stay matched -- not become a death with two spurious births.
+        a = _nodes(
+            [1],
+            np.array([[0.0, 0.0, 0.0]]),
+            np.array([[10.0, 20.0, 30.0]]),
+        )
+        b = _nodes(
+            [11, 12, 13],
+            np.array([[-2.0, 0.0, 0.0], [2.0, 0.0, 0.0], [300.0, 300.0, 300.0]]),
+            np.array([[10.0, 20.0, 30.0], [9.0, 21.0, 30.0], [70.0, 10.0, 5.0]]),
+        )
+        res = FragmentationAnalyzer().detect_splits(
+            a,
+            b,
+            d_tol=10.0,
+            theta_tol_deg=5.0,
+            angle_type="degrees",
+            adjacency_b=[(11, 13), (12, 13)],
+        )
+        assert res["n_deaths"] == 0
+        assert res["n_splits"] == 0
+        assert res["n_matches"] == 1
+        # 11 is the exact orientation match, so it is the kept candidate.
+        matched = [c for c in res["components"] if c["kind"] == "match"][0]
+        assert matched["a_ids"] == [1]
+        assert matched["b_ids"] == [11]
+        # The rejected sibling and the unrelated grain are births, not children.
+        assert res["n_births"] == 2
+
 
 class TestSyntheticFFEndToEnd:
     def test_generate_and_detect_mixed_multiplicity(self, tmp_path):

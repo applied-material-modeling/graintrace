@@ -1006,7 +1006,11 @@ class FragmentationAnalyzer:
             top_k: nearest B centroids probed per A grain.
             adjacency_b: optional iterable of ``(grain_id, grain_id)`` pairs giving
                 intra-step-B grain adjacency; used to reject a spurious split child
-                that is not adjacent to any other child of the same parent.
+                that is not adjacent to any other child of the same parent. If no two
+                of a parent's candidates are mutually adjacent there is no split to
+                reject, so the single best candidate (lowest misorientation, then
+                shortest centroid distance) is kept and the parent matches it rather
+                than being dropped entirely.
             out_csv: if given, write the split correspondences to this CSV path.
 
         Returns:
@@ -1039,15 +1043,18 @@ class FragmentationAnalyzer:
         dist = np.asarray(dist).reshape(n_a, kq)
         jdx = np.asarray(jdx).reshape(n_a, kq)
 
-        ai, bj = [], []
+        ai, bj, pair_dist = [], [], []
         for i in range(n_a):
             for col in range(kq):
                 j = int(jdx[i, col])
                 if dist[i, col] <= d_tol:
                     ai.append(i)
                     bj.append(j)
+                    pair_dist.append(float(dist[i, col]))
         ai = np.asarray(ai, dtype=np.int64)
         bj = np.asarray(bj, dtype=np.int64)
+        pair_dist = np.asarray(pair_dist, dtype=float)
+        pair_miso = np.zeros(len(ai), dtype=float)
 
         # Filter by symmetry-aware misorientation.
         if len(ai) > 0:
@@ -1058,9 +1065,15 @@ class FragmentationAnalyzer:
             )
             keep = miso <= theta_tol_deg
             ai, bj = ai[keep], bj[keep]
+            pair_dist, pair_miso = pair_dist[keep], np.asarray(miso)[keep]
 
-        # Optional adjacency consistency: drop a candidate child not adjacent (in B)
-        # to any sibling under the same parent.
+        # Optional adjacency consistency: a candidate child that is not adjacent (in B)
+        # to any sibling under the same parent is not evidence of a split, so it is
+        # dropped -- but only when the parent still keeps at least one adjacent pair.
+        # When NO two candidates are mutually adjacent there is no split to reject, and
+        # dropping every candidate would turn a legitimate correspondence into a death
+        # plus N spurious births; keep the single best candidate (lowest misorientation,
+        # then shortest centroid distance) so the parent still matches.
         if adjacency_b is not None and len(ai) > 0:
             idmap_b = {int(g): k for k, g in enumerate(ids_b)}
             adj: Dict[int, set] = {}
@@ -1077,9 +1090,14 @@ class FragmentationAnalyzer:
                 if len(children) <= 1:
                     continue
                 cset = set(children.tolist())
-                for pos, child in zip(sel, children):
-                    if not adj.get(int(child), set()) & (cset - {int(child)}):
-                        keep[pos] = False
+                adjacent = np.array(
+                    [bool(adj.get(int(c), set()) & (cset - {int(c)})) for c in children]
+                )
+                if adjacent.any():
+                    keep[sel[~adjacent]] = False
+                else:
+                    best = sel[np.lexsort((bj[sel], pair_dist[sel], pair_miso[sel]))[0]]
+                    keep[sel[sel != best]] = False
             ai, bj = ai[keep], bj[keep]
 
         # Union graph A (0..n_a-1) + B (n_a..n_a+n_b-1); components = grain lineages.
