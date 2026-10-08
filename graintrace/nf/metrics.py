@@ -37,22 +37,60 @@ from ..orientation_helper import (
     matrix_to_quat,
     quat_to_matrix,
     misorientation_matrix,
+    symmetry_operators,
 )
 
 
-def average_rotations(e, angle_convention="kocks", angle_type="radians"):
+def fold_to_reference_variant(R, symmetry):
+    """Fold rotations onto the symmetry variant closest to the first of the set.
+
+    A crystal orientation has one rotation matrix per symmetry operator (24 for
+    cubic ``432``), and a reconstruction may report neighbouring voxels of one
+    grain in different variants. Averaging across variants is meaningless, so
+    every member is first replaced by the symmetry-equivalent that is closest
+    (largest Frobenius inner product) to the reference member ``R[..., 0, :, :]``.
+
+    Args:
+        R: ``(..., N, 3, 3)`` rotation matrices; the set is averaged over axis -3.
+        symmetry (str): crystal symmetry in orbifold notation; ``"1"`` disables
+            folding and returns ``R`` unchanged.
+
+    Returns:
+        ``(..., N, 3, 3)`` rotation matrices, all in a common symmetry variant.
+    """
+    if symmetry == "1" or R.shape[-3] < 2:
+        return R
+    ops = symmetry_operators(symmetry).to(device=R.device, dtype=R.dtype)
+    # (..., N, nops, 3, 3): every symmetry-equivalent of every member
+    cand = torch.matmul(ops, R.unsqueeze(-3))
+    ref = R[..., 0, :, :]
+    # Frobenius inner product with the reference; maximal == smallest rotation apart
+    score = (cand * ref[..., None, None, :, :]).sum(dim=(-2, -1))
+    best = score.argmax(dim=-1)
+    index = best[..., None, None, None].expand(*best.shape, 1, 3, 3)
+    return torch.gather(cand, -3, index).squeeze(-3)
+
+
+def average_rotations(e, angle_convention="kocks", angle_type="radians", symmetry="1"):
     """Average a set of Euler angles via quaternion (eigenvector) mean.
 
     Args:
         e: Nx...x3 array of Euler angles
         angle_convention (str): 'kocks', 'bunge', or 'roe'
         angle_type (str): 'degrees' or 'radians'
+        symmetry (str): crystal symmetry in orbifold notation (e.g. ``"432"``).
+            Members are folded into a common symmetry variant before averaging,
+            so a grain whose voxels are reported in different variants still
+            yields the correct mean. ``"1"`` (the default) disables folding and
+            gives the plain quaternion eigenvector (Markley) mean.
 
     Returns:
         tuple ``(mrp, euler)``: averaged orientation as a neml2 v3 MRP (..., 3)
         and as Euler angles (..., 3) in the given convention.
     """
     R = euler_to_matrix(e, angle_convention, angle_type)
+
+    R = fold_to_reference_variant(R, symmetry)
 
     Q = matrix_to_quat(R)
 

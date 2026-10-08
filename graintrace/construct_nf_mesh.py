@@ -355,6 +355,7 @@ class NearFieldMeshBuilder:
             str(ori_out),
             angle_convention=self.angle_convention,
             angle_type=self.angle_type,
+            symmetry=self.symmetry,
         )
 
         mesh.mesh_sculpt(
@@ -366,6 +367,7 @@ class NearFieldMeshBuilder:
             str(map_out),
             angle_convention=self.angle_convention,
             angle_type=self.angle_type,
+            symmetry=self.symmetry,
         )
 
         return mesh_out

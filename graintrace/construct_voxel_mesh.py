@@ -778,6 +778,7 @@ class VoxelMeshBuilder:
                 angle_convention=self.angle_convention,
                 angle_type=self.angle_type,
                 background_id=background_id,
+                symmetry=self.symmetry,
             )
             print(
                 f"Voxel mesh: {info['elements']} hexes, {info['nodes']} nodes, "
@@ -809,6 +810,7 @@ class VoxelMeshBuilder:
             str(ori_out),
             angle_convention=self.angle_convention,
             angle_type=self.angle_type,
+            symmetry=self.symmetry,
         )
 
         print("Meshing with sculpt...")
@@ -821,6 +823,7 @@ class VoxelMeshBuilder:
             str(map_out),
             angle_convention=self.angle_convention,
             angle_type=self.angle_type,
+            symmetry=self.symmetry,
         )
 
         return mesh_out

@@ -46,6 +46,7 @@ def write_spn(
     filename_orientations,
     angle_convention="bunge",
     angle_type="radians",
+    symmetry="1",
 ):
     """Write an spn and per-grain orientation file from fixed grid data.
 
@@ -55,6 +56,10 @@ def write_spn(
         filename_orientations (str): output orientations filename
         angle_convention (str): 'kocks', 'bunge', or 'roe'
         angle_type (str): 'degrees' or 'radians'
+        symmetry (str): crystal symmetry for the per-grain orientation average
+            (see :func:`graintrace.nf.metrics.average_rotations`). Pass the
+            crystal point group (e.g. ``"432"``) so voxels of one grain reported
+            in different symmetry variants average correctly.
     """
     flat_data = data.reshape(-1, 7)
     phases = torch.sort(torch.unique(flat_data[:, 0])).values
@@ -73,6 +78,7 @@ def write_spn(
             angles,
             angle_convention=angle_convention,
             angle_type=angle_type,
+            symmetry=symmetry,
         )
         orientations[i] = avg_R
         orientations_sameconv[i] = avg
@@ -96,6 +102,7 @@ def mesh_sculpt(
     split_output_prefix="output_mesh",
     angle_convention="bunge",
     angle_type="radians",
+    symmetry="1",
 ):
     """Call sculpt (+epu) to generate an Exodus mesh from an spn file.
 
@@ -109,6 +116,8 @@ def mesh_sculpt(
         split_output_prefix (str): prefix for temporary output files
         angle_convention (str): 'kocks', 'bunge', or 'roe'
         angle_type (str): 'degrees' or 'radians'
+        symmetry (str): crystal symmetry for the per-block orientation average
+            (see :func:`graintrace.nf.metrics.average_rotations`).
     """
     cwd = os.getcwd()
     nx, ny, nz = data.shape[:3]
@@ -181,6 +190,7 @@ def mesh_sculpt(
             output_angle_filename,
             angle_convention,
             angle_type,
+            symmetry,
         )
 
 
@@ -209,6 +219,7 @@ def map_orientations(
     output_angle_filename,
     angle_convention="bunge",
     angle_type="radians",
+    symmetry="1",
 ):
     """Map orientations from fixed grid data onto an Exodus mesh's blocks.
 
@@ -218,6 +229,8 @@ def map_orientations(
         output_angle_filename (str): path to output orientations file
         angle_convention (str): 'kocks', 'bunge', or 'roe'
         angle_type (str): 'degrees' or 'radians'
+        symmetry (str): crystal symmetry for the per-block orientation average
+            (see :func:`graintrace.nf.metrics.average_rotations`).
     """
     flat_data = data.reshape(-1, 7)
     kd = sp.cKDTree(flat_data[:, 4:7])
@@ -242,6 +255,7 @@ def map_orientations(
                 torch.tensor(elem_orientations),
                 angle_convention=angle_convention,
                 angle_type=angle_type,
+                symmetry=symmetry,
             )
             orientations.append(avg_R.numpy())
             orientations_sameconv.append(avg_sameconv.numpy())
@@ -273,6 +287,7 @@ def write_voxel_exodus(
     angle_convention="bunge",
     angle_type="radians",
     background_id=0,
+    symmetry="1",
 ):
     """Dump a segmented voxel grid directly to an Exodus hex mesh (no SCULPT).
 
@@ -294,6 +309,8 @@ def write_voxel_exodus(
         angle_convention (str): 'kocks', 'bunge', or 'roe'.
         angle_type (str): 'degrees' or 'radians'.
         background_id (int): voxel id treated as void (skipped). Default 0.
+        symmetry (str): crystal symmetry for the per-block orientation average
+            (see :func:`graintrace.nf.metrics.average_rotations`).
 
     Returns:
         dict: {'nodes', 'elements', 'blocks'} counts.
@@ -356,6 +373,7 @@ def write_voxel_exodus(
             torch.tensor(euler[ii[sel], jj[sel], kk[sel]]),
             angle_convention=angle_convention,
             angle_type=angle_type,
+            symmetry=symmetry,
         )
         ori_rows[b] = np.asarray(mrp).reshape(-1)[:3]
     np.savetxt(output_angle_filename + ".csv", ori_rows, delimiter=",")
