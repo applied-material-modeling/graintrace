@@ -93,6 +93,20 @@ class ClusterAnalysisIndicator:
         if labels.ndim != 1:
             labels = labels.ravel()
 
+        # feats columns and feat_names are zipped positionally below, so a
+        # length mismatch silently publishes statistics under the wrong
+        # physical quantity. Fail loudly instead.
+        if feats.shape[1] != len(feat_names):
+            raise ValueError(
+                f"feats has {feats.shape[1]} columns but {len(feat_names)} "
+                f"feature names were given; they are paired by position"
+            )
+        if coords.shape[1] != len(coord_names):
+            raise ValueError(
+                f"coords has {coords.shape[1]} columns but {len(coord_names)} "
+                f"coordinate names were given; they are paired by position"
+            )
+
         if not include_noise:
             m = labels != noise_label
             labels = labels[m]
@@ -235,7 +249,7 @@ class ClusterAnalysisIndicator:
             coords=coords,
             feats=X_all,
             coord_names=list(self.coord_cols),
-            feat_names=list(spec.feature_cols),
+            feat_names=all_feat_cols,
             include_noise=include_noise_in_summaries,
             noise_label=noise_label,
             label_col="cluster_label",
