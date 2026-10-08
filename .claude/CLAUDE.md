@@ -1186,6 +1186,19 @@ if ori_units == "radians":
     sample_rotate_angle = np.deg2rad(sample_rotate_angle)
 ```
 
+### `write_spn` raises on unsegmented (`phase < 0`) voxels
+Label domain of a segmented grid: `0` void, `>= 1` grain, `-1` material-but-unsegmented.
+`-1` is not only a `flood()` leftover — `segment.remove_small_segments` reassigns a
+sub-threshold segment to `-1` when it has no kept neighbour, so `NearFieldMeshBuilder`
+(infill **then** removal) can still hold orphans at mesh time. `nf.mesh.write_spn` now raises
+`ValueError` naming the remedy (`infill_nearest_neighbor` after `remove_small_segments`, or
+mask to void) instead of meshing them; it will not map them to void for you, because that
+silently deletes material. Its renumber is also out of place now, so it is collision-proof for
+any label set, not just a contiguous `1..N` (one `-1` used to cascade
+`[0,-1,1,1,2,2,3,3]` into the `.spn` `[0,4,4,4,4,4,4,4]` — every grain collapsed into one
+SCULPT id, silently). `nf.mesh.write_voxel_exodus` skips `ids < 0` alongside `background_id`,
+so an orphan never takes a block and shifts every grain id.
+
 ### NF grain orientation averages need the crystal symmetry
 `nf.metrics.average_rotations` takes `symmetry` (default `"1"` = plain quaternion mean,
 unchanged for direct callers) and folds every member onto the symmetry variant closest to the
