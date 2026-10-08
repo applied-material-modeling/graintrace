@@ -1412,7 +1412,11 @@ done in the same change. Treat it as the checklist for every PR.
    `docs/tutorials/`, `docs/configuration.rst` for new options, and add an
    `automodule` page under `docs/api/` (+ `docs/api/api.rst`) for a new public
    module. The strict build must pass: `sphinx-build -W --keep-going -b html
-   docs docs/_build/html`, plus `make -C docs doctest`.
+   docs docs/_build/html`, plus `make -C docs doctest`. The build needs the
+   **pandoc** system binary (nbsphinx shells out to it for the notebook
+   tutorials); `pip install -e ".[docs]"` cannot install it, so install it
+   separately (`sudo apt-get install pandoc`) or the build dies with
+   `nbsphinx.PandocMissing`.
 4. **CLAUDE.md updated.** Reflect the change in this file — the relevant workflow
    section (§3–§9), the option tables (§9), the Module Map (§11), the
    examples/skills table (§12), or the pitfalls (§10) — so this reference stays
