@@ -177,6 +177,137 @@ class TestGraphSpatialCluster:
             assert "cluster_label" in df.columns or len(df) > 0
 
 
+class TestGraphSpatialClusterCheckpointValidation:
+    """Resuming must refuse a checkpoint built under different settings."""
+
+    @staticmethod
+    def _make_csv(path, nx=8, ny=8, seed=0):
+        rng = np.random.default_rng(seed)
+        n = nx * ny
+        df = pd.DataFrame(
+            {
+                "id": np.arange(1, n + 1),
+                "x": np.tile(np.arange(nx, dtype=float), ny),
+                "y": np.repeat(np.arange(ny, dtype=float), nx),
+                "z": np.zeros(n),
+                "sxx": rng.normal(100, 20, n),
+                "syy": rng.normal(50, 10, n),
+                "szz": rng.normal(30, 5, n),
+                "sxy": rng.normal(0, 5, n),
+                "sxz": rng.normal(0, 5, n),
+                "syz": rng.normal(0, 5, n),
+            }
+        )
+        df.to_csv(path, index=False)
+        return str(path)
+
+    def _run(self, csv_path, ckpt_base, **overrides):
+        from graintrace.graph_spatial_cluster import GraphSpatialCluster
+        from graintrace.similarity_metric_library import SimilarityMetricLibrary
+        from graintrace.user_data_class import WeightConfig
+
+        gsc = GraphSpatialCluster(
+            csv_path=csv_path, id_col="id", coord_cols=("x", "y", "z")
+        )
+        kwargs = dict(
+            spec=SimilarityMetricLibrary().von_mises_stress(),
+            graph_mode="grid",
+            manhattan_radius=1,
+            segmenter="leiden",
+            seed=42,
+            weight_cfg=WeightConfig(mode="rbf", sigma=50.0),
+            n_jobs=1,
+            max_edge_distance=40.0,
+            checkpoint_base_path=ckpt_base,
+        )
+        kwargs.update(overrides)
+        return gsc.run(**kwargs)
+
+    @pytest.fixture
+    def written_checkpoint(self, tmp_path):
+        pytest.importorskip("networkit")
+        csv_path = self._make_csv(tmp_path / "grid.csv")
+        ckpt = str(tmp_path / "ckpt")
+        self._run(csv_path, ckpt)
+        assert Path(ckpt + ".meta.json").exists()
+        return csv_path, ckpt
+
+    def test_resume_with_identical_parameters_is_accepted(self, written_checkpoint):
+        csv_path, ckpt = written_checkpoint
+        out = self._run(csv_path, ckpt, resume_from_checkpoint=True)
+        assert isinstance(out, dict)
+
+    @pytest.mark.parametrize(
+        "override",
+        [
+            {"max_edge_distance": 10.0},
+            {"manhattan_radius": 2},
+            {"reduce_edges_topweights_k": 4},
+        ],
+    )
+    def test_resume_rejects_changed_graph_parameters(
+        self, written_checkpoint, override
+    ):
+        # Previously the stale graph was returned silently: only n_nodes was
+        # checked, and every graph-affecting step is skipped on resume.
+        csv_path, ckpt = written_checkpoint
+        with pytest.raises(ValueError, match="different graph-affecting parameters"):
+            self._run(csv_path, ckpt, resume_from_checkpoint=True, **override)
+
+    def test_resume_rejects_different_data_of_equal_length(
+        self, written_checkpoint, tmp_path
+    ):
+        # Same row count, different values: n_nodes alone cannot catch this.
+        _, ckpt = written_checkpoint
+        other_csv = self._make_csv(tmp_path / "other.csv", seed=99)
+        with pytest.raises(ValueError, match="different graph-affecting parameters"):
+            self._run(other_csv, ckpt, resume_from_checkpoint=True)
+
+    def test_resume_warns_when_meta_predates_validation(self, written_checkpoint):
+        # Checkpoints from older versions lack the new keys; warn, do not crash.
+        import json
+
+        csv_path, ckpt = written_checkpoint
+        meta_path = Path(ckpt + ".meta.json")
+        meta = json.loads(meta_path.read_text())
+        del meta["data_sha256"]
+        del meta["max_edge_distance"]
+        meta_path.write_text(json.dumps(meta))
+
+        with pytest.warns(RuntimeWarning, match="missing"):
+            self._run(csv_path, ckpt, resume_from_checkpoint=True)
+
+    def test_partial_checkpoint_rebuilds_instead_of_crashing(self, tmp_path):
+        # gamma_sweep_leiden's existence probe must agree with _load_checkpoint,
+        # which also needs .meta.json. With only edges+weights on disk the old
+        # probe said "resume" and _load_checkpoint raised FileNotFoundError.
+        pytest.importorskip("networkit")
+        from graintrace.fragmentation import FragmentationAnalyzer
+        from graintrace.similarity_metric_library import SimilarityMetricLibrary
+        from graintrace.user_data_class import WeightConfig
+
+        csv_path = self._make_csv(tmp_path / "sweep.csv")
+        ckpt = str(tmp_path / "partial")
+        # A half-written checkpoint: no .meta.json.
+        np.save(ckpt + ".edges.npy", np.zeros((3, 2), dtype=np.int64))
+        np.save(ckpt + ".weights.npy", np.ones(3, dtype=np.float64))
+
+        results = FragmentationAnalyzer.gamma_sweep_leiden(
+            csv_path=csv_path,
+            ckpt_base=ckpt,
+            gammas=[1.0],
+            n_points=64,
+            spec=SimilarityMetricLibrary().von_mises_stress(),
+            weight_cfg=WeightConfig(mode="rbf", sigma=50.0),
+            max_edge_distance=40.0,
+            graph_mode="grid",
+            manhattan_radius=1,
+            reduce_topk=None,
+        )
+        assert len(results) == 1
+        assert results[0]["n_grains"] >= 1
+
+
 class TestGraphSpatialClusterFixes:
     """Locks in the correctness invariants of the build/prune/threads fixes."""
 
