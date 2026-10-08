@@ -33,6 +33,12 @@ import tqdm
 from .image import get_neighbor_indices, connectivity_options
 from . import metrics
 
+# Phase sentinels used while flooding. Callers only ever see VOID (0),
+# UNSEGMENTED (-1) and real segment ids (>= 1); REJECTED is internal to flood()
+# and is mapped back to UNSEGMENTED before the grid is returned.
+UNSEGMENTED = -1
+REJECTED = -2
+
 
 def flood(
     angles,
@@ -53,12 +59,21 @@ def flood(
         connectivity (int): 6 or 26
         batch_norm (int): batch size for distance calculation
         grain_threshold (int): minimum segment size to keep
-        stop_count (int): stop after finding this many small segments
+        stop_count (int): stop after discarding this many small segments; must
+            be >= 1
         **kwargs: extra arguments for metrics.misorientation()
 
     Returns:
         (nx,ny,nz) array of segmented phases
+
+    Raises:
+        ValueError: if ``stop_count`` is less than 1
     """
+    if stop_count < 1:
+        raise ValueError(
+            f"stop_count must be >= 1 (it is a budget of discarded segments), got {stop_count}"
+        )
+
     offsets = connectivity_options[connectivity]
     Xk, Yk, Zk, valid = get_neighbor_indices(offsets, angles.shape[:3])
 
@@ -74,12 +89,14 @@ def flood(
     distances.masked_fill(~valid, float("inf"))
 
     # Phase > 0 is material to segment, 0 is void; mark material unsegmented (-1)
-    phase[phase > 0] = -1
+    phase[phase > 0] = UNSEGMENTED
 
     current_segment = 1
-    with tqdm.tqdm(total=torch.sum(phase < 0).item(), desc="Segmenting") as pbar:
+    with tqdm.tqdm(
+        total=torch.sum(phase == UNSEGMENTED).item(), desc="Segmenting"
+    ) as pbar:
         while True:
-            unsegmented = torch.where(phase < 0)
+            unsegmented = torch.where(phase == UNSEGMENTED)
             if unsegmented[0].shape[0] == 0:
                 break
 
@@ -100,7 +117,9 @@ def flood(
                 neighbor_y = Yk[:, x, y, z].reshape(-1)
                 neighbor_z = Zk[:, x, y, z].reshape(-1)
 
-                neighbor_unsegmented = phase[neighbor_x, neighbor_y, neighbor_z] < 0
+                neighbor_unsegmented = (
+                    phase[neighbor_x, neighbor_y, neighbor_z] == UNSEGMENTED
+                )
 
                 neighbor_distance = distances[:, x, y, z].reshape(-1)
 
@@ -120,14 +139,22 @@ def flood(
             size_current = torch.sum(phase == current_segment).item()
 
             if size_current < grain_threshold:
-                # Discard segments below the threshold
-                phase[phase == current_segment] = -1
+                # Discard segments below the threshold. Mark them permanently
+                # rejected rather than unsegmented: a flood is seed-independent,
+                # so resetting them to UNSEGMENTED only makes the next iteration
+                # re-find the same segment, burning the stop_count budget (and
+                # looping forever once the budget can never reach zero).
+                phase[phase == current_segment] = REJECTED
                 stop_count -= 1
-                if stop_count == 0:
+                if stop_count <= 0:
                     break
             else:
                 pbar.update(size_current)
                 current_segment += 1
+
+    # Rejected voxels are unsegmented as far as the rest of the pipeline is
+    # concerned (infill_nearest_neighbor fills phase == -1).
+    phase[phase == REJECTED] = UNSEGMENTED
 
     return phase
 

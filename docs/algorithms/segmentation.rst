@@ -40,8 +40,10 @@ yields fewer, larger grains).
 **Flood-fill segmentation.** Starting from a random unlabelled material voxel, a breadth-first
 front grows outward, absorbing neighbours whose misorientation to the current voxel is below the
 tolerance, until no more can be added. Segments smaller than ``grain_threshold`` are discarded
-and their voxels re-queued; the pass stops after ``stop_count`` consecutive small segments or
-when no voxels remain. A cleanup pass infills unlabelled voxels from filled neighbours and merges
+and their voxels permanently rejected: a flood is seed-independent, so re-queueing them would
+only make the next iteration re-find the same segment. Rejected voxels are reported as
+unlabelled, and the pass stops after ``stop_count`` discarded segments or when no voxels remain
+(``stop_count`` must be at least 1). A cleanup pass infills unlabelled voxels from filled neighbours and merges
 sub-threshold segments into the adjacent grain with the largest contact area.
 
 Algorithm

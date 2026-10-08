@@ -953,7 +953,11 @@ segmentation = {
         "grain_threshold_final": 1000,
         "batch_norm": 200_000,                 # flood-only
         "grain_threshold": 1000,               # flood-only
-        "stop_count": 500,                     # flood-only
+        "stop_count": 500,                     # flood-only; budget of DISCARDED
+                                               # segments, must be >= 1 (raises otherwise).
+                                               # Discarded sub-threshold segments are marked
+                                               # permanently rejected, not re-queued, so the
+                                               # budget is not burned re-finding the same one.
     },
 }
 
