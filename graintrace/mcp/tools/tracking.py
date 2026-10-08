@@ -20,6 +20,7 @@ def track_grains(
     csv_b: str,
     bounding_box: List[float],
     output_dir: Optional[str] = None,
+    output_prefix: str = "out_",
     init_params: Optional[Dict[str, Any]] = None,
     build_params: Optional[Dict[str, Any]] = None,
     match_params: Optional[Dict[str, Any]] = None,
@@ -34,6 +35,10 @@ def track_grains(
     csv_a, csv_b : the two FF grain CSVs (different loads/times).
     bounding_box : [xlo,xhi,ylo,yhi,zlo,zhi] micrometers (used for both).
     output_dir : output folder (defaults under the MCP workdir).
+    output_prefix : prepended verbatim to the five result files
+        (<prefix>matches.csv, <prefix>a_to_b.csv, <prefix>Fa.pt, <prefix>Fb.pt,
+        <prefix>meta.json). Give each step pair a distinct prefix when several
+        share one output_dir, otherwise each call overwrites the previous one.
     init_params : overrides for VoronoiMeshBuilder(...) (e.g. unit, dim,
         angle_identifier). Applied to both reconstructions.
     build_params : overrides for build_graph(...): option, CVT_iter,
@@ -66,6 +71,7 @@ def track_grains(
         "csv_b": csv_b,
         "bounding_box": bounding_box,
         "output_dir": output_dir,
+        "output_prefix": output_prefix,
         "init_params": init,
         "build_params": build,
         "match_params": match,
@@ -84,7 +90,12 @@ def track_grains(
             bounding_box=bounding_box,
             **init,
         ).build_graph(**build)
-        matcher = GraphGrainMatcher(graph_a=ga, graph_b=gb, output_dir=output_dir)
+        matcher = GraphGrainMatcher(
+            graph_a=ga,
+            graph_b=gb,
+            output_dir=output_dir,
+            output_prefix=output_prefix,
+        )
         result = matcher.match_grains(**match)
         return {"output_dir": output_dir, "matched": bool(result is not None)}
 
