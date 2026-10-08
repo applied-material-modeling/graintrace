@@ -1193,6 +1193,15 @@ take `symmetry` and `NearFieldMeshBuilder` / `VoxelMeshBuilder` pass their own `
 the low-level `nf.mesh` writers directly? Pass the point group explicitly. The folding helper is
 `nf.metrics.fold_to_reference_variant`; it matches `FragmentationAnalyzer.mean_orientation_mrp`.
 
+### `map_orientations` looks each block up against its own grain's voxels
+`nf.mesh.map_orientations` builds one KD-tree per grain over that grain's voxels and skips
+void (`background_id`, default 0). A single tree over the whole grid let a surface or
+void-adjacent block take the identity from a void voxel (void Euler is `(0,0,0)`), or a
+neighbour's orientation across the boundary — silently, since nothing downstream checks.
+Blocks map to grains by Exodus `eb_prop1` when those ids name grid grains (the SCULPT path,
+where `write_spn` relabels the grid to the spn material ids), else positionally against the
+sorted non-void ids; neither working is now a `ValueError` instead of a wrong answer.
+
 ### FF output orientations are always in degrees
 `VoronoiMeshBuilder.build_voronoi()` always writes `orientations.dat` in degrees regardless of input units. When feeding to `VoxelMeshBuilder` afterward:
 ```python
