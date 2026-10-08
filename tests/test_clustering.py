@@ -275,7 +275,7 @@ class TestGraphSpatialClusterCheckpointValidation:
         df.to_csv(path, index=False)
         return str(path)
 
-    def _run(self, csv_path, ckpt_base, **overrides):
+    def _run(self, csv_path, ckpt_base, weight_kwargs=None, **overrides):
         from graintrace.graph_spatial_cluster import GraphSpatialCluster
         from graintrace.similarity_metric_library import SimilarityMetricLibrary
         from graintrace.user_data_class import WeightConfig
@@ -283,13 +283,15 @@ class TestGraphSpatialClusterCheckpointValidation:
         gsc = GraphSpatialCluster(
             csv_path=csv_path, id_col="id", coord_cols=("x", "y", "z")
         )
+        cfg = dict(mode="rbf", sigma=50.0)
+        cfg.update(weight_kwargs or {})
         kwargs = dict(
             spec=SimilarityMetricLibrary().von_mises_stress(),
             graph_mode="grid",
             manhattan_radius=1,
             segmenter="leiden",
             seed=42,
-            weight_cfg=WeightConfig(mode="rbf", sigma=50.0),
+            weight_cfg=WeightConfig(**cfg),
             n_jobs=1,
             max_edge_distance=40.0,
             checkpoint_base_path=ckpt_base,
@@ -317,6 +319,15 @@ class TestGraphSpatialClusterCheckpointValidation:
             {"max_edge_distance": 10.0},
             {"manhattan_radius": 2},
             {"reduce_edges_topweights_k": 4},
+            # sigma and power feed the stored weights just as directly, but
+            # only weight_cfg.mode used to be recorded and compared, so these
+            # resumes returned the old weights byte for byte.
+            {"weight_kwargs": {"sigma": 0.01}},
+            {"weight_kwargs": {"power": 8.0}},
+            # sigma=None asks for an auto-estimated sigma, which cannot be
+            # resolved without the distances resume skips, so a sigma-pinned
+            # checkpoint is not comparable against it.
+            {"weight_kwargs": {"sigma": None, "sigma_auto": {"quantile": 0.5}}},
         ],
     )
     def test_resume_rejects_changed_graph_parameters(
@@ -327,6 +338,71 @@ class TestGraphSpatialClusterCheckpointValidation:
         csv_path, ckpt = written_checkpoint
         with pytest.raises(ValueError, match="different graph-affecting parameters"):
             self._run(csv_path, ckpt, resume_from_checkpoint=True, **override)
+
+    def test_resume_rejects_changed_sigma_auto_quantile(self, tmp_path):
+        # An auto-estimated sigma cannot be re-derived on resume, so the
+        # request is compared by its quantile instead. Everything that feeds
+        # the distances the quantile is taken over is already compared, so an
+        # equal quantile implies an equal sigma and a different one does not.
+        pytest.importorskip("networkit")
+        csv_path = self._make_csv(tmp_path / "auto.csv")
+        ckpt = str(tmp_path / "auto_ckpt")
+        auto = {"sigma": None, "sigma_auto": {"quantile": 0.5}}
+        self._run(csv_path, ckpt, weight_kwargs=auto)
+
+        self._run(csv_path, ckpt, weight_kwargs=auto, resume_from_checkpoint=True)
+        with pytest.raises(ValueError, match="different graph-affecting parameters"):
+            self._run(
+                csv_path,
+                ckpt,
+                weight_kwargs={"sigma": None, "sigma_auto": {"quantile": 0.9}},
+                resume_from_checkpoint=True,
+            )
+
+    def test_resume_accepts_pinned_sigma_matching_auto_checkpoint(self, tmp_path):
+        # The resolved sigma is recorded, so pinning that exact value asks for
+        # the weights the checkpoint already holds. Rejecting it would be wrong.
+        pytest.importorskip("networkit")
+        import json
+
+        csv_path = self._make_csv(tmp_path / "auto2.csv")
+        ckpt = str(tmp_path / "auto2_ckpt")
+        self._run(
+            csv_path,
+            ckpt,
+            weight_kwargs={"sigma": None, "sigma_auto": {"quantile": 0.5}},
+        )
+        resolved = json.loads(Path(ckpt + ".meta.json").read_text())["weight_sigma"]
+        assert resolved is not None
+
+        self._run(
+            csv_path,
+            ckpt,
+            weight_kwargs={"sigma": resolved},
+            resume_from_checkpoint=True,
+        )
+        with pytest.raises(ValueError, match="different graph-affecting parameters"):
+            self._run(
+                csv_path,
+                ckpt,
+                weight_kwargs={"sigma": resolved * 2.0},
+                resume_from_checkpoint=True,
+            )
+
+    def test_resume_rejects_changed_eps(self, tmp_path):
+        # Same bug class for the modes that read eps instead of sigma.
+        pytest.importorskip("networkit")
+        csv_path = self._make_csv(tmp_path / "inv.csv")
+        ckpt = str(tmp_path / "inv_ckpt")
+        self._run(csv_path, ckpt, weight_kwargs={"mode": "inverse", "eps": 1e-8})
+
+        with pytest.raises(ValueError, match="different graph-affecting parameters"):
+            self._run(
+                csv_path,
+                ckpt,
+                weight_kwargs={"mode": "inverse", "eps": 1e-3},
+                resume_from_checkpoint=True,
+            )
 
     def test_resume_rejects_different_data_of_equal_length(
         self, written_checkpoint, tmp_path

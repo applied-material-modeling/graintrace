@@ -72,6 +72,36 @@ a CUDA GPU is present, use it (``device="cuda:0"`` for CPFE,
 ``TaylorModel(device="cuda")`` for calibration); CPU is much slower for these
 NEML2-dominated workloads.
 
+Resuming a checkpoint validates the parameters that built it
+------------------------------------------------------------
+
+``GraphSpatialCluster.run(resume_from_checkpoint=True)`` loads the stored edges
+and weights and skips graph building, distance filtering, sigma estimation and
+top-k pruning. Anything that shaped those arrays is therefore compared against
+the checkpoint metadata on resume, and a mismatch raises rather than returning
+the old graph as the answer to a new question. That covers the data itself (a
+``sha256`` of the coordinate and feature arrays), the metric, the graph mode and
+its connectivity, ``max_edge_distance``, ``reduce_edges_topweights_k``, and the
+weighting parameters each ``weight_cfg.mode`` actually reads: ``sigma`` and
+``power`` for ``rbf``, ``sigma`` for ``exp``, ``eps`` for ``inverse`` and
+``log_inv``.
+
+``segmenter`` and the NetworKit options are deliberately *not* compared. They act
+after the graph is loaded, which is what makes reusing one checkpoint across a
+gamma sweep worthwhile.
+
+One case needs care. When ``sigma`` is ``None`` the value is estimated from the
+edge distances, and resume skips the step that computes them, so the resolved
+sigma is not knowable without rebuilding the graph. Such a request is compared by
+its ``sigma_auto`` quantile instead, which is exact because everything feeding
+those distances is already compared. The consequence is that resuming a
+``sigma``-pinned checkpoint with a ``sigma=None`` request is reported as a
+mismatch. Pin the resolved sigma (it is recorded in ``<base>.meta.json`` as
+``weight_sigma``) if you want to reuse such a checkpoint.
+
+Checkpoints written before a given check existed lack its metadata key; those
+warn instead of failing.
+
 The multiprocessing guard
 -------------------------
 
