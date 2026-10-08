@@ -1239,6 +1239,16 @@ else:
 ### Auto-detection of orientation units
 Use `ori_units = "auto"` and detect from values: if any Euler component exceeds `2π`, units are degrees.
 
+### `GraphGrainMatcher` output files are named by `output_prefix`
+`write_results` writes exactly five files into `output_dir`: `<output_prefix>matches.csv`,
+`<output_prefix>a_to_b.csv`, `<output_prefix>Fa.pt`, `<output_prefix>Fb.pt`,
+`<output_prefix>meta.json`. The prefix is used **verbatim**, so the default `"out_"` carries
+its own separator and `""` gives bare names. Matching a sequence of load steps into one
+`output_dir` needs a distinct prefix per step pair, or each pair overwrites the previous one;
+`OrientationTracker` sidesteps this by giving each pair its own `pair_<k>` directory. (Before
+2026-10 the prefix was ignored entirely and every run wrote `run_*`, so sequences silently kept
+only the last pair.)
+
 ### REI checkpoint pattern
 Three checkpointing levels in order of priority:
 1. `PICK_CLUSTER_RESTART`: load bundle pickle (fastest restart)

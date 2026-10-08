@@ -53,7 +53,9 @@ Algorithm
    pick its best candidate, resolve conflicts by lowest cost (mutual claiming), and update the
    A→B map; repeat up to ``iterations`` or until it converges.
 5. Emit the matched pairs with their final costs, the full A→B mapping, the node embeddings, and a
-   metadata JSON.
+   metadata JSON. The five files are written into ``output_dir`` as
+   ``<output_prefix>matches.csv``, ``<output_prefix>a_to_b.csv``, ``<output_prefix>Fa.pt``,
+   ``<output_prefix>Fb.pt`` and ``<output_prefix>meta.json``.
 
 Parameters that matter
 ----------------------
@@ -66,6 +68,11 @@ Parameters that matter
   convergence control of the assignment loop.
 - ``build_graph(CVT_iter=...)``: CVT iterations for the tessellation the graph is built on; a
   consistent bounding box per load step keeps the two graphs comparable.
+- ``output_prefix`` (default ``"out_"``): prepended verbatim to all five output file names.
+  Matching a sequence of load steps into one ``output_dir`` needs a distinct prefix per step
+  pair, otherwise each pair overwrites the one before it. Writing each pair to its own
+  ``output_dir`` works equally well -- that is what
+  :class:`~graintrace.ipf_orientation_tracking.OrientationTracker` does.
 
 See :doc:`/configuration` for the surrounding reconstruction options.
 

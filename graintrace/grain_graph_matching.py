@@ -50,7 +50,18 @@ class GraphGrainMatcher:
         output_dir: str = "grain_matching_results",
         output_prefix: str = "out_",
     ) -> None:
+        """Set up a matcher over two grain graphs.
 
+        Args:
+            graph_a: grain graph for the first load step.
+            graph_b: grain graph for the second load step.
+            output_dir (str): directory :meth:`write_results` writes into; created
+                if absent.
+            output_prefix (str): prepended verbatim to every file
+                :meth:`write_results` writes, so runs sharing an ``output_dir``
+                do not overwrite each other. The default carries its own
+                separator; pass ``""`` for bare file names.
+        """
         self.graph_a = graph_a
         self.graph_b = graph_b
         self.output_dir = output_dir
@@ -408,9 +419,18 @@ class GraphGrainMatcher:
         }
 
     def write_results(self, result: Dict[str, Any]) -> None:
-        """Write matches CSV, per-node A->B mapping, embeddings (.pt), and meta JSON."""
-        out_dir = getattr(self, "output_dir", "match_results")
-        run = getattr(self, "run_name", "run")
+        """Write matches CSV, per-node A->B mapping, embeddings (.pt), and meta JSON.
+
+        Every file name starts with the constructor's ``output_prefix``, so two
+        runs sharing an ``output_dir`` keep their results apart as long as their
+        prefixes differ. The prefix is used verbatim -- the default ``"out_"``
+        carries its own separator -- and may be ``""`` for bare names.
+
+        Writes ``<prefix>matches.csv``, ``<prefix>a_to_b.csv``, ``<prefix>Fa.pt``,
+        ``<prefix>Fb.pt`` and ``<prefix>meta.json`` into ``output_dir``.
+        """
+        out_dir = self.output_dir
+        prefix = self.output_prefix
 
         os.makedirs(out_dir, exist_ok=True)
 
@@ -429,15 +449,15 @@ class GraphGrainMatcher:
                 "cost": costs.numpy() if costs.numel() else [],
             }
         )
-        df_matches.to_csv(os.path.join(out_dir, f"{run}_matches.csv"), index=False)
+        df_matches.to_csv(os.path.join(out_dir, f"{prefix}matches.csv"), index=False)
 
         df_map = pd.DataFrame(
             {"i_in_A": list(range(a_to_b.numel())), "j_in_B": a_to_b.numpy()}
         )
-        df_map.to_csv(os.path.join(out_dir, f"{run}_a_to_b.csv"), index=False)
+        df_map.to_csv(os.path.join(out_dir, f"{prefix}a_to_b.csv"), index=False)
 
-        torch.save(Fa.detach().cpu(), os.path.join(out_dir, f"{run}_Fa.pt"))
-        torch.save(Fb.detach().cpu(), os.path.join(out_dir, f"{run}_Fb.pt"))
+        torch.save(Fa.detach().cpu(), os.path.join(out_dir, f"{prefix}Fa.pt"))
+        torch.save(Fb.detach().cpu(), os.path.join(out_dir, f"{prefix}Fb.pt"))
 
         # metadata (JSON-serializable only)
         meta = {
@@ -450,7 +470,7 @@ class GraphGrainMatcher:
             ),
         }
         with open(
-            os.path.join(out_dir, f"{run}_meta.json"), "w", encoding="utf-8"
+            os.path.join(out_dir, f"{prefix}meta.json"), "w", encoding="utf-8"
         ) as f:
             json.dump(meta, f, indent=2)
 
