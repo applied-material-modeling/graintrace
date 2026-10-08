@@ -5,6 +5,28 @@ The documentation is built with Sphinx. The build needs none of the compiled
 stack (NEML2, MOOSE/PUMA, NEPER, CUBIT); ``docs/conf.py`` mocks those imports,
 so it runs from a plain checkout.
 
+.. _pandoc-prerequisite:
+
+System prerequisite: pandoc
+---------------------------
+
+The tutorials are Jupyter notebooks, and ``nbsphinx`` converts them by shelling
+out to the **pandoc** binary. pandoc is a system program, not a Python package,
+so ``pip install -e ".[docs]"`` does **not** install it. Without it the build
+stops at the first notebook with::
+
+   nbsphinx.PandocMissing: Pandoc wasn't found.
+
+Install it with your system package manager, or into the build environment:
+
+.. code-block:: bash
+
+   sudo apt-get install pandoc     # Debian/Ubuntu (what CI uses)
+   brew install pandoc             # macOS
+   conda install -c conda-forge pandoc   # conda environments
+
+Other platforms and the official installers are at https://pandoc.org/installing.html.
+
 Install the docs toolchain
 --------------------------
 

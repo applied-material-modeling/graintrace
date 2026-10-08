@@ -11,6 +11,9 @@ Requirements
 - CUBIT/SCULPT: for hex meshing; Coreform license required.
 - NEML2 v3 (Python): for calibration and pole figures; built by PUMA.
 - MOOSE + PUMA (``puma-opt``): for CPFE; linked with NEML2 v3 + libtorch.
+- pandoc: only to *build* the documentation. A system binary, not a pip
+  package, so the ``docs`` extra cannot install it
+  (see :ref:`pandoc-prerequisite`).
 
 Installation is organized in three tiers by capability. Each higher tier adds
 the PUMA-built native stack on top of the pip install.

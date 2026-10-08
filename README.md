@@ -35,9 +35,14 @@ reference, the MCP server, and the API reference) is built with Sphinx under
 `docs/`. Build it locally with:
 
 ```bash
+sudo apt-get install pandoc   # system binary, not a pip package; nbsphinx needs it
 pip install -e ".[docs]"
 cd docs && make html      # open docs/_build/html/index.html
 ```
+
+`pandoc` converts the notebook tutorials; without it the build fails with
+`nbsphinx.PandocMissing`. See <https://pandoc.org/installing.html> for macOS,
+Windows, and conda installs.
 
 See `docs/development.rst` for the strict build, `doctest`, and `linkcheck`
 targets, and the definition-of-done checklist for new code.
