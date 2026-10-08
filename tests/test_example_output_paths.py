@@ -46,17 +46,22 @@ REI_EXAMPLES = (
     "examples/demonstrate_rei_example_3D.py",
     "examples/demonstrate_rei_pipeline.py",
 )
-OUTPUT_VARIABLES = ("filename", "output_folder", "vtk_out")
+OUTPUT_VARIABLES = ("generated_csv", "output_folder", "vtk_out")
+
+# The tracked, read-only dataset an example reads when generate_synthetic is
+# False. It is an input, not an output, so it is checked separately.
+SEED_VARIABLE = "existing_csv"
 
 
-def _string_assignments(relative_path):
+def _string_assignments(relative_path, names=OUTPUT_VARIABLES):
     """Module-level ``name = "literal"`` assignments in an example script.
 
     Args:
         relative_path (str): path to the script, relative to the repo root
+        names (tuple): variable names to collect; defaults to OUTPUT_VARIABLES
 
     Returns:
-        dict: variable name -> string literal, for the names in OUTPUT_VARIABLES
+        dict: variable name -> string literal, for the requested names
     """
     path = REPO_ROOT / relative_path
     if not path.is_file():
@@ -69,7 +74,7 @@ def _string_assignments(relative_path):
         if not isinstance(node.value.value, str):
             continue
         for target in node.targets:
-            if isinstance(target, ast.Name) and target.id in OUTPUT_VARIABLES:
+            if isinstance(target, ast.Name) and target.id in names:
                 found[target.id] = node.value.value
     return found
 
@@ -96,7 +101,9 @@ def _require_git_checkout():
 
 def test_rei_examples_write_to_distinct_datasets():
     """No two REI examples may generate over the same dataset path."""
-    paths = {script: _string_assignments(script)["filename"] for script in REI_EXAMPLES}
+    paths = {
+        script: _string_assignments(script)["generated_csv"] for script in REI_EXAMPLES
+    }
     duplicates = [p for p in paths.values() if list(paths.values()).count(p) > 1]
     assert not duplicates, (
         "REI examples share a generated dataset path, so running one changes "
@@ -123,3 +130,25 @@ def test_rei_example_outputs_are_untracked(script):
             f"{script} writes {variable}={value!r}, which is neither tracked "
             "nor git-ignored; add it to .gitignore"
         )
+
+
+@pytest.mark.parametrize("script", REI_EXAMPLES)
+def test_rei_example_reads_a_shipped_seed_when_not_generating(script):
+    """``generate_synthetic = False`` must work on a fresh checkout.
+
+    Sending the examples to private output folders is only safe if turning
+    generation off still has something to read. Without a shipped seed the
+    ``False`` branch would point at a dataset that does not exist until the
+    example has been run once, which is a regression on the previous
+    behaviour of reading ``mwe_data/``.
+    """
+    _require_git_checkout()
+    seed = _string_assignments(script, names=(SEED_VARIABLE,)).get(SEED_VARIABLE)
+    assert seed, (
+        f"{script} defines no {SEED_VARIABLE}, so generate_synthetic=False has "
+        "no input on a fresh checkout"
+    )
+    assert (REPO_ROOT / seed).is_file(), f"{script} reads {seed!r}, which is missing"
+    assert (
+        _git("ls-files", "--error-unmatch", "--", seed)[0] == 0
+    ), f"{script} reads {seed!r}, which is not tracked, so a clone will not have it"
