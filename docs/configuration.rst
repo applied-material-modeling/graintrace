@@ -237,7 +237,10 @@ different symmetry variants still averages correctly (the default ``"1"`` is the
 (:meth:`graintrace.fragmentation.FragmentationAnalyzer.detect_splits`): ``d_tol``
 (cross-step centroid distance, at grain scale), ``theta_tol_deg`` (cross-step
 misorientation link, generous ~15°), ``top_k``, and an optional ``adjacency_b`` to
-reject a spurious split child. The same detector serves FF, NF, and EBSD; NF/EBSD
+reject a spurious split child. ``adjacency_b`` only prunes a multi-child candidate
+set that *has* a mutually adjacent pair; when no two candidates are adjacent there is
+no split to reject, so the best candidate is kept and the parent still matches.
+The same detector serves FF, NF, and EBSD; NF/EBSD
 reach it through ``segment`` +
 :meth:`graintrace.fragmentation.FragmentationAnalyzer.seg_to_grain_table`.
 

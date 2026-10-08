@@ -1041,7 +1041,10 @@ All on `FragmentationAnalyzer(symmetry="432", ori_cols=…, coord_cols=…)`:
   that crosses a symmetry boundary).
 - `.detect_splits(nodes_a, nodes_b, d_tol, theta_tol_deg, angle_convention="bunge",
   angle_type="degrees", top_k=8, adjacency_b=None)` — `d_tol` at grain scale,
-  `theta_tol_deg` generous (~15°); uses the instance's `symmetry`.
+  `theta_tol_deg` generous (~15°); uses the instance's `symmetry`. `adjacency_b`
+  prunes only when a parent's candidates contain a mutually adjacent pair; with no
+  adjacent pair the best candidate (lowest misorientation, then distance) is kept so
+  the parent matches instead of becoming a death plus N births.
 - Synthetic splits: `tests/synthetic_fragmentation.generate_{ff,nf,ebsd}_split(out_dir,
   n_steps=5, theta_max_deg=12.0, misorientation_tol_deg=5.0, ...)` — the shipped
   `mwe_data/synthetic_split_*` + `ground_truth.json` (test helper, not a package module).
