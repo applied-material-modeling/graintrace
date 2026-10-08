@@ -58,6 +58,7 @@ farfield_out/
 material_calibration_out/
 cpfe_out/
 rei_2d_out/
+rei_3d_out/
 test_demo_grid_segmentation/
 
 # --- NEVER commit proprietary CUBIT/Coreform license material ---

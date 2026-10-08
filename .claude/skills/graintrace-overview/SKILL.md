@@ -30,7 +30,7 @@ Full API reference: `.claude/CLAUDE.md`.
 | CPFE simulation (FF) | `/cpfe-simulation` | demonstrate_cpfe.py | mwe_data/cpfe_ff |
 | CPFE (NF geom + FF strain) | `/cpfe-nf-ff` | demonstrate_cpfe_nfff.py | synthetic |
 | Post-processing / plots / IPF | `/post-processing` | demonstrate_postprocess.py | mwe_data/out.csv+grid_out |
-| Rare-event identification | `/rare-event-identification` | demonstrate_rei_pipeline.py | mwe_data/synthetic_vms.csv |
+| Rare-event identification | `/rare-event-identification` | demonstrate_rei_pipeline.py | self-generates into `test_rei_pipeline/`; mwe_data/synthetic_vms.csv is the read-only seed |
 | Grain tracking across loads | `/grain-tracking` | demonstrate_graintracking.py | mwe_data/synthetic_load_exp |
 | Reorientation → fragmentation → rare events (tracking, sim fragmentation 1×2, FF/NF/EBSD splits, REI) | `/reorientation-fragmentation` | demonstrate_reorientation_fragmentation.py | mwe_data/cpfe_ff_fragmentation + synthetic_split_{ff,nf,ebsd} |
 

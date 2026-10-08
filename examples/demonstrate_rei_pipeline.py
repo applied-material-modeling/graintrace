@@ -35,7 +35,17 @@ from graintrace.rare_cluster_indicator import IdentifyRareClusters
 from graintrace.cluster_indicator import ClusterAnalysisIndicator
 
 # INPUT
-filename = "mwe_data/synthetic_vms.csv"
+# Everything this example writes goes under its own untracked folder, so that
+# running it never overwrites the shipped mwe_data/ sample data and never
+# collides with the other REI examples, which generate different datasets.
+output_folder = "test_rei_pipeline"
+# True regenerates this example's own dataset at generated_csv. False analyses
+# an existing CSV instead: the shipped read-only seed by default, or point
+# existing_csv at your own CPFE grid output.
+generate_synthetic = True
+generated_csv = "test_rei_pipeline/synthetic_vms_pipeline.csv"
+existing_csv = "mwe_data/synthetic_vms.csv"
+filename = generated_csv if generate_synthetic else existing_csv
 
 # graph spatial cluster parameters
 gsc_csv_path = filename
@@ -69,7 +79,6 @@ graph_cluster_arguments = {"gamma": 1.0}
 # for all parameters: https://networkit.github.io/dev-docs/python_api/community.html
 
 # synthetic generation
-generate_synthetic = True
 nx = 20
 ny = 20
 nz = 20
@@ -87,7 +96,7 @@ rare_criteria = RareCriteria(
     max_rare=None,
 )
 
-os.makedirs(os.path.dirname(vtk_out), exist_ok=True)
+os.makedirs(output_folder, exist_ok=True)
 
 
 # Synthetic data generation
@@ -217,7 +226,7 @@ def generate_layered_vms_csv(
 
 # Main
 
-os.makedirs(os.path.dirname(filename), exist_ok=True)
+os.makedirs(output_folder, exist_ok=True)
 
 if generate_synthetic:
     print("Generating synthetic VMS data...")
@@ -257,7 +266,10 @@ irc = IdentifyRareClusters(
     coord_cols=gsc_coord_cols,
 )
 
-base = os.path.splitext(filename)[0]
+# Derived artifacts are named after the input but written into this example's
+# own output folder. Deriving them from the input's directory instead would put
+# them next to a read-only dataset such as the shipped mwe_data/ seed.
+base = os.path.join(output_folder, os.path.splitext(os.path.basename(filename))[0])
 graph_cluster_out = base + "_reduced.csv"
 bundle_checkpoint = base + "_bundle.pkl"
 gsc_labels_path = base + "_reduced_gsc_labels.npy"

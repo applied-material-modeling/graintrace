@@ -42,7 +42,17 @@ import time
 
 ## INPUTS ---------------------------------------------------
 
-filename = "mwe_data/synthetic_vms.csv"
+# Everything this example writes goes under its own untracked folder, so that
+# running it never overwrites the shipped mwe_data/ sample data and never
+# collides with the other REI examples, which generate different datasets.
+output_folder = "rei_3d_out"
+# True regenerates this example's own dataset at generated_csv. False analyses
+# an existing CSV instead: the shipped read-only seed by default, or point
+# existing_csv at your own CPFE grid output.
+generate_synthetic = True
+generated_csv = "rei_3d_out/synthetic_vms_3d.csv"
+existing_csv = "mwe_data/synthetic_vms.csv"
+filename = generated_csv if generate_synthetic else existing_csv
 
 if_plot = True
 second_step = True
@@ -82,7 +92,7 @@ graph_cluster_arguments = {"gamma": 1.0}
 ## all params: https://networkit.github.io/dev-docs/python_api/community.html
 
 
-generate_synthetic = True
+# synthetic generation
 nx = 100
 ny = 100
 nz = 100
@@ -93,7 +103,7 @@ radius_elements_range = (6, 16)
 if nz > 1:
     if_plot = False
 
-os.makedirs(os.path.dirname(filename), exist_ok=True)
+os.makedirs(output_folder, exist_ok=True)
 
 if generate_synthetic:
     ## generate synthetic cluster data for testing purpose
@@ -266,7 +276,12 @@ start_time = time.time()
 metric_lib = SimilarityMetricLibrary()
 spec = metric_lib.von_mises_stress()
 
-graph_cluster_out = os.path.splitext(filename)[0] + "_reduced.csv"
+# Named after the input but written into this example's own output folder, so
+# a read-only input such as the shipped mwe_data/ seed is never written beside.
+graph_cluster_out = (
+    os.path.join(output_folder, os.path.splitext(os.path.basename(filename))[0])
+    + "_reduced.csv"
+)
 gsc = GraphSpatialCluster(
     csv_path=gsc_csv_path,
     id_col=gsc_id_col,
@@ -317,7 +332,7 @@ if second_step:
         threshold=threshold,
         method="average",
         criterion="distance",
-        dendrogram_path=os.path.join(os.path.dirname(filename), "dendrogram.png"),
+        dendrogram_path=os.path.join(output_folder, "dendrogram.png"),
         minimal_return=False,
     )
 
@@ -400,6 +415,4 @@ if if_plot:
     axes[2].set_title("Final (post-merge) colored by dendrogram leaves")
 
     plt.tight_layout()
-    plt.savefig(
-        os.path.join(os.path.dirname(filename), "gsc_cluster_labels_check.png"), dpi=300
-    )
+    plt.savefig(os.path.join(output_folder, "gsc_cluster_labels_check.png"), dpi=300)

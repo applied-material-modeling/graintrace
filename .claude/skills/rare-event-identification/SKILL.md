@@ -24,8 +24,10 @@ schema:
   (`mesh_csv="sync"` default); full-fidelity, one row per element (kNN path). **Preferred.**
 - **`grid_out/out_element_centroid_*.csv`** — regular grid (from `grid_transfer="per_step"`
   or offline `GridResampler`; the resampled grid is smoothed — see `/post-processing`).
-Demo data: `mwe_data/synthetic_vms.csv` (the REI example scripts regenerate it with
-`generate_synthetic=True`).
+Demo data: `mwe_data/synthetic_vms.csv`, the shipped seed each REI example reads when
+`generate_synthetic=False`. With `generate_synthetic=True` (the default) each example
+instead writes its own dataset into its own untracked `output_folder`, so running one
+never overwrites the seed or another example's data.
 
 ## Recipe (full pipeline)
 ```python
@@ -74,8 +76,11 @@ For simpler demos: `ClusterAnalysisIndicator` (single-stage hierarchical, `rei_e
 ## Gotchas
 - Three checkpoint levels (bundle pickle → reduced CSV+labels → graph edges); see CLAUDE.md §10
   REI restart pattern.
-- The `demonstrate_rei_*` scripts regenerate `synthetic_vms.csv` (`generate_synthetic=True`);
-  point `input_csv_path` at your own CPFE grid CSV for real analysis.
+- The `demonstrate_rei_*` scripts each generate their own dataset under their own
+  `output_folder` (`generate_synthetic=True`, the default) and leave the checkout clean.
+  Set `generate_synthetic=False` to analyse an existing CSV instead — `existing_csv`
+  defaults to the shipped `mwe_data/synthetic_vms.csv`; point it (or `input_csv_path`) at
+  your own CPFE grid CSV for real analysis.
 
 ## See also
 `examples/demonstrate_rei_pipeline.py`, `_example_3D.py`, `_example_2D.py`; CLAUDE.md §7 (REI), §10.

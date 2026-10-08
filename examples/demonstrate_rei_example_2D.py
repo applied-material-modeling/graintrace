@@ -36,10 +36,21 @@ from graintrace.similarity_metric_library import SimilarityMetricLibrary
 
 ## INPUTS ---------------------------------------------------
 
-filename = "mwe_data/synthetic_vms.csv"
-generate_synthetic = True
-
+# Everything this example writes goes under its own untracked folder, so that
+# running it never overwrites the shipped mwe_data/ sample data and never
+# collides with the other REI examples, which generate different datasets.
 output_folder = "rei_2d_out"
+# True regenerates this example's own dataset at generated_csv. False analyses
+# an existing CSV instead: the shipped read-only seed by default, or point
+# existing_csv at your own CPFE grid output.
+generate_synthetic = True
+generated_csv = "rei_2d_out/synthetic_vms_2d.csv"
+existing_csv = "mwe_data/synthetic_vms.csv"
+filename = generated_csv if generate_synthetic else existing_csv
+
+# clustering threshold, used on both paths
+threshold = 0.01
+
 os.makedirs(output_folder, exist_ok=True)
 
 if generate_synthetic:
@@ -135,7 +146,6 @@ if generate_synthetic:
     nx = 30
     ny = 30
 
-    threshold = 0.01
     radius_elements_range = (2, 5)
 
     print("Generating synthetic VMS data...")
@@ -206,6 +216,11 @@ def compute_von_mises(df: pd.DataFrame) -> np.ndarray:
     term2 = 3.0 * (sxy**2 + sxz**2 + syz**2)
     return np.sqrt(term1 + term2)
 
+
+# Grid shape, read back from the analysed data rather than from the generation
+# parameters, so the plots work for an existing CSV as well as a generated one.
+nx = result["x"].nunique()
+ny = result["y"].nunique()
 
 # compute fields
 vm = compute_von_mises(result)  # shape (nx*ny,)
