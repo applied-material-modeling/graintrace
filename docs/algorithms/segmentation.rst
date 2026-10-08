@@ -54,7 +54,12 @@ Graph path (:class:`~graintrace.GraphSpatialCluster`):
 4. Estimate the RBF :math:`\sigma` (quantile of distances) if not supplied, then map distances
    to weights.
 5. Optionally prune to the top-:math:`k` edges per node (``reduce_edges_topweights_k``) to
-   sparsify the graph.
+   sparsify the graph. Exact weight ties are common here -- two voxels with identical
+   orientations are at distance 0, so their RBF weight is exactly 1.0 -- and the prune
+   resolves them deterministically: among equal weights the lower half-edge index wins
+   (edge :math:`e` is half-edge :math:`e` at its first endpoint and :math:`E + e` at its
+   second). The result is therefore the same whether or not the optional numba
+   acceleration is installed.
 6. Partition the weighted graph with Leiden (or PLM/PLP) at resolution :math:`\gamma`.
 7. Aggregate per-cluster properties (size, centroid, feature means) and emit per-voxel labels.
 
@@ -77,6 +82,7 @@ Parameters that matter
 - ``networkit_kwargs={"gamma": ...}``: Leiden resolution; lower gives fewer clusters.
 - ``weight_cfg`` (``mode``/``sigma``/``sigma_auto``/``power``): the RBF weighting of edges.
 - ``reduce_edges_topweights_k``: per-node edge budget that sparsifies the graph before Leiden.
+  Tie resolution is deterministic and numba-independent (see step 5 above).
 - ``grain_threshold`` / ``grain_threshold_final`` / ``stop_count``: minimum grain size and the
   small-segment cleanup budget (flood path).
 

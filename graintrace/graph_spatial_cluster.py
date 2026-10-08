@@ -58,6 +58,12 @@ if _HAS_NUMBA:
 
         order groups half-edges by node into contiguous segments; keep_half is
         bool[2E] in sorted-position space, so per-node segments never race.
+
+        Ties are broken by ascending half-edge index, which requires order to
+        come from a STABLE sort of the node array -- see
+        GraphSpatialCluster.prune_topk_per_node_parallel. The numpy fallback and
+        the frozen reference in tests/_prune_original.py implement the same rule,
+        so the pruned graph does not depend on whether numba is installed.
         """
         n = indptr.shape[0] - 1
         for nidx in prange(n):  # pylint: disable=not-an-iterable  # numba prange
@@ -73,8 +79,10 @@ if _HAS_NUMBA:
                 seg = np.empty(m, dtype=np.float64)
                 for j in range(m):
                     seg[j] = w_half[order[s + j]]
-                idx = np.argsort(seg)  # ascending; top-k = last k
-                for t in range(m - k, m):
+                # Descending by weight; mergesort is stable, so tied weights
+                # keep ascending segment position == ascending half-edge index.
+                idx = np.argsort(-seg, kind="mergesort")
+                for t in range(k):
                     keep_half[s + idx[t]] = True
 
 
@@ -755,6 +763,12 @@ class GraphSpatialCluster:
     # drop weak edges via top-k per node
     @staticmethod
     def _topk_nodes_worker(args) -> np.ndarray:
+        """Single-threaded top-k-per-node selection (the no-numba fallback).
+
+        Uses the same tie-break as the numba kernel: descending weight, ties by
+        ascending half-edge index (the slice is already in that order because
+        the caller groups with a stable sort).
+        """
         indptr, adj_eid, adj_w, a, b, k = args
         kept_chunks = []
         for nidx in range(a, b):
@@ -767,7 +781,7 @@ class GraphSpatialCluster:
                 kept_chunks.append(adj_eid[s:e])
             else:
                 w_slice = adj_w[s:e]
-                idx = np.argpartition(w_slice, -k)[-k:]
+                idx = np.argsort(-w_slice, kind="stable")[:k]
                 kept_chunks.append(adj_eid[s:e][idx])
         if kept_chunks:
             return np.concatenate(kept_chunks)
@@ -790,6 +804,14 @@ class GraphSpatialCluster:
         Uses a numba thread-parallel kernel when available (n_jobs = thread count),
         else a single-threaded numpy fallback. nodes_chunk / mp_start_method are
         accepted for backward compat only and have no effect.
+
+        Selection is deterministic: among equal weights the lower half-edge index
+        wins. Edge e contributes half-edge e at its first endpoint and half-edge
+        E + e at its second, so for a given node the tie-break prefers the edges
+        where it is the first endpoint, each in ascending edge id. Both code paths
+        implement that rule, so an input with exact ties -- routine, since
+        identical orientations give an RBF weight of exactly 1.0 -- prunes to the
+        same graph whether or not numba is installed.
         """
         if k is None:
             return edges, weights
@@ -798,7 +820,7 @@ class GraphSpatialCluster:
             return np.empty((0, 2), dtype=np.int64), np.empty((0,), dtype=np.float64)
 
         # Build incidence (one half-edge per endpoint). Build half-edge weights
-        # after the sort and use quicksort (no merge buffer) to keep peak memory low.
+        # after the sort to keep peak memory low.
         E = edges.shape[0]
         node = np.concatenate(
             [
@@ -812,8 +834,12 @@ class GraphSpatialCluster:
         indptr[0] = 0
         np.cumsum(deg, out=indptr[1:])
 
-        # group half-edges by node so each node's incidence is a contiguous slice
-        order = np.argsort(node, kind="quicksort")
+        # Group half-edges by node so each node's incidence is a contiguous slice.
+        # kind="stable" is load-bearing, not a preference: it leaves each node's
+        # segment in ascending half-edge order, which is what makes the tie-break
+        # below deterministic. An unstable sort here silently reintroduces the
+        # numba-vs-fallback divergence that tests/test_clustering.py guards.
+        order = np.argsort(node, kind="stable")
         del node  # free before the top-k pass
 
         adj_w_half = np.concatenate(
