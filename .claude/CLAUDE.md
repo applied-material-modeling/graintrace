@@ -1182,6 +1182,17 @@ if ori_units == "radians":
     sample_rotate_angle = np.deg2rad(sample_rotate_angle)
 ```
 
+### NF grain orientation averages need the crystal symmetry
+`nf.metrics.average_rotations` takes `symmetry` (default `"1"` = plain quaternion mean,
+unchanged for direct callers) and folds every member onto the symmetry variant closest to the
+first before averaging — a cubic orientation has 24 equivalent matrices and a reconstruction
+reports one grain's voxels in different variants, so the unfolded mean is close to no member of
+the set. `nf.mesh.write_spn` / `mesh_sculpt` / `map_orientations` / `write_voxel_exodus` all
+take `symmetry` and `NearFieldMeshBuilder` / `VoxelMeshBuilder` pass their own `self.symmetry`
+(default `"432"`) through, so the builder path is correct with no extra configuration. Calling
+the low-level `nf.mesh` writers directly? Pass the point group explicitly. The folding helper is
+`nf.metrics.fold_to_reference_variant`; it matches `FragmentationAnalyzer.mean_orientation_mrp`.
+
 ### FF output orientations are always in degrees
 `VoronoiMeshBuilder.build_voronoi()` always writes `orientations.dat` in degrees regardless of input units. When feeding to `VoxelMeshBuilder` afterward:
 ```python

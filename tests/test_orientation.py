@@ -274,3 +274,128 @@ class TestNFMetrics:
             e, e, angle_convention="bunge", angle_type="radians", symmetry="1"
         )
         assert torch.allclose(result, torch.zeros_like(result), atol=1e-5)
+
+
+def _variant_mixed_grain(n=200, seed=0, symmetry="432"):
+    """A tight orientation cluster with half of it in a different symmetry variant.
+
+    Returns ``(euler_clean, euler_mixed)`` in bunge/degrees. Both describe the
+    same physical grain: a left-multiplied crystal symmetry operator is a
+    zero-misorientation equivalent, so the symmetry-aware mean of the mixed set
+    must match the mean of the clean set.
+    """
+    from graintrace import orientation_helper as oh
+
+    rng = np.random.default_rng(seed)
+    base = oh.mrp_to_matrix(torch.tensor([[0.1, -0.05, 0.2]], dtype=torch.float64))
+    pert = oh.mrp_to_matrix(
+        torch.tensor(rng.normal(0, 0.006, size=(n, 3)), dtype=torch.float64)
+    )
+    rmat = torch.matmul(base, pert)  # ~1.4 deg spread
+    var = rmat.clone()
+    ops = oh.symmetry_operators(symmetry)
+    var[: n // 2] = torch.matmul(ops[1].unsqueeze(0), var[: n // 2])
+    return (
+        oh.matrix_to_euler(rmat, "bunge", "degrees"),
+        oh.matrix_to_euler(var, "bunge", "degrees"),
+    )
+
+
+def _miso_mrp(a, b, symmetry="432"):
+    """Misorientation (degrees) between two MRP 3-vectors."""
+    from graintrace import orientation_helper as oh
+
+    return float(
+        oh.misorientation_matrix(
+            oh.mrp_to_matrix(torch.as_tensor(a).reshape(1, 3)),
+            oh.mrp_to_matrix(torch.as_tensor(b).reshape(1, 3)),
+            symmetry=symmetry,
+        ).item()
+    )
+
+
+class TestAverageRotationsSymmetry:
+    """Regression for issue #14: ``average_rotations`` had no crystal-symmetry
+    reduction, so a grain whose voxels are reported in different symmetry
+    variants averaged to an orientation close to no member of the set. Every NF
+    orientation export goes through this function."""
+
+    def test_symmetry_aware_mean_recovers_variant_mixed_grain(self):
+        from graintrace.nf.metrics import average_rotations
+
+        clean, mixed = _variant_mixed_grain()
+        ref, _ = average_rotations(
+            clean, angle_convention="bunge", angle_type="degrees", symmetry="432"
+        )
+        folded, _ = average_rotations(
+            mixed, angle_convention="bunge", angle_type="degrees", symmetry="432"
+        )
+        naive, _ = average_rotations(
+            mixed, angle_convention="bunge", angle_type="degrees", symmetry="1"
+        )
+
+        # symmetry-aware: folded back onto the coherent mean
+        assert _miso_mrp(folded, ref) < 0.5
+        # the old (symmetry-blind) behaviour, kept reachable via symmetry="1"
+        assert _miso_mrp(naive, ref) > 5.0
+
+    def test_symmetry_mean_matches_fragmentation_implementation(self):
+        """The repo already had a correct symmetry-aware mean; the two must agree."""
+        from graintrace import orientation_helper as oh
+        from graintrace.fragmentation import FragmentationAnalyzer
+        from graintrace.nf.metrics import average_rotations
+
+        _, mixed = _variant_mixed_grain()
+        got, _ = average_rotations(
+            mixed, angle_convention="bunge", angle_type="degrees", symmetry="432"
+        )
+        want = FragmentationAnalyzer.mean_orientation_mrp(
+            oh.matrix_to_mrp(oh.euler_to_matrix(mixed, "bunge", "degrees")).numpy(),
+            "432",
+        )
+        assert _miso_mrp(got, want) < 1e-6
+
+    def test_symmetry_1_is_unchanged_default(self):
+        """Default stays the plain quaternion mean, so direct callers are unaffected."""
+        from graintrace.nf.metrics import average_rotations
+
+        clean, _ = _variant_mixed_grain()
+        a, _ = average_rotations(clean, angle_convention="bunge", angle_type="degrees")
+        b, _ = average_rotations(
+            clean, angle_convention="bunge", angle_type="degrees", symmetry="1"
+        )
+        assert torch.allclose(a, b, atol=1e-12)
+
+    def test_write_spn_threads_symmetry_to_grain_average(self, tmp_path):
+        """Blast-radius guard: the NF spn/orientation writer must apply symmetry."""
+        from graintrace import orientation_helper as oh
+        from graintrace.nf import mesh
+
+        clean, mixed = _variant_mixed_grain(n=64)
+        # one grain (phase 1) laid out on a 4x4x4 voxel grid
+        grid = torch.zeros(4, 4, 4, 7, dtype=torch.float64)
+        grid[..., 0] = 1.0
+        grid[..., 1:4] = mixed.reshape(4, 4, 4, 3)
+
+        ori = tmp_path / "orientations.dat"
+        mesh.write_spn(
+            grid.clone(),
+            str(tmp_path / "grid.spn"),
+            str(ori),
+            angle_convention="bunge",
+            angle_type="degrees",
+            symmetry="432",
+        )
+        got = np.loadtxt(ori, delimiter=",").reshape(3)
+
+        ref, _ = average_rotations_reference(clean)
+        assert _miso_mrp(got, ref) < 0.5
+
+
+def average_rotations_reference(euler_clean):
+    """Symmetry-aware mean of the uncontaminated grain, for comparison."""
+    from graintrace.nf.metrics import average_rotations
+
+    return average_rotations(
+        euler_clean, angle_convention="bunge", angle_type="degrees", symmetry="432"
+    )

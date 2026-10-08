@@ -79,3 +79,21 @@ NF reconstruction (``graintrace/nf/convert.py``) uses ``multiprocess.Pool``, so
 scripts that call it must be under an ``if __name__ == "__main__":`` guard. The
 graph-clustering / REI pipeline does not require the guard, but keeping it is good
 practice.
+
+Grain orientation averages need the crystal symmetry
+----------------------------------------------------
+
+A cubic orientation has 24 equivalent rotation matrices, and a reconstruction may
+report voxels of one grain in different variants. Averaging across variants gives
+a mean close to no member of the set, so
+:func:`graintrace.nf.metrics.average_rotations` takes a ``symmetry`` argument and
+folds every member onto the variant closest to the first before averaging.
+
+The default is ``symmetry="1"`` (the plain quaternion mean), which keeps direct
+callers of the low-level ``graintrace.nf.mesh`` writers unchanged. The
+:class:`~graintrace.construct_nf_mesh.NearFieldMeshBuilder` and
+:class:`~graintrace.construct_voxel_mesh.VoxelMeshBuilder` pass their own
+``symmetry`` (default ``"432"``) through to every orientation export, so the
+builder path is symmetry-aware without any extra configuration. If you call
+``nf.mesh.write_spn``, ``nf.mesh.mesh_sculpt`` or ``nf.mesh.write_voxel_exodus``
+yourself, pass the crystal point group explicitly.
