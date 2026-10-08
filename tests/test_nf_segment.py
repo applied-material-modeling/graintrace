@@ -29,7 +29,7 @@ from __future__ import annotations
 import pytest
 import torch
 
-from graintrace.nf import segment
+from graintrace.nf import metrics, segment
 
 
 def _deterministic_seed_choice(monkeypatch):
@@ -39,6 +39,23 @@ def _deterministic_seed_choice(monkeypatch):
     the order in which segments are discovered deterministic.
     """
     monkeypatch.setattr(torch, "randint", lambda *args, **kwargs: torch.tensor([0]))
+
+
+def _stub_misorientation(monkeypatch):
+    """Replace the neml2-backed misorientation with a pure-torch stand-in.
+
+    ``flood`` only consumes the neighbour distances as a scalar field compared
+    against ``misorientation_tol``; the real metric needs neml2, which is not
+    part of the base install. These tests are about the segmentation loop's
+    seeding and budget accounting, not the orientation math, so the first Euler
+    component's absolute difference is a faithful stand-in and keeps the test
+    runnable without the compiled stack.
+    """
+    monkeypatch.setattr(
+        metrics,
+        "misorientation",
+        lambda e1, e2, **kwargs: torch.abs(e1[:, 0] - e2[:, 0]),
+    )
 
 
 def _two_grain_chain():
@@ -65,6 +82,7 @@ def test_flood_does_not_refind_discarded_segments(monkeypatch):
     iteration, the budget runs out, and the 10-voxel grain is never segmented.
     """
     _deterministic_seed_choice(monkeypatch)
+    _stub_misorientation(monkeypatch)
     angles, phase = _two_grain_chain()
 
     out = segment.flood(
@@ -90,9 +108,17 @@ def test_flood_does_not_refind_discarded_segments(monkeypatch):
 
 @pytest.mark.parametrize("stop_count", [0, -1])
 def test_flood_rejects_nonpositive_stop_count(stop_count):
-    """``stop_count <= 0`` is a budget that can never be exhausted."""
-    angles = torch.zeros(2, 1, 1, 3, dtype=torch.float64)
-    phase = torch.zeros(2, 1, 1, dtype=torch.float64)
+    """``stop_count <= 0`` is a budget that can never be exhausted.
+
+    The grid holds only sub-threshold *material*, which is the case that
+    actually hangs without the guard: every segment found is discarded, the
+    counter never reaches zero, and the loop never terminates. An all-void grid
+    would return immediately even without the guard and so would not exercise
+    it. The guard runs before any distance is computed, so this needs no
+    orientation metric.
+    """
+    angles = torch.zeros(4, 1, 1, 3, dtype=torch.float64)
+    phase = torch.ones(4, 1, 1, dtype=torch.float64)
 
     with pytest.raises(ValueError, match="stop_count"):
         segment.flood(
