@@ -1233,6 +1233,17 @@ Three checkpointing levels in order of priority:
 2. `FINAL_CLUSTERING_RESTART`: load reduced CSV + GSC labels numpy
 3. `GRAPH_SEGMENTATION_RESTART`: load graph edges/weights/meta from `_gsc_ckpt.*`
 
+`resume_from_checkpoint=True` compares every graph-affecting parameter against the checkpoint
+meta and raises on a mismatch: the `data_sha256` of coords+features, `metric`, `graph_mode` +
+its connectivity, `max_edge_distance`, `reduce_edges_topweights_k`, and the `weight_cfg` fields
+the mode actually reads (`sigma`+`power` for `rbf`, `sigma` for `exp`, `eps` for
+`inverse`/`log_inv`). `segmenter` and the NetworKit options are deliberately NOT compared —
+that is what makes one checkpoint reusable across a gamma sweep. Caveat: a `sigma=None`
+(`sigma_auto`) request cannot be resolved without the distances resume skips, so it is matched
+on its `sigma_auto` quantile and will NOT match a `sigma`-pinned checkpoint; pin the resolved
+value from `<base>.meta.json` `weight_sigma` instead. Older checkpoints missing a key warn
+rather than fail.
+
 ### Orientation segmentation: flood over-merges; `sigma_auto` shatters; gamma scale matters
 - **Use graph/Leiden, not flood.** Flood fill over-merges into percolating grains; graph
   segmentation (`FragmentationAnalyzer.segment`, or `method="graph"` in `segmentation_prop`) is

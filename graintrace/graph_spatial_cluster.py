@@ -163,6 +163,11 @@ class GraphSpatialCluster:
         coords = df[list(self.coord_cols)].to_numpy(dtype=np.float64)
         X = df[spec.feature_cols].to_numpy(dtype=np.float64)
 
+        # Set when sigma_auto resolves sigma below; recorded in the checkpoint
+        # meta so a later resume can tell an auto-estimated sigma from a pinned
+        # one without redoing the estimation.
+        sigma_auto_quantile: Optional[float] = None
+
         if resume_from_checkpoint:
             if checkpoint_base_path is None:
                 raise ValueError(
@@ -254,9 +259,10 @@ class GraphSpatialCluster:
                     raise ValueError(
                         "No edges remain after max_edge_distance filtering; cannot estimate sigma."
                     )
+                sigma_auto_quantile = float(weight_cfg.sigma_auto["quantile"])
                 sigma = self.estimate_sigma_from_distances(
                     distances=distances,
-                    quantile=weight_cfg.sigma_auto["quantile"],
+                    quantile=sigma_auto_quantile,
                 )
                 weight_cfg = WeightConfig(**{**weight_cfg.__dict__, "sigma": sigma})
                 print(f"Estimated sigma for weight function: {sigma}\n")
@@ -285,6 +291,15 @@ class GraphSpatialCluster:
                 "n_edges": int(edges.shape[0]),
                 "metric": spec.name,
                 "weight_mode": weight_cfg.mode,
+                # weight_cfg is already rebound to the resolved config above, so
+                # weight_sigma is the sigma the stored weights were actually
+                # built with, auto-estimated or not.
+                "weight_sigma": (
+                    float(weight_cfg.sigma) if weight_cfg.sigma is not None else None
+                ),
+                "weight_sigma_auto_quantile": sigma_auto_quantile,
+                "weight_power": float(weight_cfg.power),
+                "weight_eps": float(weight_cfg.eps),
                 "segmenter": segmenter,
                 "reduced_topk": (
                     int(reduce_edges_topweights_k)
@@ -969,6 +984,11 @@ class GraphSpatialCluster:
         ``segmenter`` and the NetworKit options are deliberately excluded:
         they act after the graph is loaded, which is what makes reusing one
         graph across a gamma sweep worthwhile.
+
+        Every comparison is a scalar read from the checkpoint ``meta`` dict,
+        so validation costs the same whatever the checkpoint's size. Nothing
+        here recomputes distances or weights, and the only pass over the data
+        is the ``data_sha256`` fingerprint, which predates this check.
         """
         resolved_mode = graph_mode.lower()
         if resolved_mode == "auto":
@@ -997,6 +1017,37 @@ class GraphSpatialCluster:
         else:
             expected["manhattan_radius"] = int(manhattan_radius)
             expected["grid_tol"] = float(grid_tol)
+
+        # Same for the weighting parameters: each weight mode reads only some of
+        # them (see _dist_to_weight), and the ones it reads map distances to the
+        # stored weights, so changing one invalidates the checkpoint just as
+        # surely as changing the connectivity does.
+        weight_mode = weight_cfg.mode.lower()
+        if weight_mode in ("rbf", "exp"):
+            if weight_cfg.sigma is None:
+                # sigma_auto derives sigma from the edge distances, and resume
+                # skips the step that computes them; re-deriving it would mean
+                # rebuilding the graph, which is the cost the checkpoint exists
+                # to avoid. Compare the request instead. The estimator is a
+                # plain quantile of the distances, and everything that
+                # determines those distances -- data_sha256, metric, graph mode,
+                # connectivity, max_edge_distance -- is already compared above,
+                # so an equal quantile implies an equal sigma. A checkpoint
+                # built with a pinned sigma records None here and is therefore
+                # reported as a mismatch, which is the honest answer: its sigma
+                # cannot be checked against an unresolved request.
+                auto = weight_cfg.sigma_auto or {}
+                expected["weight_sigma_auto_quantile"] = (
+                    float(auto["quantile"]) if "quantile" in auto else None
+                )
+            else:
+                # A pinned request is comparable against any checkpoint, because
+                # the stored sigma is the resolved one either way.
+                expected["weight_sigma"] = float(weight_cfg.sigma)
+            if weight_mode == "rbf":
+                expected["weight_power"] = float(weight_cfg.power)
+        elif weight_mode in ("inverse", "log_inv"):
+            expected["weight_eps"] = float(weight_cfg.eps)
 
         mismatches = []
         unverifiable = []
