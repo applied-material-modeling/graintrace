@@ -38,7 +38,22 @@ BatchDistanceFunction = Callable[[np.ndarray, np.ndarray], np.ndarray]
 
 @dataclass
 class SimilarityMetric:
-    """A named feature-space distance metric and its required columns."""
+    """A named feature-space distance metric and its required columns.
+
+    Attributes:
+        name: Label for the metric. Also the stem of the column names the
+            reduction stage emits, so it propagates into the rare-cluster stats.
+        feature_cols: Column names the metric consumes, **in the order its
+            distance function expects them**. They must exist in the stage's
+            input frame; the reduction stage suffixes them with ``_mean``,
+            ``_var`` and ``_std``, so the indicator stage's metric must name the
+            suffixed columns rather than these.
+        func: Scalar distance between two feature vectors, ``func(u, v) ->
+            float``. Used by the hierarchical indicator stage.
+        dist_edges: Optional vectorized form, ``dist_edges(X, edges) -> (E,)``,
+            evaluating one distance per graph edge. When present the graph stage
+            uses it instead of looping ``func``; both must agree numerically.
+    """
 
     name: str
     feature_cols: List[str]  # required feature names
@@ -48,9 +63,30 @@ class SimilarityMetric:
 
 @dataclass(frozen=True)
 class WeightConfig:
-    """Configuration for converting edge distances into graph weights."""
+    """Configuration for converting edge distances into graph weights.
 
-    mode: str = "inverse"  # "inverse" | "rbf" | "exp" | "identity" | "log_inv"
+    A larger weight means "more similar", so every mode is a decreasing function
+    of the edge distance ``d``.
+
+    Attributes:
+        mode: Weight kernel, one of ``"inverse"``, ``"rbf"``, ``"exp"`` or
+            ``"log_inv"``. Any other value raises ``ValueError``.
+        eps: Regularizer that keeps a zero distance finite. Read by ``"inverse"``
+            (:math:`1/(d + \\varepsilon)`) and ``"log_inv"``
+            (:math:`-\\log(d + \\varepsilon)`); ignored otherwise.
+        sigma: Length scale of ``"rbf"`` (:math:`e^{-(d/\\sigma)^{p}}`) and
+            ``"exp"`` (:math:`e^{-d/\\sigma}`), **in the units of the metric** --
+            degrees for a misorientation metric, MPa for a stress metric. When
+            ``None``, it is estimated from the edge distances via ``sigma_auto``.
+        sigma_auto: Estimation spec used only when ``mode`` is ``"rbf"`` or
+            ``"exp"`` and ``sigma`` is ``None``. Only the ``"quantile"`` key is
+            read; ``sigma`` becomes that quantile of the surviving edge
+            distances.
+        power: The exponent :math:`p` of ``"rbf"`` only; ``"inverse"``,
+            ``"exp"`` and ``"log_inv"`` ignore it.
+    """
+
+    mode: str = "inverse"  # "inverse" | "rbf" | "exp" | "log_inv"
     eps: float = 1e-8  # used by inverse/log_inv
     sigma: Optional[float] = None  # used by rbf/exp
     sigma_auto: Optional[Dict[str, Any]] = (
@@ -61,7 +97,24 @@ class WeightConfig:
 
 @dataclass
 class RareCriteria:
-    """Select rare merged clusters via `selector`, or the built-in size-quantile defaults."""
+    """Select rare merged clusters via ``selector``, or by the size quantile.
+
+    ``selector`` and the quantile fields are alternatives: when ``selector`` is
+    given it decides entirely which clusters are rare, and the three fields
+    below are not consulted.
+
+    Attributes:
+        selector: ``selector(df) -> ids``, taking the merged per-cluster stats
+            frame and returning the ids of the rare clusters. The helpers in
+            :mod:`graintrace.rare_criteria_selection_library` have this shape.
+        size_quantile: Without a ``selector``, clusters in the bottom quantile
+            of cluster size ``n`` are rare -- the built-in notion of "rare" is
+            *small*, not *extreme*. Use a ``selector`` to rank by a field value.
+        min_size: Absolute floor on cluster size, applied as well as the
+            quantile, so single-point noise is not reported as a rare event.
+        max_rare: Optional cap on how many clusters are returned, smallest
+            first. ``None`` means no cap.
+    """
 
     selector: Optional[
         Callable[[pd.DataFrame], Union[np.ndarray, List[int], List[str]]]

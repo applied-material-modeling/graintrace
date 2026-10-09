@@ -84,6 +84,12 @@ autodoc_default_options = {
 autodoc_typehints = "description"
 napoleon_google_docstring = True
 napoleon_numpy_docstring = True
+# Render an ``Attributes:`` section as ``:ivar:`` fields inside the class body
+# rather than as standalone ``py:attribute`` directives. Without this, a
+# documented dataclass field collides with the entry ``undoc-members`` already
+# generates for it and the strict build fails on a duplicate object
+# description.
+napoleon_use_ivar = True
 
 # -- math --------------------------------------------------------------------
 # Number figures, tables and equations so prose can reference them. With

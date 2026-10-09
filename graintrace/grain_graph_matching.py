@@ -278,7 +278,41 @@ class GraphGrainMatcher:
         neighbor_selection_cost_function,
         neighbor_selection_param=None,
     ):
-        """Assign each grain in A to a grain in B by iterative cost-minimizing selection."""
+        """Assign each grain in A to a grain in B by iterative cost-minimizing selection.
+
+        Each A grain's ``topk`` nearest B grains in feature space are fixed once
+        up front as its candidate set; the iteration only re-scores those. Each
+        round every A grain picks its lowest-cost candidate, and where several A
+        grains claim the same B grain the cheapest claim wins and the others go
+        unmatched that round. The assignment is therefore **one-to-one in B but
+        not onto**: an A grain can finish unmatched (``a_to_b[i] == -1``).
+
+        Args:
+            graph_a_features: ``(Na, d)`` node-feature tensor for step A.
+            graph_b_features: ``(Nb, d)`` node-feature tensor for step B.
+            neighbor_selection_cost_function: ``f(Fa, Fb, neigh_a, neigh_b,
+                a_to_b, i, j, lam) -> float``; see
+                :meth:`default_neighbor_selection_cost_function`.
+            neighbor_selection_param: Dict with keys ``"lambda"`` (weight of the
+                consistency term), ``"iterations"``, ``"topk"`` (candidates per
+                A grain) and ``"chunk"`` (rows per ``cdist`` block). A
+                ``"tolerance"`` key is accepted and echoed back in the returned
+                ``params``, but see the warning below.
+
+        Returns:
+            Dict with ``matches`` ``(M, 2)``, ``costs`` ``(M,)``, ``a_to_b``
+            ``(Na,)``, ``mean_cost_history`` and the ``params`` actually used.
+
+        .. warning::
+
+           ``"tolerance"`` is **never read as a convergence criterion**. The
+           loop always runs the full ``iterations`` count; there is no check on
+           ``mean_cost_history``, so lowering or raising the tolerance changes
+           nothing but the echoed value. The "Converged before max iterations."
+           message prints only when a round produces *no assignment at all* and
+           breaks out, which is a degenerate case rather than convergence.
+           Choose ``iterations`` by inspecting ``mean_cost_history`` afterwards.
+        """
         if neighbor_selection_param is None:
             neighbor_selection_param = {
                 "lambda": 0.125,
@@ -480,7 +514,36 @@ class GraphGrainMatcher:
         angle_type="degrees",
         symmetry="432",
     ):
-        """Return (spec, phi_operator) for the default misorientation message-passing scheme."""
+        """Return (spec, phi_operator) for the default misorientation message-passing scheme.
+
+        The packed node feature is ``[X, Y, Z, M]``: the three raw centroid
+        coordinates plus one scalar message channel ``M`` initialised to zero.
+        On iteration ``k = 0`` the message along an edge is the symmetry-reduced
+        misorientation between the two grains' orientations; on later iterations
+        it is the Euclidean distance between the two endpoints' current feature
+        vectors, so ``M`` accumulates a neighbourhood-orientation summary.
+
+        Args:
+            angle_convention: Euler convention of the graph's ``Eul0/1/2``
+                features.
+            angle_type: ``"degrees"`` or ``"radians"`` for those features. The
+                emitted misorientation is in the same unit.
+            symmetry: Point group used to reduce the misorientation.
+
+        .. warning::
+
+           **The X, Y and Z message channels are hard zeros.** ``phi_operator``
+           writes literal zero tensors into the first three columns on every
+           iteration, so positions never propagate along edges -- only ``M``
+           does. The ``X, Y, Z`` entries of a node's feature vector stay at
+           their initial centroid values for the whole run. Since candidate
+           generation is a Euclidean ``cdist`` over the full feature vector,
+           and the three position channels are raw micrometres while ``M`` is
+           an angle in degrees, candidate selection is dominated by centroid
+           proximity whenever the grains have moved less than a few degrees.
+           Scale or drop the position channels with a custom
+           ``message_passing_function`` if you need orientation to lead.
+        """
         spec = {
             "required_node_features": ["X", "Y", "Z", "Eul0", "Eul1", "Eul2"],
         }
@@ -545,7 +608,32 @@ class GraphGrainMatcher:
     def default_neighbor_selection_cost_function(
         Fa, Fb, neigh_a, neigh_b, a_to_b, i, j, lam
     ):
-        """Default matching cost: feature distance plus a neighbor-consistency term."""
+        """Default matching cost: feature distance plus a neighbor-consistency term.
+
+        For a candidate pair :math:`(i, j)` the cost is the squared feature
+        distance :math:`\\lVert F^a_i - F^b_j \\rVert^2` plus
+        :math:`\\lambda` times the mean of :math:`\\psi(F^a_p, F^b_q)` over the
+        neighbours :math:`p` of :math:`i` whose current match :math:`q` is a
+        neighbour of :math:`j`, where :math:`\\psi(u, v) = -\\lVert u - v
+        \\rVert^2`. Lower cost wins. Neighbours whose match is unassigned, or
+        falls outside :math:`j`'s neighbourhood, are skipped and do not enter
+        the mean.
+
+        .. warning::
+
+           **The consistency term carries the opposite sign from the base
+           term.** The base term uses :math:`-\\psi`, the consistency term uses
+           :math:`+\\psi`, so the bonus grows with how *badly* the consistent
+           neighbour pairs match in feature space: a candidate whose matched
+           neighbours are far apart scores better than one whose matched
+           neighbours coincide, and better than one with no consistent
+           neighbours at all. Because the term is also averaged rather than
+           summed, agreeing on many neighbours is worth no more than agreeing
+           on one. This is the shipped behaviour and the results in the
+           repository were produced with it; it is documented here rather than
+           changed. Pass your own ``neighbor_selection_cost_function`` to
+           override it.
+        """
 
         def psi(u, v):
             return -torch.sum((u - v) ** 2).item()
