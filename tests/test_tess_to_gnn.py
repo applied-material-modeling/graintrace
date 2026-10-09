@@ -34,10 +34,11 @@ The module imports ``torch_geometric`` at top level (the ``gnn`` extra, which CI
 does not install), so every test gates on it; the orientation descriptors route
 through ``neml2`` and gate on that too.
 
-Three tests are ``xfail(strict=True)``. They pin known defects recorded in issue
-#31 and are deliberately *not* fixed here -- this PR is tests only. A strict
-xfail turns into a failure the moment the defect is fixed, which is the signal to
-flip the test to a plain assertion.
+Four of these tests landed as ``xfail(strict=True)``, pinning defects recorded in
+issue #31. All four defects are now fixed and the markers are gone: the
+unnormalised Rodrigues quaternion, the lost sign of index 1, the unreachable
+isolated-face check, and ``validate_topology`` returning a broken verdict
+instead of refusing.
 """
 from __future__ import annotations
 
@@ -301,22 +302,18 @@ class TestValidateTopology:
             tmp_path,
             substitutions=((_CELL1_FACES, "   1 7   -1 2 -4 5 -6 7 2"),),
         )
-        assert parser.validate_topology(verbose=False)["nonmanifold"] == [1]
+        report = parser.validate_topology(verbose=False, strict=False)
+        assert report["nonmanifold"] == [1]
         with pytest.raises(ValueError, match="Faces not properly shared"):
             parser.validate_topology(verbose=True)
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="issue #31 / survey 2.8: validate_topology only raises inside its "
-        "`if verbose` branch, so a quiet call reports a broken tessellation by "
-        "return value and lets the caller sail past it",
-    )
     def test_non_manifold_face_raises_when_quiet(self, tmp_path):
         pytest.importorskip("torch_geometric")
         parser = _parser(
             tmp_path,
             substitutions=((_CELL1_FACES, "   1 7   -1 2 -4 5 -6 7 2"),),
         )
+        # `verbose` controls printing only; a quiet call still refuses.
         with pytest.raises(ValueError, match="Faces not properly shared"):
             parser.validate_topology(verbose=False)
 
@@ -327,7 +324,11 @@ class TestValidateTopology:
             tmp_path,
             substitutions=(("   2 6   -2 3 -8 9 -10 11", "   2 5   -2 3 -8 9 -10"),),
         )
-        assert parser.validate_topology(verbose=False)["isolated"] == [10]
+        report = parser.validate_topology(verbose=False, strict=False)
+        assert report["isolated"] == [10]
+        # And strict (the default) refuses rather than returning the verdict.
+        with pytest.raises(ValueError, match="isolated=\\[10\\]"):
+            parser.validate_topology(verbose=False)
 
 
 class TestBuildCellGraph:
@@ -396,9 +397,7 @@ class TestBuildCellGraph:
         # validate_topology first.
         parser = _parser(
             tmp_path,
-            substitutions=(
-                ("   2 6   -2 3 -8 9 -10 11", "   2 5   3 -8 9 -10 11"),
-            ),
+            substitutions=(("   2 6   -2 3 -8 9 -10 11", "   2 5   3 -8 9 -10 11"),),
         )
         report = parser.validate_topology(verbose=False)
         assert report["internal"] == []

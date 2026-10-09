@@ -334,10 +334,24 @@ class NeperTessToGraphNN:
             mrp = arr[..., :3]
         return mrp.to(dtype=self.dtype, device=self.device)
 
-    def validate_topology(self, verbose: bool = True) -> bool:
-        """
-        Validate the graph connectivity:
-        ensure each face belongs to 1 or 2 cells.
+    def validate_topology(self, verbose: bool = True, strict: bool = True) -> dict:
+        """Validate the graph connectivity: each face must belong to 1 or 2 cells.
+
+        Args:
+            verbose: print the per-category face counts. Printing only --
+                whether a broken tessellation is tolerated is ``strict``'s job.
+            strict: raise on a face claimed by more than two cells, or by none.
+                Independent of ``verbose``, so a quiet call will not hand back a
+                verdict on a broken tessellation and let the caller sail past
+                it. Pass ``strict=False`` to inspect the report instead.
+
+        Returns:
+            dict: lists of face indices under the keys ``internal`` (2 cells),
+            ``boundary`` (1 cell), ``nonmanifold`` (>2 cells) and ``isolated``
+            (0 cells).
+
+        Raises:
+            ValueError: if ``strict`` and any face is non-manifold or isolated.
         """
         num_faces = len(self.face_vertices)
         # Seed every face with an empty claim list. Building the mapping purely
@@ -366,11 +380,14 @@ class NeperTessToGraphNN:
             print(f"Non-manifold (>2 cells): {len(nonmanifold)}")
             print(f"Isolated (0 cell): {len(isolated)}")
 
-            if len(nonmanifold) or len(isolated):
+        if nonmanifold or isolated:
+            if strict:
                 raise ValueError(
                     "Faces not properly shared. "
-                    "Either non-manifold or isolated faces detected."
+                    "Either non-manifold or isolated faces detected. "
+                    f"non-manifold={nonmanifold}, isolated={isolated}"
                 )
+        elif verbose:
             print("\nAll faces belong to 1 or 2 cells.\n")
 
         return {
