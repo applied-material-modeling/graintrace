@@ -110,6 +110,24 @@ scripts that call it must be under an ``if __name__ == "__main__":`` guard. The
 graph-clustering / REI pipeline does not require the guard, but keeping it is good
 practice.
 
+Unsegmented voxels must not reach the mesh writers
+--------------------------------------------------
+
+A segmented grid uses ``0`` for void, ``>= 1`` for a grain and ``-1`` for a voxel
+that is material but belongs to no grain. ``-1`` is not only a flood-fill
+leftover: :func:`graintrace.nf.segment.remove_small_segments` reassigns a
+sub-threshold segment to ``-1`` when it has no kept neighbour, so a pipeline that
+runs the infill *before* the removal, as
+:meth:`~graintrace.construct_nf_mesh.NearFieldMeshBuilder.reconstruct` does, can
+still hold orphans at the end.
+
+``nf.mesh.write_spn`` raises ``ValueError`` on such a grid rather than meshing it.
+Run :func:`graintrace.nf.segment.infill_nearest_neighbor` after
+``remove_small_segments``, or mask the orphans to void (``0``) yourself —
+``write_spn`` will not do it for you, because dropping them silently removes
+material from the mesh. ``nf.mesh.write_voxel_exodus`` skips negative ids the same
+way it skips the background id, so an orphan never becomes a block of its own.
+
 Grain orientation averages need the crystal symmetry
 ----------------------------------------------------
 

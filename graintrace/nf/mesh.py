@@ -60,18 +60,35 @@ def write_spn(
             (see :func:`graintrace.nf.metrics.average_rotations`). Pass the
             crystal point group (e.g. ``"432"``) so voxels of one grain reported
             in different symmetry variants average correctly.
+
+    Raises:
+        ValueError: if any voxel still carries a negative ("unsegmented") phase.
+            Such a voxel is not a grain, and mapping it to void here would
+            silently delete material from the mesh, so the caller decides.
     """
     flat_data = data.reshape(-1, 7)
+
+    if bool((flat_data[:, 0] < 0).any()):
+        raise ValueError(
+            "write_spn: unsegmented voxels (phase < 0) remain in the grid. "
+            "Run segment.infill_nearest_neighbor() after "
+            "segment.remove_small_segments(), or mask the voxels to void (0), "
+            "before meshing."
+        )
+
     phases = torch.sort(torch.unique(flat_data[:, 0])).values
-    phases = phases[phases != 0]
+    phases = phases[phases > 0]
 
     orientations = torch.zeros((len(phases), 3))
     orientations_sameconv = torch.zeros((len(phases), 3))
+    # renumber out of place: writing i + 1 back into the column being scanned
+    # lets an already relabelled grain be picked up again by a later iteration
+    new_phase = torch.zeros_like(flat_data[:, 0])
     for i, phase in tqdm.tqdm(
         enumerate(phases), total=len(phases), desc="Calculating grain orientations"
     ):
         in_phase = flat_data[:, 0] == phase
-        flat_data[in_phase, 0] = i + 1
+        new_phase[in_phase] = i + 1
 
         angles = flat_data[in_phase, 1:4]
         avg_R, avg = metrics.average_rotations(
@@ -82,6 +99,8 @@ def write_spn(
         )
         orientations[i] = avg_R
         orientations_sameconv[i] = avg
+
+    flat_data[:, 0] = new_phase
 
     np.savetxt(filename_orientations, orientations.numpy(), delimiter=",")
     np.savetxt(
@@ -309,6 +328,9 @@ def write_voxel_exodus(
         angle_convention (str): 'kocks', 'bunge', or 'roe'.
         angle_type (str): 'degrees' or 'radians'.
         background_id (int): voxel id treated as void (skipped). Default 0.
+            Voxels with a negative ("unsegmented") id are skipped as well, so an
+            orphan left by ``remove_small_segments`` does not become a block of
+            its own and shift every grain id.
         symmetry (str): crystal symmetry for the per-block orientation average
             (see :func:`graintrace.nf.metrics.average_rotations`).
 
@@ -327,7 +349,10 @@ def write_voxel_exodus(
     dz = float(np.median(np.diff(zs))) if nz > 1 else 1.0
     x0, y0, z0 = float(xs[0]) - dx / 2, float(ys[0]) - dy / 2, float(zs[0]) - dz / 2
 
-    fi = np.argwhere(ids != background_id)
+    # a negative ("unsegmented") voxel is not a grain: meshing it would give it
+    # its own block, and since block ids are relabelled contiguously it would
+    # sort first and shift every real grain one block along
+    fi = np.argwhere((ids != background_id) & (ids >= 0))
     if fi.shape[0] == 0:
         raise ValueError("No non-background voxels in grid.")
     ii, jj, kk = fi[:, 0], fi[:, 1], fi[:, 2]

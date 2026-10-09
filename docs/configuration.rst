@@ -77,7 +77,7 @@ Flood fill (simpler and faster):
            "grain_threshold_final": 1000,
            "batch_norm": 200_000,
            "grain_threshold": 1000,
-           "stop_count": 500,
+           "stop_count": 500,         # budget of discarded segments; must be >= 1
        },
    }
 
