@@ -11,9 +11,14 @@ plasticity constitutive model, the MOOSE/PUMA finite-element solve), the pages
 give the graintrace-level view and point to the upstream documentation for the
 full algorithm.
 
+Start with :doc:`../notation` if you are reading these pages in order: it fixes
+the orientation conventions, symbols and units that every other page here uses
+without redefining them.
+
 .. toctree::
    :maxdepth: 1
 
+   ../notation
    ff-tessellation
    stitching
    segmentation

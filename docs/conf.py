@@ -85,6 +85,16 @@ autodoc_typehints = "description"
 napoleon_google_docstring = True
 napoleon_numpy_docstring = True
 
+# -- math --------------------------------------------------------------------
+# Number figures, tables and equations so prose can reference them. With
+# ``math_number_all = False`` only equations carrying an explicit ``:label:``
+# are numbered, which keeps incidental one-off formulas clean and makes the
+# numbered ones meaningful. Reference a labelled equation with ``:eq:`label```.
+numfig = True
+math_numfig = True
+math_number_all = False
+math_eqref_format = "Eq. {number}"
+
 # -- nbsphinx (notebook tutorials) -------------------------------------------
 # "auto": execute a notebook only if it has NO stored outputs. Pure-Python
 # notebooks are committed without outputs, so they execute at build time (real
