@@ -340,7 +340,11 @@ class NeperTessToGraphNN:
         ensure each face belongs to 1 or 2 cells.
         """
         num_faces = len(self.face_vertices)
-        face_to_cells = {}
+        # Seed every face with an empty claim list. Building the mapping purely
+        # from the cells' face lists can only ever create a key for a face some
+        # cell claims, which makes the `len(cells) == 0` test below unreachable
+        # and hides a face no cell owns -- exactly the defect worth reporting.
+        face_to_cells = {f: [] for f in range(num_faces)}
 
         for cell_id, faces in enumerate(self.cell_to_faces):
             for f in faces:

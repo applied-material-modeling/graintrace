@@ -320,12 +320,6 @@ class TestValidateTopology:
         with pytest.raises(ValueError, match="Faces not properly shared"):
             parser.validate_topology(verbose=False)
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="issue #31 / survey 2.8: face_to_cells only ever gains a key when "
-        "some cell claims the face, so `len(cells) == 0` is unreachable and an "
-        "isolated face is silently absent from the report",
-    )
     def test_isolated_face_is_reported(self, tmp_path):
         pytest.importorskip("torch_geometric")
         # Cell 2 drops face 11, leaving face index 10 claimed by nobody.
@@ -395,16 +389,21 @@ class TestBuildCellGraph:
 
     def test_no_shared_face_is_an_error(self, tmp_path):
         pytest.importorskip("torch_geometric")
-        # Both cubes drop the dividing plane, so no face is claimed twice and
-        # there is nothing to connect.
+        # Only cube 2 drops the dividing plane, so cube 1 still claims it and
+        # every face has exactly one owner: nothing is shared, and -- unlike
+        # dropping it from both cubes -- nothing is left isolated either, so
+        # build_cell_graph reaches its own guard instead of tripping
+        # validate_topology first.
         parser = _parser(
             tmp_path,
             substitutions=(
-                (_CELL1_FACES, "   1 5   -1 -4 5 -6 7"),
                 ("   2 6   -2 3 -8 9 -10 11", "   2 5   3 -8 9 -10 11"),
             ),
         )
-        assert parser.validate_topology(verbose=False)["internal"] == []
+        report = parser.validate_topology(verbose=False)
+        assert report["internal"] == []
+        assert report["isolated"] == []
+        assert len(report["boundary"]) == 11
         with pytest.raises(ValueError, match="No shared faces found"):
             parser.build_cell_graph()
 
