@@ -399,3 +399,126 @@ def average_rotations_reference(euler_clean):
     return average_rotations(
         euler_clean, angle_convention="bunge", angle_type="degrees", symmetry="432"
     )
+
+
+def _line_grid(ids, eulers):
+    """(n, 1, 1, 7) grid along x with voxel centres at 0, 1, ... and Euler per voxel."""
+    n = len(ids)
+    grid = np.zeros((n, 1, 1, 7), dtype=np.float64)
+    for i, (gid, eul) in enumerate(zip(ids, eulers)):
+        grid[i, 0, 0, 0] = gid
+        grid[i, 0, 0, 1:4] = eul
+        grid[i, 0, 0, 4:7] = [float(i), 0.0, 0.0]
+    return grid
+
+
+def _shift_mesh_x(mesh_path, delta):
+    """Offset every mesh node in +x, standing in for SCULPT dilation/smoothing."""
+    import scipy.io as sio
+
+    with sio.netcdf_file(mesh_path, "a") as f:
+        f.variables["coordx"][:] = f.variables["coordx"][:] + delta
+
+
+class TestMapOrientationsGrainConstrained:
+    """map_orientations must look up a block against its own grain's voxels only."""
+
+    def _run(self, tmp_path, ids, eulers, shift=0.6):
+        from graintrace.nf.mesh import map_orientations, write_voxel_exodus
+
+        grid = _line_grid(ids, eulers)
+        mesh_file = str(tmp_path / "mesh.e")
+        write_voxel_exodus(
+            torch.tensor(grid),
+            mesh_file,
+            str(tmp_path / "ori_ref"),
+            angle_type="degrees",
+            symmetry="432",
+        )
+        reference = np.loadtxt(str(tmp_path / "ori_ref.csv"), delimiter=",").reshape(
+            -1, 3
+        )
+
+        _shift_mesh_x(mesh_file, shift)
+        map_orientations(
+            mesh_file,
+            grid,
+            str(tmp_path / "ori_mapped"),
+            angle_type="degrees",
+            symmetry="432",
+        )
+        mapped = np.loadtxt(str(tmp_path / "ori_mapped.csv"), delimiter=",").reshape(
+            -1, 3
+        )
+        return reference, mapped
+
+    def test_void_voxel_does_not_supply_the_identity(self, tmp_path):
+        # grain 1 | void | void | grain 2. A +0.6 shift puts grain 1's element
+        # centroid nearer the void voxel at x = 1, whose Euler is (0, 0, 0).
+        reference, mapped = self._run(
+            tmp_path,
+            [1, 0, 0, 2],
+            [[30.0, 40.0, 50.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [70.0, 10.0, 20.0]],
+        )
+        assert not np.allclose(mapped[0], 0.0)
+        assert np.allclose(mapped, reference, atol=1e-10)
+
+    def test_block_does_not_take_a_neighbour_grains_orientation(self, tmp_path):
+        # grain 1 | grain 2 adjacent. A +0.6 shift puts grain 1's element centroid
+        # nearer grain 2's voxel, so an unconstrained lookup copies grain 2.
+        reference, mapped = self._run(
+            tmp_path,
+            [1, 2, 0, 0],
+            [[30.0, 40.0, 50.0], [70.0, 10.0, 20.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]],
+        )
+        assert not np.allclose(mapped[0], mapped[1])
+        assert np.allclose(mapped, reference, atol=1e-10)
+
+    def test_aligned_mesh_is_unchanged(self, tmp_path):
+        # With no offset every element centroid already sits on its own voxel, so
+        # the grain-constrained lookup must reproduce the previous behaviour.
+        reference, mapped = self._run(
+            tmp_path,
+            [1, 0, 2, 0],
+            [[30.0, 40.0, 50.0], [0.0, 0.0, 0.0], [70.0, 10.0, 20.0], [0.0, 0.0, 0.0]],
+            shift=0.0,
+        )
+        assert np.allclose(mapped, reference, atol=1e-10)
+
+    def test_unassociable_blocks_raise(self, tmp_path):
+        import scipy.io as sio
+
+        from graintrace.nf.mesh import map_orientations, write_voxel_exodus
+
+        grid = _line_grid(
+            [1, 2, 0, 0],
+            [
+                [30.0, 40.0, 50.0],
+                [70.0, 10.0, 20.0],
+                [0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0],
+            ],
+        )
+        mesh_file = str(tmp_path / "mesh.e")
+        write_voxel_exodus(
+            torch.tensor(grid),
+            mesh_file,
+            str(tmp_path / "ori_ref"),
+            angle_type="degrees",
+            symmetry="432",
+        )
+        # Renumber the blocks to ids that name no grain in the grid, and give the
+        # grid a third grain so the positional fallback cannot apply either.
+        with sio.netcdf_file(mesh_file, "a") as f:
+            f.variables["eb_prop1"][:] = np.array([7, 8], dtype=np.int32)
+        grid[3, 0, 0, 0] = 3
+        grid[3, 0, 0, 1:4] = [10.0, 10.0, 10.0]
+
+        with pytest.raises(ValueError, match="Cannot associate"):
+            map_orientations(
+                mesh_file,
+                grid,
+                str(tmp_path / "ori_mapped"),
+                angle_type="degrees",
+                symmetry="432",
+            )

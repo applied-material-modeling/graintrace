@@ -232,6 +232,38 @@ def rescale_exodus_mesh(exo_file, data):
             f.variables[coord][:] = new_coords
 
 
+def _block_grain_ids(f, n_blk, present):
+    """Associate each Exodus element block with a grid grain id.
+
+    Prefers the Exodus block ids (``eb_prop1``) when every one of them names a grain
+    present in the grid; falls back to a positional association with the sorted
+    non-void grain ids when the counts match.
+
+    Args:
+        f: open Exodus netcdf file handle.
+        n_blk (int): number of element blocks.
+        present (np.ndarray): sorted unique non-void grid grain ids.
+
+    Returns:
+        np.ndarray: one grain id per element block.
+
+    Raises:
+        ValueError: if the blocks cannot be associated by id or by position.
+    """
+    present_set = set(float(g) for g in present)
+    if "eb_prop1" in f.variables:
+        block_ids = np.asarray(f.variables["eb_prop1"][:], dtype=np.float64)
+        if block_ids.size == n_blk and all(float(b) in present_set for b in block_ids):
+            return block_ids
+    if n_blk == present.size:
+        return np.asarray(present, dtype=np.float64)
+    raise ValueError(
+        f"Cannot associate {n_blk} Exodus element blocks with the {present.size} "
+        "grains in the grid: the block ids are not grid grain ids and the counts "
+        "differ. Pass the grid the mesh was generated from."
+    )
+
+
 def map_orientations(
     exo_file,
     data,
@@ -239,8 +271,22 @@ def map_orientations(
     angle_convention="bunge",
     angle_type="radians",
     symmetry="1",
+    background_id=0,
 ):
     """Map orientations from fixed grid data onto an Exodus mesh's blocks.
+
+    Each Exodus element block is one grain, so a block's elements are looked up
+    against **that grain's own voxels only**: void voxels (``background_id``, which
+    carry a meaningless Euler (0, 0, 0)) are excluded from the search, and the
+    per-block KD-tree is restricted to voxels of the block's grain. A single tree
+    over every voxel lets a surface or void-adjacent element take the identity from
+    a void voxel, or a neighbouring grain's orientation across the boundary.
+
+    Block-to-grain association uses the Exodus block ids (``eb_prop1``) when they are
+    all present in the grid -- the SCULPT path, where :func:`write_spn` relabels the
+    grid ids to the spn material ids that become the block ids. Otherwise, when the
+    block count matches the grain count, blocks are associated positionally with the
+    sorted non-void grain ids.
 
     Args:
         exo_file (str): path to Exodus mesh file
@@ -250,9 +296,21 @@ def map_orientations(
         angle_type (str): 'degrees' or 'radians'
         symmetry (str): crystal symmetry for the per-block orientation average
             (see :func:`graintrace.nf.metrics.average_rotations`).
+        background_id (int): grid id treated as void and excluded from the lookup.
+            Default 0.
+
+    Raises:
+        ValueError: if the grid has no non-void voxels, or the Exodus blocks cannot
+            be associated with the grid's grains by id or by position.
     """
-    flat_data = data.reshape(-1, 7)
-    kd = sp.cKDTree(flat_data[:, 4:7])
+    flat_data = np.asarray(data).reshape(-1, 7)
+    solid = flat_data[:, 0] != background_id
+    if not solid.any():
+        raise ValueError(
+            f"No non-void voxels in the grid (every id == background_id={background_id})."
+        )
+    grain_ids = flat_data[:, 0]
+    present = np.unique(grain_ids[solid])
 
     with sio.netcdf_file(exo_file, "a") as f:
         coords = np.stack(
@@ -263,13 +321,23 @@ def map_orientations(
             ],
             axis=1,
         )
+        n_blk = int(f.dimensions["num_el_blk"])
+        block_grains = _block_grain_ids(f, n_blk, present)
+
+        # one KD-tree per grain, over that grain's voxels only
+        trees = {}
+        for g in present:
+            sel = np.flatnonzero(grain_ids == g)
+            trees[float(g)] = (sp.cKDTree(flat_data[sel, 4:7]), sel)
+
         orientations = []
         orientations_sameconv = []
-        for eb in range(f.dimensions["num_el_blk"]):
+        for eb in range(n_blk):
             connect = f.variables[f"connect{eb+1}"][:]
             elem_coords = coords[connect - 1, :].mean(axis=1)
-            _, idx = kd.query(elem_coords)
-            elem_orientations = flat_data[idx, 1:4]
+            tree, sel = trees[float(block_grains[eb])]
+            _, idx = tree.query(elem_coords)
+            elem_orientations = flat_data[sel[idx], 1:4]
             avg_R, avg_sameconv = metrics.average_rotations(
                 torch.tensor(elem_orientations),
                 angle_convention=angle_convention,
