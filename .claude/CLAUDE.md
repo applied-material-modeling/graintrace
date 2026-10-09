@@ -1275,6 +1275,28 @@ its own separator and `""` gives bare names. Matching a sequence of load steps i
 2026-10 the prefix was ignored entirely and every run wrote `run_*`, so sequences silently kept
 only the last pair.)
 
+### Top-k prune ties are resolved by half-edge index; the grouping must stay stable
+`GraphSpatialCluster.prune_topk_per_node_parallel` keeps each node's `k` highest-weight
+edges, and **exact ties are routine**: identical orientations give distance 0, hence an RBF
+weight of exactly `1.0`, so most intra-grain edges tie. The documented rule is *descending
+weight, ties by ascending half-edge index* (edge `e` is half-edge `e` at its first endpoint
+and `E + e` at its second). All three implementations share it — the numba kernel
+(`np.argsort(-seg, kind="mergesort")`), the numpy fallback (`np.argsort(-w, kind="stable")`),
+and the frozen reference `tests/_prune_original.py`. The **grouping** step is load-bearing,
+not a style choice: it is what puts each node's segment in ascending half-edge order, and an
+unstable grouping silently makes the segmentation depend on whether numba is installed
+(measured: 1113 vs 1135 vs 1192 kept edges for the same input). It is done with an O(2E)
+counting sort (`_group_by_node`), not an argsort: `indptr` is already a counting-sort
+histogram, so walking half-edges in ascending global index into per-node cursors is stable by
+construction. That is also the cheapest option on both axes (measured 2026-10-08, numpy 2.5.3
+/ numba 0.68.0, 32 cores) — peak at the grouping step on knn N=1M k=12 is 19.1 B/edge against
+35.1 for `argsort(kind="quicksort")` and 43.1 for `kind="stable"`, and the whole prune runs
+388 ms against 661 ms for quicksort grouping. Do not swap it back to an argsort for either
+speed or memory. The no-numba fallback keeps
+`np.argsort(node, kind="stable")` for parity. Note the function's **peak** memory is set by
+the output phase (`kept_global`/`kept_eids`/the fancy-index copies, 66–94 B/edge), not by the
+grouping, so grouping-step savings do not lower the function's peak.
+
 ### REI checkpoint pattern
 Three checkpointing levels in order of priority:
 1. `PICK_CLUSTER_RESTART`: load bundle pickle (fastest restart)

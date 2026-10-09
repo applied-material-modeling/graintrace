@@ -1,9 +1,15 @@
 # Copyright 2026, UChicago Argonne, LLC -- MIT (see package LICENSE)
 """Frozen copy of the ORIGINAL (pre-numba) top-k prune algorithm.
 
-This is kept verbatim as a regression reference: the numba/fallback prune in
-graintrace.graph_spatial_cluster must produce bit-identical output to this on
-distinct-weight inputs. Dependency-free (numpy only), so it can stand alone.
+This is kept as a regression reference: the numba/fallback prune in
+graintrace.graph_spatial_cluster must produce bit-identical output to this,
+including on inputs with exact weight ties. Dependency-free (numpy only), so it
+can stand alone.
+
+The only deviation from the original pre-numba code is the top-k selection,
+which now uses the shared deterministic tie-break (descending weight, ties by
+ascending half-edge index) instead of np.argpartition. The original argpartition
+broke ties arbitrarily, so it could not serve as an oracle for tied inputs.
 """
 
 from __future__ import annotations
@@ -26,7 +32,10 @@ def _topk_nodes_worker(args) -> np.ndarray:
             kept_chunks.append(adj_eid[s:e])
         else:
             w_slice = adj_w[s:e]
-            idx = np.argpartition(w_slice, -k)[-k:]
+            # descending weight, ties by ascending half-edge index; the
+            # slice is already in half-edge order because the grouping sort
+            # below is stable
+            idx = np.argsort(-w_slice, kind="stable")[:k]
             kept_chunks.append(adj_eid[s:e][idx])
     if kept_chunks:
         return np.concatenate(kept_chunks)
@@ -39,7 +48,7 @@ def prune_original(
     weights: np.ndarray,
     k: Optional[int],
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """Original single-threaded argsort + argpartition top-k-per-node prune."""
+    """Single-threaded stable-sort top-k-per-node prune (the reference)."""
     if k is None:
         return edges, weights
     k = int(k)
@@ -66,7 +75,7 @@ def prune_original(
     indptr[0] = 0
     np.cumsum(deg, out=indptr[1:])
 
-    order = np.argsort(node, kind="mergesort")
+    order = np.argsort(node, kind="mergesort")  # stable: see module docstring
     adj_eid = eid[order]
     adj_w = adj_w_half[order]
 

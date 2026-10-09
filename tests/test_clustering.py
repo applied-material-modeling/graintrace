@@ -564,6 +564,84 @@ class TestGraphSpatialClusterFixes:
                         w_new, w_ref
                     ), f"weights differ k={k} nj={n_jobs}"
 
+    @staticmethod
+    def _tie_heavy_graph(n=400, n_edges=6000, tied_fraction=0.8, seed=5):
+        """Graph whose weights are mostly exactly 1.0.
+
+        That is not a contrived input: an RBF weight is exp(-(d/sigma)**p), so
+        two voxels with identical orientations give a distance of 0 and a weight
+        of exactly 1.0. Intra-grain edges are routinely tied.
+        """
+        rng = np.random.default_rng(seed)
+        pairs = set()
+        while len(pairs) < n_edges:
+            u, v = rng.integers(0, n, 2)
+            if u != v:
+                pairs.add((int(min(u, v)), int(max(u, v))))
+        edges = np.array(sorted(pairs), dtype=np.int64)
+        w = np.ones(edges.shape[0], dtype=np.float64)
+        free = rng.random(edges.shape[0]) > tied_fraction
+        w[free] = rng.random(int(free.sum()))
+        return n, edges, w
+
+    @staticmethod
+    def _bruteforce_topk_tiebreak(n, edges, weights, k):
+        """Reference for the documented tie-break.
+
+        Descending weight, ties by ascending half-edge index: edge e is
+        half-edge e at its first endpoint and E + e at its second.
+        """
+        n_edges = edges.shape[0]
+        inc = {i: [] for i in range(n)}
+        for eid, (u, v) in enumerate(edges):
+            inc[int(u)].append((eid, eid))
+            inc[int(v)].append((n_edges + eid, eid))
+        keep = np.zeros(n_edges, dtype=bool)
+        for lst in inc.values():
+            lst.sort(key=lambda h: (-weights[h[1]], h[0]))
+            for _, eid in lst[:k]:
+                keep[eid] = True
+        return edges[keep], weights[keep]
+
+    def test_prune_tiebreak_is_numba_independent(self):
+        # The pruned graph must not depend on whether numba is installed.
+        pytest.importorskip("numba")
+        import graintrace.graph_spatial_cluster as gscmod
+        from graintrace.graph_spatial_cluster import GraphSpatialCluster
+        from _prune_original import prune_original
+
+        gsc = GraphSpatialCluster.__new__(GraphSpatialCluster)
+        n, edges, w = self._tie_heavy_graph()
+        assert (w == 1.0).sum() > edges.shape[0] // 2, "input is not tie-heavy"
+
+        saved = gscmod._HAS_NUMBA  # pylint: disable=protected-access
+        try:
+            for k in (3, 8):
+                gscmod._HAS_NUMBA = True  # pylint: disable=protected-access
+                e_nb, w_nb = gsc.prune_topk_per_node_parallel(
+                    n_nodes=n, edges=edges, weights=w, k=k, n_jobs=2
+                )
+                gscmod._HAS_NUMBA = False  # pylint: disable=protected-access
+                e_np, w_np = gsc.prune_topk_per_node_parallel(
+                    n_nodes=n, edges=edges, weights=w, k=k, n_jobs=2
+                )
+                assert np.array_equal(e_nb, e_np), f"numba/fallback edges differ k={k}"
+                assert np.array_equal(
+                    w_nb, w_np
+                ), f"numba/fallback weights differ k={k}"
+
+                # Both paths must also implement the documented rule, not merely
+                # agree with each other.
+                e_bf, w_bf = self._bruteforce_topk_tiebreak(n, edges, w, k)
+                assert np.array_equal(e_nb, e_bf), f"tie-break not as documented k={k}"
+                assert np.array_equal(w_nb, w_bf), f"tie-break not as documented k={k}"
+
+                e_ref, w_ref = prune_original(n, edges, w, k)
+                assert np.array_equal(e_nb, e_ref), f"reference edges differ k={k}"
+                assert np.array_equal(w_nb, w_ref), f"reference weights differ k={k}"
+        finally:
+            gscmod._HAS_NUMBA = saved  # pylint: disable=protected-access
+
     def test_compute_edge_distances_vectorized_njobs_no_deadlock(self):
         # Vectorized metrics must run single-process even when n_jobs>1.
         from graintrace.graph_spatial_cluster import GraphSpatialCluster

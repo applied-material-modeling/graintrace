@@ -58,6 +58,12 @@ if _HAS_NUMBA:
 
         order groups half-edges by node into contiguous segments; keep_half is
         bool[2E] in sorted-position space, so per-node segments never race.
+
+        Ties are broken by ascending half-edge index, which requires each
+        segment of order to be in ascending half-edge order -- see
+        GraphSpatialCluster.prune_topk_per_node_parallel. The numpy fallback and
+        the frozen reference in tests/_prune_original.py implement the same rule,
+        so the pruned graph does not depend on whether numba is installed.
         """
         n = indptr.shape[0] - 1
         for nidx in prange(n):  # pylint: disable=not-an-iterable  # numba prange
@@ -73,9 +79,45 @@ if _HAS_NUMBA:
                 seg = np.empty(m, dtype=np.float64)
                 for j in range(m):
                     seg[j] = w_half[order[s + j]]
-                idx = np.argsort(seg)  # ascending; top-k = last k
-                for t in range(m - k, m):
+                # Descending by weight; mergesort is stable, so tied weights
+                # keep ascending segment position == ascending half-edge index.
+                idx = np.argsort(-seg, kind="mergesort")
+                for t in range(k):
                     keep_half[s + idx[t]] = True
+
+    @njit(nogil=True, cache=True)
+    def _group_by_node(edges, n_nodes):
+        """Group half-edges by node in O(2E) with a counting sort.
+
+        Returns (indptr, order): indptr is the exclusive prefix sum of the
+        per-node degrees -- the counting-sort histogram -- and order lists the
+        half-edges of node i at order[indptr[i]:indptr[i + 1]].
+
+        Walking half-edges in ascending global index h (h < E -> edges[h, 0],
+        else edges[h - E, 1]) into per-node cursors leaves every segment in
+        ascending half-edge order by construction, which is exactly what a
+        stable argsort of the node array produces -- without building the 2E
+        node array or any sort scratch. Allocates indptr, order and one n_nodes
+        cursor, nothing else.
+
+        Callers must have validated that every node id is in [0, n_nodes); numba
+        does not bounds-check these writes.
+        """
+        E = edges.shape[0]
+        indptr = np.zeros(n_nodes + 1, dtype=np.int64)
+        for h in range(E):
+            indptr[edges[h, 0] + 1] += 1
+            indptr[edges[h, 1] + 1] += 1
+        for i in range(n_nodes):
+            indptr[i + 1] += indptr[i]
+
+        order = np.empty(2 * E, dtype=np.int64)
+        cur = indptr[:n_nodes].copy()
+        for h in range(2 * E):
+            nd = edges[h, 0] if h < E else edges[h - E, 1]
+            order[cur[nd]] = h
+            cur[nd] += 1
+        return indptr, order
 
 
 class GraphSpatialCluster:
@@ -755,6 +797,12 @@ class GraphSpatialCluster:
     # drop weak edges via top-k per node
     @staticmethod
     def _topk_nodes_worker(args) -> np.ndarray:
+        """Single-threaded top-k-per-node selection (the no-numba fallback).
+
+        Uses the same tie-break as the numba kernel: descending weight, ties by
+        ascending half-edge index (the slice is already in that order because
+        the caller groups stably).
+        """
         indptr, adj_eid, adj_w, a, b, k = args
         kept_chunks = []
         for nidx in range(a, b):
@@ -767,7 +815,7 @@ class GraphSpatialCluster:
                 kept_chunks.append(adj_eid[s:e])
             else:
                 w_slice = adj_w[s:e]
-                idx = np.argpartition(w_slice, -k)[-k:]
+                idx = np.argsort(-w_slice, kind="stable")[:k]
                 kept_chunks.append(adj_eid[s:e][idx])
         if kept_chunks:
             return np.concatenate(kept_chunks)
@@ -790,6 +838,14 @@ class GraphSpatialCluster:
         Uses a numba thread-parallel kernel when available (n_jobs = thread count),
         else a single-threaded numpy fallback. nodes_chunk / mp_start_method are
         accepted for backward compat only and have no effect.
+
+        Selection is deterministic: among equal weights the lower half-edge index
+        wins. Edge e contributes half-edge e at its first endpoint and half-edge
+        E + e at its second, so for a given node the tie-break prefers the edges
+        where it is the first endpoint, each in ascending edge id. Both code paths
+        implement that rule, so an input with exact ties -- routine, since
+        identical orientations give an RBF weight of exactly 1.0 -- prunes to the
+        same graph whether or not numba is installed.
         """
         if k is None:
             return edges, weights
@@ -798,23 +854,38 @@ class GraphSpatialCluster:
             return np.empty((0, 2), dtype=np.int64), np.empty((0,), dtype=np.float64)
 
         # Build incidence (one half-edge per endpoint). Build half-edge weights
-        # after the sort and use quicksort (no merge buffer) to keep peak memory low.
+        # after the grouping to keep peak memory low.
         E = edges.shape[0]
-        node = np.concatenate(
-            [
-                edges[:, 0].astype(np.int64, copy=False),
-                edges[:, 1].astype(np.int64, copy=False),
-            ]
-        )  # (2E,)
+        eidx = np.ascontiguousarray(edges, dtype=np.int64)
+        if int(eidx.max()) >= n_nodes:
+            raise ValueError(
+                f"edges reference node id {int(eidx.max())} outside [0, {n_nodes})"
+            )
 
-        deg = np.bincount(node, minlength=n_nodes).astype(np.int64)
-        indptr = np.empty(n_nodes + 1, dtype=np.int64)
-        indptr[0] = 0
-        np.cumsum(deg, out=indptr[1:])
-
-        # group half-edges by node so each node's incidence is a contiguous slice
-        order = np.argsort(node, kind="quicksort")
-        del node  # free before the top-k pass
+        # Group half-edges by node so each node's incidence is a contiguous
+        # slice. The grouping must be stable -- each segment in ascending
+        # half-edge order is what makes the tie-break below deterministic, and
+        # an unstable grouping silently reintroduces the numba-vs-fallback
+        # divergence that tests/test_clustering.py guards -- and it should
+        # allocate no sort scratch. A counting sort gives both: the per-node
+        # degrees are the histogram, so it is O(2E), stable by construction, and
+        # it never materialises the 2E node array. Measured peak at this step,
+        # grid 90^3 r=2 / knn 1M k=12: 17.4 / 19.1 B/edge, against 33.4 / 35.1
+        # for argsort(kind="quicksort") and 41.4 / 43.1 for kind="stable"
+        # (timsort's merge buffer). Note the function's peak is set by the output
+        # phase below, not here, so this is a speed win first (knn 1M prune:
+        # 388 ms, against 661 ms for quicksort grouping) and a memory win second.
+        # The no-numba path keeps the equivalent stable argsort.
+        if _HAS_NUMBA:
+            indptr, order = _group_by_node(eidx, n_nodes)
+        else:
+            node = np.concatenate([eidx[:, 0], eidx[:, 1]])  # (2E,)
+            deg = np.bincount(node, minlength=n_nodes)
+            indptr = np.empty(n_nodes + 1, dtype=np.int64)
+            indptr[0] = 0
+            np.cumsum(deg, out=indptr[1:])
+            order = np.argsort(node, kind="stable")
+            del node, deg  # free before the top-k pass
 
         adj_w_half = np.concatenate(
             [
