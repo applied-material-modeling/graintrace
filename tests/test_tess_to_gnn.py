@@ -478,13 +478,6 @@ class TestTessOriToMrp:
         mrp = _to_mrp(parser, [[0.1, 0.2, 0.3, 9.9]], "something-neper-never-wrote")
         assert mrp.tolist() == [[0.1, 0.2, 0.3]]
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="issue #31 / survey 1.10: the rodrigues branch builds the "
-        "quaternion [1, r] and never normalises it, so quat_to_matrix sees a "
-        "quaternion of norm sqrt(1 + |r|^2) and returns a scaled matrix; the MRP "
-        "derived from it is not the orientation the file names",
-    )
     def test_rodrigues_descriptor_matches_the_normalised_quaternion(self, tmp_path):
         pytest.importorskip("torch_geometric")
         pytest.importorskip("neml2")

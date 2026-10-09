@@ -278,9 +278,14 @@ class NeperTessToGraphNN:
             mrp = matrix_to_mrp(arr.reshape(-1, 3, 3))
         elif t.startswith("rodrigues"):
             # Rodrigues/Gibbs vector tan(theta/2)*axis: scalar-first quat [1, r].
+            # That quaternion has norm sqrt(1 + |r|^2), and quat_to_matrix wants a
+            # UNIT quaternion -- feeding it the raw [1, r] returns a matrix scaled
+            # by (1 + |r|^2), which is not a rotation (det != 1).
             r = arr[..., :3]
             ones = torch.ones(r.shape[:-1] + (1,), dtype=r.dtype, device=r.device)
-            mrp = matrix_to_mrp(quat_to_matrix(torch.cat([ones, r], dim=-1)))
+            quat = torch.cat([ones, r], dim=-1)
+            quat = quat / quat.norm(dim=-1, keepdim=True)
+            mrp = matrix_to_mrp(quat_to_matrix(quat))
         elif t.startswith("euler"):
             conv = "kocks" if "kocks" in t else "roe" if "roe" in t else "bunge"
             mrp = euler_to_mrp(arr[..., :3], conv, "degrees")
