@@ -92,9 +92,13 @@ docs/_build/
 # Scratch artifacts written by executed doc notebooks (docs/tutorials/*.ipynb)
 docs/tutorials/*.csv
 docs/tutorials/*.vtk
+docs/tutorials/*.npy
 docs/tutorials/rei_cmp_out/
 docs/tutorials/out/
 docs/tutorials/*_reduced.csv
+docs/tutorials/rei_2d_out/
+docs/tutorials/rei_3d_out/
+docs/tutorials/test_rei_pipeline/
 ipf_tracking_out/
 fragmentation_out/
 reorientation_rei_out/
