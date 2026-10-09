@@ -36,6 +36,44 @@ from torch_geometric.data import Data
 from .orientation_helper import matrix_to_mrp, euler_to_mrp, quat_to_matrix
 
 
+def encode_signed_index(value: int) -> int:
+    """Encode a signed 1-based ``.tess`` index as a signed 0-based one.
+
+    Neper writes edge and face references as signed 1-based integers, where the
+    sign is the traversal direction. The obvious shift ``sign * (abs(v) - 1)``
+    is lossy: integers have no ``-0``, so ``+1`` and ``-1`` both collapse to
+    ``0`` and the direction of index 0 is destroyed. Negative entries are
+    therefore stored as the bitwise complement ``~(abs(v) - 1)``, which keeps
+    the mapping one-to-one over the whole range.
+
+    Args:
+        value: a signed, 1-based index as written in the ``.tess`` file.
+
+    Returns:
+        int: the encoded signed 0-based index. Decode it with
+        :func:`decode_signed_index`.
+    """
+    index = abs(value) - 1
+    return index if value > 0 else ~index
+
+
+def decode_signed_index(value: int) -> tuple[int, bool]:
+    """Decode an entry of ``face_edges`` or ``cell_to_faces``.
+
+    Inverse of :func:`encode_signed_index`. Note that ``abs()`` is *not* a
+    valid decoder: the complement of index 0 is ``-1``, whose absolute value
+    names a different entity.
+
+    Args:
+        value: one encoded entry of ``face_edges`` or ``cell_to_faces``.
+
+    Returns:
+        tuple[int, bool]: the 0-based index, and whether the entity is
+        traversed in reverse (the entry was negative in the ``.tess`` file).
+    """
+    return (value, False) if value >= 0 else (~value, True)
+
+
 class NeperTessToGraphNN:
     """
     Parse a Neper .tess file and build a graph representation (pytorch_geometric Data)
@@ -148,7 +186,9 @@ class NeperTessToGraphNN:
         """Extract geometric/topological data from the parsed .tess sections.
 
         IDs are implicit by order (1-based in file, 0-based in code). Signed edges/faces
-        are preserved for orientation use.
+        are preserved for orientation use: ``face_edges`` and ``cell_to_faces`` hold
+        entries encoded by :func:`encode_signed_index`, so read them back with
+        :func:`decode_signed_index` rather than ``abs()``.
         """
         # Cells
         cell_data = sections.get("cell", {})
@@ -231,8 +271,7 @@ class NeperTessToGraphNN:
                     edge_line = list(map(int, lines[i + 1].split()))
                     nedges = edge_line[0]
                     edges_signed = [
-                        e - 1 if e > 0 else -(abs(e) - 1)
-                        for e in edge_line[1 : 1 + nedges]
+                        encode_signed_index(e) for e in edge_line[1 : 1 + nedges]
                     ]
 
                     face_vertices.append(verts)
@@ -258,7 +297,7 @@ class NeperTessToGraphNN:
 
                     # keep sign, fix 1-based indexing
                     faces_signed = [
-                        f - 1 if f > 0 else -(abs(f) - 1) for f in parts[2 : 2 + nfaces]
+                        encode_signed_index(f) for f in parts[2 : 2 + nfaces]
                     ]
 
                     cell_to_faces.append(faces_signed)
@@ -305,7 +344,7 @@ class NeperTessToGraphNN:
 
         for cell_id, faces in enumerate(self.cell_to_faces):
             for f in faces:
-                fid = abs(f)
+                fid, _ = decode_signed_index(f)
                 if fid >= num_faces:
                     continue
                 face_to_cells.setdefault(fid, []).append(cell_id)
@@ -415,7 +454,8 @@ class NeperTessToGraphNN:
         face_to_cells = {}
         for cell_id, faces in enumerate(self.cell_to_faces):
             for f in faces:
-                face_to_cells.setdefault(abs(f), []).append(cell_id)
+                fid, _ = decode_signed_index(f)
+                face_to_cells.setdefault(fid, []).append(cell_id)
         edges = [cells for f, cells in face_to_cells.items() if len(cells) == 2]
         if not edges:
             raise ValueError("No shared faces found; check tessellation integrity.")

@@ -214,13 +214,31 @@ class TestParseTess:
 
     def test_negative_edge_and_face_indices_stay_negative(self, tmp_path):
         pytest.importorskip("torch_geometric")
+        from graintrace.tess_to_gnn import decode_signed_index
+
         parser = _parser(tmp_path)
 
         # Face 4's edge list is "13 -8 -16 4" -> the two reversed edges keep
-        # their sign through the 1-based -> 0-based shift.
-        assert parser.face_edges[3] == [12, -7, -15, 3]
+        # their sign through the 1-based -> 0-based shift. Reversed entries are
+        # stored as the bitwise complement of the 0-based index, so -8 encodes
+        # "edge index 7, reversed" (see encode_signed_index).
+        assert parser.face_edges[3] == [12, -8, -16, 3]
+        assert [decode_signed_index(e) for e in parser.face_edges[3]] == [
+            (12, False),
+            (7, True),
+            (15, True),
+            (3, False),
+        ]
         # Cell 2's face list is "-2 3 -8 9 -10 11".
-        assert parser.cell_to_faces[1] == [-1, 2, -7, 8, -9, 10]
+        assert parser.cell_to_faces[1] == [-2, 2, -8, 8, -10, 10]
+        assert [decode_signed_index(f) for f in parser.cell_to_faces[1]] == [
+            (1, True),
+            (2, False),
+            (7, True),
+            (8, False),
+            (9, True),
+            (10, False),
+        ]
 
     def test_missing_file_raises(self, tmp_path):
         pytest.importorskip("torch_geometric")
@@ -244,11 +262,6 @@ class TestParseTess:
         assert parser.ori_type == "none"
         assert parser.orientations.shape == (0, 3)
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="issue #31 / survey 2.7: '-1' and '+1' both parse to 0, so the "
-        "sign of index 1 is destroyed for both face edges and cell faces",
-    )
     def test_sign_of_index_one_is_preserved(self, tmp_path):
         pytest.importorskip("torch_geometric")
 
