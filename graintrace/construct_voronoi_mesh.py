@@ -721,7 +721,8 @@ class VoronoiMeshBuilder:
 
         Args:
             option: Tessellation morphology. "voronoi" seeds a Voronoi tessellation at the input coordinates (and applies the GrainRadius weights when ``weighted``); "centroidal" seeds a CVT relaxation at them.
-                "centroid" instead treats the coordinates as an optimization *target* -- NEPER moves seeds until the cell centroids match them, starting from its own packing rather than from the data -- and "centroidsize" targets centroid and size together (requires GrainRadius).
+                "centroid" instead treats the coordinates as an optimization *target* -- NEPER moves seeds until the cell centroids match them,
+                starting from its own packing rather than from the data -- and "centroidsize" targets centroid and size together (requires GrainRadius).
                 Note "centroid" and "centroidal" are distinct NEPER morphologies, not aliases.
             generate_mesh: If True, also generate a NEPER/GMSH tet (or tri) .msh mesh; this is a fallback only, the default CPFE mesh is SCULPT hex.
             relative_el_size: Mesh element size relative to grain size, passed to generate_mesh; defaults to 1.0 when None.
