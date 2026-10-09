@@ -74,19 +74,30 @@ Continuous integration
 
 ``.github/workflows/build_docs.yml`` runs the strict HTML build plus ``doctest``
 and ``linkcheck`` on every push and pull request to ``main`` and
-``documentation``. Pull requests get an ephemeral GitHub Pages preview; a push to
-``main`` deploys the site to the ``gh-pages`` branch. The ``documentation`` branch
-is built but never deployed.
+``documentation``. ``linkcheck`` is informational and does not fail the job;
+the strict build and ``doctest`` do.
+
+Every run — any branch, any pull request — uploads the built HTML as a
+downloadable ``docs-html`` artifact, so a change can be reviewed without
+deploying. Only a push to ``main`` deploys, via GitHub's own
+``actions/deploy-pages`` (OIDC, ``pages: write`` + ``id-token: write``). There is
+no ``gh-pages`` branch and pull requests get no live preview URL; download the
+artifact instead.
 
 Writing new pages
 -----------------
 
 - API pages under ``docs/api/`` are thin ``automodule`` stubs; add one per new
   public module and list it in ``docs/api/api.rst``.
-- Tutorial pages under ``docs/tutorials/`` embed a runnable example with
-  ``.. literalinclude:: ../../examples/<script>`` and are listed in
-  ``docs/tutorials/tutorials.rst``.
+- Tutorial pages under ``docs/tutorials/`` are Jupyter notebooks, listed in
+  ``docs/tutorials/tutorials.rst``. They carry their code inline rather than
+  including the matching ``examples/`` script; keep the two in step by hand.
+- New prose pages must be **reStructuredText**. ``myst_parser`` is not installed
+  and ``source_suffix`` is not set, so a ``.md`` file dropped into ``docs/`` is
+  silently ignored rather than reported as an error.
 - Keep the prose plain and factual; let the code examples carry the detail.
+- Define every symbol you introduce, or point at :doc:`notation`. Equations that
+  a later paragraph refers to get a ``:label:`` and are cited with ``:eq:``.
 
 .. _definition-of-done:
 

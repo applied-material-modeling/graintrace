@@ -109,13 +109,17 @@ nbsphinx_allow_errors = False
 # Colab-runnable notebooks (pure Python; ``pip install graintrace`` in Colab).
 # Only these get an "Open in Colab" badge; the native-stack notebooks cannot run
 # in Colab and are excluded.
+#
+# Membership here is a promise that the notebook runs end to end on a bare pip
+# install with no repository checkout. A notebook that reads ``mwe_data/`` is
+# NOT Colab-runnable, because Colab has no checkout -- that is why
+# ``post-processing`` and ``rare-event-identification`` are absent. The prolog
+# below is applied by nbsphinx only, so a non-notebook docname in this set
+# would be inert; keep it to ``tutorials/<notebook-stem>`` entries.
 _COLAB_NOTEBOOKS = {
-    "tutorials/post-processing",
-    "tutorials/rare-event-identification",
     "tutorials/rei-example-2d",
     "tutorials/rei-example-3d",
     "tutorials/rei-comparison",
-    "benchmarks",
 }
 _COLAB_REPO = "applied-material-modeling/graintrace"
 _COLAB_REF = os.environ.get("GRAINTRACE_DOC_GIT_REF", "main")

@@ -1,6 +1,0 @@
-sphinx>=7.0
-sphinx-rtd-theme>=2.0
-nbsphinx>=0.9
-ipython
-sphinx-copybutton>=0.5
-sphinx-design>=0.5
