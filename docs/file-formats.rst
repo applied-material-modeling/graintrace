@@ -162,7 +162,9 @@ files in the input folder as well as ``.mic``, with the same schema.
    **graintrace has no** ``.ang`` **reader.** There is no converter in the
    package and no code path that recognises the extension. Convert ``.ang``
    data to the NF ``.mic`` schema above, or to the merged EBSD CSV below, with
-   your own tooling before it enters graintrace.
+   your own tooling before it enters graintrace. A built-in converter is
+   tracked as `issue #53
+   <https://github.com/applied-material-modeling/graintrace/issues/53>`_.
 
 EBSD merged CSV
 ~~~~~~~~~~~~~~~

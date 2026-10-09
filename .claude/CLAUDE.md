@@ -58,7 +58,7 @@ Expected `.mic` format (tab-delimited, with `%` header lines):
 ```
 %OrientationRowNr  OrientationID  RunTime  X  Y  TriEdgeSize  UpDown  Eul1  Eul2  Eul3  Confidence  PhaseNr
 ```
-`NearFieldMeshBuilder` reads a folder of `.mic` files. The `exp_file_token` parameter is the filename prefix token used to find files. If the source data is `.ang` files (8-column, no header), convert them to `.mic` format first (see `run_experiment_afrl.py` for the conversion pattern).
+`NearFieldMeshBuilder` reads a folder of `.mic` files. The `exp_file_token` parameter is the filename prefix token used to find files. **graintrace has no `.ang` reader** — no converter ships in the package and no code path recognises the extension, so `.ang` source data must be converted to `.mic` outside graintrace before `NearFieldMeshBuilder` sees it. (The `run_experiment_afrl.py` script this note used to cite is not in the repository.)
 
 For the alternate path using `NFGridConversion` (pre-gridded NF data):
 ```python
