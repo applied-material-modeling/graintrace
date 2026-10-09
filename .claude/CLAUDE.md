@@ -1085,6 +1085,16 @@ neper.info. An opt-in `auto_install=True` performs a Linux `~/.local` source bui
 so the builders take no gmsh arguments. `scan_tessellation.default_neper_env()`
 delegates to the same resolver.
 
+### Check the external stack with `python -m graintrace.doctor`
+Which workflows can run is a property of the machine, not of the install command. `python -m
+graintrace.doctor` (console script `graintrace-doctor`) runs the same probes that back the MCP
+`dependency_status` tool and prints, per dependency, where it was found or why it was not plus
+the remedy. `--json` for a machine-readable report, `--require a,b` to exit 1 when a named
+dependency is absent. Probe names: `gpu`, `neper`, `puma-opt`, `cubit`, `neml2`, `neml2-aoti`,
+`pyzag`, `gmsh`, `torch_geometric`. It works on a bare `pip install graintrace`:
+`graintrace/mcp/__init__.py` imports FastMCP, so `graintrace/doctor.py` registers a stub for
+`graintrace.mcp` before loading `deps`, rather than importing the optional `mcp` extra.
+
 ### `CrystalGenerator` seed is random by default
 `CrystalGenerator(seed=None)` (the default) draws a fresh random seed on every instantiation and
 prints it (`using random seed=<N>`), so each unseeded run is a *different* microstructure. Pass an
