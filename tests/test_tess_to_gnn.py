@@ -34,10 +34,11 @@ The module imports ``torch_geometric`` at top level (the ``gnn`` extra, which CI
 does not install), so every test gates on it; the orientation descriptors route
 through ``neml2`` and gate on that too.
 
-Three tests are ``xfail(strict=True)``. They pin known defects recorded in issue
-#31 and are deliberately *not* fixed here -- this PR is tests only. A strict
-xfail turns into a failure the moment the defect is fixed, which is the signal to
-flip the test to a plain assertion.
+Four of these tests landed as ``xfail(strict=True)``, pinning defects recorded in
+issue #31. All four defects are now fixed and the markers are gone: the
+unnormalised Rodrigues quaternion, the lost sign of index 1, the unreachable
+isolated-face check, and ``validate_topology`` returning a broken verdict
+instead of refusing.
 """
 from __future__ import annotations
 
@@ -214,13 +215,31 @@ class TestParseTess:
 
     def test_negative_edge_and_face_indices_stay_negative(self, tmp_path):
         pytest.importorskip("torch_geometric")
+        from graintrace.tess_to_gnn import decode_signed_index
+
         parser = _parser(tmp_path)
 
         # Face 4's edge list is "13 -8 -16 4" -> the two reversed edges keep
-        # their sign through the 1-based -> 0-based shift.
-        assert parser.face_edges[3] == [12, -7, -15, 3]
+        # their sign through the 1-based -> 0-based shift. Reversed entries are
+        # stored as the bitwise complement of the 0-based index, so -8 encodes
+        # "edge index 7, reversed" (see encode_signed_index).
+        assert parser.face_edges[3] == [12, -8, -16, 3]
+        assert [decode_signed_index(e) for e in parser.face_edges[3]] == [
+            (12, False),
+            (7, True),
+            (15, True),
+            (3, False),
+        ]
         # Cell 2's face list is "-2 3 -8 9 -10 11".
-        assert parser.cell_to_faces[1] == [-1, 2, -7, 8, -9, 10]
+        assert parser.cell_to_faces[1] == [-2, 2, -8, 8, -10, 10]
+        assert [decode_signed_index(f) for f in parser.cell_to_faces[1]] == [
+            (1, True),
+            (2, False),
+            (7, True),
+            (8, False),
+            (9, True),
+            (10, False),
+        ]
 
     def test_missing_file_raises(self, tmp_path):
         pytest.importorskip("torch_geometric")
@@ -244,11 +263,6 @@ class TestParseTess:
         assert parser.ori_type == "none"
         assert parser.orientations.shape == (0, 3)
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="issue #31 / survey 2.7: '-1' and '+1' both parse to 0, so the "
-        "sign of index 1 is destroyed for both face edges and cell faces",
-    )
     def test_sign_of_index_one_is_preserved(self, tmp_path):
         pytest.importorskip("torch_geometric")
 
@@ -288,31 +302,21 @@ class TestValidateTopology:
             tmp_path,
             substitutions=((_CELL1_FACES, "   1 7   -1 2 -4 5 -6 7 2"),),
         )
-        assert parser.validate_topology(verbose=False)["nonmanifold"] == [1]
+        report = parser.validate_topology(verbose=False, strict=False)
+        assert report["nonmanifold"] == [1]
         with pytest.raises(ValueError, match="Faces not properly shared"):
             parser.validate_topology(verbose=True)
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="issue #31 / survey 2.8: validate_topology only raises inside its "
-        "`if verbose` branch, so a quiet call reports a broken tessellation by "
-        "return value and lets the caller sail past it",
-    )
     def test_non_manifold_face_raises_when_quiet(self, tmp_path):
         pytest.importorskip("torch_geometric")
         parser = _parser(
             tmp_path,
             substitutions=((_CELL1_FACES, "   1 7   -1 2 -4 5 -6 7 2"),),
         )
+        # `verbose` controls printing only; a quiet call still refuses.
         with pytest.raises(ValueError, match="Faces not properly shared"):
             parser.validate_topology(verbose=False)
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="issue #31 / survey 2.8: face_to_cells only ever gains a key when "
-        "some cell claims the face, so `len(cells) == 0` is unreachable and an "
-        "isolated face is silently absent from the report",
-    )
     def test_isolated_face_is_reported(self, tmp_path):
         pytest.importorskip("torch_geometric")
         # Cell 2 drops face 11, leaving face index 10 claimed by nobody.
@@ -320,7 +324,11 @@ class TestValidateTopology:
             tmp_path,
             substitutions=(("   2 6   -2 3 -8 9 -10 11", "   2 5   -2 3 -8 9 -10"),),
         )
-        assert parser.validate_topology(verbose=False)["isolated"] == [10]
+        report = parser.validate_topology(verbose=False, strict=False)
+        assert report["isolated"] == [10]
+        # And strict (the default) refuses rather than returning the verdict.
+        with pytest.raises(ValueError, match="isolated=\\[10\\]"):
+            parser.validate_topology(verbose=False)
 
 
 class TestBuildCellGraph:
@@ -382,16 +390,19 @@ class TestBuildCellGraph:
 
     def test_no_shared_face_is_an_error(self, tmp_path):
         pytest.importorskip("torch_geometric")
-        # Both cubes drop the dividing plane, so no face is claimed twice and
-        # there is nothing to connect.
+        # Only cube 2 drops the dividing plane, so cube 1 still claims it and
+        # every face has exactly one owner: nothing is shared, and -- unlike
+        # dropping it from both cubes -- nothing is left isolated either, so
+        # build_cell_graph reaches its own guard instead of tripping
+        # validate_topology first.
         parser = _parser(
             tmp_path,
-            substitutions=(
-                (_CELL1_FACES, "   1 5   -1 -4 5 -6 7"),
-                ("   2 6   -2 3 -8 9 -10 11", "   2 5   3 -8 9 -10 11"),
-            ),
+            substitutions=(("   2 6   -2 3 -8 9 -10 11", "   2 5   3 -8 9 -10 11"),),
         )
-        assert parser.validate_topology(verbose=False)["internal"] == []
+        report = parser.validate_topology(verbose=False)
+        assert report["internal"] == []
+        assert report["isolated"] == []
+        assert len(report["boundary"]) == 11
         with pytest.raises(ValueError, match="No shared faces found"):
             parser.build_cell_graph()
 
@@ -478,13 +489,6 @@ class TestTessOriToMrp:
         mrp = _to_mrp(parser, [[0.1, 0.2, 0.3, 9.9]], "something-neper-never-wrote")
         assert mrp.tolist() == [[0.1, 0.2, 0.3]]
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="issue #31 / survey 1.10: the rodrigues branch builds the "
-        "quaternion [1, r] and never normalises it, so quat_to_matrix sees a "
-        "quaternion of norm sqrt(1 + |r|^2) and returns a scaled matrix; the MRP "
-        "derived from it is not the orientation the file names",
-    )
     def test_rodrigues_descriptor_matches_the_normalised_quaternion(self, tmp_path):
         pytest.importorskip("torch_geometric")
         pytest.importorskip("neml2")

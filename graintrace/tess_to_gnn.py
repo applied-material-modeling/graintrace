@@ -36,6 +36,44 @@ from torch_geometric.data import Data
 from .orientation_helper import matrix_to_mrp, euler_to_mrp, quat_to_matrix
 
 
+def encode_signed_index(value: int) -> int:
+    """Encode a signed 1-based ``.tess`` index as a signed 0-based one.
+
+    Neper writes edge and face references as signed 1-based integers, where the
+    sign is the traversal direction. The obvious shift ``sign * (abs(v) - 1)``
+    is lossy: integers have no ``-0``, so ``+1`` and ``-1`` both collapse to
+    ``0`` and the direction of index 0 is destroyed. Negative entries are
+    therefore stored as the bitwise complement ``~(abs(v) - 1)``, which keeps
+    the mapping one-to-one over the whole range.
+
+    Args:
+        value: a signed, 1-based index as written in the ``.tess`` file.
+
+    Returns:
+        int: the encoded signed 0-based index. Decode it with
+        :func:`decode_signed_index`.
+    """
+    index = abs(value) - 1
+    return index if value > 0 else ~index
+
+
+def decode_signed_index(value: int) -> tuple[int, bool]:
+    """Decode an entry of ``face_edges`` or ``cell_to_faces``.
+
+    Inverse of :func:`encode_signed_index`. Note that ``abs()`` is *not* a
+    valid decoder: the complement of index 0 is ``-1``, whose absolute value
+    names a different entity.
+
+    Args:
+        value: one encoded entry of ``face_edges`` or ``cell_to_faces``.
+
+    Returns:
+        tuple[int, bool]: the 0-based index, and whether the entity is
+        traversed in reverse (the entry was negative in the ``.tess`` file).
+    """
+    return (value, False) if value >= 0 else (~value, True)
+
+
 class NeperTessToGraphNN:
     """
     Parse a Neper .tess file and build a graph representation (pytorch_geometric Data)
@@ -148,7 +186,9 @@ class NeperTessToGraphNN:
         """Extract geometric/topological data from the parsed .tess sections.
 
         IDs are implicit by order (1-based in file, 0-based in code). Signed edges/faces
-        are preserved for orientation use.
+        are preserved for orientation use: ``face_edges`` and ``cell_to_faces`` hold
+        entries encoded by :func:`encode_signed_index`, so read them back with
+        :func:`decode_signed_index` rather than ``abs()``.
         """
         # Cells
         cell_data = sections.get("cell", {})
@@ -231,8 +271,7 @@ class NeperTessToGraphNN:
                     edge_line = list(map(int, lines[i + 1].split()))
                     nedges = edge_line[0]
                     edges_signed = [
-                        e - 1 if e > 0 else -(abs(e) - 1)
-                        for e in edge_line[1 : 1 + nedges]
+                        encode_signed_index(e) for e in edge_line[1 : 1 + nedges]
                     ]
 
                     face_vertices.append(verts)
@@ -258,7 +297,7 @@ class NeperTessToGraphNN:
 
                     # keep sign, fix 1-based indexing
                     faces_signed = [
-                        f - 1 if f > 0 else -(abs(f) - 1) for f in parts[2 : 2 + nfaces]
+                        encode_signed_index(f) for f in parts[2 : 2 + nfaces]
                     ]
 
                     cell_to_faces.append(faces_signed)
@@ -278,9 +317,14 @@ class NeperTessToGraphNN:
             mrp = matrix_to_mrp(arr.reshape(-1, 3, 3))
         elif t.startswith("rodrigues"):
             # Rodrigues/Gibbs vector tan(theta/2)*axis: scalar-first quat [1, r].
+            # That quaternion has norm sqrt(1 + |r|^2), and quat_to_matrix wants a
+            # UNIT quaternion -- feeding it the raw [1, r] returns a matrix scaled
+            # by (1 + |r|^2), which is not a rotation (det != 1).
             r = arr[..., :3]
             ones = torch.ones(r.shape[:-1] + (1,), dtype=r.dtype, device=r.device)
-            mrp = matrix_to_mrp(quat_to_matrix(torch.cat([ones, r], dim=-1)))
+            quat = torch.cat([ones, r], dim=-1)
+            quat = quat / quat.norm(dim=-1, keepdim=True)
+            mrp = matrix_to_mrp(quat_to_matrix(quat))
         elif t.startswith("euler"):
             conv = "kocks" if "kocks" in t else "roe" if "roe" in t else "bunge"
             mrp = euler_to_mrp(arr[..., :3], conv, "degrees")
@@ -290,17 +334,35 @@ class NeperTessToGraphNN:
             mrp = arr[..., :3]
         return mrp.to(dtype=self.dtype, device=self.device)
 
-    def validate_topology(self, verbose: bool = True) -> bool:
-        """
-        Validate the graph connectivity:
-        ensure each face belongs to 1 or 2 cells.
+    def validate_topology(self, verbose: bool = True, strict: bool = True) -> dict:
+        """Validate the graph connectivity: each face must belong to 1 or 2 cells.
+
+        Args:
+            verbose: print the per-category face counts. Printing only --
+                whether a broken tessellation is tolerated is ``strict``'s job.
+            strict: raise on a face claimed by more than two cells, or by none.
+                Independent of ``verbose``, so a quiet call will not hand back a
+                verdict on a broken tessellation and let the caller sail past
+                it. Pass ``strict=False`` to inspect the report instead.
+
+        Returns:
+            dict: lists of face indices under the keys ``internal`` (2 cells),
+            ``boundary`` (1 cell), ``nonmanifold`` (>2 cells) and ``isolated``
+            (0 cells).
+
+        Raises:
+            ValueError: if ``strict`` and any face is non-manifold or isolated.
         """
         num_faces = len(self.face_vertices)
-        face_to_cells = {}
+        # Seed every face with an empty claim list. Building the mapping purely
+        # from the cells' face lists can only ever create a key for a face some
+        # cell claims, which makes the `len(cells) == 0` test below unreachable
+        # and hides a face no cell owns -- exactly the defect worth reporting.
+        face_to_cells = {f: [] for f in range(num_faces)}
 
         for cell_id, faces in enumerate(self.cell_to_faces):
             for f in faces:
-                fid = abs(f)
+                fid, _ = decode_signed_index(f)
                 if fid >= num_faces:
                     continue
                 face_to_cells.setdefault(fid, []).append(cell_id)
@@ -318,11 +380,14 @@ class NeperTessToGraphNN:
             print(f"Non-manifold (>2 cells): {len(nonmanifold)}")
             print(f"Isolated (0 cell): {len(isolated)}")
 
-            if len(nonmanifold) or len(isolated):
+        if nonmanifold or isolated:
+            if strict:
                 raise ValueError(
                     "Faces not properly shared. "
-                    "Either non-manifold or isolated faces detected."
+                    "Either non-manifold or isolated faces detected. "
+                    f"non-manifold={nonmanifold}, isolated={isolated}"
                 )
+        elif verbose:
             print("\nAll faces belong to 1 or 2 cells.\n")
 
         return {
@@ -410,7 +475,8 @@ class NeperTessToGraphNN:
         face_to_cells = {}
         for cell_id, faces in enumerate(self.cell_to_faces):
             for f in faces:
-                face_to_cells.setdefault(abs(f), []).append(cell_id)
+                fid, _ = decode_signed_index(f)
+                face_to_cells.setdefault(fid, []).append(cell_id)
         edges = [cells for f, cells in face_to_cells.items() if len(cells) == 2]
         if not edges:
             raise ValueError("No shared faces found; check tessellation integrity.")
