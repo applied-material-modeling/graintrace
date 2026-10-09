@@ -126,6 +126,20 @@ unlabelled, and the pass stops after ``stop_count`` discarded segments or when n
 (``stop_count`` must be at least 1). A cleanup pass infills unlabelled voxels from filled neighbours and merges
 sub-threshold segments into the adjacent grain with the largest contact area.
 
+.. note::
+
+   The out-of-domain guard in the flood stencil is **inert**. ``flood`` builds a
+   ``valid`` mask for neighbour offsets that fall outside the grid and then calls
+   ``distances.masked_fill(~valid, inf)``, which is the *out-of-place* form: it
+   returns a new tensor and the return value is discarded, so ``distances`` is
+   never modified. This is harmless as written only because the neighbour indices
+   are clamped to the grid first, which makes every out-of-domain lookup resolve
+   to an in-domain voxel that the front would have reached anyway. It is not a
+   guarantee: any change that stops clamping, or that reads ``distances`` for
+   something other than the tolerance comparison, turns the dead mask into wrong
+   labels at the domain boundary. Treat the clamp, not the mask, as the thing
+   holding this together.
+
 Algorithm
 ---------
 Graph path (:class:`~graintrace.GraphSpatialCluster`):
