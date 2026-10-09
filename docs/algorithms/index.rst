@@ -20,6 +20,7 @@ without redefining them.
 
    ../notation
    ff-tessellation
+   tess-to-graph
    stitching
    segmentation
    meshing

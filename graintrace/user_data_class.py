@@ -41,13 +41,24 @@ class SimilarityMetric:
     """A named feature-space distance metric and its required columns.
 
     Attributes:
-        name: Label for the metric. Also the stem of the column names the
-            reduction stage emits, so it propagates into the rare-cluster stats.
+        name: Label for the metric. Used only in error messages, the progress
+            line, and the graph-stage checkpoint metadata, where resuming
+            compares it against the stored value. It is **not** a column stem
+            and does not appear in any output frame.
         feature_cols: Column names the metric consumes, **in the order its
             distance function expects them**. They must exist in the stage's
-            input frame; the reduction stage suffixes them with ``_mean``,
-            ``_var`` and ``_std``, so the indicator stage's metric must name the
-            suffixed columns rather than these.
+            input frame.
+
+            The graph stage's reduction emits one ``<col>_mean`` per feature
+            column (plus ``cluster_id``, ``n``, ``x``, ``y``, ``z``, and a
+            ``<prefix>_norm_mean`` holding the mean per-point Frobenius norm
+            whenever the feature columns contain a complete ``<prefix>_11``
+            ... ``<prefix>_33`` set). The indicator stage that reads that frame
+            must therefore name the ``_mean`` columns, not these -- which is
+            why a two-stage Nye-norm run ends up selecting on
+            ``nye_tensor_norm_mean_mean``: the graph stage emits
+            ``nye_tensor_norm_mean``, and the indicator stage's own reduction
+            suffixes it again.
         func: Scalar distance between two feature vectors, ``func(u, v) ->
             float``. Used by the hierarchical indicator stage.
         dist_edges: Optional vectorized form, ``dist_edges(X, edges) -> (E,)``,

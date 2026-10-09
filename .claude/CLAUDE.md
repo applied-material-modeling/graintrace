@@ -358,7 +358,7 @@ mesh_path = builder_nf.mesh(
 Key outputs in `save_dir`:
 - `merged_segmented_fixed_grid.npy`: segmented voxel grid (restart checkpoint)
 - `mesh.e`: Exodus mesh file for CPFE
-- `orientations.csv`: per-element MRP orientations
+- `orientations.csv`: MRP orientations, one row per Exodus **block** (grain), not per element
 
 ### Recommended graph (Leiden) segmentation settings (NF/EBSD) — the DEFAULT/better pathway
 
@@ -370,7 +370,7 @@ on Fe-9Cr NF reconstruction), in `FragmentationAnalyzer.segment` + its staticmet
 | Knob | Value | Why |
 |---|---|---|
 | misorientation cutoff (`max_edge_distance`) | **5°** hard | removes boundary edges → no percolation across grains |
-| `manhattan_radius` | **2** (18-neighbor) | denser intra-grain links |
+| `manhattan_radius` | **2** (24-neighbor l1 ball) | denser intra-grain links |
 | RBF sigma (`weight_cfg`) | **fixed ≈ ½ cutoff (~2.5°)**, `sigma_auto=None` | `sigma_auto` collapses to ~0.1° and shatters grains into noise |
 | `weight_cfg` | `mode="rbf", power=2.0` | bounded 0..1 weights (not `inverse`'s 1e8 dynamic range) |
 | `reduce_edges_topweights_k` | **12** | sparser graph, faster Leiden |

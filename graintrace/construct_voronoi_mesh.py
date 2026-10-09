@@ -720,7 +720,9 @@ class VoronoiMeshBuilder:
         orientations and strains, evaluates the output, optionally meshes it, and writes the reformatted voxel reconstruction CSV/VTK plus the CPFE strain files.
 
         Args:
-            option: Tessellation seeding mode: "voronoi" (Poisson-Voronoi), "centroid"/"centroidal" (fit cell centroids to the input coordinates), or "centroidsize" (fit centroid and size, requires GrainRadius).
+            option: Tessellation morphology. "voronoi" seeds a Voronoi tessellation at the input coordinates (and applies the GrainRadius weights when ``weighted``); "centroidal" seeds a CVT relaxation at them.
+                "centroid" instead treats the coordinates as an optimization *target* -- NEPER moves seeds until the cell centroids match them, starting from its own packing rather than from the data -- and "centroidsize" targets centroid and size together (requires GrainRadius).
+                Note "centroid" and "centroidal" are distinct NEPER morphologies, not aliases.
             generate_mesh: If True, also generate a NEPER/GMSH tet (or tri) .msh mesh; this is a fallback only, the default CPFE mesh is SCULPT hex.
             relative_el_size: Mesh element size relative to grain size, passed to generate_mesh; defaults to 1.0 when None.
             morphoalgo: NEPER morphology optimization algorithm, e.g. "praxis", "subplex", or "lloyd".
