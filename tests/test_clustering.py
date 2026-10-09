@@ -585,6 +585,52 @@ class TestGraphSpatialClusterFixes:
         return n, edges, w
 
     @staticmethod
+    def _grain_constant_grid_graph(
+        side=12, n_grains=8, radius=2, sigma_deg=2.5, seed=7
+    ):
+        """Grid-topology graph carrying one constant orientation per grain.
+
+        This is the configuration the numba-vs-fallback divergence was actually
+        found on, and it differs from ``_tie_heavy_graph`` in both respects that
+        matter. The topology comes from the real grid edge builder, so node
+        degrees vary with position (9 at a corner, 24 in the interior) instead
+        of being uniform in expectation; and the ties are structural rather than
+        sprinkled at random, because a reconstruction emits a piecewise-constant
+        orientation per grain, every intra-grain edge is at misorientation
+        exactly 0, and the RBF therefore gives it a weight of exactly 1.0.
+
+        The result mirrors the documented NF/EBSD recipe (``graph_mode="grid"``,
+        ``manhattan_radius=2``, ``reduce_edges_topweights_k=12``, RBF sigma at
+        about half the misorientation cutoff): ~81% of edges tie at 1.0 and ~91%
+        of nodes have a tie straddling the top-k boundary.
+        """
+        from graintrace.graph_spatial_cluster import GraphSpatialCluster
+
+        gsc = GraphSpatialCluster.__new__(GraphSpatialCluster)
+        ax = np.arange(side, dtype=np.float64)
+        gx, gy, gz = np.meshgrid(ax, ax, ax, indexing="ij")
+        coords = np.stack([gx.ravel(), gy.ravel(), gz.ravel()], axis=1)
+        edges = np.ascontiguousarray(
+            gsc._build_grid_edges(  # pylint: disable=protected-access
+                coords, manhattan_radius=radius
+            ).astype(np.int64)
+        )
+
+        rng = np.random.default_rng(seed)
+        pts = rng.random((n_grains, 3)) * (side - 1)
+        grain = np.argmin(
+            ((coords[:, None, :] - pts[None, :, :]) ** 2).sum(axis=2), axis=1
+        )
+        # Symmetry-aware misorientation collapses to one angle per grain pair
+        # and to exactly 0 inside a grain; weight is the pipeline's RBF.
+        pair = rng.uniform(3.0, 12.0, size=(n_grains, n_grains))
+        pair = np.triu(pair, 1)
+        pair = pair + pair.T
+        dist = pair[grain[edges[:, 0]], grain[edges[:, 1]]]
+        w = np.exp(-((dist / sigma_deg) ** 2.0))
+        return coords.shape[0], edges, w
+
+    @staticmethod
     def _bruteforce_topk_tiebreak(n, edges, weights, k):
         """Reference for the documented tie-break.
 
@@ -632,6 +678,55 @@ class TestGraphSpatialClusterFixes:
 
                 # Both paths must also implement the documented rule, not merely
                 # agree with each other.
+                e_bf, w_bf = self._bruteforce_topk_tiebreak(n, edges, w, k)
+                assert np.array_equal(e_nb, e_bf), f"tie-break not as documented k={k}"
+                assert np.array_equal(w_nb, w_bf), f"tie-break not as documented k={k}"
+
+                e_ref, w_ref = prune_original(n, edges, w, k)
+                assert np.array_equal(e_nb, e_ref), f"reference edges differ k={k}"
+                assert np.array_equal(w_nb, w_ref), f"reference weights differ k={k}"
+        finally:
+            gscmod._HAS_NUMBA = saved  # pylint: disable=protected-access
+
+    def test_prune_tiebreak_on_grid_topology_grain_constant(self):
+        # Same guarantee as the test above, on the input that actually broke:
+        # grid connectivity over grain-constant orientations. The random graph
+        # used above has uniform expected degree and randomly placed ties; the
+        # documented NF/EBSD recipe has neither, and that is where numba and the
+        # fallback were observed to disagree.
+        pytest.importorskip("numba")
+        import graintrace.graph_spatial_cluster as gscmod
+        from graintrace.graph_spatial_cluster import GraphSpatialCluster
+        from _prune_original import prune_original
+
+        gsc = GraphSpatialCluster.__new__(GraphSpatialCluster)
+        n, edges, w = self._grain_constant_grid_graph()
+
+        # The case is only meaningful while it stays tie-heavy and the degrees
+        # stay non-uniform; assert both so a change to the builder cannot
+        # quietly turn this into a second copy of the random-graph test.
+        deg = np.bincount(np.concatenate([edges[:, 0], edges[:, 1]]), minlength=n)
+        assert (w == 1.0).sum() > edges.shape[0] // 2, "grid input is not tie-heavy"
+        assert deg.min() < deg.max(), "grid degrees should vary with position"
+
+        saved = gscmod._HAS_NUMBA  # pylint: disable=protected-access
+        try:
+            for k in (3, 8, 12):
+                gscmod._HAS_NUMBA = True  # pylint: disable=protected-access
+                e_nb, w_nb = gsc.prune_topk_per_node_parallel(
+                    n_nodes=n, edges=edges, weights=w, k=k, n_jobs=2
+                )
+                gscmod._HAS_NUMBA = False  # pylint: disable=protected-access
+                e_np, w_np = gsc.prune_topk_per_node_parallel(
+                    n_nodes=n, edges=edges, weights=w, k=k, n_jobs=2
+                )
+                assert np.array_equal(e_nb, e_np), f"numba/fallback edges differ k={k}"
+                assert np.array_equal(
+                    w_nb, w_np
+                ), f"numba/fallback weights differ k={k}"
+
+                # Agreeing with each other is not enough: both must implement
+                # the documented rule.
                 e_bf, w_bf = self._bruteforce_topk_tiebreak(n, edges, w, k)
                 assert np.array_equal(e_nb, e_bf), f"tie-break not as documented k={k}"
                 assert np.array_equal(w_nb, w_bf), f"tie-break not as documented k={k}"

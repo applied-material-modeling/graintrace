@@ -1297,6 +1297,20 @@ speed or memory. The no-numba fallback keeps
 the output phase (`kept_global`/`kept_eids`/the fancy-index copies, 66–94 B/edge), not by the
 grouping, so grouping-step savings do not lower the function's peak.
 
+**The consistent rule makes the pruned graph ~15% denser on tie-heavy input, by design.**
+Both endpoints of an edge apply the same rule, so their top-k selections overlap less than
+under an arbitrary tie-break and more distinct edges survive; Leiden then costs
+proportionally more. Re-measured 2026-10-09 at `main` d6bb91d on the documented NF/EBSD
+recipe (40³ grid, 120 grain-constant orientations, `manhattan_radius=2`, `k=12`, σ=2.5°,
+79% of 734,640 edges tied): **596,871 kept against 517,139** for an arbitrary tie-break,
++15.4%. The **percentage** is the reproducible figure (15.1–15.4% over five grain layouts);
+the counts move a few tenths of a percent with the layout, so re-derive them rather than
+quoting these. Not a defect and not a regression — both are valid top-k selections.
+The grid-topology regression test for this path is
+`tests/test_clustering.py::TestGraphSpatialClusterFixes::test_prune_tiebreak_on_grid_topology_grain_constant`;
+the pre-existing random-graph test does not cover it, because grid degrees are
+position-dependent and grain-constant ties are structural rather than sprinkled.
+
 ### REI checkpoint pattern
 Three checkpointing levels in order of priority:
 1. `PICK_CLUSTER_RESTART`: load bundle pickle (fastest restart)
