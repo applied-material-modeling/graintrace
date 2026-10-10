@@ -10,3 +10,4 @@ data formats.
    install
    quickstart
    concepts
+   file-formats

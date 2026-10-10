@@ -16,6 +16,7 @@ top-level names (importable as ``graintrace.<Name>``) are defined by
    generate_random_crystal
    synthetic_hedm_generator
    neper_env
+   doctor
 
 .. toctree::
    :maxdepth: 1

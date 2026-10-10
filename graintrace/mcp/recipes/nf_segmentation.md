@@ -28,7 +28,7 @@ library as `FragmentationAnalyzer.segment` + its staticmethods
 | Knob | Value | Why |
 |---|---|---|
 | misorientation cutoff | **5°** hard (`max_edge_distance`) | removes boundary edges → no percolation |
-| `manhattan_radius` | **2** (18-neighbor) | denser intra-grain links |
+| `manhattan_radius` | **2** (24-neighbor) | denser intra-grain links |
 | RBF sigma | **fixed ≈ ½ cutoff (~2.5°)**, `sigma_auto=None` | `sigma_auto` collapses to ~0.1° and shatters grains |
 | `weight_cfg` | `mode="rbf", power=2.0` | bounded 0..1 weights (not `inverse`'s huge dynamic range) |
 | `reduce_edges_topweights_k` | **12** | sparser graph, faster Leiden |

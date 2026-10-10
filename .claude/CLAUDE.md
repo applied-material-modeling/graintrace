@@ -58,7 +58,7 @@ Expected `.mic` format (tab-delimited, with `%` header lines):
 ```
 %OrientationRowNr  OrientationID  RunTime  X  Y  TriEdgeSize  UpDown  Eul1  Eul2  Eul3  Confidence  PhaseNr
 ```
-`NearFieldMeshBuilder` reads a folder of `.mic` files. The `exp_file_token` parameter is the filename prefix token used to find files. If the source data is `.ang` files (8-column, no header), convert them to `.mic` format first (see `run_experiment_afrl.py` for the conversion pattern).
+`NearFieldMeshBuilder` reads a folder of `.mic` files. The `exp_file_token` parameter is the filename prefix token used to find files. **graintrace has no `.ang` reader** — no converter ships in the package and no code path recognises the extension, so `.ang` source data must be converted to `.mic` outside graintrace before `NearFieldMeshBuilder` sees it. (The `run_experiment_afrl.py` script this note used to cite is not in the repository.)
 
 For the alternate path using `NFGridConversion` (pre-gridded NF data):
 ```python
@@ -358,7 +358,7 @@ mesh_path = builder_nf.mesh(
 Key outputs in `save_dir`:
 - `merged_segmented_fixed_grid.npy`: segmented voxel grid (restart checkpoint)
 - `mesh.e`: Exodus mesh file for CPFE
-- `orientations.csv`: per-element MRP orientations
+- `orientations.csv`: MRP orientations, one row per Exodus **block** (grain), not per element
 
 ### Recommended graph (Leiden) segmentation settings (NF/EBSD) — the DEFAULT/better pathway
 
@@ -370,7 +370,7 @@ on Fe-9Cr NF reconstruction), in `FragmentationAnalyzer.segment` + its staticmet
 | Knob | Value | Why |
 |---|---|---|
 | misorientation cutoff (`max_edge_distance`) | **5°** hard | removes boundary edges → no percolation across grains |
-| `manhattan_radius` | **2** (18-neighbor) | denser intra-grain links |
+| `manhattan_radius` | **2** (24-neighbor l1 ball) | denser intra-grain links |
 | RBF sigma (`weight_cfg`) | **fixed ≈ ½ cutoff (~2.5°)**, `sigma_auto=None` | `sigma_auto` collapses to ~0.1° and shatters grains into noise |
 | `weight_cfg` | `mode="rbf", power=2.0` | bounded 0..1 weights (not `inverse`'s 1e8 dynamic range) |
 | `reduce_edges_topweights_k` | **12** | sparser graph, faster Leiden |
@@ -1084,6 +1084,16 @@ neper.info. An opt-in `auto_install=True` performs a Linux `~/.local` source bui
 (GSL + OpenBLAS + NEPER). gmsh is a pip dependency (auto-installed with graintrace),
 so the builders take no gmsh arguments. `scan_tessellation.default_neper_env()`
 delegates to the same resolver.
+
+### Check the external stack with `python -m graintrace.doctor`
+Which workflows can run is a property of the machine, not of the install command. `python -m
+graintrace.doctor` (console script `graintrace-doctor`) runs the same probes that back the MCP
+`dependency_status` tool and prints, per dependency, where it was found or why it was not plus
+the remedy. `--json` for a machine-readable report, `--require a,b` to exit 1 when a named
+dependency is absent. Probe names: `gpu`, `neper`, `puma-opt`, `cubit`, `neml2`, `neml2-aoti`,
+`pyzag`, `gmsh`, `torch_geometric`. It works on a bare `pip install graintrace`:
+`graintrace/mcp/__init__.py` imports FastMCP, so `graintrace/doctor.py` registers a stub for
+`graintrace.mcp` before loading `deps`, rather than importing the optional `mcp` extra.
 
 ### `CrystalGenerator` seed is random by default
 `CrystalGenerator(seed=None)` (the default) draws a fresh random seed on every instantiation and

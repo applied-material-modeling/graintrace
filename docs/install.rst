@@ -113,6 +113,63 @@ pass it as ``moose_run_file`` to :class:`~graintrace.CPFESimulation` (see
 C++ library and the Python ``neml2`` stay in lockstep; ``pyzag`` is provided by
 graintrace's pip install.
 
+.. _checking-the-install:
+
+Checking what you actually have
+-------------------------------
+
+Which tier you ended up on is a property of the machine, not of the command you
+typed, so check it rather than assume it:
+
+.. code-block:: bash
+
+   python -m graintrace.doctor      # or: graintrace-doctor
+
+It probes every external dependency graintrace drives and prints where each one
+was found, or why it was not and how to get it. Sample output from a tier 1
+machine:
+
+.. code-block:: text
+
+   graintrace dependency report
+
+     MISSING  gpu              no CUDA device visible to torch
+     MISSING  neper            not found via NEPER env var, tools.json, PATH, or external/neper
+     MISSING  puma-opt         MOOSE/PUMA `puma-opt` not found (tools.json, PATH, or external/puma)
+     MISSING  cubit            missing CUBIT/SCULPT binaries: psculpt, epu
+     ok       neml2            importable: .../site-packages/neml2/__init__.py
+     ok       neml2-aoti       AOTI runtime OK (requires LD_LIBRARY_PATH to include .../lib)
+     ok       pyzag            importable: .../site-packages/pyzag/__init__.py
+     ok       gmsh             importable: .../site-packages/gmsh.py
+     MISSING  torch_geometric  python package `torch_geometric` not importable
+
+   How to get the missing pieces:
+     neper: Install NEPER (https://neper.info/doc/introduction.html#installing-neper) and
+     point graintrace at it via the NEPER env var, a graintrace_tools.json `neper` key, or
+     `neper` on PATH.
+     ...
+
+A ``MISSING`` line is not an error on its own -- most of the stack is optional
+for some subset of the workflows, and the command exits 0 regardless. Two flags
+make it usable from a script:
+
+``--json``
+   emit the same rows as JSON, one object per dependency with ``name``, ``ok``,
+   ``detail`` and ``build_hint``.
+
+``--require NAME[,NAME...]``
+   exit 1 unless every named dependency is present, so a job script can refuse
+   to start rather than fail an hour in:
+
+   .. code-block:: bash
+
+      python -m graintrace.doctor --require puma-opt,neml2-aoti || exit 1
+
+The probe names are the ones in the report above: ``gpu``, ``neper``,
+``puma-opt``, ``cubit``, ``neml2``, ``neml2-aoti``, ``pyzag``, ``gmsh`` and
+``torch_geometric``. The same probes back the MCP server's
+``dependency_status`` tool, so the two always agree.
+
 External compiled stack (single PUMA submodule)
 -----------------------------------------------
 

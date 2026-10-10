@@ -319,7 +319,24 @@ class SimilarityMetricLibrary:
         )
 
     def nye_tensor_norm(self, cols: Optional[List[str]] = None) -> SimilarityMetric:
-        """SimilarityMetric for the Frobenius-norm distance of the Nye tensor."""
+        """SimilarityMetric for the Frobenius-norm distance of the Nye tensor.
+
+        The distance between two points is
+        :math:`\\lVert \\boldsymbol\\alpha_u - \\boldsymbol\\alpha_v \\rVert_F`,
+        over the nine row-major components of the Nye tensor.
+
+        .. warning::
+
+           ``cols`` is **accepted and then discarded**. The feature columns are
+           always the hard-coded ``nye_tensor_11`` .. ``nye_tensor_33``,
+           whatever is passed. To use the Frobenius distance over a different
+           nine-column tensor, construct the
+           :class:`~graintrace.user_data_class.SimilarityMetric` directly with
+           ``func=diff_norm_3x3`` and ``dist_edges=diff_norm_3x3_batch``.
+
+        Args:
+            cols: Ignored. Present for signature compatibility only.
+        """
         cols = [
             "nye_tensor_11",
             "nye_tensor_12",
