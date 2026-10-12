@@ -294,24 +294,23 @@ class GraphGrainMatcher:
                 a_to_b, i, j, lam) -> float``; see
                 :meth:`default_neighbor_selection_cost_function`.
             neighbor_selection_param: Dict with keys ``"lambda"`` (weight of the
-                consistency term), ``"iterations"``, ``"topk"`` (candidates per
-                A grain) and ``"chunk"`` (rows per ``cdist`` block). A
-                ``"tolerance"`` key is accepted and echoed back in the returned
-                ``params``, but see the warning below.
+                consistency term), ``"iterations"`` (maximum rounds),
+                ``"tolerance"`` (convergence threshold, see below), ``"topk"``
+                (candidates per A grain) and ``"chunk"`` (rows per ``cdist``
+                block).
 
         Returns:
             Dict with ``matches`` ``(M, 2)``, ``costs`` ``(M,)``, ``a_to_b``
             ``(Na,)``, ``mean_cost_history`` and the ``params`` actually used.
 
-        .. warning::
-
-           ``"tolerance"`` is **never read as a convergence criterion**. The
-           loop always runs the full ``iterations`` count; there is no check on
-           ``mean_cost_history``, so lowering or raising the tolerance changes
-           nothing but the echoed value. The "Converged before max iterations."
-           message prints only when a round produces *no assignment at all* and
-           breaks out, which is a degenerate case rather than convergence.
-           Choose ``iterations`` by inspecting ``mean_cost_history`` afterwards.
+        ``"tolerance"`` is a convergence criterion: once two consecutive rounds
+        produce mean assignment costs differing by less than ``tolerance`` the
+        loop stops early and prints "Converged before max iterations.".
+        ``"iterations"`` is therefore an upper bound, not a fixed round count.
+        Pass ``tolerance=0.0`` to disable the early exit and always run the full
+        budget. At the default ``1e-6`` the exit fires only once the mean cost
+        is numerically static, which in practice means the assignment has
+        reached a fixed point.
         """
         if neighbor_selection_param is None:
             neighbor_selection_param = {
@@ -415,9 +414,18 @@ class GraphGrainMatcher:
                 for i, j in assigned
             ]
             mean_cost = float(sum(costs) / len(costs))
+            converged = (
+                len(mean_cost_history) > 0
+                and abs(mean_cost_history[-1] - mean_cost) < tol
+            )
             mean_cost_history.append(mean_cost)
 
             a_to_b = new_a_to_b
+
+            # Stop once the mean assignment cost stops moving by more than
+            # `tolerance`. tol == 0.0 disables the exit and runs the full budget.
+            if converged:
+                break
 
         if _it < max_it - 1:
             print("Converged before max iterations.")

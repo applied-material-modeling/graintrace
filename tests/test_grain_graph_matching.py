@@ -127,3 +127,76 @@ class TestWriteResultsOutputPrefix:
         assert meta["mean_cost_history"] == [5.0]
         assert meta["graph_a_feature_names"] == ["X", "Y", "Z"]
         assert meta["message_passing_required_features"] == ["X", "Y", "Z"]
+
+
+def _chain_matcher(tmp_path, n=4):
+    """Matcher over two identical 1-D chain graphs of ``n`` nodes."""
+    import torch
+
+    from graintrace.grain_graph_matching import GraphGrainMatcher
+
+    class _Graph:  # pylint: disable=too-few-public-methods
+        def __init__(self):
+            self.edge_index = torch.tensor(
+                [list(range(n - 1)), list(range(1, n))], dtype=torch.long
+            )
+            self.num_nodes = n
+
+    return GraphGrainMatcher(
+        graph_a=_Graph(), graph_b=_Graph(), output_dir=str(tmp_path)
+    )
+
+
+def _run_selection(tmp_path, tolerance, iterations, n=4):
+    """Run neighbor_selection on a fixed, well-separated feature pair."""
+    import torch
+
+    from graintrace.grain_graph_matching import GraphGrainMatcher
+
+    torch.manual_seed(42)
+    Fa = torch.arange(n, dtype=torch.float64).reshape(n, 1) * 10.0
+    Fb = Fa.clone() + 0.25
+
+    return _chain_matcher(tmp_path, n).neighbor_selection(
+        Fa,
+        Fb,
+        GraphGrainMatcher.default_neighbor_selection_cost_function,
+        {
+            "lambda": 0.125,
+            "iterations": iterations,
+            "tolerance": tolerance,
+            "topk": n,
+            "chunk": 16,
+        },
+    )
+
+
+class TestNeighborSelectionTolerance:
+    """``tolerance`` must act as a convergence criterion, not a dead echo (#44)."""
+
+    def test_large_tolerance_stops_after_two_rounds(self, tmp_path):
+        """A tolerance larger than any cost change exits at the first comparison."""
+        pytest.importorskip("torch_geometric")
+        out = _run_selection(tmp_path, tolerance=1e9, iterations=25)
+        # Round 1 records a cost; round 2 compares against it and breaks.
+        assert len(out["mean_cost_history"]) == 2
+
+    def test_zero_tolerance_runs_the_full_budget(self, tmp_path):
+        """``tolerance=0.0`` disables the early exit, preserving the old behaviour."""
+        pytest.importorskip("torch_geometric")
+        out = _run_selection(tmp_path, tolerance=0.0, iterations=7)
+        assert len(out["mean_cost_history"]) == 7
+
+    def test_tolerance_does_not_change_the_converged_assignment(self, tmp_path):
+        """Exiting early must give the same matching as running the full budget."""
+        pytest.importorskip("torch_geometric")
+        early = _run_selection(tmp_path, tolerance=1e-6, iterations=25)
+        full = _run_selection(tmp_path, tolerance=0.0, iterations=25)
+        assert early["a_to_b"].tolist() == full["a_to_b"].tolist()
+        assert len(early["mean_cost_history"]) < len(full["mean_cost_history"])
+
+    def test_tolerance_is_still_echoed_in_params(self, tmp_path):
+        """The echoed value keeps reporting what was requested."""
+        pytest.importorskip("torch_geometric")
+        out = _run_selection(tmp_path, tolerance=0.5, iterations=5)
+        assert out["params"]["tolerance"] == 0.5
