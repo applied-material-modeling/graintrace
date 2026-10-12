@@ -95,9 +95,11 @@ magnitude in which every intra-grain edge dominates every boundary edge, whateve
    :math:`\sigma \approx 2.5^\circ` against a :math:`5^\circ` cutoff.
 
 When ``sigma`` is ``None``, it is estimated as a quantile of the surviving edge distances.
-Only the ``"quantile"`` key of ``sigma_auto`` is read -- ``sample_size`` and ``random_state``
-appear in several published recipes but are **not** consulted, and the quantile is taken over
-all edges rather than a sample. On a grid where most edges are intra-grain the median distance
+``"quantile"`` is the only key of ``sigma_auto`` that is read: the quantile is exact, taken
+over every surviving edge rather than a sample, so the estimate is deterministic. The
+``sample_size`` and ``random_state`` keys carried by older recipes bound and seed nothing;
+they have been removed from the shipped recipes, and passing either now raises a
+``UserWarning``. On a grid where most edges are intra-grain the median distance
 is near zero, so the estimate collapses to a fraction of a degree and shatters every grain;
 pin :math:`\sigma` by hand for orientation data.
 

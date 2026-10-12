@@ -90,9 +90,12 @@ class WeightConfig:
             degrees for a misorientation metric, MPa for a stress metric. When
             ``None``, it is estimated from the edge distances via ``sigma_auto``.
         sigma_auto: Estimation spec used only when ``mode`` is ``"rbf"`` or
-            ``"exp"`` and ``sigma`` is ``None``. Only the ``"quantile"`` key is
-            read; ``sigma`` becomes that quantile of the surviving edge
-            distances.
+            ``"exp"`` and ``sigma`` is ``None``. ``"quantile"`` is the only key
+            read: ``sigma`` becomes exactly that quantile of every surviving
+            edge distance. The estimate is deterministic and is not subsampled,
+            so the ``"sample_size"`` and ``"random_state"`` keys carried by
+            older recipes do nothing; supplying either now raises a
+            ``UserWarning`` rather than failing silently.
         power: The exponent :math:`p` of ``"rbf"`` only; ``"inverse"``,
             ``"exp"`` and ``"log_inv"`` ignore it.
     """

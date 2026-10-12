@@ -427,7 +427,7 @@ merged_grid_path = ebsd_voxel_builder.reconstruct(
             "weight_cfg": {
                 "mode": "rbf",
                 "sigma": None,
-                "sigma_auto": {"sample_size": 20_000, "random_state": 42, "quantile": 0.5},
+                "sigma_auto": {"quantile": 0.5},
                 "power": 2.0,
             },
             "plot": True,
@@ -670,7 +670,7 @@ rare_criteria = RareCriteria(
 
 weight_cfg = WeightConfig(
     mode="rbf", power=2.0, sigma=None,
-    sigma_auto={"sample_size": 500_000, "random_state": 42, "quantile": 0.5},
+    sigma_auto={"quantile": 0.5},
 )
 
 irc = IdentifyRareClusters(
@@ -983,7 +983,7 @@ segmentation = {
         "weight_cfg": {
             "mode": "rbf",
             "sigma": None,
-            "sigma_auto": {"sample_size": 20_000, "random_state": 42, "quantile": 0.5},
+            "sigma_auto": {"quantile": 0.5},
             "power": 2.0,
         },
         "plot": True,
@@ -1012,8 +1012,6 @@ weight_cfg = WeightConfig(
     power=2.0,
     sigma=None,           # if None, use sigma_auto
     sigma_auto={
-        "sample_size": 500_000,
-        "random_state": 42,
         "quantile": 0.5,
     },
 )
