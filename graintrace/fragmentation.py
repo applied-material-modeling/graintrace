@@ -47,7 +47,7 @@ from __future__ import annotations
 
 import os
 import tempfile
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 
@@ -96,6 +96,30 @@ def _knn_cluster_adjacency(
             key = (int(min(li, lj)), int(max(li, lj)))
             contacts[key] = contacts.get(key, 0) + 1
     return contacts
+
+
+def _as_label_set(background_label: Union[int, Iterable[int]]) -> set:
+    """Normalise a background-label argument to a set of ints.
+
+    Accepts a single integer or any iterable of integers, so a caller working
+    on a raw segmented voxel grid can exclude both non-grain sentinels --
+    ``0`` (void) and ``-1`` (material-but-unsegmented) -- in one call.
+
+    Raises:
+        TypeError: If the argument is neither an integer nor an iterable of
+            integers.
+    """
+    if isinstance(background_label, (bool, np.bool_)):
+        raise TypeError("background_label must be an int or an iterable of ints")
+    if isinstance(background_label, (int, np.integer)):
+        return {int(background_label)}
+    try:
+        return {int(v) for v in background_label}
+    except TypeError as exc:
+        raise TypeError(
+            "background_label must be an int or an iterable of ints, got "
+            f"{type(background_label).__name__}"
+        ) from exc
 
 
 def _voxel_volume(coords: np.ndarray) -> float:
@@ -758,7 +782,7 @@ class FragmentationAnalyzer:
         angle_convention: str = "bunge",
         angle_type: str = "radians",
         out_csv: Optional[str] = None,
-        background_label: int = -1,
+        background_label: Union[int, Iterable[int]] = -1,
     ) -> "object":
         """Reduce a labelled point set to a per-grain table (FF/NF/EBSD connector).
 
@@ -779,19 +803,29 @@ class FragmentationAnalyzer:
             angle_convention: Euler convention (used when ``euler`` is given).
             angle_type: ``"degrees"`` or ``"radians"`` for the input ``euler``.
             out_csv: if given, also write the table to this CSV path.
-            background_label: the single label treated as void and skipped.
+            background_label: label, or iterable of labels, treated as
+                non-grain and skipped. Defaults to ``-1``. See the note on
+                label domains below before changing it.
 
-        .. warning::
+        .. note::
 
-           ``background_label`` defaults to ``-1``, but a segmented NF or EBSD
-           grid marks void as ``0`` and uses ``-1`` for *material that was not
-           segmented*. Left at the default on such a grid, the whole void region
-           is emitted as one enormous "grain" -- with a centroid near the sample
-           centre and a meaningless mean orientation -- which then matches
-           against the next step in :meth:`detect_splits`. Pass
-           ``background_label=0`` for a grid produced by the NF/EBSD path, and
-           mask or absorb any remaining ``-1`` voxels first. Only one label can
-           be excluded per call.
+           **Two different label domains reach this method, and the right
+           ``background_label`` differs between them.**
+
+           *Output of* :meth:`segment` *(the documented NF/EBSD bridge).*
+           Contiguous **0-based grain labels** over a point set the caller has
+           already restricted to solid material. ``0`` is a real grain here, and
+           there is no void row at all, so the default ``-1`` excludes nothing
+           and is correct. Passing ``background_label=0`` on this input
+           silently deletes a grain.
+
+           *A raw segmented voxel grid* (``nf.segment.flood``, or anything
+           written through :func:`graintrace.nf.mesh.write_spn`). The domain is
+           ``0`` void, ``>= 1`` grain, ``-1`` material-but-unsegmented. Pass
+           ``background_label=(0, -1)`` to drop both sentinels. Left at the
+           default, the whole void region is emitted as one enormous "grain"
+           with a meaningless mean orientation, which then matches against the
+           next step in :meth:`detect_splits`.
 
         Returns:
             A ``pandas.DataFrame`` with the grain-table schema (Euler in degrees,
@@ -820,10 +854,12 @@ class FragmentationAnalyzer:
             )
         mrp = np.asarray(mrp, dtype=float)
 
+        background_labels = _as_label_set(background_label)
+
         voxvol = _voxel_volume(coords)
         rows = []
         for gid in np.unique(labels):
-            if gid == background_label:
+            if int(gid) in background_labels:
                 continue
             mask = labels == gid
             cnt = int(mask.sum())

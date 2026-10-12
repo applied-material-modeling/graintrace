@@ -181,6 +181,60 @@ class TestSegGridToGrainCsv:
         assert len(df) == 1
         assert int(df.iloc[0]["grain_id"]) == 0
 
+    def test_both_voxel_sentinels_can_be_excluded(self):
+        """A raw voxel grid needs 0 (void) and -1 (unsegmented) dropped (#48)."""
+        pytest.importorskip("neml2")
+        import torch
+
+        from graintrace.fragmentation import FragmentationAnalyzer
+        from graintrace.orientation_helper import euler_to_mrp
+
+        coords = np.array([[0, 0, 0], [1, 0, 0], [2, 0, 0], [3, 0, 0]], dtype=float)
+        labels = np.array([-1, 0, 1, 1])  # unsegmented, void, grain 1 x2
+        eul = np.array([[0.0, 0.0, 0.0]] * 2 + [[10.0, 20.0, 30.0]] * 2)
+        mrp = (
+            euler_to_mrp(torch.tensor(eul, dtype=torch.float64), "bunge", "degrees")
+            .cpu()
+            .numpy()
+        )
+        df = FragmentationAnalyzer().seg_to_grain_table(
+            labels, coords, mrp=mrp, background_label=(0, -1)
+        )
+        assert len(df) == 1
+        assert int(df.iloc[0]["grain_id"]) == 1
+
+
+class TestBackgroundLabelSet:
+    """``background_label`` normalisation, unit-testable without neml2 (#48)."""
+
+    def test_single_int(self):
+        from graintrace.fragmentation import _as_label_set
+
+        assert _as_label_set(-1) == {-1}
+
+    def test_numpy_int(self):
+        from graintrace.fragmentation import _as_label_set
+
+        assert _as_label_set(np.int64(0)) == {0}
+
+    def test_tuple_of_both_sentinels(self):
+        from graintrace.fragmentation import _as_label_set
+
+        assert _as_label_set((0, -1)) == {0, -1}
+
+    def test_list_and_set_and_array(self):
+        from graintrace.fragmentation import _as_label_set
+
+        assert _as_label_set([0, -1]) == {0, -1}
+        assert _as_label_set({0, -1}) == {0, -1}
+        assert _as_label_set(np.array([0, -1])) == {0, -1}
+
+    def test_rejects_a_non_integer(self):
+        from graintrace.fragmentation import _as_label_set
+
+        with pytest.raises(TypeError, match="int or an iterable of ints"):
+            _as_label_set(None)
+
 
 class TestSegmentByOrientation:
     def test_recovers_two_clusters(self, tmp_path):
