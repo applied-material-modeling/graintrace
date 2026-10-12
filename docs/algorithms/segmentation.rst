@@ -13,29 +13,109 @@ their symmetry-aware misorientation is below a tolerance.
 
 Method
 ------
-The pairwise dissimilarity between voxels is the misorientation angle under the crystal point
-group :math:`G`,
+Symbols and the rotation convention are defined once in :doc:`/notation`; this page uses them
+without redefining them.
+
+The pairwise dissimilarity between voxels :math:`i` and :math:`j` is the **disorientation**
+angle: the misorientation matrix :math:`\Delta g_{ij} = g_i g_j^{\mathsf T}` minimised over the
+symmetry orbits of *both* crystals,
 
 .. math::
+   :label: seg-disorientation
 
-    d(\mathbf{o}_i, \mathbf{o}_j)
-      = \min_{S \in G}\, \arccos\!\left(\frac{\operatorname{tr}(S\,R_i R_j^{\top}) - 1}{2}\right).
+    d_{ij}
+      = \min_{O_a,\, O_b \,\in\, G}\,
+        \arccos\!\left(
+          \mathrm{clamp}\!\left(
+            \frac{\operatorname{tr}\!\bigl(O_a\, \Delta g_{ij}\, O_b^{\mathsf T}\bigr) - 1}{2},
+            \,-1,\, 1
+          \right)
+        \right).
+
+The minimisation is over the **ordered pair** :math:`(O_a, O_b)`, not over a single operator:
+for the cubic group ``"432"`` that is :math:`|G|^2 = 24^2 = 576` candidates per edge, not 24.
+This matters in practice as well as in principle -- a one-sided minimisation returns a larger
+angle for most pairs, so it would silently split grains that :eq:`seg-disorientation` keeps
+together. The grain-exchange symmetry does not need to be enumerated as well, because
+:math:`\operatorname{tr}(M) = \operatorname{tr}(M^{\mathsf T})` makes the candidate *set* for
+:math:`\Delta g_{ij}^{\mathsf T}` the transpose of the set for :math:`\Delta g_{ij}`, with the
+same minimum.
+
+.. note::
+
+   The default ``symmetry`` of the low-level helpers in
+   :mod:`graintrace.orientation_helper` is ``"1"``, the trivial group, which makes
+   :eq:`seg-disorientation` a single term and returns the raw rotation angle -- up to
+   :math:`180^\circ` where a cubic disorientation can never exceed :math:`62.8^\circ`. The
+   builders pass their own ``symmetry`` (``"432"`` by default), so the segmentation path is
+   correct without configuration; a direct call to the helper is not. See :doc:`/notation`.
 
 **Graph segmentation.** A spatial graph is built over the grid: on a regular lattice each voxel
-connects to its Manhattan-radius-:math:`r` neighbours (6/24/62/... sites for
-:math:`r = 1/2/3/\dots`); off-grid data falls back to mutual :math:`k`-nearest neighbours. Each
-edge carries the misorientation distance :math:`d_{ij}`, converted to a similarity weight by a
-radial-basis kernel,
+connects to every site within an :math:`\ell^1` ball of radius :math:`r`,
+:math:`|\Delta i| + |\Delta j| + |\Delta k| \le r`, which is
+:math:`\tfrac{1}{3}(4r^3 + 6r^2 + 8r) = 6/24/62/128` sites for :math:`r = 1/2/3/4`. Note
+:math:`r = 2` is the 24-neighbour ball, not the 18-neighbour face-plus-edge stencil it is
+sometimes called. Off-grid data falls back to mutual :math:`k`-nearest neighbours.
+
+Each edge carries the distance :math:`d_{ij}`, converted to a similarity weight. Four kernels
+are available; all are decreasing in :math:`d`, so a larger weight means "more alike":
+
+.. list-table::
+   :header-rows: 1
+   :widths: 16 44 40
+
+   * - ``mode``
+     - :math:`w_{ij}`
+     - Reads
+   * - ``"rbf"``
+     - :math:`\exp\!\left[-\left(d_{ij}/\sigma\right)^{p}\right]`
+     - ``sigma``, ``power``
+   * - ``"exp"``
+     - :math:`\exp\!\left(-d_{ij}/\sigma\right)`
+     - ``sigma``
+   * - ``"inverse"``
+     - :math:`1/(d_{ij} + \varepsilon)`
+     - ``eps``
+   * - ``"log_inv"``
+     - :math:`-\log(d_{ij} + \varepsilon)`
+     - ``eps``
+
+``"rbf"`` is the recommended one: it is bounded on :math:`(0, 1]`, so the weight distribution
+has a dynamic range Leiden can work with. ``"inverse"`` is unbounded as :math:`d \to 0`, and
+with the default :math:`\varepsilon = 10^{-8}` two identically oriented voxels get a weight of
+:math:`10^{8}` while a :math:`5^\circ` edge gets :math:`0.2` -- a range of nine orders of
+magnitude in which every intra-grain edge dominates every boundary edge, whatever
+:math:`\gamma` is set to.
+
+.. important::
+
+   :math:`\sigma` **is in the units of the distance metric**, which here is degrees or radians
+   of misorientation, matching ``angle_type``. It is not a length and not a normalised
+   quantity. The vetted value is half the misorientation cutoff, so
+   :math:`\sigma \approx 2.5^\circ` against a :math:`5^\circ` cutoff.
+
+When ``sigma`` is ``None``, it is estimated as a quantile of the surviving edge distances.
+Only the ``"quantile"`` key of ``sigma_auto`` is read -- ``sample_size`` and ``random_state``
+appear in several published recipes but are **not** consulted, and the quantile is taken over
+all edges rather than a sample. On a grid where most edges are intra-grain the median distance
+is near zero, so the estimate collapses to a fraction of a degree and shatters every grain;
+pin :math:`\sigma` by hand for orientation data.
+
+Optionally each node keeps only its top-:math:`k` highest-weight edges. The weighted graph is
+then partitioned by Leiden, which maximises the resolution-scaled modularity
 
 .. math::
+   :label: seg-modularity
 
-    w_{ij} = \exp\!\left[-\left(\frac{d_{ij}}{\sigma}\right)^{p}\right],
+   Q(\gamma) = \frac{1}{2m} \sum_{i,j}
+       \left( w_{ij} - \gamma\, \frac{k_i k_j}{2m} \right)
+       \delta(c_i, c_j),
 
-where :math:`\sigma` may be set directly or auto-estimated as a quantile of the edge-distance
-distribution. Optionally each node keeps only its top-:math:`k` highest-weight edges. The
-weighted graph is then partitioned by the Leiden community-detection algorithm, whose resolution
-parameter :math:`\gamma` in the modularity objective controls granularity (lower :math:`\gamma`
-yields fewer, larger grains).
+with :math:`k_i = \sum_j w_{ij}` the weighted degree, :math:`2m = \sum_i k_i`, and
+:math:`c_i` the community of node :math:`i`. The :math:`\gamma` term is the weight the *null
+model* -- a random graph with the same degree sequence -- expects on edge :math:`ij`, so
+raising :math:`\gamma` makes that expectation harder to beat and communities break up.
+Lower :math:`\gamma` therefore yields fewer, larger grains.
 
 **Flood-fill segmentation.** Starting from a random unlabelled material voxel, a breadth-first
 front grows outward, absorbing neighbours whose misorientation to the current voxel is below the
@@ -45,6 +125,20 @@ only make the next iteration re-find the same segment. Rejected voxels are repor
 unlabelled, and the pass stops after ``stop_count`` discarded segments or when no voxels remain
 (``stop_count`` must be at least 1). A cleanup pass infills unlabelled voxels from filled neighbours and merges
 sub-threshold segments into the adjacent grain with the largest contact area.
+
+.. note::
+
+   The out-of-domain guard in the flood stencil is **inert**. ``flood`` builds a
+   ``valid`` mask for neighbour offsets that fall outside the grid and then calls
+   ``distances.masked_fill(~valid, inf)``, which is the *out-of-place* form: it
+   returns a new tensor and the return value is discarded, so ``distances`` is
+   never modified. This is harmless as written only because the neighbour indices
+   are clamped to the grid first, which makes every out-of-domain lookup resolve
+   to an in-domain voxel that the front would have reached anyway. It is not a
+   guarantee: any change that stops clamping, or that reads ``distances`` for
+   something other than the tolerance comparison, turns the dead mask into wrong
+   labels at the domain boundary. Treat the clamp, not the mask, as the thing
+   holding this together.
 
 Algorithm
 ---------

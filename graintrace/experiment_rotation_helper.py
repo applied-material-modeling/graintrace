@@ -59,7 +59,32 @@ def update_experiments(
     neper_path: Optional[str] = None,
     auto_install: bool = False,
 ) -> None:
-    """Rotate each input CSV via a Voronoi build, appending Oij columns, saving under output_root."""
+    """Rotate each input CSV via a Voronoi build, appending Oij columns, saving under output_root.
+
+    For each input file this runs a :class:`~graintrace.VoronoiMeshBuilder`
+    build (``option="voronoi"``, no mesh) to apply the bounding-box filter and
+    the sample rotation, reads back the rotated orientation matrix NEPER wrote
+    to ``reconstruction.ori``, and writes ``<output_root>/<basename>`` holding
+    the nine ``O11``..``O33`` columns followed by the original columns. Any
+    pre-existing ``O*`` columns are dropped so the rotated matrix replaces them
+    rather than duplicating. With ``strain_unit="microstrain"`` the
+    ``elastic_strain_identifier`` columns are scaled by ``1e6`` on the way out.
+
+    This is the preparation step for a physically registered
+    :class:`~graintrace.MaterialCalibration` fit: the output is the FF
+    calibration CSV schema described in :doc:`/file-formats`.
+
+    .. warning::
+
+       ``reconstruction.ori`` and the grain table are concatenated **by row
+       position**, and the result is silently truncated to
+       ``min(len(df), len(ori_df))``. Nothing checks that the two row counts
+       agree, nothing logs it when they do not, and no grain id participates in
+       the join. If the NEPER build ever returns a different number of cells
+       than there are input grains, the output file silently loses rows and
+       pairs the surviving orientations with the wrong grains. Compare the row
+       count of each output file against its input before using the result.
+    """
 
     os.makedirs(output_root, exist_ok=True)
 

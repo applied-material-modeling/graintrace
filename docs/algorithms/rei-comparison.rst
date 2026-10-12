@@ -19,25 +19,70 @@ lattice with spacing :math:`s_{\mathrm{ref}} = \min(s_1, s_2)` per axis, divided
 integer ``supersample`` for sub-voxel boundary accuracy. Occupancy is a nearest-cell integer
 index, so membership on the fine lattice is an :math:`O(1)` hash lookup.
 
+.. warning::
+
+   The two grids must **share an origin**. No registration is performed: no rotation, no
+   translation, no scaling beyond the per-axis spacing. Two regions described in frames
+   offset by half a voxel will report a low IoU that measures the offset, not a physical
+   disagreement. Register the clouds before comparing them.
+
 Let :math:`V_1, V_2` be the fine-lattice cell sets of the two regions. The reported metrics are
 
 .. math::
+   :label: reic-overlap
 
     \mathrm{IoU} = \frac{|V_1 \cap V_2|}{|V_1 \cup V_2|}, \qquad
     \mathrm{Dice} = \frac{2\,|V_1 \cap V_2|}{|V_1| + |V_2|}, \qquad
     \mathrm{cont}_i = \frac{|V_1 \cap V_2|}{|V_i|},
 
 with physical volumes obtained by multiplying counts by the fine-cell volume
-:math:`\prod_a s_{\mathrm{ref},a}`. Containment is asymmetric and useful for prediction-vs-
-reference comparisons (how much of region :math:`i` the other captures).
+:math:`\prod_a s_{\mathrm{ref},a}`.
+
+The three are not independent. IoU and Dice are monotone in each other,
+:math:`\mathrm{Dice} = 2\,\mathrm{IoU} / (1 + \mathrm{IoU})`, so they rank a set of
+comparisons identically and Dice is always the larger; reporting both is a convenience for
+readers used to one or the other, not two pieces of evidence. The pair that *is* informative
+is the two **containments**, because they are asymmetric. Equal containments mean the regions
+disagree symmetrically; :math:`\mathrm{cont}_1 \gg \mathrm{cont}_2` means region 1 is nearly
+inside region 2, i.e. the prediction is correct but too conservative. A single IoU cannot
+distinguish those cases, which is exactly the distinction a prediction-versus-reference
+comparison needs.
 
 When cluster ids are present, an overlap matrix :math:`O` counts shared fine cells between every
-cluster of region 1 and every cluster of region 2. A one-to-one correspondence is found by
-solving the linear assignment problem on :math:`-O` (maximizing overlap); each matched pair
-reports its Jaccard index and containments, and clusters with no partner are flagged with id
-:math:`-1`. A cluster whose overlap with more than one partner exceeds
-``split_merge_fraction`` of its own size counts toward the split (one-to-many) or merge
-(many-to-one) totals.
+cluster of region 1 and every cluster of region 2,
+
+.. math::
+   :label: reic-overlap-matrix
+
+   O_{ab} = \bigl| V_1^{(a)} \cap V_2^{(b)} \bigr|.
+
+A one-to-one correspondence is found by solving the linear assignment problem
+
+.. math::
+   :label: reic-hungarian
+
+   \pi^{\star} = \arg\max_{\pi} \sum_{a} O_{a\,\pi(a)},
+
+maximising total shared volume, via ``scipy.optimize.linear_sum_assignment`` on :math:`-O`.
+This is a genuine global optimum over one-to-one pairings -- unlike the grain matcher of
+:doc:`grain-tracking`, which is a local fixed point. Each matched pair reports its Jaccard
+index and containments; clusters with no partner are flagged with id :math:`-1`.
+
+Being one-to-one is also the limitation: a cluster that genuinely split into two cannot be
+represented by the pairing, so the split and merge counts are reported separately. A cluster
+:math:`a` counts toward the split total when more than one partner :math:`b` satisfies
+
+.. math::
+   :label: reic-split
+
+   \frac{O_{ab}}{\bigl|V_1^{(a)}\bigr|} \ge f_{\mathrm{sm}},
+
+with :math:`f_{\mathrm{sm}} =` ``split_merge_fraction`` (default :math:`0.2`); merges are the
+same test transposed.
+The denominator is the cluster's **own** size, so the criterion asks "how much of me went
+there", not "how much of them came from me". Lowering :math:`f_{\mathrm{sm}}` makes boundary
+bleed between adjacent clusters register as a split, so it should stay well above the fraction
+of a cluster that lies within one voxel of its surface.
 
 Algorithm
 ---------

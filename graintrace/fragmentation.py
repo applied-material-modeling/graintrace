@@ -779,7 +779,19 @@ class FragmentationAnalyzer:
             angle_convention: Euler convention (used when ``euler`` is given).
             angle_type: ``"degrees"`` or ``"radians"`` for the input ``euler``.
             out_csv: if given, also write the table to this CSV path.
-            background_label: label treated as void/background and skipped.
+            background_label: the single label treated as void and skipped.
+
+        .. warning::
+
+           ``background_label`` defaults to ``-1``, but a segmented NF or EBSD
+           grid marks void as ``0`` and uses ``-1`` for *material that was not
+           segmented*. Left at the default on such a grid, the whole void region
+           is emitted as one enormous "grain" -- with a centroid near the sample
+           centre and a meaningless mean orientation -- which then matches
+           against the next step in :meth:`detect_splits`. Pass
+           ``background_label=0`` for a grid produced by the NF/EBSD path, and
+           mask or absorb any remaining ``-1`` voxels first. Only one label can
+           be excluded per call.
 
         Returns:
             A ``pandas.DataFrame`` with the grain-table schema (Euler in degrees,
@@ -1003,7 +1015,15 @@ class FragmentationAnalyzer:
             ori_cols: the three orientation columns.
             coord_cols: the three coordinate columns.
             id_col: the grain-id column.
-            top_k: nearest B centroids probed per A grain.
+            top_k: nearest B centroids probed per A grain. **This truncation
+                happens before the** ``d_tol`` **gate, not after it**: the KD-tree
+                returns the ``top_k`` nearest B grains and only those are then
+                tested against ``d_tol`` and ``theta_tol_deg``. So ``top_k``, not
+                ``d_tol``, is the binding limit on how many children a split can
+                have whenever more than ``top_k`` B grains sit within ``d_tol``.
+                A parent that fragments into many pieces, or a dense fine-grained
+                step B, needs ``top_k`` raised as well as ``d_tol``; raising
+                ``d_tol`` alone will not surface the extra children.
             adjacency_b: optional iterable of ``(grain_id, grain_id)`` pairs giving
                 intra-step-B grain adjacency; used to reject a spurious split child
                 that is not adjacent to any other child of the same parent. If no two

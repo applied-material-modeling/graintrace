@@ -527,7 +527,16 @@ class GraphSpatialCluster:
     ) -> np.ndarray:
         """Build grid edges (undirected, (E,2) with i<j) for a full 3D grid.
 
-        manhattan_radius r gives 6/24/62/124/... neighbors for r=1/2/3/4.
+        Node ``i`` is linked to every lattice site within an :math:`\\ell^1`
+        ball of radius ``manhattan_radius``, i.e. every offset satisfying
+        :math:`|dx| + |dy| + |dz| \\le r` other than the origin. That is
+        **6 / 24 / 62 / 128** neighbours for ``r = 1 / 2 / 3 / 4``; in general
+        :math:`\\tfrac{1}{3}(4r^{3} + 6r^{2} + 8r)`. Note ``r=2`` is the
+        24-neighbour ball, not the 18-neighbour face-plus-edge stencil.
+
+        Sites outside the grid, and sites with no data point behind them (void
+        voxels in a grid that does not fill its bounding box), are dropped, so
+        boundary and void-adjacent nodes have a lower degree than the ball size.
         """
         if manhattan_radius < 1:
             raise ValueError("manhattan_radius must be >= 1")
