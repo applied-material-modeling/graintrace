@@ -1066,6 +1066,25 @@ as MRP). Do NOT feed these columns to a tool expecting true Rodrigues. A rename 
 `ori_mrp_*` (aux vars + `initial_conditions*.i` `rodrigues_*` functions + all consumers) is a
 **deferred follow-up** — the blast radius is wide, so it is documented rather than done.
 
+### `.tess` signed indices: decode with `decode_signed_index`, never `abs()`
+`NeperTessToGraphNN.face_edges` and `.cell_to_faces` hold **signed 0-based** indices, where
+the sign is Neper's traversal direction. A plain `sign * (abs(v) - 1)` shift is lossy at
+index 1 — integers have no `-0`, so `+1` and `-1` both collapse to `0` and the direction of
+entity 0 is destroyed. Negative entries are therefore stored as the **bitwise complement**
+`~(abs(v) - 1)`, so the 1-based file line `"13 -8 -16 4"` parses to `[12, -8, -16, 3]`.
+Read entries back with `tess_to_gnn.decode_signed_index(v) -> (index, reversed)`; `abs()` is
+wrong, because the complement of index 0 is `-1` and `abs(-1)` names a different entity.
+Encode with `encode_signed_index`.
+
+### `validate_topology(verbose=...)` controls printing; `strict=...` controls refusing
+`NeperTessToGraphNN.validate_topology(verbose=True, strict=True)` returns a report dict
+(`internal`/`boundary`/`nonmanifold`/`isolated`, all lists of face indices) and **raises**
+`ValueError` on a non-manifold or isolated face whatever `verbose` is set to. `verbose` only
+prints the counts. Pass `strict=False` to inspect a broken tessellation instead of raising —
+that is the only way to read the report for a bad file. `build_cell_graph` validates with the
+strict default, so it refuses an isolated face before it reaches its own "No shared faces
+found" guard.
+
 ### A missing optional dependency is reported by the lazy `__getattr__`
 `graintrace/__init__.py` wraps its PEP 562 lazy import, so accessing a symbol whose dependency
 is absent raises a `ModuleNotFoundError` naming the symbol, the submodule, the missing module
@@ -1396,7 +1415,7 @@ graintrace/
   hedm_stitching_techniques/
     region_base_stitching.py   RegionBaseStitching   : Multi-scan Z-stitching
   scan_stitching_comparison.py ScanStitchingComparison : Compare stitching results
-  tess_to_gnn.py               NeperTessToGraphNN    : .tess → graph data structure
+  tess_to_gnn.py               NeperTessToGraphNN    : .tess → graph data structure; encode_signed_index/decode_signed_index (signed 0-based edge/face indices)
   user_data_class.py           SimilarityMetric, WeightConfig, RareCriteria
   cpfe_base/                   MOOSE/NEML2 input templates (.i files)
     neml2_cpfe.i               : CPFE material model definition
