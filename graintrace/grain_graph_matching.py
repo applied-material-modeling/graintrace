@@ -538,13 +538,21 @@ class GraphGrainMatcher:
                 emitted misorientation is in the same unit.
             symmetry: Point group used to reduce the misorientation.
 
-        .. warning::
+        .. note::
 
-           **The X, Y and Z message channels are hard zeros.** ``phi_operator``
-           writes literal zero tensors into the first three columns on every
-           iteration, so positions never propagate along edges -- only ``M``
-           does. The ``X, Y, Z`` entries of a node's feature vector stay at
-           their initial centroid values for the whole run. Since candidate
+           **The X, Y and Z message channels are deliberately zero, and the
+           zero is load-bearing.** The update in
+           :meth:`message_passing` is additive, ``F = F + m``, so zero is the
+           identity: writing it into the first three columns is what *keeps*
+           each node's ``X, Y, Z`` at its measured centroid for the whole run.
+           Any non-zero message there would accumulate into the coordinates
+           round after round and leave them neither a position nor a
+           meaningful descriptor, and dropping the three channels would strip
+           position out of the ``cdist`` that generates the candidate pool.
+           Only ``M`` propagates, so the structural part of the signature is
+           orientation-derived by design; positional discrimination enters
+           through the candidate distance and the consistency cost instead.
+           Since candidate
            generation is a Euclidean ``cdist`` over the full feature vector,
            and the three position channels are raw micrometres while ``M`` is
            an angle in degrees, candidate selection is dominated by centroid
@@ -569,6 +577,12 @@ class GraphGrainMatcher:
 
             aM, bM = Fs["M"]
 
+            # Zero, not unset: message_passing applies `F = F + m`, so a zero
+            # message is the identity and is what preserves each node's
+            # measured centroid across every round. Do not "fill these in"
+            # with a source-to-destination offset -- that would accumulate
+            # into X/Y/Z and destroy the coordinates the candidate `cdist`
+            # relies on. See the note in this function's docstring.
             dX = torch.zeros((E, 1), device=device, dtype=dtype)
             dY = torch.zeros((E, 1), device=device, dtype=dtype)
             dZ = torch.zeros((E, 1), device=device, dtype=dtype)

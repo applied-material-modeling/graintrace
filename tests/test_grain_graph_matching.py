@@ -200,3 +200,80 @@ class TestNeighborSelectionTolerance:
         pytest.importorskip("torch_geometric")
         out = _run_selection(tmp_path, tolerance=0.5, iterations=5)
         assert out["params"]["tolerance"] == 0.5
+
+
+class TestPositionChannelsArePreserved:
+    """The zero X/Y/Z messages are an invariant, not a dead branch (#45).
+
+    ``message_passing`` updates additively (``F = F + m``), so a zero message
+    is the identity and is exactly what carries each node's measured centroid
+    through every round untouched. Filling those channels with a
+    source-to-destination offset -- the change #45 proposes -- would
+    accumulate into the coordinates and break the ``cdist`` candidate pool.
+    These tests fail if anyone makes that change.
+    """
+
+    @staticmethod
+    def _graph(n=5):
+        pytest.importorskip("torch_geometric")
+        pytest.importorskip("neml2")
+        import torch
+        from torch_geometric.data import Data
+
+        torch.manual_seed(42)
+        xyz = torch.arange(n, dtype=torch.float64).reshape(n, 1) * torch.ones(
+            1, 3, dtype=torch.float64
+        )
+        xyz = xyz + torch.tensor([0.0, 10.0, 100.0], dtype=torch.float64)
+        euler = torch.tensor(
+            [[13.0 * i, 7.0 * i, 29.0 * i] for i in range(n)], dtype=torch.float64
+        )
+        graph = Data(
+            x=torch.cat([xyz, euler], dim=1),
+            edge_index=torch.tensor(
+                [list(range(n - 1)), list(range(1, n))], dtype=torch.long
+            ),
+        )
+        graph.feature_slices = {
+            "X": (0, 1),
+            "Y": (1, 2),
+            "Z": (2, 3),
+            "Eul0": (3, 4),
+            "Eul1": (4, 5),
+            "Eul2": (5, 6),
+        }
+        return graph, xyz
+
+    def _run(self, iters, n=5):
+        graph, xyz = self._graph(n)
+
+        from graintrace.grain_graph_matching import GraphGrainMatcher
+
+        F, ctx = GraphGrainMatcher.message_passing(
+            None,
+            graph,
+            GraphGrainMatcher.default_message_passing_function,
+            message_passing_iter=iters,
+            use_default=True,
+        )
+        return F, ctx, xyz
+
+    @pytest.mark.parametrize("iters", [1, 3, 6])
+    def test_centroids_survive_every_round_unchanged(self, iters):
+        import torch
+
+        F, ctx, xyz = self._run(iters)
+        for axis, col in (("X", 0), ("Y", 1), ("Z", 2)):
+            a, b = ctx["F_slices"][axis]
+            assert torch.allclose(F[:, a:b], xyz[:, col : col + 1]), (
+                f"{axis} drifted after {iters} rounds; the zero message is the "
+                "identity of an additive update and must stay zero"
+            )
+
+    def test_the_message_channel_does_move(self):
+        """Positive control: M must accumulate, or the test above proves nothing."""
+        import torch
+
+        F, ctx, _ = self._run(3)
+        a, b = ctx["F_slices"]["M"]
+        assert not torch.allclose(F[:, a:b], torch.zeros_like(F[:, a:b]))
