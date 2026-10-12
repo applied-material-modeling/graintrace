@@ -131,3 +131,116 @@ def test_flood_rejects_nonpositive_stop_count(stop_count):
             angle_convention="bunge",
             angle_type="degrees",
         )
+
+
+def _wrapping_neighbor_indices(monkeypatch):
+    """Replace the clamping neighbour lookup with a wrapping one.
+
+    ``flood``'s out-of-domain ``valid`` mask is inert unless it is applied, and
+    with the real :func:`graintrace.nf.image.get_neighbor_indices` that is
+    invisible: it clamps, so an out-of-domain offset resolves to a voxel the
+    front would have reached anyway. This stand-in keeps the same ``valid``
+    mask but wraps the indices instead of clamping them, which is what makes
+    the mask observable -- exactly the latent trap #52 describes, where a
+    change to the neighbour lookup turns a dead line into wrong labels at the
+    domain boundary.
+    """
+    from graintrace.nf import segment as segment_module
+
+    def _wrapping(offsets, shape):
+        X, Y, Z = torch.meshgrid(
+            torch.arange(shape[0]),
+            torch.arange(shape[1]),
+            torch.arange(shape[2]),
+            indexing="ij",
+        )
+        Xk = X.unsqueeze(0) + offsets[:, 0][:, None, None, None]
+        Yk = Y.unsqueeze(0) + offsets[:, 1][:, None, None, None]
+        Zk = Z.unsqueeze(0) + offsets[:, 2][:, None, None, None]
+        valid = (
+            (Xk >= 0)
+            & (Xk < shape[0])
+            & (Yk >= 0)
+            & (Yk < shape[1])
+            & (Zk >= 0)
+            & (Zk < shape[2])
+        )
+        return Xk % shape[0], Yk % shape[1], Zk % shape[2], valid
+
+    monkeypatch.setattr(segment_module, "get_neighbor_indices", _wrapping)
+
+
+def _sandwich_grid():
+    """Anisotropic grid with two same-orientation slabs split by a third.
+
+    ``nx, ny, nz = 6, 3, 2`` are all different, so an axis mix-up cannot pass
+    unnoticed. Along x: voxels 0-1 and 4-5 are at 0 deg, voxels 2-3 at 90 deg.
+    The two 0 deg slabs are separate grains -- unless the domain wraps, which
+    would make voxel 0 and voxel 5 neighbours and merge them.
+    """
+    angles = torch.zeros(6, 3, 2, 3, dtype=torch.float64)
+    angles[2:4, :, :, 0] = 90.0
+    phase = torch.ones(6, 3, 2, dtype=torch.float64)
+    return angles, phase
+
+
+def _flood_sandwich(connectivity):
+    angles, phase = _sandwich_grid()
+    return segment.flood(
+        angles,
+        phase,
+        5.0,
+        connectivity=connectivity,
+        grain_threshold=4,
+        stop_count=10,
+        angle_convention="bunge",
+        angle_type="degrees",
+        symmetry="432",
+    )
+
+
+class TestOutOfDomainGuardIsApplied:
+    """The ``valid`` mask must actually reach ``distances`` (#52).
+
+    The guard used the out-of-place ``masked_fill``, whose return value was
+    discarded, so the mask was inert. That was label-identical on every real
+    input only because the neighbour indices are clamped. These tests pin both
+    halves of that claim: the guard is live, and turning it on changed nothing
+    for clamped input.
+    """
+
+    @pytest.mark.parametrize("connectivity", [6, 26])
+    def test_the_front_cannot_cross_the_domain_boundary(
+        self, monkeypatch, connectivity
+    ):
+        """With a wrapping neighbour lookup, a dead mask merges the two slabs."""
+        _deterministic_seed_choice(monkeypatch)
+        _stub_misorientation(monkeypatch)
+        _wrapping_neighbor_indices(monkeypatch)
+
+        out = _flood_sandwich(connectivity)
+
+        assert out[0, 0, 0] >= 1 and out[5, 0, 0] >= 1
+        assert out[0, 0, 0] != out[5, 0, 0], (
+            "the two 0 deg slabs were merged across the domain boundary, so "
+            "the out-of-domain mask is not being applied"
+        )
+
+    @pytest.mark.parametrize("connectivity", [6, 26])
+    def test_clamped_input_is_label_identical(self, monkeypatch, connectivity):
+        """The real clamping lookup gives the same labels either way.
+
+        This is the claim that made #52 LOW rather than HIGH, so it is pinned
+        rather than argued: on the shipped neighbour lookup the live mask is a
+        no-op, and the two slabs are still resolved as separate grains.
+        """
+        _deterministic_seed_choice(monkeypatch)
+        _stub_misorientation(monkeypatch)
+
+        out = _flood_sandwich(connectivity)
+
+        assert out[0, 0, 0] != out[5, 0, 0]
+        assert torch.all(out[0:2] == out[0, 0, 0])
+        assert torch.all(out[4:6] == out[5, 0, 0])
+        assert torch.all(out[2:4] >= 1)
+        assert len(torch.unique(out)) == 3

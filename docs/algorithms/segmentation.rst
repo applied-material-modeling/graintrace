@@ -130,17 +130,16 @@ sub-threshold segments into the adjacent grain with the largest contact area.
 
 .. note::
 
-   The out-of-domain guard in the flood stencil is **inert**. ``flood`` builds a
-   ``valid`` mask for neighbour offsets that fall outside the grid and then calls
-   ``distances.masked_fill(~valid, inf)``, which is the *out-of-place* form: it
-   returns a new tensor and the return value is discarded, so ``distances`` is
-   never modified. This is harmless as written only because the neighbour indices
-   are clamped to the grid first, which makes every out-of-domain lookup resolve
-   to an in-domain voxel that the front would have reached anyway. It is not a
-   guarantee: any change that stops clamping, or that reads ``distances`` for
-   something other than the tolerance comparison, turns the dead mask into wrong
-   labels at the domain boundary. Treat the clamp, not the mask, as the thing
-   holding this together.
+   The out-of-domain guard in the flood stencil is applied in place. ``flood``
+   builds a ``valid`` mask for neighbour offsets that fall outside the grid and
+   calls ``distances.masked_fill_(~valid, inf)``, so the front cannot cross the
+   domain boundary. Up to the fix for issue #52 this line used the
+   *out-of-place* ``masked_fill``, whose return value was discarded, leaving
+   the mask inert. That was label-identical on every real input, because the
+   neighbour indices are clamped to the grid first and an out-of-domain lookup
+   therefore resolved to an in-domain voxel the front would have reached
+   anyway -- but the correctness rested entirely on the clamp while the code
+   read as though it rested on the mask. It now rests on both.
 
 Algorithm
 ---------

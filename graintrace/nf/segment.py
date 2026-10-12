@@ -85,16 +85,15 @@ def flood(
         **kwargs,
     ).reshape(Xk.shape)
 
-    # Intended to mark out-of-domain neighbours as infinitely far so the front
-    # does not flood into them. NOTE: this is the out-of-place masked_fill, so
-    # the result is discarded and `distances` is unchanged -- the mask is inert.
-    # It is harmless today only because get_neighbor_indices clamps the indices to
-    # the grid, so an out-of-domain offset resolves either to the voxel itself (6-
-    # connectivity, zero misorientation) or to an in-domain neighbour already
-    # covered by another offset. Documented, not changed: making the mask live
-    # would change labels at the domain boundary. See the segmentation algorithm
-    # page and issue #52.
-    distances.masked_fill(~valid, float("inf"))
+    # Mark out-of-domain neighbours as infinitely far so the front cannot flood
+    # into them. masked_fill_ is the in-place form; the out-of-place
+    # masked_fill returns a new tensor, and this line used to discard it, which
+    # left the mask inert. That was label-identical in practice only because
+    # get_neighbor_indices clamps the indices to the grid, so an out-of-domain
+    # offset resolved either to the voxel itself (6-connectivity, zero
+    # misorientation) or to an in-domain neighbour another offset already
+    # covered. The correctness must not rest on the clamp alone.
+    distances.masked_fill_(~valid, float("inf"))
 
     # Phase > 0 is material to segment, 0 is void; mark material unsegmented (-1)
     phase[phase > 0] = UNSEGMENTED
