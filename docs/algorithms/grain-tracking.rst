@@ -98,10 +98,10 @@ B grain is claimed by its lowest-cost proposer, and :math:`\pi` is updated.
 
 .. note::
 
-   The loop runs a fixed ``iterations`` rounds. The ``"tolerance"`` key is accepted and echoed
-   back in the metadata but is **never read as a convergence criterion**, and the "Converged"
-   message prints only on a degenerate round in which no grain had any candidate to propose.
-   Budget ``iterations`` directly; there is no early stop on a settled mapping.
+   ``iterations`` is an upper bound, not a fixed round count. The loop stops early once two
+   consecutive rounds produce mean assignment costs differing by less than ``"tolerance"``
+   (default :math:`10^{-6}`), and prints "Converged before max iterations." when it does.
+   Pass ``tolerance=0.0`` to disable the early exit and always run the full budget.
 
    The result is a mutual best-neighbour fixed point, not a global optimum: this is not the
    Hungarian algorithm and does not minimise the total assignment cost. Two grains can
@@ -134,8 +134,9 @@ Parameters that matter
 - ``neighbor_selection_param["topk"]``: candidate pool size per A grain. Fixed once before the
   loop, so a true match outside the initial top-:math:`k` can never be recovered however many
   iterations run.
-- ``neighbor_selection_param["iterations"]``: iteration budget, and the only thing that stops
-  the loop. ``["tolerance"]`` is accepted and echoed but not read.
+- ``neighbor_selection_param["iterations"]``: upper bound on the number of rounds.
+  ``["tolerance"]`` stops the loop early once the mean assignment cost moves by less than it
+  between consecutive rounds; ``0.0`` disables that exit and runs the full budget.
 - ``build_graph(CVT_iter=...)``: CVT iterations for the tessellation the graph is built on; a
   consistent bounding box per load step keeps the two graphs comparable.
 - ``output_prefix`` (default ``"out_"``): prepended verbatim to all five output file names.

@@ -67,8 +67,6 @@ def main():  # wrapped in main() for multiprocessing
                 "mode": "rbf",
                 "sigma": None,
                 "sigma_auto": {
-                    "sample_size": 20_000,
-                    "random_state": 42,
                     "quantile": 0.5,
                 },
                 "power": 2.0,

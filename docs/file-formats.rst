@@ -196,6 +196,15 @@ segmentations reach it through
 :meth:`~graintrace.fragmentation.FragmentationAnalyzer.seg_to_grain_table`.
 Shipped example: ``mwe_data/synthetic_split_ff/``.
 
+.. note::
+
+   ``seg_to_grain_table``'s ``background_label`` depends on which label domain you
+   feed it. Output of :meth:`~graintrace.fragmentation.FragmentationAnalyzer.segment`
+   is **0-based grain labels** over solid points only, so the default ``-1`` is right
+   and ``background_label=0`` would delete a grain. A raw segmented voxel grid instead
+   uses ``0`` void / ``>= 1`` grain / ``-1`` unsegmented, so pass
+   ``background_label=(0, -1)`` to drop both sentinels.
+
 Reconstruction output
 ---------------------
 

@@ -69,7 +69,7 @@ weight_cfg = WeightConfig(
     mode="rbf",
     power=2.0,
     sigma=None,
-    sigma_auto={"sample_size": 500_000, "random_state": 42, "quantile": 0.5},
+    sigma_auto={"quantile": 0.5},
 )
 
 # segmentation

@@ -367,11 +367,7 @@ def identify_rare_events(
             mode="rbf",
             power=2.0,
             sigma=None,
-            sigma_auto={
-                "sample_size": 500_000,
-                "random_state": p["seed"],
-                "quantile": 0.5,
-            },
+            sigma_auto={"quantile": 0.5},
         )
         irc = IdentifyRareClusters(
             input_csv_path=input_csv,
@@ -523,11 +519,7 @@ def reorientation_rei(
             mode="rbf",
             power=2.0,
             sigma=None,
-            sigma_auto={
-                "sample_size": 200_000,
-                "random_state": p["seed"],
-                "quantile": 0.5,
-            },
+            sigma_auto={"quantile": 0.5},
         )
         bundle = irc.run_clustering(
             gsc=gsc,

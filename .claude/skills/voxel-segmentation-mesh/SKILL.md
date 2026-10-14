@@ -38,8 +38,7 @@ merged_grid = builder.reconstruct(
             "reduce_edges_topweights_k": 8, "nodes_chunk": 500_000, "seed": 42,
             "networkit_kwargs": {"gamma": 0.001},   # lower gamma = fewer clusters
             "weight_cfg": {"mode": "rbf", "sigma": None,
-                           "sigma_auto": {"sample_size": 20_000, "random_state": 42,
-                                          "quantile": 0.5}, "power": 2.0},
+                           "sigma_auto": {"quantile": 0.5}, "power": 2.0},
             "plot": True,
         },
     },

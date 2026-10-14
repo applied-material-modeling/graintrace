@@ -294,24 +294,23 @@ class GraphGrainMatcher:
                 a_to_b, i, j, lam) -> float``; see
                 :meth:`default_neighbor_selection_cost_function`.
             neighbor_selection_param: Dict with keys ``"lambda"`` (weight of the
-                consistency term), ``"iterations"``, ``"topk"`` (candidates per
-                A grain) and ``"chunk"`` (rows per ``cdist`` block). A
-                ``"tolerance"`` key is accepted and echoed back in the returned
-                ``params``, but see the warning below.
+                consistency term), ``"iterations"`` (maximum rounds),
+                ``"tolerance"`` (convergence threshold, see below), ``"topk"``
+                (candidates per A grain) and ``"chunk"`` (rows per ``cdist``
+                block).
 
         Returns:
             Dict with ``matches`` ``(M, 2)``, ``costs`` ``(M,)``, ``a_to_b``
             ``(Na,)``, ``mean_cost_history`` and the ``params`` actually used.
 
-        .. warning::
-
-           ``"tolerance"`` is **never read as a convergence criterion**. The
-           loop always runs the full ``iterations`` count; there is no check on
-           ``mean_cost_history``, so lowering or raising the tolerance changes
-           nothing but the echoed value. The "Converged before max iterations."
-           message prints only when a round produces *no assignment at all* and
-           breaks out, which is a degenerate case rather than convergence.
-           Choose ``iterations`` by inspecting ``mean_cost_history`` afterwards.
+        ``"tolerance"`` is a convergence criterion: once two consecutive rounds
+        produce mean assignment costs differing by less than ``tolerance`` the
+        loop stops early and prints "Converged before max iterations.".
+        ``"iterations"`` is therefore an upper bound, not a fixed round count.
+        Pass ``tolerance=0.0`` to disable the early exit and always run the full
+        budget. At the default ``1e-6`` the exit fires only once the mean cost
+        is numerically static, which in practice means the assignment has
+        reached a fixed point.
         """
         if neighbor_selection_param is None:
             neighbor_selection_param = {
@@ -415,9 +414,18 @@ class GraphGrainMatcher:
                 for i, j in assigned
             ]
             mean_cost = float(sum(costs) / len(costs))
+            converged = (
+                len(mean_cost_history) > 0
+                and abs(mean_cost_history[-1] - mean_cost) < tol
+            )
             mean_cost_history.append(mean_cost)
 
             a_to_b = new_a_to_b
+
+            # Stop once the mean assignment cost stops moving by more than
+            # `tolerance`. tol == 0.0 disables the exit and runs the full budget.
+            if converged:
+                break
 
         if _it < max_it - 1:
             print("Converged before max iterations.")
@@ -530,13 +538,21 @@ class GraphGrainMatcher:
                 emitted misorientation is in the same unit.
             symmetry: Point group used to reduce the misorientation.
 
-        .. warning::
+        .. note::
 
-           **The X, Y and Z message channels are hard zeros.** ``phi_operator``
-           writes literal zero tensors into the first three columns on every
-           iteration, so positions never propagate along edges -- only ``M``
-           does. The ``X, Y, Z`` entries of a node's feature vector stay at
-           their initial centroid values for the whole run. Since candidate
+           **The X, Y and Z message channels are deliberately zero, and the
+           zero is load-bearing.** The update in
+           :meth:`message_passing` is additive, ``F = F + m``, so zero is the
+           identity: writing it into the first three columns is what *keeps*
+           each node's ``X, Y, Z`` at its measured centroid for the whole run.
+           Any non-zero message there would accumulate into the coordinates
+           round after round and leave them neither a position nor a
+           meaningful descriptor, and dropping the three channels would strip
+           position out of the ``cdist`` that generates the candidate pool.
+           Only ``M`` propagates, so the structural part of the signature is
+           orientation-derived by design; positional discrimination enters
+           through the candidate distance and the consistency cost instead.
+           Since candidate
            generation is a Euclidean ``cdist`` over the full feature vector,
            and the three position channels are raw micrometres while ``M`` is
            an angle in degrees, candidate selection is dominated by centroid
@@ -561,6 +577,12 @@ class GraphGrainMatcher:
 
             aM, bM = Fs["M"]
 
+            # Zero, not unset: message_passing applies `F = F + m`, so a zero
+            # message is the identity and is what preserves each node's
+            # measured centroid across every round. Do not "fill these in"
+            # with a source-to-destination offset -- that would accumulate
+            # into X/Y/Z and destroy the coordinates the candidate `cdist`
+            # relies on. See the note in this function's docstring.
             dX = torch.zeros((E, 1), device=device, dtype=dtype)
             dY = torch.zeros((E, 1), device=device, dtype=dtype)
             dZ = torch.zeros((E, 1), device=device, dtype=dtype)

@@ -74,16 +74,19 @@ def update_experiments(
     :class:`~graintrace.MaterialCalibration` fit: the output is the FF
     calibration CSV schema described in :doc:`/file-formats`.
 
-    .. warning::
+    .. important::
 
        ``reconstruction.ori`` and the grain table are concatenated **by row
-       position**, and the result is silently truncated to
-       ``min(len(df), len(ori_df))``. Nothing checks that the two row counts
-       agree, nothing logs it when they do not, and no grain id participates in
-       the join. If the NEPER build ever returns a different number of cells
-       than there are input grains, the output file silently loses rows and
-       pairs the surviving orientations with the wrong grains. Compare the row
-       count of each output file against its input before using the result.
+       position** -- no grain id participates in the join. A count mismatch is
+       therefore unrecoverable rather than merely lossy, so this function
+       **raises** ``ValueError`` when NEPER returns a different number of
+       cells than the filtered grain table has rows, naming both counts and
+       the file. The usual cause is the bounding-box filter dropping points
+       under ``bbox_fix_mode="remove_points"``.
+
+    Raises:
+        ValueError: if ``reconstruction.ori`` and the filtered grain table
+            disagree on row count.
     """
 
     os.makedirs(output_root, exist_ok=True)
@@ -142,12 +145,22 @@ def update_experiments(
         ):
             df[builder.elastic_strain_id] = df[builder.elastic_strain_id] * 1e6
 
-        n = min(len(df), len(ori_df))
+        # Positional join: row k of reconstruction.ori is the orientation of
+        # row k of the (bounding-box-filtered) grain table. No grain id
+        # participates, so a count mismatch is not recoverable here -- it would
+        # pair surviving orientations with the wrong grains, silently. Refuse.
+        if len(df) != len(ori_df):
+            raise ValueError(
+                f"NEPER wrote {len(ori_df)} orientations to {ori_path} but the "
+                f"filtered grain table for {input_file} has {len(df)} rows. "
+                "These are joined by row position, so a mismatch would assign "
+                "orientations to the wrong grains. This usually means the "
+                "bounding box dropped points (bbox_fix_mode='remove_points'); "
+                "widen the bounding box or reconcile the inputs."
+            )
+
         combined = pd.concat(
-            [
-                ori_df.iloc[:n].reset_index(drop=True),
-                df.iloc[:n].reset_index(drop=True),
-            ],
+            [ori_df.reset_index(drop=True), df.reset_index(drop=True)],
             axis=1,
         )
 

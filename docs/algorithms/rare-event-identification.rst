@@ -40,7 +40,7 @@ alike, and the weight kernels of :doc:`segmentation` invert it. Built-in metrics
      - Feature columns
    * - ``nye_tensor_norm``
      - :math:`\lVert \mathbf{A}_i - \mathbf{A}_j \rVert_F`
-     - the nine ``nye_tensor_ij``
+     - the nine ``nye_tensor_ij``, or any nine columns passed as ``cols``
    * - ``von_mises_stress``
      - relative difference, :eq:`rei-vm`
      - six stress components

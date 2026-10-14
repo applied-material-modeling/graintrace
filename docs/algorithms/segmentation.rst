@@ -95,9 +95,11 @@ magnitude in which every intra-grain edge dominates every boundary edge, whateve
    :math:`\sigma \approx 2.5^\circ` against a :math:`5^\circ` cutoff.
 
 When ``sigma`` is ``None``, it is estimated as a quantile of the surviving edge distances.
-Only the ``"quantile"`` key of ``sigma_auto`` is read -- ``sample_size`` and ``random_state``
-appear in several published recipes but are **not** consulted, and the quantile is taken over
-all edges rather than a sample. On a grid where most edges are intra-grain the median distance
+``"quantile"`` is the only key of ``sigma_auto`` that is read: the quantile is exact, taken
+over every surviving edge rather than a sample, so the estimate is deterministic. The
+``sample_size`` and ``random_state`` keys carried by older recipes bound and seed nothing;
+they have been removed from the shipped recipes, and passing either now raises a
+``UserWarning``. On a grid where most edges are intra-grain the median distance
 is near zero, so the estimate collapses to a fraction of a degree and shatters every grain;
 pin :math:`\sigma` by hand for orientation data.
 
@@ -128,17 +130,16 @@ sub-threshold segments into the adjacent grain with the largest contact area.
 
 .. note::
 
-   The out-of-domain guard in the flood stencil is **inert**. ``flood`` builds a
-   ``valid`` mask for neighbour offsets that fall outside the grid and then calls
-   ``distances.masked_fill(~valid, inf)``, which is the *out-of-place* form: it
-   returns a new tensor and the return value is discarded, so ``distances`` is
-   never modified. This is harmless as written only because the neighbour indices
-   are clamped to the grid first, which makes every out-of-domain lookup resolve
-   to an in-domain voxel that the front would have reached anyway. It is not a
-   guarantee: any change that stops clamping, or that reads ``distances`` for
-   something other than the tolerance comparison, turns the dead mask into wrong
-   labels at the domain boundary. Treat the clamp, not the mask, as the thing
-   holding this together.
+   The out-of-domain guard in the flood stencil is applied in place. ``flood``
+   builds a ``valid`` mask for neighbour offsets that fall outside the grid and
+   calls ``distances.masked_fill_(~valid, inf)``, so the front cannot cross the
+   domain boundary. Up to the fix for issue #52 this line used the
+   *out-of-place* ``masked_fill``, whose return value was discarded, leaving
+   the mask inert. That was label-identical on every real input, because the
+   neighbour indices are clamped to the grid first and an out-of-domain lookup
+   therefore resolved to an in-domain voxel the front would have reached
+   anyway -- but the correctness rested entirely on the clamp while the code
+   read as though it rested on the mask. It now rests on both.
 
 Algorithm
 ---------
