@@ -106,7 +106,7 @@ Graph-based (better for complex textures):
            "weight_cfg": {
                "mode": "rbf",
                "sigma": None,
-               "sigma_auto": {"sample_size": 20_000, "random_state": 42, "quantile": 0.5},
+               "sigma_auto": {"quantile": 0.5},
                "power": 2.0,
            },
            "plot": True,
@@ -144,7 +144,7 @@ Controls edge weighting for graph clustering.
        mode="rbf",           # "rbf" | "inverse"
        power=2.0,
        sigma=None,           # if None, use sigma_auto
-       sigma_auto={"sample_size": 500_000, "random_state": 42, "quantile": 0.5},
+       sigma_auto={"quantile": 0.5},
    )
 
 CPFE parameters

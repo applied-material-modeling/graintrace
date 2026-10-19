@@ -42,7 +42,7 @@ spec = lib.nye_tensor_norm(cols=[f"nye_tensor_{i}{j}" for i in (1,2,3) for j in 
 spec_reduced = SimilarityMetric(name=spec.name + "_mean",
     feature_cols=[f"{c}_mean" for c in spec.feature_cols], func=spec.func)
 weight_cfg = WeightConfig(mode="rbf", power=2.0, sigma=None,
-    sigma_auto={"sample_size": 500_000, "random_state": 42, "quantile": 0.5})
+    sigma_auto={"quantile": 0.5})
 rare = RareCriteria(selector=lambda df: rcs.select_highest_scalar(
     df, k=5, required_cols="nye_tensor_norm_mean_mean", min_size=1))
 

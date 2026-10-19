@@ -545,11 +545,7 @@ def rei(last_grid_csv):
         mode="rbf",
         power=2.0,
         sigma=None,
-        sigma_auto={
-            "sample_size": 500_000,
-            "random_state": REI["seed"],
-            "quantile": 0.5,
-        },
+        sigma_auto={"quantile": 0.5},
     )
     irc = IdentifyRareClusters(
         input_csv_path=str(last_grid_csv), id_col="id", coord_cols=("x", "y", "z")

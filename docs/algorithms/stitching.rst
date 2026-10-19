@@ -25,34 +25,224 @@ and the overlap band between scan :math:`k` and :math:`k+1` is
 :math:`[\,z_{lo} + (k+1)\Delta z,\ z_{lo} + k\,\Delta z + h\,]`.
 
 Within a pair, candidate duplicate edges are scored by three differences: Euclidean centroid
-distance :math:`\Delta p`, symmetry-aware misorientation :math:`\Delta\theta`, and relative
-radius difference :math:`\Delta r = |r_B - r_A| / r_A`. The misorientation respects the crystal
-point group :math:`G`,
+distance :math:`\Delta p`, the symmetry-aware disorientation :math:`\Delta\theta` of
+:eq:`seg-disorientation`, and the relative radius difference
+:math:`\Delta r = |r_B - r_A| / r_A`. The matching cost normalizes each term by its tolerance
+and weights it,
 
 .. math::
-
-    \Delta\theta = \min_{S \in G}\, \arccos\!\left(\frac{\operatorname{tr}(S\,R_A R_B^{\top}) - 1}{2}\right),
-
-and the matching cost normalizes each term by its tolerance and weights it,
-
-.. math::
+   :label: stitch-cost
 
     c_{ab} = w_{\mathrm{pos}}\frac{\Delta p_{ab}}{\tau_p}
            + w_{\mathrm{ori}}\frac{\Delta\theta_{ab}}{\tau_\theta}
            + w_{\mathrm{rad}}\frac{\Delta r_{ab}}{\tau_r}.
 
-Gating (which candidates are feasible) is independent of the cost weights: a tolerance of
-:math:`-1` disables that dimension's gate, while a weight of :math:`0` only drops it from the
-cost. Each grain is also assigned a **region** from its :math:`z`-extent :math:`[z_l, z_h]`
-relative to the overlap band :math:`[z_{ol}, z_{oh}]`: ``CORE``, ``HIGH``, ``LOW``,
-``BND-HIGH``, ``BND-LOW``, or ``CROSS-BOTH``. The extent defaults to the equivalent-sphere
-approximation :math:`z \pm r`; with ``refine_extents=True`` it uses the true per-cell
-:math:`[z_{\min}, z_{\max}]` from a NEPER (Laguerre/Voronoi) tessellation of the pair.
+Dividing by the tolerance is what makes the three terms commensurable: each contributes
+:math:`1` at exactly its own gate, so the weights compare *fractions of an allowance* rather
+than micrometres against degrees. A weight is therefore a statement about which evidence to
+trust, and it only means what you intend if the tolerances are each set to a genuine
+allowance. Note :math:`\Delta r` is relative but :math:`\Delta p` is absolute, so a
+position tolerance tuned on a fine-grained sample does not transfer to a coarse one.
 
-A merged grain combines the two observations by grain volume :math:`v = \tfrac{4}{3}\pi r^3`:
-centroid is the volume-weighted mean, and orientation is a symmetry-aware, volume-weighted
-average (B rotated to the symmetry equivalent closest to A, the two rotation matrices blended
-and re-projected onto :math:`SO(3)` via SVD).
+**Gating is independent of the cost weights.** A tolerance of :math:`-1` disables that
+dimension's gate, while a weight of :math:`0` only drops the term from :eq:`stitch-cost` and
+leaves the gate enforcing. The vetted FF recipe uses both levers at once --
+``radius_tolerance=-1`` with ``weights["rad"]=0`` -- because the FF equivalent-sphere radius
+is the least reliable of the three observables; dropping only the weight would still have it
+rejecting candidates silently.
+
+Regions
+~~~~~~~
+Each grain is assigned a **region** from its :math:`z`-extent :math:`[z_l, z_h]` relative to
+the overlap band :math:`[z_{ol}, z_{oh}]`:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 10 20 70
+
+   * - Code
+     - Region
+     - Condition
+   * - 1
+     - ``CORE``
+     - entirely inside the band (the fallback case)
+   * - 2
+     - ``HIGH``
+     - :math:`z_l \ge z_{oh}` -- entirely above
+   * - 3
+     - ``LOW``
+     - :math:`z_h \le z_{ol}` -- entirely below
+   * - 4
+     - ``BND-HIGH``
+     - :math:`z_l < z_{oh} < z_h` -- crosses the upper edge
+   * - 5
+     - ``BND-LOW``
+     - :math:`z_l < z_{ol} < z_h` -- crosses the lower edge
+   * - 6
+     - ``CROSS-BOTH``
+     - :math:`z_l < z_{ol}` and :math:`z_h > z_{oh}` -- spans the whole band
+
+The tests are applied in the order ``LOW``, ``HIGH``, ``CROSS-BOTH``, ``BND-LOW``,
+``BND-HIGH``, so a grain taller than the band is ``CROSS-BOTH`` rather than either boundary
+class. The extent defaults to the equivalent-sphere approximation :math:`z \pm r`; with
+``refine_extents=True`` it uses the true per-cell :math:`[z_{\min}, z_{\max}]` from a NEPER
+(Laguerre/Voronoi) tessellation of the pair.
+
+The region is what encodes the physics of the scan geometry: a grain clipped by the edge of a
+scan was only partially observed, so its centroid and radius are biased toward the scan
+interior and the *other* scan's observation of the same grain is the better one. The rules
+below are that statement, made explicit.
+
+Rule tables
+~~~~~~~~~~~
+A matched pair is resolved by its ``(region A, region B)`` entry. ``MC`` merges the two
+observations, ``KA`` keeps A and drops B, ``KB`` keeps B and drops A, and ``RJ`` rejects the
+match and sends both grains to the unmatched stage.
+
+.. list-table:: Matched-pair actions, ``MatchRuleTable``. Rows: region of the accumulator grain A. Columns: region of the new-scan grain B.
+   :header-rows: 1
+   :stub-columns: 1
+   :widths: 22 13 13 13 13 13 13
+
+   * - A \\ B
+     - CORE
+     - HIGH
+     - LOW
+     - BND-HIGH
+     - BND-LOW
+     - CROSS
+   * - **CORE**
+     - MC
+     - KB
+     - RJ
+     - KA
+     - KA
+     - KA
+   * - **HIGH**
+     - RJ
+     - RJ
+     - RJ
+     - RJ
+     - RJ
+     - RJ
+   * - **LOW**
+     - KA
+     - MC
+     - RJ
+     - MC
+     - KA
+     - KA
+   * - **BND-HIGH**
+     - KB
+     - KB
+     - RJ
+     - KB
+     - MC
+     - KB
+   * - **BND-LOW**
+     - KB
+     - KB
+     - RJ
+     - MC
+     - KA
+     - KA
+   * - **CROSS**
+     - KB
+     - KB
+     - RJ
+     - KB
+     - MC
+     - MC
+
+Two structural facts are worth reading off it. The whole ``LOW`` column is ``RJ``: B is the
+upper scan, so a B grain entirely below the band cannot be the same grain as anything in A and
+the match is spurious. The whole ``HIGH`` row is likewise ``RJ``, for the mirror reason.
+
+Grains left unmatched -- including everything the table rejected -- are then kept or dropped
+by region alone:
+
+.. list-table:: Unmatched-grain decisions, ``UnmatchedRules``
+   :header-rows: 1
+   :widths: 24 20 20 36
+
+   * - Region
+     - A (accumulator)
+     - B (new scan)
+     - Why
+   * - ``CORE``
+     - REMOVE
+     - KEEP
+     - fully inside the band, so B's observation supersedes A's
+   * - ``HIGH``
+     - **ERROR**
+     - KEEP
+     - an A grain above the band is geometrically impossible
+   * - ``LOW``
+     - KEEP
+     - **ERROR**
+     - a B grain below the band is geometrically impossible
+   * - ``BND-HIGH``
+     - REMOVE
+     - KEEP
+     - clipped by A's upper edge; B saw it whole
+   * - ``BND-LOW``
+     - KEEP
+     - REMOVE
+     - clipped by B's lower edge; A saw it whole
+   * - ``CROSS-BOTH``
+     - REMOVE
+     - KEEP
+     - spans the band; prefer the newer scan
+
+The two ``ERROR`` cells are assertions, not actions: reaching one means the scan
+:math:`z`-geometry passed to ``run`` disagrees with the data, usually a wrong
+``overlap_fraction`` or a :math:`z`-shift that was applied twice.
+
+.. note::
+
+   ``MatchRuleTable._build_table`` carries a second, unreachable rule set behind an
+   ``optiona=True`` default argument that nothing sets to ``False``. The alternate set merges
+   any overlap-intersecting pair instead of preferring one scan. Only the table above runs.
+
+Merging
+~~~~~~~
+A merged grain combines the two observations by grain volume
+:math:`v = \tfrac{4}{3}\pi r^3`. The centroid is the volume-weighted mean,
+
+.. math::
+   :label: stitch-merge-centroid
+
+   \mathbf{x} = \frac{v_A \mathbf{x}_A + v_B \mathbf{x}_B}{v_A + v_B},
+
+and the merged radius comes from the **mean** of the two volumes, not their sum:
+
+.. math::
+   :label: stitch-merge-radius
+
+   r = \left( \frac{3}{4\pi} \cdot \frac{v_A + v_B}{2} \right)^{1/3} .
+
+That is the right choice here and an easy one to get wrong. The two observations are the
+*same grain* seen twice, so their volumes should be averaged; summing them would double the
+material at every merge and inflate the stitched volume fraction by the overlap.
+
+The orientation is a symmetry-aware volume-weighted average: :math:`R_B` is first replaced
+by the symmetry equivalent closest to :math:`R_A`, the two matrices are blended, and the result
+is re-projected onto :math:`SO(3)`,
+
+.. math::
+   :label: stitch-merge-ori
+
+   \tilde{R} = \frac{v_A R_A + v_B R_B^{\star}}{v_A + v_B},
+   \qquad
+   R = U V^{\mathsf T}, \quad \tilde{R} = U \Sigma V^{\mathsf T}.
+
+The polar factor :math:`UV^{\mathsf T}` is the closest rotation to :math:`\tilde{R}` in the
+Frobenius norm, which is what makes the blend well defined -- a weighted sum of two rotation
+matrices is not itself a rotation. Folding :math:`R_B` onto the nearest variant first is not
+optional: without it a cubic pair reported in different symmetry variants averages to
+something close to neither, and the result is a grain whose orientation matches no
+observation. See :doc:`/notation` for the variant-folding rule and for why a quaternion mean
+is used elsewhere in the package for the same job.
 
 Algorithm
 ---------

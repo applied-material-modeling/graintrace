@@ -238,3 +238,114 @@ class TestSyntheticGenerators:
         assert len(nf["step_dirs"]) == 3
         mics = glob.glob(os.path.join(nf["step_dirs"][0], "*.mic"))
         assert len(mics) == 2  # nz layers
+
+
+class TestTopKAndDTolCompose:
+    """``top_k`` caps the candidate set; ``top_k=None`` removes the cap (#49)."""
+
+    def test_capping_before_or_after_d_tol_gives_the_same_set(self):
+        """The reorder proposed in #49 is a no-op, so the cap is the only lever.
+
+        Every B grain inside the radius is nearer than every B grain outside
+        it, so "k nearest, then filter by d_tol" and "filter by d_tol, then k
+        nearest" select identical candidates. Pinned here so nobody reorders
+        these two filters expecting the search to widen.
+        """
+        pytest.importorskip("scipy")
+        from scipy.spatial import cKDTree
+
+        rng = np.random.default_rng(0)
+        k = 8
+        for _ in range(200):
+            coords_a = rng.random((4, 3)) * 10.0
+            coords_b = rng.random((40, 3)) * 10.0
+            tree = cKDTree(coords_b)
+            d_tol = float(rng.uniform(0.5, 6.0))
+            for i in range(len(coords_a)):
+                dist, jdx = tree.query(coords_a[i], k=k)
+                cap_then_filter = {int(j) for dd, j in zip(dist, jdx) if dd <= d_tol}
+                within = tree.query_ball_point(coords_a[i], r=d_tol)
+                filter_then_cap = {
+                    int(j)
+                    for _, j in sorted(
+                        (float(np.linalg.norm(coords_b[j] - coords_a[i])), j)
+                        for j in within
+                    )[:k]
+                }
+                assert cap_then_filter == filter_then_cap
+
+    def _dense_split(self):
+        """Parent at the origin fragmenting into 5 near-identical children."""
+        a = _nodes(
+            [1],
+            np.array([[0.0, 0.0, 0.0]]),
+            np.array([[10.0, 20.0, 30.0]]),
+        )
+        offsets = np.array(
+            [[-2.0, 0, 0], [-1.0, 0, 0], [0.0, 0, 0], [1.0, 0, 0], [2.0, 0, 0]]
+        )
+        b = _nodes(
+            [11, 12, 13, 14, 15],
+            offsets,
+            np.tile(np.array([[10.0, 20.0, 30.0]]), (5, 1)),
+        )
+        return a, b
+
+    def test_cap_limits_the_number_of_children(self):
+        pytest.importorskip("neml2")
+        pytest.importorskip("scipy")
+        from graintrace.fragmentation import FragmentationAnalyzer
+
+        a, b = self._dense_split()
+        res = FragmentationAnalyzer().detect_splits(
+            a, b, d_tol=10.0, theta_tol_deg=5.0, angle_type="degrees", top_k=2
+        )
+        assert int(res["split_correspondences"].iloc[0]["n_children"]) == 2
+
+    def test_raising_d_tol_alone_does_not_widen_a_capped_search(self):
+        pytest.importorskip("neml2")
+        pytest.importorskip("scipy")
+        from graintrace.fragmentation import FragmentationAnalyzer
+
+        a, b = self._dense_split()
+        narrow = FragmentationAnalyzer().detect_splits(
+            a, b, d_tol=10.0, theta_tol_deg=5.0, angle_type="degrees", top_k=2
+        )
+        wide = FragmentationAnalyzer().detect_splits(
+            a, b, d_tol=1000.0, theta_tol_deg=5.0, angle_type="degrees", top_k=2
+        )
+        assert (
+            int(narrow["split_correspondences"].iloc[0]["n_children"])
+            == int(wide["split_correspondences"].iloc[0]["n_children"])
+            == 2
+        )
+
+    def test_top_k_none_takes_every_candidate_within_d_tol(self):
+        pytest.importorskip("neml2")
+        pytest.importorskip("scipy")
+        from graintrace.fragmentation import FragmentationAnalyzer
+
+        a, b = self._dense_split()
+        res = FragmentationAnalyzer().detect_splits(
+            a, b, d_tol=10.0, theta_tol_deg=5.0, angle_type="degrees", top_k=None
+        )
+        assert int(res["split_correspondences"].iloc[0]["n_children"]) == 5
+
+    def test_top_k_none_matches_a_cap_wider_than_the_candidate_set(self):
+        """With no grain excluded by the cap, both paths must agree exactly."""
+        pytest.importorskip("neml2")
+        pytest.importorskip("scipy")
+        from graintrace.fragmentation import FragmentationAnalyzer
+
+        a, b = self._dense_split()
+        uncapped = FragmentationAnalyzer().detect_splits(
+            a, b, d_tol=10.0, theta_tol_deg=5.0, angle_type="degrees", top_k=None
+        )
+        wide_cap = FragmentationAnalyzer().detect_splits(
+            a, b, d_tol=10.0, theta_tol_deg=5.0, angle_type="degrees", top_k=50
+        )
+        assert uncapped["n_splits"] == wide_cap["n_splits"]
+        assert (
+            uncapped["split_correspondences"].iloc[0]["children_b"]
+            == wide_cap["split_correspondences"].iloc[0]["children_b"]
+        )

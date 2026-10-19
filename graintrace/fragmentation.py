@@ -47,7 +47,7 @@ from __future__ import annotations
 
 import os
 import tempfile
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 
@@ -96,6 +96,30 @@ def _knn_cluster_adjacency(
             key = (int(min(li, lj)), int(max(li, lj)))
             contacts[key] = contacts.get(key, 0) + 1
     return contacts
+
+
+def _as_label_set(background_label: Union[int, Iterable[int]]) -> set:
+    """Normalise a background-label argument to a set of ints.
+
+    Accepts a single integer or any iterable of integers, so a caller working
+    on a raw segmented voxel grid can exclude both non-grain sentinels --
+    ``0`` (void) and ``-1`` (material-but-unsegmented) -- in one call.
+
+    Raises:
+        TypeError: If the argument is neither an integer nor an iterable of
+            integers.
+    """
+    if isinstance(background_label, (bool, np.bool_)):
+        raise TypeError("background_label must be an int or an iterable of ints")
+    if isinstance(background_label, (int, np.integer)):
+        return {int(background_label)}
+    try:
+        return {int(v) for v in background_label}
+    except TypeError as exc:
+        raise TypeError(
+            "background_label must be an int or an iterable of ints, got "
+            f"{type(background_label).__name__}"
+        ) from exc
 
 
 def _voxel_volume(coords: np.ndarray) -> float:
@@ -758,7 +782,7 @@ class FragmentationAnalyzer:
         angle_convention: str = "bunge",
         angle_type: str = "radians",
         out_csv: Optional[str] = None,
-        background_label: int = -1,
+        background_label: Union[int, Iterable[int]] = -1,
     ) -> "object":
         """Reduce a labelled point set to a per-grain table (FF/NF/EBSD connector).
 
@@ -779,7 +803,29 @@ class FragmentationAnalyzer:
             angle_convention: Euler convention (used when ``euler`` is given).
             angle_type: ``"degrees"`` or ``"radians"`` for the input ``euler``.
             out_csv: if given, also write the table to this CSV path.
-            background_label: label treated as void/background and skipped.
+            background_label: label, or iterable of labels, treated as
+                non-grain and skipped. Defaults to ``-1``. See the note on
+                label domains below before changing it.
+
+        .. note::
+
+           **Two different label domains reach this method, and the right
+           ``background_label`` differs between them.**
+
+           *Output of* :meth:`segment` *(the documented NF/EBSD bridge).*
+           Contiguous **0-based grain labels** over a point set the caller has
+           already restricted to solid material. ``0`` is a real grain here, and
+           there is no void row at all, so the default ``-1`` excludes nothing
+           and is correct. Passing ``background_label=0`` on this input
+           silently deletes a grain.
+
+           *A raw segmented voxel grid* (``nf.segment.flood``, or anything
+           written through :func:`graintrace.nf.mesh.write_spn`). The domain is
+           ``0`` void, ``>= 1`` grain, ``-1`` material-but-unsegmented. Pass
+           ``background_label=(0, -1)`` to drop both sentinels. Left at the
+           default, the whole void region is emitted as one enormous "grain"
+           with a meaningless mean orientation, which then matches against the
+           next step in :meth:`detect_splits`.
 
         Returns:
             A ``pandas.DataFrame`` with the grain-table schema (Euler in degrees,
@@ -808,10 +854,12 @@ class FragmentationAnalyzer:
             )
         mrp = np.asarray(mrp, dtype=float)
 
+        background_labels = _as_label_set(background_label)
+
         voxvol = _voxel_volume(coords)
         rows = []
         for gid in np.unique(labels):
-            if gid == background_label:
+            if int(gid) in background_labels:
                 continue
             mask = labels == gid
             cnt = int(mask.sum())
@@ -975,7 +1023,7 @@ class FragmentationAnalyzer:
         ori_cols: Sequence[str] = ("Eul0", "Eul1", "Eul2"),
         coord_cols: Sequence[str] = ("X", "Y", "Z"),
         id_col: str = "grain_id",
-        top_k: int = 8,
+        top_k: Optional[int] = 8,
         adjacency_b: Optional[Iterable[Tuple[int, int]]] = None,
         out_csv: Optional[str] = None,
     ) -> Dict[str, Any]:
@@ -1003,7 +1051,22 @@ class FragmentationAnalyzer:
             ori_cols: the three orientation columns.
             coord_cols: the three coordinate columns.
             id_col: the grain-id column.
-            top_k: nearest B centroids probed per A grain.
+            top_k: cap on the number of B candidates probed per A grain
+                (default 8), or ``None`` for no cap. With a cap, ``top_k`` --
+                not ``d_tol`` -- is the binding limit on how many children a
+                split can have whenever more than ``top_k`` B grains sit within
+                ``d_tol``, so a parent that fragments into many pieces, or a
+                dense fine-grained step B, needs ``top_k`` raised as well as
+                ``d_tol``. Pass ``top_k=None`` to take every B grain within
+                ``d_tol`` and let ``d_tol`` alone decide the search, at the
+                cost of a radius query that is slower on dense data.
+
+                Note that the order of the two filters does not matter: the
+                ``top_k`` nearest B grains that survive ``d_tol`` are exactly
+                the ``top_k`` nearest among those within ``d_tol``, because
+                every grain inside the radius is closer than every grain
+                outside it. Only raising or removing the cap changes the
+                candidate set.
             adjacency_b: optional iterable of ``(grain_id, grain_id)`` pairs giving
                 intra-step-B grain adjacency; used to reject a spurious split child
                 that is not adjacent to any other child of the same parent. If no two
@@ -1036,21 +1099,31 @@ class FragmentationAnalyzer:
         r_a = _orientation_matrices(da, ori_cols, angle_convention, angle_type)
         r_b = _orientation_matrices(db, ori_cols, angle_convention, angle_type)
 
-        # Candidate cross edges: each A grain's top-k nearest B centroids.
+        # Candidate cross edges: the B centroids within d_tol of each A grain,
+        # capped at top_k nearest. Capping before or after the d_tol gate gives
+        # the same set (every grain inside the radius is nearer than every grain
+        # outside it), so top_k=None is the only way to widen the search.
         tree_b = cKDTree(coords_b)
-        kq = min(top_k, n_b)
-        dist, jdx = tree_b.query(coords_a, k=kq)
-        dist = np.asarray(dist).reshape(n_a, kq)
-        jdx = np.asarray(jdx).reshape(n_a, kq)
-
         ai, bj, pair_dist = [], [], []
-        for i in range(n_a):
-            for col in range(kq):
-                j = int(jdx[i, col])
-                if dist[i, col] <= d_tol:
+        if top_k is None:
+            for i in range(n_a):
+                for j in tree_b.query_ball_point(coords_a[i], r=d_tol):
                     ai.append(i)
-                    bj.append(j)
-                    pair_dist.append(float(dist[i, col]))
+                    bj.append(int(j))
+                    pair_dist.append(float(np.linalg.norm(coords_b[j] - coords_a[i])))
+        else:
+            kq = min(top_k, n_b)
+            dist, jdx = tree_b.query(coords_a, k=kq)
+            dist = np.asarray(dist).reshape(n_a, kq)
+            jdx = np.asarray(jdx).reshape(n_a, kq)
+
+            for i in range(n_a):
+                for col in range(kq):
+                    j = int(jdx[i, col])
+                    if dist[i, col] <= d_tol:
+                        ai.append(i)
+                        bj.append(j)
+                        pair_dist.append(float(dist[i, col]))
         ai = np.asarray(ai, dtype=np.int64)
         bj = np.asarray(bj, dtype=np.int64)
         pair_dist = np.asarray(pair_dist, dtype=float)

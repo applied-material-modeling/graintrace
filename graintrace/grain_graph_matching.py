@@ -278,7 +278,40 @@ class GraphGrainMatcher:
         neighbor_selection_cost_function,
         neighbor_selection_param=None,
     ):
-        """Assign each grain in A to a grain in B by iterative cost-minimizing selection."""
+        """Assign each grain in A to a grain in B by iterative cost-minimizing selection.
+
+        Each A grain's ``topk`` nearest B grains in feature space are fixed once
+        up front as its candidate set; the iteration only re-scores those. Each
+        round every A grain picks its lowest-cost candidate, and where several A
+        grains claim the same B grain the cheapest claim wins and the others go
+        unmatched that round. The assignment is therefore **one-to-one in B but
+        not onto**: an A grain can finish unmatched (``a_to_b[i] == -1``).
+
+        Args:
+            graph_a_features: ``(Na, d)`` node-feature tensor for step A.
+            graph_b_features: ``(Nb, d)`` node-feature tensor for step B.
+            neighbor_selection_cost_function: ``f(Fa, Fb, neigh_a, neigh_b,
+                a_to_b, i, j, lam) -> float``; see
+                :meth:`default_neighbor_selection_cost_function`.
+            neighbor_selection_param: Dict with keys ``"lambda"`` (weight of the
+                consistency term), ``"iterations"`` (maximum rounds),
+                ``"tolerance"`` (convergence threshold, see below), ``"topk"``
+                (candidates per A grain) and ``"chunk"`` (rows per ``cdist``
+                block).
+
+        Returns:
+            Dict with ``matches`` ``(M, 2)``, ``costs`` ``(M,)``, ``a_to_b``
+            ``(Na,)``, ``mean_cost_history`` and the ``params`` actually used.
+
+        ``"tolerance"`` is a convergence criterion: once two consecutive rounds
+        produce mean assignment costs differing by less than ``tolerance`` the
+        loop stops early and prints "Converged before max iterations.".
+        ``"iterations"`` is therefore an upper bound, not a fixed round count.
+        Pass ``tolerance=0.0`` to disable the early exit and always run the full
+        budget. At the default ``1e-6`` the exit fires only once the mean cost
+        is numerically static, which in practice means the assignment has
+        reached a fixed point.
+        """
         if neighbor_selection_param is None:
             neighbor_selection_param = {
                 "lambda": 0.125,
@@ -381,9 +414,18 @@ class GraphGrainMatcher:
                 for i, j in assigned
             ]
             mean_cost = float(sum(costs) / len(costs))
+            converged = (
+                len(mean_cost_history) > 0
+                and abs(mean_cost_history[-1] - mean_cost) < tol
+            )
             mean_cost_history.append(mean_cost)
 
             a_to_b = new_a_to_b
+
+            # Stop once the mean assignment cost stops moving by more than
+            # `tolerance`. tol == 0.0 disables the exit and runs the full budget.
+            if converged:
+                break
 
         if _it < max_it - 1:
             print("Converged before max iterations.")
@@ -480,7 +522,44 @@ class GraphGrainMatcher:
         angle_type="degrees",
         symmetry="432",
     ):
-        """Return (spec, phi_operator) for the default misorientation message-passing scheme."""
+        """Return (spec, phi_operator) for the default misorientation message-passing scheme.
+
+        The packed node feature is ``[X, Y, Z, M]``: the three raw centroid
+        coordinates plus one scalar message channel ``M`` initialised to zero.
+        On iteration ``k = 0`` the message along an edge is the symmetry-reduced
+        misorientation between the two grains' orientations; on later iterations
+        it is the Euclidean distance between the two endpoints' current feature
+        vectors, so ``M`` accumulates a neighbourhood-orientation summary.
+
+        Args:
+            angle_convention: Euler convention of the graph's ``Eul0/1/2``
+                features.
+            angle_type: ``"degrees"`` or ``"radians"`` for those features. The
+                emitted misorientation is in the same unit.
+            symmetry: Point group used to reduce the misorientation.
+
+        .. note::
+
+           **The X, Y and Z message channels are deliberately zero, and the
+           zero is load-bearing.** The update in
+           :meth:`message_passing` is additive, ``F = F + m``, so zero is the
+           identity: writing it into the first three columns is what *keeps*
+           each node's ``X, Y, Z`` at its measured centroid for the whole run.
+           Any non-zero message there would accumulate into the coordinates
+           round after round and leave them neither a position nor a
+           meaningful descriptor, and dropping the three channels would strip
+           position out of the ``cdist`` that generates the candidate pool.
+           Only ``M`` propagates, so the structural part of the signature is
+           orientation-derived by design; positional discrimination enters
+           through the candidate distance and the consistency cost instead.
+           Since candidate
+           generation is a Euclidean ``cdist`` over the full feature vector,
+           and the three position channels are raw micrometres while ``M`` is
+           an angle in degrees, candidate selection is dominated by centroid
+           proximity whenever the grains have moved less than a few degrees.
+           Scale or drop the position channels with a custom
+           ``message_passing_function`` if you need orientation to lead.
+        """
         spec = {
             "required_node_features": ["X", "Y", "Z", "Eul0", "Eul1", "Eul2"],
         }
@@ -498,6 +577,12 @@ class GraphGrainMatcher:
 
             aM, bM = Fs["M"]
 
+            # Zero, not unset: message_passing applies `F = F + m`, so a zero
+            # message is the identity and is what preserves each node's
+            # measured centroid across every round. Do not "fill these in"
+            # with a source-to-destination offset -- that would accumulate
+            # into X/Y/Z and destroy the coordinates the candidate `cdist`
+            # relies on. See the note in this function's docstring.
             dX = torch.zeros((E, 1), device=device, dtype=dtype)
             dY = torch.zeros((E, 1), device=device, dtype=dtype)
             dZ = torch.zeros((E, 1), device=device, dtype=dtype)
@@ -545,7 +630,32 @@ class GraphGrainMatcher:
     def default_neighbor_selection_cost_function(
         Fa, Fb, neigh_a, neigh_b, a_to_b, i, j, lam
     ):
-        """Default matching cost: feature distance plus a neighbor-consistency term."""
+        """Default matching cost: feature distance plus a neighbor-consistency term.
+
+        For a candidate pair :math:`(i, j)` the cost is the squared feature
+        distance :math:`\\lVert F^a_i - F^b_j \\rVert^2` plus
+        :math:`\\lambda` times the mean of :math:`\\psi(F^a_p, F^b_q)` over the
+        neighbours :math:`p` of :math:`i` whose current match :math:`q` is a
+        neighbour of :math:`j`, where :math:`\\psi(u, v) = -\\lVert u - v
+        \\rVert^2`. Lower cost wins. Neighbours whose match is unassigned, or
+        falls outside :math:`j`'s neighbourhood, are skipped and do not enter
+        the mean.
+
+        .. warning::
+
+           **The consistency term carries the opposite sign from the base
+           term.** The base term uses :math:`-\\psi`, the consistency term uses
+           :math:`+\\psi`, so the bonus grows with how *badly* the consistent
+           neighbour pairs match in feature space: a candidate whose matched
+           neighbours are far apart scores better than one whose matched
+           neighbours coincide, and better than one with no consistent
+           neighbours at all. Because the term is also averaged rather than
+           summed, agreeing on many neighbours is worth no more than agreeing
+           on one. This is the shipped behaviour and the results in the
+           repository were produced with it; it is documented here rather than
+           changed. Pass your own ``neighbor_selection_cost_function`` to
+           override it.
+        """
 
         def psi(u, v):
             return -torch.sum((u - v) ** 2).item()

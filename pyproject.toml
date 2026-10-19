@@ -85,6 +85,7 @@ dev = ["pytest", "pytest-cov", "black==24.3.0", "isort", "pylint", "build", "twi
 
 [project.scripts]
 graintrace-mcp = "graintrace.mcp.server:main"
+graintrace-doctor = "graintrace.doctor:main"
 
 [project.urls]
 Homepage = "https://github.com/applied-material-modeling/graintrace"

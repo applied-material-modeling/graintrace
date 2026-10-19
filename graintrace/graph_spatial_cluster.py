@@ -120,6 +120,37 @@ if _HAS_NUMBA:
         return indptr, order
 
 
+#: The only key :meth:`GraphSpatialCluster.estimate_sigma_from_distances` reads.
+SIGMA_AUTO_READ_KEYS = ("quantile",)
+
+
+def _warn_unread_sigma_auto_keys(sigma_auto: Optional[Dict[str, Any]]) -> None:
+    """Warn about ``sigma_auto`` keys that the sigma estimate does not read.
+
+    Sigma is the exact ``quantile`` of the full edge-distance array, so any
+    other key -- notably ``sample_size`` and ``random_state``, which appear in
+    every published recipe -- has no effect. Warning keeps the no-op visible to
+    a user who lowers ``sample_size`` to speed up a slow segmentation, or who
+    pins ``random_state`` expecting the estimate to be stochastic (it is not;
+    it is exact and deterministic).
+    """
+    if not sigma_auto:
+        return
+    unread = [k for k in sigma_auto if k not in SIGMA_AUTO_READ_KEYS]
+    if unread:
+        warnings.warn(
+            "WeightConfig.sigma_auto key(s) "
+            + ", ".join(repr(k) for k in sorted(unread))
+            + " are not read and have no effect. Sigma is the exact "
+            f"'{SIGMA_AUTO_READ_KEYS[0]}' of the full edge-distance array, "
+            "computed deterministically over every surviving edge -- it is not "
+            "subsampled, so there is nothing for 'sample_size' to bound or for "
+            "'random_state' to seed. Remove these keys.",
+            UserWarning,
+            stacklevel=3,
+        )
+
+
 class GraphSpatialCluster:
     """Cluster point-cloud field data by building a spatial graph and segmenting it."""
 
@@ -301,6 +332,7 @@ class GraphSpatialCluster:
                     raise ValueError(
                         "No edges remain after max_edge_distance filtering; cannot estimate sigma."
                     )
+                _warn_unread_sigma_auto_keys(weight_cfg.sigma_auto)
                 sigma_auto_quantile = float(weight_cfg.sigma_auto["quantile"])
                 sigma = self.estimate_sigma_from_distances(
                     distances=distances,
@@ -527,7 +559,16 @@ class GraphSpatialCluster:
     ) -> np.ndarray:
         """Build grid edges (undirected, (E,2) with i<j) for a full 3D grid.
 
-        manhattan_radius r gives 6/24/62/124/... neighbors for r=1/2/3/4.
+        Node ``i`` is linked to every lattice site within an :math:`\\ell^1`
+        ball of radius ``manhattan_radius``, i.e. every offset satisfying
+        :math:`|dx| + |dy| + |dz| \\le r` other than the origin. That is
+        **6 / 24 / 62 / 128** neighbours for ``r = 1 / 2 / 3 / 4``; in general
+        :math:`\\tfrac{1}{3}(4r^{3} + 6r^{2} + 8r)`. Note ``r=2`` is the
+        24-neighbour ball, not the 18-neighbour face-plus-edge stencil.
+
+        Sites outside the grid, and sites with no data point behind them (void
+        voxels in a grid that does not fill its bounding box), are dropped, so
+        boundary and void-adjacent nodes have a lower degree than the ball size.
         """
         if manhattan_radius < 1:
             raise ValueError("manhattan_radius must be >= 1")

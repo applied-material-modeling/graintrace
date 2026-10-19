@@ -59,6 +59,6 @@ end-to-end check is ``demonstrate_cpfe_nfff.py``; before running, edit the
 ``sculpt_config``, ``moose_run_file``, ``ncore``, and ``device`` at the top of
 the script to match your machine.
 
-``examples/run_experiment_*.py`` are real-experiment driver templates (FF-only,
-NF+FF, the AFRL dataset, stitching comparison, crystal reconstruction) that read
-your own scan data; copy and adapt one rather than running it as-is.
+To drive your own scan data, copy the ``demonstrate_*.py`` script closest to
+your workflow and repoint its ``## INPUT`` block at your files. There are no
+separate real-experiment driver templates in the repository.

@@ -79,8 +79,6 @@ weight_cfg = WeightConfig(
     power=2.0,
     sigma=None,  # if None, set to quantile distance of the graph edges
     sigma_auto={
-        "sample_size": 500_000,
-        "random_state": 42,
         "quantile": 0.5,
     },  # edges sampled to estimate quantile distance
 )

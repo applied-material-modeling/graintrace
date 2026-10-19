@@ -365,10 +365,38 @@ class IPFProcessor:
         orientations_csv,
         direction,
         output_file="mesh_rgb.e",
-        angle_convention="kocks",
-        angle_type="radians",
+        angle_convention="bunge",
+        angle_type="degrees",
     ):
-        """Write per-block IPF RGB element variables into an Exodus mesh copy."""
+        """Write per-block IPF RGB element variables into an Exodus mesh copy.
+
+        Reads a headerless orientation CSV with one row per block, colours each
+        block by the IPF colour of ``direction``, and writes ``rgb_x/y/z``
+        element variables into a copy of ``mesh_file``.
+
+        .. important::
+
+           The defaults are ``angle_convention="bunge"`` and
+           ``angle_type="degrees"``, which match an FF ``orientations.dat``
+           (Bunge in degrees, always, whatever the input units). They do
+           **not** match an NF/voxel ``orientations.csv``, which is
+           **neml2 MRP** -- pass ``angle_convention="mrp"`` for that file.
+           A convention mismatch here is silent: the output is a colour, so
+           it yields a plausible-looking but wrong picture rather than an
+           error. State the convention explicitly whenever you know it.
+
+        Args:
+            mesh_file: Exodus mesh to copy and annotate.
+            orientations_csv: headerless CSV, one row per block, either three
+                MRP components or three Euler angles.
+            direction: sample direction the IPF is taken along, e.g.
+                ``[0, 0, 1]``.
+            output_file: destination Exodus path, relative to ``save_dir``.
+            angle_convention: ``"mrp"``, or a Euler convention. Defaults to
+                ``"bunge"``; see the note above.
+            angle_type: ``"degrees"`` or ``"radians"``, Euler only. Defaults
+                to ``"degrees"``; see the note above.
+        """
         output_path = self._resolve_path(output_file)
         shutil.copyfile(mesh_file, output_path)
 
@@ -612,11 +640,35 @@ class IPFProcessor:
         vtk_file,
         direction,
         output_file="mesh_rgb.vtk",
-        angle_convention="kocks",
-        angle_type="radians",
+        angle_convention="bunge",
+        angle_type="degrees",
         orientation_fields=("Eul1", "Eul2", "Eul3"),
     ):
-        """Write per-cell IPF RGB colors into a VTK mesh copy."""
+        """Write per-cell IPF RGB colors into a VTK mesh copy.
+
+        Reads three Euler cell-data arrays from ``vtk_file``, colours each cell
+        by the IPF colour of ``direction``, and writes the result to
+        ``output_file``.
+
+        .. important::
+
+           The defaults are ``angle_convention="bunge"`` and
+           ``angle_type="degrees"``, which match the reconstruction VTK whose
+           ``Eul1/Eul2/Eul3`` arrays this method reads. A convention mismatch
+           here is silent -- it yields a wrong colouring, not an error -- so
+           state the convention explicitly for any VTK graintrace did not
+           write.
+
+        Args:
+            vtk_file: input VTK mesh carrying the Euler cell-data arrays.
+            direction: sample direction the IPF is taken along.
+            output_file: destination VTK path, relative to ``save_dir``.
+            angle_convention: Euler convention of the cell arrays. Defaults
+                to ``"bunge"``; see the note above.
+            angle_type: ``"degrees"`` or ``"radians"``. Defaults to
+                ``"degrees"``; see the note above.
+            orientation_fields: the three cell-data array names to read.
+        """
         output_path = self._resolve_path(output_file)
 
         mesh = pv.read(vtk_file)

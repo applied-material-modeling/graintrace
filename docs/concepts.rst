@@ -53,23 +53,32 @@ degrees, otherwise radians. Multiple scan layers are Z-shifted before stitching.
 NF HEDM data
 ~~~~~~~~~~~~
 
-Per-layer ``.mic`` files in a folder, tab-delimited with ``%`` header lines:
+Per-layer ``.mic`` files in a folder, tab-delimited, with three ``%`` metadata
+lines above the column-name row:
 
 .. code-block:: text
 
-   %OrientationRowNr OrientationID RunTime X Y TriEdgeSize UpDown Eul1 Eul2 Eul3 Confidence PhaseNr
+   %OrientationRowNr NrMatches RunTime X Y TriEdgeSize UpDown Eul1 Eul2 Eul3 Confidence PhaseNr
 
 :class:`~graintrace.NearFieldMeshBuilder` reads a folder of ``.mic`` files; the
-``exp_file_token`` parameter is the filename prefix used to find them. If the
-source is ``.ang`` files, convert them to ``.mic`` first. Pre-gridded NF data
-can instead go through :class:`~graintrace.NFGridConversion`.
+``exp_file_token`` parameter is the filename prefix used to find them. Pre-gridded
+NF data can instead go through :class:`~graintrace.NFGridConversion`. The full
+schema, including the metadata lines and the ``.csv`` fallback, is in
+:doc:`file-formats`.
+
+.. note::
+
+   graintrace has **no** ``.ang`` reader. EBSD/NF data in ``.ang`` form must be
+   converted to the merged-CSV or ``.mic`` schema above with your own tooling
+   before it enters the package. See :doc:`file-formats` for both target schemas.
 
 EBSD data
 ~~~~~~~~~
 
-A flat CSV merged from per-layer ``.ang`` files, with columns
-``x, y, z, Eul0, Eul1, Eul2`` where ``z = file_index * zstep_ebsd`` and the
-Euler columns are Bunge angles. This feeds :class:`~graintrace.VoxelMeshBuilder`.
+A flat CSV with columns ``x, y, z, Eul0, Eul1, Eul2``, where ``z`` is the layer
+index times the EBSD z-step and the Euler columns are Bunge angles. This feeds
+:class:`~graintrace.VoxelMeshBuilder`. Merging per-layer source files into this
+single CSV is the user's responsibility; graintrace reads only the merged form.
 
 Orientations
 ------------
