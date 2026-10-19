@@ -358,7 +358,13 @@ class TestNeighborSelection:
         # An exact relabelling is a zero-distance match.
         assert out["costs"].abs().max().item() == pytest.approx(0.0, abs=1e-9)
         assert out["params"]["topk"] == 6
-        assert len(out["mean_cost_history"]) == self.PARAM["iterations"]
+        # `tolerance` became a live convergence criterion on main (#44), so
+        # `iterations` is now an upper bound rather than the round count. An
+        # exact relabelling costs zero from the first round, so the second
+        # round's comparison breaks the loop. This assertion read
+        # `== self.PARAM["iterations"]` while tolerance was still a dead echo.
+        assert len(out["mean_cost_history"]) == 2
+        assert len(out["mean_cost_history"]) < self.PARAM["iterations"]
 
     def test_feature_dimension_mismatch_is_rejected(self, tmp_path):
         pytest.importorskip("torch_geometric")
