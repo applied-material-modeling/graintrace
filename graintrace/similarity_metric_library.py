@@ -325,29 +325,37 @@ class SimilarityMetricLibrary:
         :math:`\\lVert \\boldsymbol\\alpha_u - \\boldsymbol\\alpha_v \\rVert_F`,
         over the nine row-major components of the Nye tensor.
 
-        .. warning::
-
-           ``cols`` is **accepted and then discarded**. The feature columns are
-           always the hard-coded ``nye_tensor_11`` .. ``nye_tensor_33``,
-           whatever is passed. To use the Frobenius distance over a different
-           nine-column tensor, construct the
-           :class:`~graintrace.user_data_class.SimilarityMetric` directly with
-           ``func=diff_norm_3x3`` and ``dist_edges=diff_norm_3x3_batch``.
-
         Args:
-            cols: Ignored. Present for signature compatibility only.
+            cols: The nine row-major component columns, in order. When ``None``
+                (the default) the Nye columns ``nye_tensor_11`` ..
+                ``nye_tensor_33`` are used, so the metric is unchanged for
+                callers who do not pass it. Supply nine column names to take
+                the same Frobenius distance over a different 3x3 tensor field.
+
+        Raises:
+            ValueError: If ``cols`` is given and does not hold exactly nine
+                column names; the distance is a 3x3 Frobenius norm and cannot
+                be evaluated over any other width.
         """
-        cols = [
-            "nye_tensor_11",
-            "nye_tensor_12",
-            "nye_tensor_13",
-            "nye_tensor_21",
-            "nye_tensor_22",
-            "nye_tensor_23",
-            "nye_tensor_31",
-            "nye_tensor_32",
-            "nye_tensor_33",
-        ]
+        if cols is None:
+            cols = [
+                "nye_tensor_11",
+                "nye_tensor_12",
+                "nye_tensor_13",
+                "nye_tensor_21",
+                "nye_tensor_22",
+                "nye_tensor_23",
+                "nye_tensor_31",
+                "nye_tensor_32",
+                "nye_tensor_33",
+            ]
+        else:
+            cols = list(cols)
+            if len(cols) != 9:
+                raise ValueError(
+                    "nye_tensor_norm needs exactly 9 row-major component columns, "
+                    f"got {len(cols)}: {cols}"
+                )
 
         return SimilarityMetric(
             name="nye_tensor_norm",

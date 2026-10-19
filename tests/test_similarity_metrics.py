@@ -145,6 +145,33 @@ class TestSimilarityMetricLibrary:
         assert m.name == "nye_tensor_norm"
         assert len(m.feature_cols) == 9
 
+    def test_nye_tensor_norm_defaults_to_the_nye_columns(self):
+        """No argument keeps the historical Nye column set (#46)."""
+        assert self.lib.nye_tensor_norm().feature_cols == [
+            f"nye_tensor_{i}{j}" for i in (1, 2, 3) for j in (1, 2, 3)
+        ]
+
+    def test_nye_tensor_norm_honours_supplied_cols(self):
+        """``cols`` must reach feature_cols rather than being discarded (#46)."""
+        cols = [f"my_tensor_{i}{j}" for i in (1, 2, 3) for j in (1, 2, 3)]
+        assert self.lib.nye_tensor_norm(cols=cols).feature_cols == cols
+
+    def test_nye_tensor_norm_computes_over_the_supplied_cols(self):
+        """The distance is evaluated on the caller's columns, not the Nye ones."""
+        cols = [f"my_tensor_{i}{j}" for i in (1, 2, 3) for j in (1, 2, 3)]
+        m = self.lib.nye_tensor_norm(cols=cols)
+        # Rows differ by 3 in one component and 4 in another -> Frobenius 5.
+        X = np.zeros((2, 9))
+        X[1, 0] = 3.0
+        X[1, 4] = 4.0
+        edges = np.array([[0, 1]])
+        assert np.allclose(m.dist_edges(X, edges), [5.0])
+
+    def test_nye_tensor_norm_rejects_a_wrong_width(self):
+        """A 3x3 Frobenius norm cannot be taken over anything but nine columns."""
+        with pytest.raises(ValueError, match="exactly 9"):
+            self.lib.nye_tensor_norm(cols=["a", "b", "c"])
+
     def test_abs_scalar_diff_returns_metric(self):
         m = self.lib.abs_scalar_diff(["reorientation_deg"])
         assert isinstance(m, SimilarityMetric)

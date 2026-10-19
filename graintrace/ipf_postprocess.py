@@ -365,8 +365,8 @@ class IPFProcessor:
         orientations_csv,
         direction,
         output_file="mesh_rgb.e",
-        angle_convention="kocks",
-        angle_type="radians",
+        angle_convention="bunge",
+        angle_type="degrees",
     ):
         """Write per-block IPF RGB element variables into an Exodus mesh copy.
 
@@ -374,17 +374,16 @@ class IPFProcessor:
         block by the IPF colour of ``direction``, and writes ``rgb_x/y/z``
         element variables into a copy of ``mesh_file``.
 
-        .. warning::
+        .. important::
 
-           **The defaults do not match the files graintrace writes.** This
-           method defaults to ``angle_convention="kocks"`` and
-           ``angle_type="radians"``, while an FF ``orientations.dat`` is
-           **Bunge in degrees** and an NF/voxel ``orientations.csv`` is
-           **neml2 MRP**. Relying on the defaults produces a plausible-looking
-           but wrong colouring with no error. Always pass the convention
-           explicitly: ``angle_convention="mrp"`` for ``orientations.csv``,
-           ``angle_convention="bunge", angle_type="degrees"`` for
-           ``orientations.dat``.
+           The defaults are ``angle_convention="bunge"`` and
+           ``angle_type="degrees"``, which match an FF ``orientations.dat``
+           (Bunge in degrees, always, whatever the input units). They do
+           **not** match an NF/voxel ``orientations.csv``, which is
+           **neml2 MRP** -- pass ``angle_convention="mrp"`` for that file.
+           A convention mismatch here is silent: the output is a colour, so
+           it yields a plausible-looking but wrong picture rather than an
+           error. State the convention explicitly whenever you know it.
 
         Args:
             mesh_file: Exodus mesh to copy and annotate.
@@ -393,9 +392,10 @@ class IPFProcessor:
             direction: sample direction the IPF is taken along, e.g.
                 ``[0, 0, 1]``.
             output_file: destination Exodus path, relative to ``save_dir``.
-            angle_convention: ``"mrp"``, or a Euler convention. See the warning.
-            angle_type: ``"degrees"`` or ``"radians"``, Euler only. See the
-                warning.
+            angle_convention: ``"mrp"``, or a Euler convention. Defaults to
+                ``"bunge"``; see the note above.
+            angle_type: ``"degrees"`` or ``"radians"``, Euler only. Defaults
+                to ``"degrees"``; see the note above.
         """
         output_path = self._resolve_path(output_file)
         shutil.copyfile(mesh_file, output_path)
@@ -640,8 +640,8 @@ class IPFProcessor:
         vtk_file,
         direction,
         output_file="mesh_rgb.vtk",
-        angle_convention="kocks",
-        angle_type="radians",
+        angle_convention="bunge",
+        angle_type="degrees",
         orientation_fields=("Eul1", "Eul2", "Eul3"),
     ):
         """Write per-cell IPF RGB colors into a VTK mesh copy.
@@ -650,23 +650,23 @@ class IPFProcessor:
         by the IPF colour of ``direction``, and writes the result to
         ``output_file``.
 
-        .. warning::
+        .. important::
 
-           **The defaults do not match the file graintrace writes.** This method
-           defaults to ``angle_convention="kocks"`` and
-           ``angle_type="radians"``, while the reconstruction VTK whose
-           ``Eul1/Eul2/Eul3`` arrays it reads holds **Bunge angles in degrees**.
-           The mismatch is silent -- it yields a wrong colouring, not an error.
-           Pass ``angle_convention="bunge", angle_type="degrees"`` for a
-           graintrace-produced VTK.
+           The defaults are ``angle_convention="bunge"`` and
+           ``angle_type="degrees"``, which match the reconstruction VTK whose
+           ``Eul1/Eul2/Eul3`` arrays this method reads. A convention mismatch
+           here is silent -- it yields a wrong colouring, not an error -- so
+           state the convention explicitly for any VTK graintrace did not
+           write.
 
         Args:
             vtk_file: input VTK mesh carrying the Euler cell-data arrays.
             direction: sample direction the IPF is taken along.
             output_file: destination VTK path, relative to ``save_dir``.
-            angle_convention: Euler convention of the cell arrays. See the
-                warning.
-            angle_type: ``"degrees"`` or ``"radians"``. See the warning.
+            angle_convention: Euler convention of the cell arrays. Defaults
+                to ``"bunge"``; see the note above.
+            angle_type: ``"degrees"`` or ``"radians"``. Defaults to
+                ``"degrees"``; see the note above.
             orientation_fields: the three cell-data array names to read.
         """
         output_path = self._resolve_path(output_file)

@@ -809,3 +809,45 @@ class TestGraphSpatialClusterFixes:
         coords = np.zeros((5, 3))
         with pytest.raises(ValueError, match="k must be >= 1"):
             gsc._build_mutual_knn_edges(coords, k=0)
+
+
+class TestSigmaAutoUnreadKeys:
+    """Inert ``sigma_auto`` keys must announce themselves rather than no-op (#47)."""
+
+    def test_sample_size_and_random_state_warn(self):
+        from graintrace.graph_spatial_cluster import _warn_unread_sigma_auto_keys
+
+        with pytest.warns(UserWarning, match="random_state.*sample_size|sample_size"):
+            _warn_unread_sigma_auto_keys(
+                {"sample_size": 500_000, "random_state": 42, "quantile": 0.5}
+            )
+
+    def test_quantile_only_is_silent(self):
+        import warnings as _w
+
+        from graintrace.graph_spatial_cluster import _warn_unread_sigma_auto_keys
+
+        with _w.catch_warnings():
+            _w.simplefilter("error")
+            _warn_unread_sigma_auto_keys({"quantile": 0.5})
+
+    def test_none_and_empty_are_silent(self):
+        import warnings as _w
+
+        from graintrace.graph_spatial_cluster import _warn_unread_sigma_auto_keys
+
+        with _w.catch_warnings():
+            _w.simplefilter("error")
+            _warn_unread_sigma_auto_keys(None)
+            _warn_unread_sigma_auto_keys({})
+
+    def test_sigma_estimate_is_the_exact_full_array_quantile(self):
+        """No subsampling: the estimate must equal np.quantile over every edge."""
+        from graintrace.graph_spatial_cluster import GraphSpatialCluster
+
+        rng = np.random.default_rng(3)
+        distances = rng.random(10_000) * 7.0
+        got = GraphSpatialCluster.estimate_sigma_from_distances(
+            distances=distances, quantile=0.5
+        )
+        assert got == pytest.approx(float(np.quantile(distances, 0.5)))

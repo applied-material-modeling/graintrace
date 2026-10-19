@@ -120,6 +120,37 @@ if _HAS_NUMBA:
         return indptr, order
 
 
+#: The only key :meth:`GraphSpatialCluster.estimate_sigma_from_distances` reads.
+SIGMA_AUTO_READ_KEYS = ("quantile",)
+
+
+def _warn_unread_sigma_auto_keys(sigma_auto: Optional[Dict[str, Any]]) -> None:
+    """Warn about ``sigma_auto`` keys that the sigma estimate does not read.
+
+    Sigma is the exact ``quantile`` of the full edge-distance array, so any
+    other key -- notably ``sample_size`` and ``random_state``, which appear in
+    every published recipe -- has no effect. Warning keeps the no-op visible to
+    a user who lowers ``sample_size`` to speed up a slow segmentation, or who
+    pins ``random_state`` expecting the estimate to be stochastic (it is not;
+    it is exact and deterministic).
+    """
+    if not sigma_auto:
+        return
+    unread = [k for k in sigma_auto if k not in SIGMA_AUTO_READ_KEYS]
+    if unread:
+        warnings.warn(
+            "WeightConfig.sigma_auto key(s) "
+            + ", ".join(repr(k) for k in sorted(unread))
+            + " are not read and have no effect. Sigma is the exact "
+            f"'{SIGMA_AUTO_READ_KEYS[0]}' of the full edge-distance array, "
+            "computed deterministically over every surviving edge -- it is not "
+            "subsampled, so there is nothing for 'sample_size' to bound or for "
+            "'random_state' to seed. Remove these keys.",
+            UserWarning,
+            stacklevel=3,
+        )
+
+
 class GraphSpatialCluster:
     """Cluster point-cloud field data by building a spatial graph and segmenting it."""
 
@@ -301,6 +332,7 @@ class GraphSpatialCluster:
                     raise ValueError(
                         "No edges remain after max_edge_distance filtering; cannot estimate sigma."
                     )
+                _warn_unread_sigma_auto_keys(weight_cfg.sigma_auto)
                 sigma_auto_quantile = float(weight_cfg.sigma_auto["quantile"])
                 sigma = self.estimate_sigma_from_distances(
                     distances=distances,
