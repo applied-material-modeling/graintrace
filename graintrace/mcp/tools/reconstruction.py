@@ -211,7 +211,9 @@ def convert_ang(
     input_path : one `.ang` file, or a folder holding one per layer.
     target : 'mic' -> per-layer .mic for `nf_reconstruct`;
         'ebsd_csv' -> merged x,y,z,Eul0,Eul1,Eul2 CSV for `voxel_mesh`.
-    zstep : spacing between layers (um). z of layer i is i * zstep.
+    zstep : spacing between layers (um). z is the layer's filename index minus
+        the lowest one in the folder, times zstep, so a gap in the numbering
+        leaves a gap in z.
     save_dir : output folder (defaults under the MCP workdir).
     angle_convention : 'bunge'|'kocks'|'roe' of the INPUT files. Required when
         the `.ang` header does not pin it; TSL OIM writes bunge.

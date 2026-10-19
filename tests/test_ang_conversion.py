@@ -417,7 +417,69 @@ class TestLayerOrdering:
 
         # Lexical order would put layer10 second; layer order puts it last.
         np.testing.assert_allclose(df["Eul0"].to_numpy(), [0.1, 0.2, 1.0], atol=1e-9)
-        np.testing.assert_allclose(df["z"].to_numpy(), [0.0, 1.0, 2.0])
+        # layer10 is the tenth layer, not the third: z is the layer index, not
+        # the position in the sorted list.
+        np.testing.assert_allclose(df["z"].to_numpy(), [0.0, 1.0, 9.0])
+
+    def test_gapped_layers_keep_their_z_spacing(self, tmp_path):
+        """A missing layer leaves a gap in ``z`` instead of compressing the stack."""
+        source = tmp_path / "in"
+        source.mkdir()
+        for index in (1, 3):
+            _headerless(
+                source,
+                [(0.1 * index, 0.2, 0.3, 0.0, 0.0, 1.0, 1.0, 1.0)],
+                name=f"layer{index}.ang",
+            )
+        converter = AngConverter(
+            input_path=source,
+            save_dir=tmp_path / "out",
+            angle_convention="bunge",
+            angle_type="radians",
+            output_angle_type="radians",
+        )
+
+        df = pd.read_csv(converter.to_ebsd_csv(zstep=2.0))
+
+        assert converter.layer_offsets() == [
+            (0, source / "layer1.ang"),
+            (2, source / "layer3.ang"),
+        ]
+        # The enumerate position would give [0.0, 2.0] and bring the third
+        # physical layer a whole step too low.
+        np.testing.assert_allclose(df["z"].to_numpy(), [0.0, 4.0])
+
+    def test_gapped_layers_stay_visible_to_the_nf_reader(self, tmp_path):
+        """``.mic`` output keeps the gap, so ``nf_to_pointcloud`` still catches it.
+
+        Renumbering the outputs contiguously would both place them at the wrong
+        ``z`` and hide the missing layer from the one check that detects it.
+        """
+        nf_convert = pytest.importorskip("graintrace.nf.convert")
+
+        source = tmp_path / "in"
+        source.mkdir()
+        for index in (1, 3):
+            _headerless(
+                source,
+                [(0.1 * index, 0.2, 0.3, 0.0, 0.0, 1.0, 1.0, 1.0)],
+                name=f"layer{index}.ang",
+            )
+        out = tmp_path / "out"
+        converter = AngConverter(
+            input_path=source,
+            save_dir=out,
+            angle_convention="bunge",
+            angle_type="radians",
+            output_angle_type="radians",
+        )
+
+        written = converter.to_mic(zstep=2.0)
+
+        assert [p.name for p in written] == ["layer1.mic", "layer3.mic"]
+        assert "%GlobalPosition 4.000000" in written[1].read_text()
+        with pytest.raises(ValueError, match="Missing layers"):
+            nf_convert.nf_to_pointcloud(str(out), dz=2.0)
 
     def test_empty_folder_raises(self, tmp_path):
         source = tmp_path / "empty"

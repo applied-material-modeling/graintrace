@@ -101,10 +101,11 @@ format itself, and the header keys that can supply these values, are in
      - Drop rows with ``CI`` below this. ``0.0`` drops TSL's negative-CI
        unindexed points. ``None`` keeps every row
 
-Both writers take ``zstep``, the layer spacing in micrometers; layer *i* is
-placed at ``z = i * zstep``. ``to_mic`` additionally takes ``tri_edge_size``
-(default: the header's ``XSTEP``, else ``1.0``) and ``prefix`` (default:
-``file_token``).
+Both writers take ``zstep``, the layer spacing in micrometers. A layer is
+placed at ``z = (its filename index - the lowest index) * zstep``, so a gap in
+the numbering leaves a gap in ``z``. ``to_mic`` additionally takes
+``tri_edge_size`` (default, per layer: that layer's header ``XSTEP``, else
+``1.0``) and ``prefix`` (default: ``file_token``).
 
 .. warning::
 

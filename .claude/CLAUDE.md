@@ -101,9 +101,13 @@ layers = conv.to_mic(zstep=2.0)        # -> NearFieldMeshBuilder (one .mic per l
 Also `read_ang(path, ...) -> (df, AngHeader)` and `read_ang_header(path)` for the
 header alone. Header keys acted on: `ANGLE_UNITS`, `EULER_CONVENTION`,
 `COLUMN_HEADERS`, `XSTEP`/`YSTEP`, `GRID` (case/separator-insensitive, `KEY: v`
-or `KEY   v`). Output is always **Bunge**, in `output_angle_type`. `z` of layer
-`i` is `i * zstep`; a single-file input is `z = 0`. Fixture:
-`mwe_data/ang_ebsd/` (3 layers, 10 columns, header-pinned).
+or `KEY   v`; `ANGLE_UNITS`/`EULER_CONVENTION` are graintrace's own keys, stock
+OIM writes neither). Output is always **Bunge**, in `output_angle_type`. `z` is
+the **filename's layer index minus the lowest one** (`conv.layer_offsets()`),
+times `zstep` — NOT the position in the sorted list, so `layer1`+`layer3` give
+`z = [0, 4]` and `.mic` names that keep the gap (`layer1.mic`, `layer3.mic`) for
+`nf_to_pointcloud`'s `Missing layers` guard to catch. A single-file input is
+`z = 0`. Fixture: `mwe_data/ang_ebsd/` (3 layers, 10 columns, header-pinned).
 
 **It refuses rather than guesses.** If neither the header nor the argument pins
 `angle_convention` or `angle_type`, it raises. TSL OIM writes Bunge radians, but

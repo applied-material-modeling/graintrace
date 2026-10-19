@@ -46,7 +46,7 @@ through MTEX or DREAM.3D.
 | `angle_type` | `radians` for raw OIM | TSL writes radians; pass it explicitly when the header is silent |
 | `angle_convention` | `bunge` for raw OIM | TSL writes `(phi1, PHI, phi2)` |
 | `output_angle_type` | `degrees` | matches the usual `angle_type="degrees"` on the downstream builder; **the two must agree** |
-| `zstep` | the serial-section spacing (µm) | `z` of layer *i* is `i * zstep`; a single-file input is `z = 0` |
+| `zstep` | the serial-section spacing (µm) | `z` is the filename's layer index minus the lowest one, times `zstep`; the first layer and a single-file input are `z = 0` |
 | `confidence_min` | `0.0` | TSL marks unindexed points with a negative CI; `0.0` drops exactly those. Raise it (0.1–0.2) only for noisy scans |
 | `file_token` | `layer` | the filename token the layer index follows, e.g. `layer03.ang`. Layers are ordered **numerically**, so `layer10` sorts after `layer9` |
 
@@ -61,6 +61,11 @@ through MTEX or DREAM.3D.
   Pass the same number to both.
 - **A filtered layer can go empty.** `confidence_min` raises rather than writing
   an empty layer, so a too-high floor fails loudly.
+- **A gap in the layer numbering is preserved, not closed up.** `layer1` +
+  `layer3` at `zstep=2.0` give `z = 0` and `z = 4`, and the `mic` target names
+  them `layer1.mic` and `layer3.mic`. `nf_to_pointcloud` then raises
+  `Missing layers`, which is the point: renumbering them contiguously would put
+  the stack at the wrong `z` and hide the missing layer.
 - Column layout is driven by the header's `COLUMN_HEADERS` when present,
   otherwise by column count: the first eight are
   `phi1, PHI, phi2, x, y, IQ, CI, phase` and the next two are `SEM, fit`.

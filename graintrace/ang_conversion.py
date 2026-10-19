@@ -234,13 +234,46 @@ def read_ang_header(path: PathLike) -> AngHeader:
             elif key == "columnheaders":
                 header.column_names = _parse_column_headers(value)
             elif key == "xstep":
-                header.xstep = float(value.split()[0])
+                header.xstep = _header_float(path, raw_key, value)
             elif key == "ystep":
-                header.ystep = float(value.split()[0])
+                header.ystep = _header_float(path, raw_key, value)
             elif key == "grid":
-                header.grid = value.split()[0]
+                header.grid = _header_word(path, raw_key, value)
 
     return header
+
+
+def _header_word(path: PathLike, raw_key: str, value: str) -> str:
+    """Return the first whitespace-separated token of a header value.
+
+    Raises:
+        ValueError: if the key carries no value. TSL does write empty-valued
+            keys, so this is a malformed file rather than an internal error,
+            and it is reported the way every other failure here is.
+    """
+    parts = value.split()
+    if not parts:
+        raise ValueError(
+            f"{path}: header key {raw_key!r} has no value. Give it one or "
+            f"remove the line."
+        )
+    return parts[0]
+
+
+def _header_float(path: PathLike, raw_key: str, value: str) -> float:
+    """Return a header value's first token as a float.
+
+    Raises:
+        ValueError: if the key carries no value, or one that is not a number.
+    """
+    word = _header_word(path, raw_key, value)
+    try:
+        return float(word)
+    except ValueError as exc:
+        raise ValueError(
+            f"{path}: header key {raw_key!r} has value {value!r}, which is not "
+            f"a number."
+        ) from exc
 
 
 def _resolve_setting(
@@ -250,6 +283,7 @@ def _resolve_setting(
     allowed: Sequence[str],
     path: PathLike,
     hint: str,
+    normalise_unit: bool = False,
 ) -> str:
     """Resolve one orientation setting from the explicit argument or the header.
 
@@ -257,12 +291,24 @@ def _resolve_setting(
     they know is mislabelled. Neither source supplying a value is an error, not
     a cue to fall back to a default.
 
+    Args:
+        name: The argument name, used only in the error messages.
+        explicit: The caller's value, or ``None``.
+        from_header: The value the file header pinned, or ``None``.
+        allowed: The accepted values.
+        path: The file being read, used only in the error messages.
+        hint: Extra guidance appended when neither source set the value.
+        normalise_unit: Map unit spellings (``rad``, ``deg``, ...) onto
+            :data:`ANGLE_TYPES` first. Set it for angle-unit settings; it is a
+            parameter rather than a test on ``name`` so adding an argument
+            whose name contains another cannot change the behaviour.
+
     Raises:
         ValueError: if the value is unrecognised, or if neither source set it.
     """
     if explicit is not None:
         value = _normalise_key(str(explicit))
-        if "angle_type" in name:
+        if normalise_unit:
             value = _UNIT_VALUES.get(value, value)
         if value not in allowed:
             raise ValueError(
@@ -326,7 +372,13 @@ def read_ang(
     header = read_ang_header(path)
 
     resolved_unit = _resolve_setting(
-        "angle_type", angle_type, header.angle_type, ANGLE_TYPES, path, _UNIT_HINT
+        "angle_type",
+        angle_type,
+        header.angle_type,
+        ANGLE_TYPES,
+        path,
+        _UNIT_HINT,
+        normalise_unit=True,
     )
     resolved_convention = _resolve_setting(
         "angle_convention",
@@ -470,6 +522,7 @@ class AngConverter:
             ANGLE_TYPES,
             self.input_path,
             "",
+            normalise_unit=True,
         )
         self.confidence_min = None if confidence_min is None else float(confidence_min)
 
@@ -485,8 +538,28 @@ class AngConverter:
         Raises:
             FileNotFoundError: if the folder holds no ``.ang`` files.
         """
+        return [path for _, path in self.layer_offsets()]
+
+    def layer_offsets(self) -> List[Tuple[int, Path]]:
+        """Pair every input file with its offset from the lowest layer index.
+
+        The offset is the integer in the filename minus the smallest such
+        integer in the folder, **not** the file's position in the sorted list.
+        A folder holding ``layer1`` and ``layer3`` therefore gives offsets
+        ``0`` and ``2``: the missing layer leaves a gap in ``z`` instead of
+        silently compressing the stack to a contiguous one. A single-file input
+        is offset ``0`` and its filename is never parsed.
+
+        Returns:
+            list[tuple[int, Path]]: ``(offset, path)``, ordered by layer index.
+
+        Raises:
+            FileNotFoundError: if the folder holds no ``.ang`` files.
+            ValueError: if a filename carries no layer index after
+                ``file_token``.
+        """
         if self.input_path.is_file():
-            return [self.input_path]
+            return [(0, self.input_path)]
 
         # Lazy: nf.convert pulls the VTK writer stack, which this path does not need
         # until a folder is actually listed.
@@ -496,7 +569,11 @@ class AngConverter:
         files = sorted(self.input_path.glob("*.ang"))
         if not files:
             raise FileNotFoundError(f"No .ang files found in {self.input_path}")
-        return sorted(files, key=lambda f: layer_number(str(f), token=self.file_token))
+
+        numbers = {f: layer_number(str(f), token=self.file_token) for f in files}
+        ordered = sorted(files, key=numbers.__getitem__)
+        first = numbers[ordered[0]]
+        return [(numbers[f] - first, f) for f in ordered]
 
     def _read_layer(self, path: Path) -> pd.DataFrame:
         """Read one layer and reduce it to x, y and Bunge angles in the output unit."""
@@ -558,8 +635,10 @@ class AngConverter:
         """Write the merged ``x, y, z, Eul0, Eul1, Eul2`` CSV VoxelMeshBuilder reads.
 
         Args:
-            zstep: Spacing between layers (micrometers). ``z`` of layer ``i`` is
-                ``i * zstep``, so a single-layer input gives ``z = 0``.
+            zstep: Spacing between layers (micrometers). ``z`` is the layer's
+                index in the filename minus the lowest such index, times
+                ``zstep``, so the first layer sits at ``z = 0`` and a missing
+                layer leaves a ``2 * zstep`` gap rather than closing up.
             output_name: Filename written inside ``save_dir``.
 
         Returns:
@@ -567,9 +646,9 @@ class AngConverter:
         """
         zstep = float(zstep)
         frames = []
-        for index, path in enumerate(self.layer_files()):
+        for offset, path in self.layer_offsets():
             layer = self._read_layer(path)
-            layer.insert(2, "z", index * zstep)
+            layer.insert(2, "z", offset * zstep)
             frames.append(layer[["x", "y", "z", "Eul0", "Eul1", "Eul2"]])
 
         merged = pd.concat(frames, ignore_index=True)
@@ -592,14 +671,24 @@ class AngConverter:
         note that ``NearFieldMeshBuilder`` recomputes ``z`` from its own ``dz``
         argument, so pass the same value there as ``zstep`` here.
 
+        A gap in the input layer numbering is preserved, in the filenames as
+        well as in ``%GlobalPosition``: ``layer1.ang`` and ``layer3.ang`` give
+        ``<prefix>1.mic`` and ``<prefix>3.mic``. That is deliberate.
+        :func:`~graintrace.nf.convert.nf_to_pointcloud` recomputes ``z`` from
+        the file order and refuses a non-contiguous layer set, so renumbering
+        the outputs contiguously would hide the missing layer from the one
+        check that catches it and place the stack at the wrong ``z``.
+
         Args:
             zstep: Spacing between layers (micrometers), written into
-                ``%GlobalPosition``.
+                ``%GlobalPosition`` as the layer's offset times ``zstep``.
             tri_edge_size: Value for the ``TriEdgeSize`` column and the matching
-                metadata line. Defaults to the header's ``XSTEP`` when every
-                layer reports one, else ``1.0``.
-            prefix: Output filename stem; layer ``i`` becomes
-                ``<prefix><i+1>.mic``. Defaults to ``file_token``.
+                metadata line. Resolved per layer: defaults to that layer's
+                header ``XSTEP``, or ``1.0`` when its header reports none, so
+                layers with different steps each get their own.
+            prefix: Output filename stem; the layer at offset ``i`` from the
+                first becomes ``<prefix><i+1>.mic``. Defaults to
+                ``file_token``.
 
         Returns:
             list[Path]: the written ``.mic`` files, in layer order.
@@ -608,7 +697,7 @@ class AngConverter:
         prefix = self.file_token if prefix is None else str(prefix)
 
         written: List[Path] = []
-        for index, path in enumerate(self.layer_files()):
+        for offset, path in self.layer_offsets():
             layer = self._read_layer(path)
             edge = (
                 float(tri_edge_size)
@@ -632,11 +721,11 @@ class AngConverter:
                     "PhaseNr": layer["phase"].to_numpy(),
                 }
             )
-            out_path = self.save_dir / f"{prefix}{index + 1}.mic"
+            out_path = self.save_dir / f"{prefix}{offset + 1}.mic"
             with open(out_path, "w", encoding="utf-8") as fh:
                 fh.write(f"%TriEdgeSize {edge:.6f}\n")
                 fh.write("%NumPhases 1\n")
-                fh.write(f"%GlobalPosition {index * zstep:.6f}\n")
+                fh.write(f"%GlobalPosition {offset * zstep:.6f}\n")
                 frame[list(_MIC_COLUMNS)].to_csv(fh, sep="\t", index=False)
             written.append(out_path)
 

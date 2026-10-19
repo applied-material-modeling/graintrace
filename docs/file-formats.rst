@@ -217,7 +217,17 @@ Header keys the reader acts on:
 
 Key matching ignores case and separators, and both ``KEY: value`` and
 ``KEY   value`` forms are read. Every other key is kept verbatim on
-``AngHeader.keys``.
+``AngHeader.keys``. A key present but empty -- TSL does write those -- raises
+``ValueError`` for ``XSTEP``, ``YSTEP`` and ``GRID`` rather than a bare
+``IndexError``.
+
+.. note::
+
+   ``ANGLE_UNITS`` and ``EULER_CONVENTION`` are a **graintrace** convention,
+   not a TSL one. Stock OIM writes neither, so an unmodified export pins
+   nothing and both ``angle_convention`` and ``angle_type`` must be passed
+   explicitly. Add the two keys to the header only if you want the file to
+   carry its own provenance.
 
 .. warning::
 
@@ -248,12 +258,21 @@ Converting to either target:
    merged = converter.to_ebsd_csv(zstep=2.0)   # -> VoxelMeshBuilder
    layers = converter.to_mic(zstep=2.0)        # -> NearFieldMeshBuilder
 
-``z`` is the layer index times ``zstep``, so a single-file input sits at
-``z = 0``. Folder inputs are ordered by the integer following ``file_token``,
-numerically -- ``layer10`` sorts after ``layer9``, not between ``layer1`` and
-``layer2``. Output angles are always Bunge, in ``output_angle_type``; pass that
-same unit to the downstream builder's ``angle_type``. Shipped example:
+``z`` is the layer's **index in the filename** minus the lowest index in the
+folder, times ``zstep``, so the first layer sits at ``z = 0`` and so does a
+single-file input. Folder inputs are ordered by that integer, numerically --
+``layer10`` sorts after ``layer9``, not between ``layer1`` and ``layer2``.
+Output angles are always Bunge, in ``output_angle_type``; pass that same unit
+to the downstream builder's ``angle_type``. Shipped example:
 ``mwe_data/ang_ebsd/`` (three layers, ten columns, header-pinned).
+
+A gap in the layer numbering is preserved rather than closed up. ``layer1`` and
+``layer3`` at ``zstep=2.0`` give ``z = 0`` and ``z = 4``, and ``to_mic`` names
+them ``layer1.mic`` and ``layer3.mic``. Both matter:
+:func:`~graintrace.nf.convert.nf_to_pointcloud` recomputes ``z`` from the file
+order and raises on a non-contiguous layer set, so renumbering the outputs
+contiguously would place the stack at the wrong ``z`` *and* hide the missing
+layer from the only check that catches it.
 
 EBSD merged CSV
 ~~~~~~~~~~~~~~~
