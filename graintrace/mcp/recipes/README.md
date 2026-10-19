@@ -40,6 +40,7 @@ Notes:
 
 ## Current recipes
 
+- `ang_conversion`: EDAX/TSL `.ang` to `.mic` / merged EBSD CSV (`convert_ang`)
 - `ff_reconstruction`: FF Voronoi reconstruction (`ff_reconstruct`)
 - `stitching`: FF z-scan stitching (`stitch_scans`)
 - `cpfe_simulation`: MOOSE/PUMA CPFE run (`run_cpfe`)

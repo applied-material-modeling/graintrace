@@ -58,7 +58,7 @@ Expected `.mic` format (tab-delimited, with `%` header lines):
 ```
 %OrientationRowNr  OrientationID  RunTime  X  Y  TriEdgeSize  UpDown  Eul1  Eul2  Eul3  Confidence  PhaseNr
 ```
-`NearFieldMeshBuilder` reads a folder of `.mic` files. The `exp_file_token` parameter is the filename prefix token used to find files. **graintrace has no `.ang` reader** — no converter ships in the package and no code path recognises the extension, so `.ang` source data must be converted to `.mic` outside graintrace before `NearFieldMeshBuilder` sees it. (The `run_experiment_afrl.py` script this note used to cite is not in the repository.)
+`NearFieldMeshBuilder` reads a folder of `.mic` files. The `exp_file_token` parameter is the filename prefix token used to find files. **No builder reads `.ang` directly** — convert it first with `AngConverter` (§2.1).
 
 For the alternate path using `NFGridConversion` (pre-gridded NF data):
 ```python
@@ -78,6 +78,37 @@ After converting and merging from `.ang` files, the expected format is a flat CS
 x, y, z, Eul0, Eul1, Eul2
 ```
 `z` is `file_index * zstep_ebsd`. Columns `Eul0/1/2` hold Bunge Euler angles in degrees or radians. The file is then fed to `VoxelMeshBuilder`.
+
+### 2.1 EDAX/TSL `.ang` → `.mic` / merged EBSD CSV (`AngConverter`)
+`graintrace/ang_conversion.py` is the only `.ang` reader; no builder takes the
+extension. It reads the minimal **8-column headerless** layout
+(`phi1 PHI phi2 x y IQ CI phase`), the common **10-column** TSL export
+(`+ SEM fit`), and anything wider, and writes **both** downstream targets.
+```python
+from graintrace import AngConverter
+conv = AngConverter(
+    input_path="ebsd/ang",        # one .ang file, or a folder of per-layer files
+    save_dir="out/ebsd",
+    file_token="layer",           # layer index follows this token; ordered NUMERICALLY
+    angle_convention="bunge",     # omit ONLY if the header pins it
+    angle_type="radians",         # omit ONLY if the header pins it
+    output_angle_type="degrees",  # must equal the downstream builder's angle_type
+    confidence_min=0.0,           # drops TSL's negative-CI unindexed points; None keeps all
+)
+merged = conv.to_ebsd_csv(zstep=2.0)   # -> VoxelMeshBuilder (x,y,z,Eul0,Eul1,Eul2)
+layers = conv.to_mic(zstep=2.0)        # -> NearFieldMeshBuilder (one .mic per layer)
+```
+Also `read_ang(path, ...) -> (df, AngHeader)` and `read_ang_header(path)` for the
+header alone. Header keys acted on: `ANGLE_UNITS`, `EULER_CONVENTION`,
+`COLUMN_HEADERS`, `XSTEP`/`YSTEP`, `GRID` (case/separator-insensitive, `KEY: v`
+or `KEY   v`). Output is always **Bunge**, in `output_angle_type`. `z` of layer
+`i` is `i * zstep`; a single-file input is `z = 0`. Fixture:
+`mwe_data/ang_ebsd/` (3 layers, 10 columns, header-pinned).
+
+**It refuses rather than guesses.** If neither the header nor the argument pins
+`angle_convention` or `angle_type`, it raises. TSL OIM writes Bunge radians, but
+a degrees file read as radians segments without complaint and is wrong, so the
+common case is not a default. See §10.
 
 ---
 
@@ -1073,6 +1104,16 @@ missing *graintrace* submodule is re-raised unchanged — that is a packaging bu
 problem. Add a new extras-backed dependency to `_EXTRA_FOR_DEPENDENCY`, a new compiled-tier one
 to `_COMPILED_TIER_DEPENDENCIES`.
 
+### `.ang` conversion refuses to guess the convention or the unit
+`AngConverter` / `read_ang` raise when neither the `.ang` header nor the call
+pins `angle_convention` or `angle_type`. That is deliberate, not a missing
+default: a degrees file read as radians produces a microstructure that
+segments cleanly and is wrong, with nothing downstream to catch it. For an
+unmodified EDAX/TSL OIM export pass `angle_convention="bunge"`,
+`angle_type="radians"`. The second half of the same trap is on the way out —
+the converter writes Bunge in `output_angle_type` (default `"degrees"`), and
+the downstream builder's `angle_type` **must** be the same string.
+
 ### NEPER is bring-your-own
 `VoronoiMeshBuilder` and `CrystalGenerator` resolve a **user-installed** NEPER via
 `graintrace/neper_env.py` (`resolve_neper_env`): precedence is explicit
@@ -1383,6 +1424,7 @@ graintrace/
   construct_voronoi_mesh.py    VoronoiMeshBuilder    : FF HEDM reconstruction (NEPER)
   construct_nf_mesh.py         NearFieldMeshBuilder  : NF HEDM reconstruction (SCULPT)
   construct_voxel_mesh.py      VoxelMeshBuilder      : EBSD/NF voxel meshing (SCULPT)
+  ang_conversion.py            AngConverter          : EDAX/TSL .ang -> per-layer .mic / merged EBSD CSV (read_ang, read_ang_header, AngHeader)
   nf_grid_conversion.py        NFGridConversion      : Pre-gridded NF data to CSV
   run_cpfe_simulation.py       CPFESimulation        : MOOSE/PUMA CPFE runner
   grid_resampling.py           GridResampler         : offline resample of a CPFE Exodus -> grid CSV

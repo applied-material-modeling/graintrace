@@ -60,6 +60,58 @@ Boundary conditions (bc)
 ``"stress_free"`` means traction-free (no constraint). An integer/float is a
 prescribed displacement (``0`` = fixed).
 
+AngConverter
+------------
+
+Options for converting EDAX/TSL ``.ang`` maps into a graintrace schema. The
+format itself, and the header keys that can supply these values, are in
+:doc:`file-formats`.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 24 16 60
+
+   * - Option
+     - Default
+     - Meaning
+   * - ``input_path``
+     - required
+     - One ``.ang`` file, or a folder holding one per layer
+   * - ``save_dir``
+     - required
+     - Output folder; created if absent
+   * - ``file_token``
+     - ``"layer"``
+     - Filename token the layer index follows, e.g. ``layer03.ang``. Folder
+       inputs are ordered by that integer, numerically
+   * - ``angle_convention``
+     - ``None``
+     - ``"bunge"``, ``"kocks"`` or ``"roe"`` for the input files. Overrides the
+       header. ``None`` with no header key raises
+   * - ``angle_type``
+     - ``None``
+     - ``"radians"`` or ``"degrees"`` for the input files. Overrides the
+       header. ``None`` with no header key raises
+   * - ``output_angle_type``
+     - ``"degrees"``
+     - Unit of the written Bunge angles. Must equal the downstream builder's
+       ``angle_type``
+   * - ``confidence_min``
+     - ``None``
+     - Drop rows with ``CI`` below this. ``0.0`` drops TSL's negative-CI
+       unindexed points. ``None`` keeps every row
+
+Both writers take ``zstep``, the layer spacing in micrometers; layer *i* is
+placed at ``z = i * zstep``. ``to_mic`` additionally takes ``tri_edge_size``
+(default: the header's ``XSTEP``, else ``1.0``) and ``prefix`` (default:
+``file_token``).
+
+.. warning::
+
+   ``output_angle_type`` and the downstream builder's ``angle_type`` must
+   agree. The converter always writes Bunge angles, but in whichever unit was
+   asked for, and a mismatch is not detectable downstream.
+
 Segmentation
 ------------
 

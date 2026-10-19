@@ -23,6 +23,7 @@ your chat client (brings the LLM + key)
 | `generate_synthetic_hedm` | synthetic FF+NF test data | NEPER |
 | `stitch_scans` | merge FF z-scan layers | (NEPER if `refine_extents`) |
 | `compare_stitching` | validate a stitch vs. truth | none |
+| `convert_ang` | EDAX/TSL `.ang` → `.mic` or merged EBSD CSV | none |
 | `ff_reconstruct` | FF Voronoi reconstruction | NEPER (GMSH if meshing) |
 | `nf_reconstruct` | NF voxel reconstruction + mesh | CUBIT/SCULPT (mesh only) |
 | `voxel_mesh` | EBSD/gridded segmentation + mesh | CUBIT/SCULPT (mesh only) |
