@@ -347,6 +347,11 @@ class TestDownstreamBuilders:
         assert sorted(pointcloud["layer"].unique().tolist()) == [0, 1, 2]
 
     def test_voxel_mesh_builder_recovers_the_planted_grains(self, tmp_path):
+        # The builder's segmentation goes through neml2 orientation math and
+        # the graph pathway needs networkit; a plain checkout has neither.
+        pytest.importorskip("neml2")
+        pytest.importorskip("networkit")
+
         converter = AngConverter(input_path=FIXTURE_DIR, save_dir=tmp_path)
         merged = converter.to_ebsd_csv(zstep=0.5)
 
