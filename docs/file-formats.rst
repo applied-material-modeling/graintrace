@@ -154,17 +154,125 @@ The reader adds ``Z = layer_index * dz`` and a ``layer`` column. Layer numbers
 must be **contiguous**; a gap raises ``ValueError``. The reader accepts ``.csv``
 files in the input folder as well as ``.mic``, with the same schema.
 
-``.ang``
-~~~~~~~~
+EDAX/TSL ``.ang``
+~~~~~~~~~~~~~~~~~
+
+The native EDAX/TSL OIM acquisition format. No builder reads it directly;
+:class:`~graintrace.AngConverter` converts it to either of the two schemas that
+are read -- the NF ``.mic`` above, or the merged EBSD CSV below.
+
+Two layouts are accepted. The minimal one is headerless and eight columns:
+
+.. code-block:: text
+
+   0.174540  0.349660  0.523050   0.00000   0.00000   122.3   0.690  1
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 12 68
+
+   * - Column
+     - Unit
+     - Meaning
+   * - ``phi1``, ``PHI``, ``phi2``
+     - rad or deg
+     - Euler angles; the convention and unit are **not** inferred (below)
+   * - ``x``, ``y``
+     - µm
+     - in-plane position
+   * - ``IQ``
+     - –
+     - image quality
+   * - ``CI``
+     - –
+     - confidence index; TSL writes a negative value for an unindexed point
+   * - ``phase``
+     - –
+     - phase index
+
+The second layout prefixes a ``#`` comment block and usually carries ten
+columns, appending ``SEM`` and ``fit``. Columns past the tenth are read and
+named ``col10``, ``col11`` and so on. A ``COLUMN_HEADERS`` key in the header
+overrides the count-based naming, and a count that disagrees with the data
+raises rather than silently misaligning the columns.
+
+Header keys the reader acts on:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 70
+
+   * - Key
+     - Effect
+   * - ``ANGLE_UNITS``
+     - pins the unit: ``radians`` or ``degrees``
+   * - ``EULER_CONVENTION``
+     - pins the convention: ``bunge``, ``kocks`` or ``roe``
+   * - ``COLUMN_HEADERS``
+     - names the columns, overriding the count-based default
+   * - ``XSTEP``, ``YSTEP``
+     - in-plane step; ``XSTEP`` becomes the default ``TriEdgeSize`` on ``.mic`` output
+   * - ``GRID``
+     - recorded on the parsed header, not acted on
+
+Key matching ignores case and separators, and both ``KEY: value`` and
+``KEY   value`` forms are read. Every other key is kept verbatim on
+``AngHeader.keys``. A key present but empty -- TSL does write those -- raises
+``ValueError`` for ``XSTEP``, ``YSTEP`` and ``GRID`` rather than a bare
+``IndexError``.
+
+.. note::
+
+   ``ANGLE_UNITS`` and ``EULER_CONVENTION`` are a **graintrace** convention,
+   not a TSL one. Stock OIM writes neither, so an unmodified export pins
+   nothing and both ``angle_convention`` and ``angle_type`` must be passed
+   explicitly. Add the two keys to the header only if you want the file to
+   carry its own provenance.
 
 .. warning::
 
-   **graintrace has no** ``.ang`` **reader.** There is no converter in the
-   package and no code path that recognises the extension. Convert ``.ang``
-   data to the NF ``.mic`` schema above, or to the merged EBSD CSV below, with
-   your own tooling before it enters graintrace. A built-in converter is
-   tracked as `issue #53
-   <https://github.com/applied-material-modeling/graintrace/issues/53>`_.
+   **The convention and the unit are never guessed.** They come from the header
+   when it pins them, otherwise from the explicit ``angle_convention`` and
+   ``angle_type`` arguments, and a file that supplies neither raises
+   ``ValueError``. EDAX/TSL OIM writes Bunge angles in radians, so that pair is
+   right for an unmodified export -- but a degrees file read as radians gives a
+   microstructure that segments without complaint and is wrong, which is why
+   the default is a refusal rather than the common case.
+
+Converting to either target:
+
+.. code-block:: python
+
+   from graintrace import AngConverter
+
+   converter = AngConverter(
+       input_path="ebsd/ang",          # one .ang file, or a folder of layers
+       save_dir="out/ebsd",
+       file_token="layer",             # layer index follows this in the filename
+       angle_convention="bunge",       # omit only if the header pins it
+       angle_type="radians",           # omit only if the header pins it
+       output_angle_type="degrees",    # must match the builder's angle_type
+       confidence_min=0.0,             # drops TSL's negative-CI unindexed points
+   )
+
+   merged = converter.to_ebsd_csv(zstep=2.0)   # -> VoxelMeshBuilder
+   layers = converter.to_mic(zstep=2.0)        # -> NearFieldMeshBuilder
+
+``z`` is the layer's **index in the filename** minus the lowest index in the
+folder, times ``zstep``, so the first layer sits at ``z = 0`` and so does a
+single-file input. Folder inputs are ordered by that integer, numerically --
+``layer10`` sorts after ``layer9``, not between ``layer1`` and ``layer2``.
+Output angles are always Bunge, in ``output_angle_type``; pass that same unit
+to the downstream builder's ``angle_type``. Shipped example:
+``mwe_data/ang_ebsd/`` (three layers, ten columns, header-pinned).
+
+A gap in the layer numbering is preserved rather than closed up. ``layer1`` and
+``layer3`` at ``zstep=2.0`` give ``z = 0`` and ``z = 4``, and ``to_mic`` names
+them ``layer1.mic`` and ``layer3.mic``. Both matter:
+:func:`~graintrace.nf.convert.nf_to_pointcloud` recomputes ``z`` from the file
+order and raises on a non-contiguous layer set, so renumbering the outputs
+contiguously would place the stack at the wrong ``z`` *and* hide the missing
+layer from the only check that catches it.
 
 EBSD merged CSV
 ~~~~~~~~~~~~~~~

@@ -5,6 +5,7 @@
 # OPEN SOURCE LICENSE (MIT)
 """Tools: 3D microstructure reconstruction from FF / NF / EBSD data.
 
+  * convert_ang     -> AngConverter (EDAX/TSL .ang -> .mic or merged EBSD CSV)
   * ff_reconstruct  -> VoronoiMeshBuilder (NEPER Voronoi/CVT)
   * nf_reconstruct  -> NearFieldMeshBuilder (voxel segmentation + optional SCULPT mesh)
   * voxel_mesh      -> VoxelMeshBuilder (EBSD / gridded NF -> segmentation + SCULPT mesh)
@@ -185,6 +186,103 @@ def ff_reconstruct(
         notes="CVT relaxation can take a while; runs in the background.",
         missing_required=missing,
         suggestions=suggestions,
+    )
+
+
+@mcp.tool()
+def convert_ang(
+    input_path: str,
+    target: str,
+    zstep: float,
+    save_dir: Optional[str] = None,
+    angle_convention: Optional[str] = None,
+    angle_type: Optional[str] = None,
+    output_angle_type: str = "degrees",
+    file_token: str = "layer",
+    confidence_min: Optional[float] = None,
+    confirm: bool = False,
+) -> dict:
+    """Convert EDAX/TSL `.ang` orientation maps into a schema graintrace reads
+    (wraps `AngConverter`). Nothing in the package reads `.ang` directly, so this
+    is the step before `nf_reconstruct` or `voxel_mesh` on EBSD/NF `.ang` data.
+
+    Parameters
+    ----------
+    input_path : one `.ang` file, or a folder holding one per layer.
+    target : 'mic' -> per-layer .mic for `nf_reconstruct`;
+        'ebsd_csv' -> merged x,y,z,Eul0,Eul1,Eul2 CSV for `voxel_mesh`.
+    zstep : spacing between layers (um). z is the layer's filename index minus
+        the lowest one in the folder, times zstep, so a gap in the numbering
+        leaves a gap in z.
+    save_dir : output folder (defaults under the MCP workdir).
+    angle_convention : 'bunge'|'kocks'|'roe' of the INPUT files. Required when
+        the `.ang` header does not pin it; TSL OIM writes bunge.
+    angle_type : 'radians'|'degrees' of the INPUT files. Required when the
+        header does not pin it; TSL OIM writes radians.
+    output_angle_type : unit of the written Bunge angles, 'degrees' (default) or
+        'radians'. Pass the same value as the downstream builder's angle_type.
+    file_token : filename token the layer index follows (folder input only).
+    confidence_min : drop rows with CI below this (TSL marks unindexed points
+        with a negative CI, so 0.0 is the usual floor). None keeps every row.
+
+    Pure Python, no external binaries. The conversion refuses rather than guesses
+    when neither the header nor the arguments pin the convention or the unit.
+    """
+    # Lazy: heavy graintrace submodule, imported on run.
+    # pylint: disable=import-outside-toplevel
+    from graintrace.ang_conversion import AngConverter
+
+    if target not in ("mic", "ebsd_csv"):
+        raise ValueError(f"target must be 'mic' or 'ebsd_csv', got {target!r}")
+    if save_dir is None:
+        save_dir = str(workdir() / "ang_converted")
+
+    resolved = {
+        "input_path": input_path,
+        "target": target,
+        "zstep": zstep,
+        "save_dir": save_dir,
+        "angle_convention": angle_convention,
+        "angle_type": angle_type,
+        "output_angle_type": output_angle_type,
+        "file_token": file_token,
+        "confidence_min": confidence_min,
+    }
+
+    def _run():
+        converter = AngConverter(
+            input_path=input_path,
+            save_dir=save_dir,
+            file_token=file_token,
+            angle_convention=angle_convention,
+            angle_type=angle_type,
+            output_angle_type=output_angle_type,
+            confidence_min=confidence_min,
+        )
+        if target == "mic":
+            written = converter.to_mic(zstep=zstep)
+            return {
+                "save_dir": save_dir,
+                "mic_files": [str(p) for p in written],
+                "next_tool": "nf_reconstruct",
+            }
+        return {
+            "save_dir": save_dir,
+            "ebsd_csv": str(converter.to_ebsd_csv(zstep=zstep)),
+            "next_tool": "voxel_mesh",
+        }
+
+    return gate(
+        tool="convert_ang",
+        confirm=confirm,
+        resolved_params=resolved,
+        needs=[],
+        will_write=[save_dir],
+        run=_run,
+        notes=(
+            "Output angles are Bunge in `output_angle_type`; pass that same unit "
+            "to the downstream builder's angle_type."
+        ),
     )
 
 
