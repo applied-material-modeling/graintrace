@@ -392,7 +392,9 @@ class FrameTransform:
         if isinstance(g, torch.Tensor):
             gt = g
         else:
-            gt = torch.as_tensor(np.asarray(g, dtype=float), dtype=torch.float64)
+            # np.array, not asarray: a read-only input would otherwise make a
+            # non-writable tensor and torch warns about it.
+            gt = torch.as_tensor(np.array(g, dtype=float), dtype=torch.float64)
         Qt = torch.as_tensor(self.Q.T, dtype=gt.dtype, device=gt.device)
         return gt @ Qt
 
