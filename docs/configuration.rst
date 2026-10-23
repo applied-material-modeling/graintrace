@@ -278,8 +278,10 @@ largest is too loose for the small ones. The size-aware modes read the per-grain
    pair, the radius modes replace the ``top_k`` nearest-neighbour query with a ball
    query at each A grain's largest possible gate and then apply the exact per-pair
    gate, so the candidate search always covers the gate and cannot be the binding
-   limit on how many children a split may have. A radius mode with ``radius_col``
-   missing from either table raises, rather than silently gating at zero.
+   limit on how many children a split may have. Passing a non-default ``top_k``
+   in a radius mode warns, so the cap is not ignored silently. A radius mode with
+   ``radius_col`` missing from either table raises, rather than silently gating at
+   zero.
 
 Three reporting options sit alongside the lineage view.
 ``assignment="one_to_one"`` additionally runs a Hungarian assignment over the gated
@@ -295,6 +297,10 @@ a miss. ``n_null`` (with ``seed``) reruns the misorientation filter over the sam
 distance-gated candidates with uniformly random step-B orientations and reports the
 mean number of links found by chance, which is the significance check for any gate
 setting: an observed count near the null mean means the gate is measuring nothing.
+``mean_links`` and ``observed_links`` are both counted at the same point —
+distance-gated pairs surviving the misorientation filter — so the comparison is like
+for like; ``observed_links_after_adjacency`` is that count once the optional
+``adjacency_b`` prune, which the null never sees, has run.
 
 **Annotated Exodus**
 (:meth:`~graintrace.ipf_postprocess.IPFProcessor.add_element_field_to_exodus` and

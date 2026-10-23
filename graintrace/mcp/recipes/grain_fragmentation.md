@@ -72,7 +72,11 @@ missing, rather than silently gating at zero.
 - `n_null` (with `seed`): reruns the misorientation filter over the same distance-gated
   pairs with uniformly random B orientations. Compare `null.mean_links` against
   `null.observed_links` to check a gate setting is finding more than chance. A loose
-  gate whose observed count is near the null mean is measuring nothing.
+  gate whose observed count is near the null mean is measuring nothing. Both are
+  counted at the same point — distance-gated pairs surviving the misorientation
+  filter — so the comparison is like for like. `null.observed_links_after_adjacency`
+  is the same count once the optional `adjacency_b` prune has run, which the null
+  never sees; it equals `observed_links` when `adjacency_b` is None.
 
 ## Synthetic test data
 Shipped `mwe_data/synthetic_split_{ff,nf,ebsd}/` carry a known 1→2 split

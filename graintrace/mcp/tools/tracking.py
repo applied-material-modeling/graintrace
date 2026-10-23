@@ -154,7 +154,9 @@ def detect_fragmentation(
     volume_col : per-grain volume column (default 'volume'); when present, that
         side's recall is also reported volume-weighted.
     n_null / seed : chance trials with uniformly random B orientations (default 0 =
-        skip), reported as null.mean_links against null.observed_links.
+        skip), reported as null.mean_links against null.observed_links. Both are
+        counted before the optional adjacency prune, so they are comparable;
+        null.observed_links_after_adjacency is the post-prune count.
     """
     # pylint: disable=import-outside-toplevel
     from graintrace.fragmentation import FragmentationAnalyzer

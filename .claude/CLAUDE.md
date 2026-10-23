@@ -1407,9 +1407,11 @@ radius from the parent centroid, so with an R=50 parent and sub-grains at 0.8R, 
 reports 3 births + 1 death where `d_tol_mode="radius"` reports the 1 split with 3 children.
 Switch modes instead of inflating `d_tol`, which chains unrelated neighbours. Two traps: the
 radius modes need `radius_col` in BOTH tables (they raise if it is missing), and `top_k` does
-nothing in them — in `"absolute"` mode `top_k`, not `d_tol`, is still the binding cap on a
-split's child count. Validate a gate with `n_null=...`: if `null["mean_links"]` is close to
-`null["observed_links"]`, the gate is admitting chance matches, not lineage.
+nothing in them (a non-default value warns) — in `"absolute"` mode `top_k`, not `d_tol`, is
+still the binding cap on a split's child count. Validate a gate with `n_null=...`: if
+`null["mean_links"]` is close to `null["observed_links"]`, the gate is admitting chance
+matches, not lineage. Both counts are taken before the `adjacency_b` prune, which the null
+never sees; `null["observed_links_after_adjacency"]` is the post-prune count.
 
 ### Reorientation REI: reference step + `ori_rodrigues` is MRP
 `FragmentationAnalyzer.reorientation_from_reference`/`.write_reorientation_field` default

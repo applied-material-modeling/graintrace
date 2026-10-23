@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import itertools
 import os
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -585,6 +586,16 @@ class TestRecallHelpers:
         with pytest.raises(ValueError, match="in_overlap_a must have length 3"):
             _overlap_mask([True, False], pd.DataFrame(), 3, "in_overlap_a")
 
+    def test_unknown_overlap_column_names_the_parameter_and_the_columns(self):
+        """A bare pandas KeyError does not say which argument was wrong."""
+        from graintrace.fragmentation import _overlap_mask
+
+        df = pd.DataFrame({"in_ov": [True, False, True]})
+        with pytest.raises(ValueError, match="in_overlap_a='in_ovv'"):
+            _overlap_mask("in_ovv", df, 3, "in_overlap_a")
+        with pytest.raises(ValueError, match=r"available columns are \['in_ov'\]"):
+            _overlap_mask("in_ovv", df, 3, "in_overlap_a")
+
 
 class TestSizeAwareSplitDetection:
     """``d_tol_mode`` end to end through :meth:`detect_splits`."""
@@ -675,6 +686,54 @@ class TestSizeAwareSplitDetection:
                 d_tol_mode="radius",
             )
 
+    def test_non_default_top_k_warns_in_a_radius_mode(self):
+        """A cap the radius search cannot honour must not be swallowed silently."""
+        pytest.importorskip("neml2")
+        from graintrace.fragmentation import FragmentationAnalyzer
+
+        a, b = self._parent_and_subgrains()
+        kw = dict(d_tol=1.0, theta_tol_deg=5.0, angle_type="degrees")
+        with pytest.warns(UserWarning, match="is ignored when d_tol_mode"):
+            FragmentationAnalyzer().detect_splits(
+                a, b, d_tol_mode="radius", top_k=3, **kw
+            )
+        # The default is not a choice the caller made, so it stays quiet; so does
+        # the absolute mode, which actually uses the cap.
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            FragmentationAnalyzer().detect_splits(a, b, d_tol_mode="radius", **kw)
+            FragmentationAnalyzer().detect_splits(
+                a, b, d_tol_mode="absolute", top_k=3, **kw
+            )
+
+    def test_zero_theta_tol_does_not_produce_a_nan_cost(self):
+        """``theta_tol_deg=0`` is degenerate but legal; the cost must stay finite."""
+        pytest.importorskip("neml2")
+        from graintrace.fragmentation import FragmentationAnalyzer
+
+        # Two exactly-equal orientation pairs, so the 0-degree filter keeps them
+        # and the miso/theta_tol term would be 0/0 without the guard.
+        a = _nodes(
+            [1, 2],
+            np.array([[0.0, 0.0, 0.0], [50.0, 0.0, 0.0]]),
+            np.array([[10.0, 20.0, 30.0], [40.0, 20.0, 30.0]]),
+        )
+        b = _nodes(
+            [11, 12],
+            np.array([[1.0, 0.0, 0.0], [51.0, 0.0, 0.0]]),
+            np.array([[10.0, 20.0, 30.0], [40.0, 20.0, 30.0]]),
+        )
+        out = FragmentationAnalyzer().detect_splits(
+            a,
+            b,
+            d_tol=10.0,
+            theta_tol_deg=0.0,
+            angle_type="degrees",
+            assignment="one_to_one",
+        )
+        assert out["n_matches"] == 2
+        assert np.isfinite(out["one_to_one"]["cost"].to_numpy()).all()
+
     def test_defaults_are_unchanged_by_the_new_parameters(self):
         """Backward compatibility: the default call is the 'absolute' path."""
         pytest.importorskip("neml2")
@@ -689,6 +748,63 @@ class TestSizeAwareSplitDetection:
         keys = ("n_matches", "n_splits", "n_merges", "n_births", "n_deaths")
         assert {k: plain[k] for k in keys} == {k: explicit[k] for k in keys}
         assert plain["components"] == explicit["components"]
+
+    @pytest.mark.parametrize(
+        "case",
+        ["parent_and_subgrains", "two_steps", "dense_split", "adjacency"],
+    )
+    def test_defaults_reproduce_the_pre_change_implementation(self, case):
+        """Issue #59: "default arguments reproduce today's output exactly".
+
+        The test above compares the new code against itself with the defaults
+        spelled out, so both sides move together and it cannot catch a
+        regression. This one compares against ``tests/_detect_splits_original``,
+        a frozen copy of the implementation as it stood before this change --
+        the pattern ``tests/_prune_original.py`` already establishes.
+        """
+        pytest.importorskip("neml2")
+        from graintrace.fragmentation import FragmentationAnalyzer
+
+        from _detect_splits_original import detect_splits_original
+
+        if case == "parent_and_subgrains":
+            a, b = self._parent_and_subgrains()
+            kw = dict(d_tol=45.0, theta_tol_deg=5.0, angle_type="degrees")
+        elif case == "two_steps":
+            a, b = TestOneToOneAssignment._two_steps()
+            kw = dict(d_tol=20.0, theta_tol_deg=10.0, angle_type="degrees")
+        elif case == "dense_split":
+            a, b = TestTopKAndDTolCompose()._dense_split()
+            kw = dict(d_tol=30.0, theta_tol_deg=8.0, angle_type="degrees")
+        else:
+            a = _nodes(
+                [1],
+                np.array([[0.0, 0.0, 0.0]]),
+                np.array([[10.0, 20.0, 30.0]]),
+            )
+            b = _nodes(
+                [11, 12, 13],
+                np.array([[-2.0, 0.0, 0.0], [2.0, 0.0, 0.0], [0.0, 3.0, 0.0]]),
+                np.array([[11.0, 20.0, 30.0], [9.0, 21.0, 30.0], [10.0, 19.0, 31.0]]),
+            )
+            kw = dict(
+                d_tol=10.0,
+                theta_tol_deg=5.0,
+                angle_type="degrees",
+                adjacency_b=[(11, 12)],
+            )
+
+        new = FragmentationAnalyzer().detect_splits(a, b, **kw)
+        old = detect_splits_original("432", a, b, **kw)
+
+        for key in ("n_matches", "n_splits", "n_merges", "n_births", "n_deaths"):
+            assert new[key] == old[key], key
+        assert new["components"] == old["components"]
+        # "recall" and "null" are new keys added by this change; backward
+        # compatibility is about the ones that already existed.
+        pd.testing.assert_frame_equal(
+            new["split_correspondences"], old["split_correspondences"]
+        )
 
 
 class TestOneToOneAssignment:
@@ -841,6 +957,49 @@ class TestRecallAndNull:
         assert null["observed_links"] == 12
         # A 10 deg gate under cubic symmetry is a tiny slice of orientation space.
         assert null["mean_links"] < 1.0
+
+    def test_observed_links_is_measured_where_the_null_measures_it(self):
+        """The adjacency prune must not deflate the count ``mean_links`` faces.
+
+        ``_chance_links`` reruns the misorientation filter over the
+        distance-gated candidates and never sees the adjacency prune, so an
+        ``observed_links`` measured after that prune would read falsely weak
+        against ``mean_links``. The post-prune count gets its own key.
+        """
+        pytest.importorskip("neml2")
+        from graintrace.fragmentation import FragmentationAnalyzer
+
+        # Parent 1 has three compatible candidates; adjacency (11, 12) drops 13,
+        # so the prune provably bites: three links before it, two after.
+        a = _nodes(
+            [1],
+            np.array([[0.0, 0.0, 0.0]]),
+            np.array([[10.0, 20.0, 30.0]]),
+        )
+        b = _nodes(
+            [11, 12, 13],
+            np.array([[-2.0, 0.0, 0.0], [2.0, 0.0, 0.0], [0.0, 3.0, 0.0]]),
+            np.array([[11.0, 20.0, 30.0], [9.0, 21.0, 30.0], [10.0, 19.0, 31.0]]),
+        )
+        kwargs = dict(
+            d_tol=10.0,
+            theta_tol_deg=5.0,
+            angle_type="degrees",
+            n_null=5,
+            seed=42,
+        )
+        free = FragmentationAnalyzer().detect_splits(a, b, **kwargs)["null"]
+        pruned = FragmentationAnalyzer().detect_splits(
+            a, b, adjacency_b=[(11, 12)], **kwargs
+        )["null"]
+
+        # The prune really did drop a link, so the comparison below is not vacuous.
+        assert pruned["observed_links_after_adjacency"] == 2
+        assert pruned["observed_links"] == 3
+        # ... and the count the null is compared against is untouched by it.
+        assert pruned["observed_links"] == free["observed_links"]
+        # With no adjacency supplied the two keys describe the same set.
+        assert free["observed_links_after_adjacency"] == free["observed_links"] == 3
 
     def test_null_is_reproducible_under_a_seed(self):
         pytest.importorskip("neml2")

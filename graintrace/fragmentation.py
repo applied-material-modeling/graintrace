@@ -47,6 +47,7 @@ from __future__ import annotations
 
 import os
 import tempfile
+import warnings
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
@@ -288,10 +289,23 @@ def _overlap_mask(spec, df, n: int, name: str) -> np.ndarray:
 
     Returns:
         ``(n,)`` boolean mask.
+
+    Raises:
+        ValueError: if ``spec`` names a column the table does not have, or is an
+            array of the wrong length.
     """
     if spec is None:
         return np.ones(n, dtype=bool)
-    arr = df[spec].to_numpy() if isinstance(spec, str) else np.asarray(spec)
+    if isinstance(spec, str):
+        # A bare pandas KeyError here is unhelpful next to the length check below.
+        if spec not in df.columns:
+            raise ValueError(
+                f"{name}={spec!r} is not a column of the grain table; "
+                f"available columns are {list(df.columns)}."
+            )
+        arr = df[spec].to_numpy()
+    else:
+        arr = np.asarray(spec)
     if arr.shape != (n,):
         raise ValueError(f"{name} must have length {n}, got shape {arr.shape}.")
     return arr.astype(bool)
@@ -1287,7 +1301,8 @@ class FragmentationAnalyzer:
             top_k: cap on the number of B candidates probed per A grain
                 (default 8), or ``None`` for no cap. **Used by**
                 ``d_tol_mode="absolute"`` **only** -- the radius modes size
-                their own search to cover the gate and ignore it. With a cap,
+                their own search to cover the gate and ignore it, warning if a
+                non-default value is passed anyway. With a cap,
                 ``top_k`` -- not ``d_tol`` -- is the binding limit on how many
                 children a split can have whenever more than ``top_k`` B grains
                 sit within ``d_tol``, so a parent that fragments into many
@@ -1364,7 +1379,14 @@ class FragmentationAnalyzer:
             ``recall`` (per-side linked fractions). ``one_to_one`` (a DataFrame of
             ``a_id, b_id, miso_deg, dist, cost``) is present when
             ``assignment="one_to_one"``, and ``null`` (observed against chance
-            links) when ``n_null > 0``.
+            links) when ``n_null > 0``. ``null`` carries ``n_null``,
+            ``mean_links``, ``std_links``, ``observed_links`` and
+            ``observed_links_after_adjacency``. Compare ``observed_links``
+            against ``mean_links``: both count distance-gated pairs surviving
+            the misorientation filter, so they are measured at the same point.
+            ``observed_links_after_adjacency`` is the same count once the
+            optional ``adjacency_b`` prune has run, which the null never sees;
+            the two are equal when ``adjacency_b`` is None.
 
         Raises:
             ValueError: on an unknown ``d_tol_mode`` or ``assignment``, or when a
@@ -1386,6 +1408,20 @@ class FragmentationAnalyzer:
         if assignment not in (None, "one_to_one"):
             raise ValueError(
                 f"Unknown assignment: {assignment!r} (expected None or 'one_to_one')."
+            )
+        # The radius modes search with a ball query at the loosest possible gate,
+        # so top_k has no effect there. Silently ignoring a caller's explicit cap
+        # would let them believe the candidate set is bounded when it is not; the
+        # default (8) is not a choice they made, so it stays quiet. Checked with
+        # the other argument validation, before the node tables are read.
+        if d_tol_mode != "absolute" and top_k != 8:
+            warnings.warn(
+                f"top_k={top_k!r} is ignored when d_tol_mode={d_tol_mode!r}: the "
+                "size-aware gate varies per pair, so candidates come from a radius "
+                "query covering the largest possible gate rather than a k-nearest "
+                "query. Use d_tol_mode='absolute' if you need the cap.",
+                UserWarning,
+                stacklevel=2,
             )
 
         da = _load_nodes(nodes_a)
@@ -1451,6 +1487,15 @@ class FragmentationAnalyzer:
             keep = miso <= theta_tol_deg
             ai, bj, pair_gate = ai[keep], bj[keep], pair_gate[keep]
             pair_dist, pair_miso = pair_dist[keep], np.asarray(miso)[keep]
+
+        # Record the observed count HERE, where the null measures it: _chance_links
+        # counts distance-gated pairs surviving the misorientation filter, and never
+        # sees the adjacency prune below. Measured after the prune it would be
+        # deflated against mean_links whenever adjacency_b is supplied, making the
+        # significance read falsely weak. The post-prune count is reported too, under
+        # its own key, since that is the number of links actually used downstream.
+        if null_report is not None:
+            null_report["observed_links"] = int(len(ai))
 
         # Optional adjacency consistency: a candidate child that is not adjacent (in B)
         # to any sibling under the same parent is not evidence of a split, so it is
@@ -1586,7 +1631,19 @@ class FragmentationAnalyzer:
         }
 
         if assignment == "one_to_one":
-            cost = pair_miso / float(theta_tol_deg) + np.divide(
+            # Normalise each term by its own tolerance so the two are comparable.
+            # Guard the misorientation division the same way the distance one
+            # below is guarded: theta_tol_deg == 0 is a degenerate but legal gate
+            # (only exactly-equal orientations survive the filter, so every
+            # surviving pair has miso == 0 and the term is 0). Without the guard
+            # it produced NaN, and linear_sum_assignment then raised.
+            miso_term = np.divide(
+                pair_miso,
+                float(theta_tol_deg),
+                out=np.zeros_like(pair_miso),
+                where=float(theta_tol_deg) > 0,
+            )
+            cost = miso_term + np.divide(
                 pair_dist,
                 pair_gate,
                 out=np.zeros_like(pair_dist),
@@ -1609,7 +1666,7 @@ class FragmentationAnalyzer:
             ).sort_values("a_id", ignore_index=True)
 
         if null_report is not None:
-            null_report["observed_links"] = int(len(ai))
+            null_report["observed_links_after_adjacency"] = int(len(ai))
             result["null"] = null_report
 
         return result
