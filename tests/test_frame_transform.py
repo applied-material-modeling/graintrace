@@ -27,20 +27,33 @@
 import unittest
 
 import numpy as np
-import pytest
 
 from graintrace.frame_transform import FrameTransform
 
-torch = pytest.importorskip("torch")
-pytest.importorskip("neml2")
+# torch and neml2 are not pip-installable, so CI's ``pip install ".[dev]"`` has
+# neither. Importing them at module scope would skip this whole file, including
+# the rotation parsing, tensor, algebra, axis-sign and serialisation tests,
+# which are pure numpy/scipy. Soft-import instead and gate only the orientation
+# tests, the way tests/test_voronoi_rotation_frame.py already does.
+try:  # pragma: no cover - import availability, not behaviour
+    import torch
+    from graintrace.orientation_helper import (
+        euler_to_matrix,
+        matrix_to_euler,
+        matrix_to_mrp,
+        misorientation_matrix,
+        mrp_to_matrix,
+    )
 
-# pylint: disable-next=wrong-import-position  # must follow the neml2 importorskip
-from graintrace.orientation_helper import (  # noqa: E402
-    euler_to_matrix,
-    matrix_to_euler,
-    matrix_to_mrp,
-    misorientation_matrix,
-    mrp_to_matrix,
+    HAS_ORIENTATION_STACK = True
+except ImportError:  # pragma: no cover - the compiled stack is optional
+    torch = None
+    euler_to_matrix = matrix_to_euler = matrix_to_mrp = None
+    misorientation_matrix = mrp_to_matrix = None
+    HAS_ORIENTATION_STACK = False
+
+requires_orientation_stack = unittest.skipUnless(
+    HAS_ORIENTATION_STACK, "requires torch and neml2"
 )
 
 # A generic frame change: stage rotation, remount flip, and a small two-axis tilt.
@@ -142,6 +155,7 @@ class TestRotationParsing(unittest.TestCase):
             FrameTransform(rotation=[("w", 10.0)])
 
 
+@requires_orientation_stack
 class TestSampleSideCorrectness(unittest.TestCase):
     """The orientation update must be on the sample side: ``R' c = Q R c``."""
 
@@ -191,6 +205,7 @@ class TestSampleSideCorrectness(unittest.TestCase):
         self.assertFalse(np.allclose(before.numpy(), after.numpy()))
 
 
+@requires_orientation_stack
 class TestPhysicalConsistency(unittest.TestCase):
     """Positions and orientations must move together."""
 
@@ -298,10 +313,15 @@ class TestTensors(unittest.TestCase):
 class TestAxisSign(unittest.TestCase):
     """``axis_sign`` acts on positions only."""
 
-    def test_sign_flips_only_positions(self):
-        """A z reversal changes positions but leaves orientations alone."""
+    def test_sign_flips_positions(self):
+        """A z reversal negates the z coordinate."""
         T = FrameTransform(axis_sign=(1, 1, -1))
         self.assertTrue(np.allclose(T.positions([[1.0, 2.0, 3.0]]), [[1.0, 2.0, -3.0]]))
+
+    @requires_orientation_stack
+    def test_sign_leaves_orientations_alone(self):
+        """A z reversal is a position-only map: orientations come back unchanged."""
+        T = FrameTransform(axis_sign=(1, 1, -1))
         g = euler_to_matrix(torch.tensor(EULER), "bunge", "degrees")
         self.assertTrue(np.allclose(T.orientation_matrices(g).numpy(), g.numpy()))
 
@@ -338,22 +358,27 @@ class TestAlgebra(unittest.TestCase):
         self.assertTrue(np.allclose(ident.A, np.eye(3)))
         self.assertTrue(np.allclose(ident.t, np.zeros(3)))
 
-    def test_inverse_undoes_each_map(self):
-        """Applying T then its inverse recovers positions, Euler angles and tensors."""
+    def test_inverse_undoes_positions_and_tensors(self):
+        """Applying T then its inverse recovers positions and tensors."""
         T = _generic_transform()
         Tin = T.inverse()
         rng = np.random.default_rng(11)
         x = rng.normal(0.0, 50.0, size=(6, 3))
         self.assertTrue(np.allclose(Tin.positions(T.positions(x)), x))
 
+        eps = np.array([np.diag([1.0, 2.0, 3.0])])
+        self.assertTrue(np.allclose(Tin.tensors(T.tensors(eps)), eps))
+
+    @requires_orientation_stack
+    def test_inverse_undoes_the_euler_map(self):
+        """Applying T then its inverse recovers the original orientations."""
+        T = _generic_transform()
+        Tin = T.inverse()
         eul = T.euler(EULER, "bunge", "degrees")
         back = Tin.euler(eul, "bunge", "degrees")
         g0 = euler_to_matrix(torch.tensor(EULER), "bunge", "degrees")
         g1 = euler_to_matrix(torch.tensor(back), "bunge", "degrees")
         self.assertTrue(np.allclose(g0.numpy(), g1.numpy(), atol=1e-10))
-
-        eps = np.array([np.diag([1.0, 2.0, 3.0])])
-        self.assertTrue(np.allclose(Tin.tensors(T.tensors(eps)), eps))
 
     def test_composition_is_associative(self):
         """``(A @ B) @ C == A @ (B @ C)``."""
@@ -366,15 +391,24 @@ class TestAlgebra(unittest.TestCase):
         self.assertTrue(np.allclose(left.Q, right.Q))
         self.assertTrue(np.allclose(left.t, right.t))
 
-    def test_composition_matches_sequential_application(self):
-        """``(A @ B)(x) == A(B(x))`` for positions and orientations."""
+    @staticmethod
+    def _composition_pair():
+        """A composed transform and its two factors."""
         A = FrameTransform(rotation=[("z", 31.0)], translation=(1.0, 2.0, 3.0))
         B = FrameTransform(rotation=[("x", 17.0)], axis_sign=(1, -1, 1))
-        AB = A @ B
+        return A, B, A @ B
+
+    def test_composition_matches_sequential_positions(self):
+        """``(A @ B)(x) == A(B(x))`` for positions."""
+        A, B, AB = self._composition_pair()
         rng = np.random.default_rng(5)
         x = rng.normal(size=(4, 3))
         self.assertTrue(np.allclose(AB.positions(x), A.positions(B.positions(x))))
 
+    @requires_orientation_stack
+    def test_composition_matches_sequential_orientations(self):
+        """``(A @ B)(g) == A(B(g))`` for orientations."""
+        A, B, AB = self._composition_pair()
         g = euler_to_matrix(torch.tensor(EULER), "bunge", "degrees")
         self.assertTrue(
             np.allclose(
@@ -389,6 +423,7 @@ class TestAlgebra(unittest.TestCase):
             _ = FrameTransform() @ 3
 
 
+@requires_orientation_stack
 class TestMRPPath(unittest.TestCase):
     """The neml2 MRP path, including the load-bearing ``compose`` argument order."""
 
@@ -418,6 +453,7 @@ class TestMRPPath(unittest.TestCase):
         self.assertTrue(np.allclose(gp.transpose(0, 2, 1) @ c, expected, atol=1e-10))
 
 
+@requires_orientation_stack
 class TestEulerRoundTrips(unittest.TestCase):
     """Notation -> orientation -> transform -> notation, including gimbal lock."""
 
@@ -477,6 +513,43 @@ class TestSerialisation(unittest.TestCase):
         with self.assertRaises(ValueError):
             FrameTransform.from_dict({"rotation": np.eye(3).tolist()})
 
+    def test_composed_transform_round_trips(self):
+        """A composed transform has no sign vector and must still survive JSON."""
+        T = _generic_transform() @ FrameTransform(rotation=[("x", 37.0)])
+        self.assertIsNone(T.axis_sign)
+        back = FrameTransform.from_dict(T.to_dict())
+        self.assertTrue(np.allclose(back.A, T.A))
+        self.assertTrue(np.allclose(back.Q, T.Q))
+        self.assertTrue(np.allclose(back.t, T.t))
+
+    def test_from_dict_rejects_a_non_orthogonal_position_matrix(self):
+        """A scaled ``position_matrix`` would make positions non-rigid."""
+        record = _generic_transform().to_dict()
+        record["axis_sign"] = None  # isolate the orthogonality check
+        record["position_matrix"] = (
+            np.asarray(record["position_matrix"]) * 2.0
+        ).tolist()
+        with self.assertRaises(ValueError) as ctx:
+            FrameTransform.from_dict(record)
+        self.assertIn("orthogonal", str(ctx.exception))
+
+    def test_from_dict_rejects_a_position_matrix_that_contradicts_axis_sign(self):
+        """``A`` must be ``Q diag(s)`` whenever the record declares an ``s``."""
+        record = _generic_transform().to_dict()
+        self.assertIsNotNone(record["axis_sign"])
+        # Orthogonal, but a different rotation than Q diag(s).
+        record["position_matrix"] = FrameTransform(rotation=[("y", 23.0)]).Q.tolist()
+        with self.assertRaises(ValueError) as ctx:
+            FrameTransform.from_dict(record)
+        self.assertIn("axis_sign", str(ctx.exception))
+
+    def test_from_dict_rejects_a_misshaped_position_matrix(self):
+        """A record whose ``position_matrix`` is not (3, 3) is refused."""
+        record = _generic_transform().to_dict()
+        record["position_matrix"] = [[1.0, 0.0], [0.0, 1.0]]
+        with self.assertRaises(ValueError):
+            FrameTransform.from_dict(record)
+
     def test_repr_is_informative(self):
         """``repr`` names the determinant, sign and translation."""
         text = repr(_generic_transform())
@@ -510,6 +583,7 @@ class TestDatasetAdapters(unittest.TestCase):
             data[f"eKen{i}{j}"] = eps.reshape(n, 9)[:, k]
         return pd.DataFrame(data)
 
+    @requires_orientation_stack
     def test_apply_ff_csv_round_trip(self):
         """``apply_ff_csv`` then the inverse recovers the input table."""
         # pylint: disable-next=import-outside-toplevel  # test-only helpers
@@ -549,6 +623,7 @@ class TestDatasetAdapters(unittest.TestCase):
             ).numpy()
             self.assertTrue(np.allclose(g0, g1, atol=1e-9))
 
+    @requires_orientation_stack
     def test_apply_ff_csv_writes_a_transform_record(self):
         """Every adapter writes ``<out>.transform.json`` beside its output."""
         # pylint: disable-next=import-outside-toplevel  # test-only helper
@@ -562,6 +637,7 @@ class TestDatasetAdapters(unittest.TestCase):
         self.assertTrue(np.allclose(record.Q, T.Q))
         self.assertTrue(np.allclose(record.t, T.t))
 
+    @requires_orientation_stack
     def test_apply_ff_csv_transforms_orientation_matrix_columns(self):
         """``O11``..``O33`` are orientation matrices, so they take ``g Q^T``."""
         # pylint: disable-next=import-outside-toplevel  # test-only helper
@@ -584,6 +660,7 @@ class TestDatasetAdapters(unittest.TestCase):
         want = T.orientation_matrices(torch.tensor(g)).numpy().reshape(-1, 9)
         self.assertTrue(np.allclose(out[ocols].to_numpy(), want))
 
+    @requires_orientation_stack
     def test_apply_ff_csv_auto_angle_type(self):
         """``angle_type='auto'`` detects degrees from values beyond 2*pi."""
         # pylint: disable-next=import-outside-toplevel  # test-only helper
@@ -604,6 +681,7 @@ class TestDatasetAdapters(unittest.TestCase):
                 )
             )
 
+    @requires_orientation_stack
     def test_apply_pointcloud(self):
         """The NF / EBSD point-cloud adapter moves coordinates and orientations."""
         # pylint: disable-next=import-outside-toplevel  # test-only helpers
@@ -634,6 +712,7 @@ class TestDatasetAdapters(unittest.TestCase):
         )
         self.assertTrue(np.all(np.isfinite(out[["Eul1", "Eul2", "Eul3"]].to_numpy())))
 
+    @requires_orientation_stack
     def test_apply_voxel_grid(self):
         """The voxel-grid adapter moves the coordinate and Euler slots in place."""
         # pylint: disable-next=import-outside-toplevel  # test-only helper

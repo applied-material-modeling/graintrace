@@ -65,7 +65,7 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Optional, Sequence, Union
+from typing import Optional, Sequence
 
 import numpy as np
 
@@ -564,7 +564,9 @@ class FrameTransform:
             FrameTransform: the stored transform.
 
         Raises:
-            ValueError: if the record is not a graintrace frame-transform record.
+            ValueError: if the record is not a graintrace frame-transform record,
+                if ``position_matrix`` is not orthogonal, or if it disagrees with
+                a non-null ``axis_sign``.
         """
         if record.get("schema") != "graintrace_frame_transform":
             raise ValueError(
@@ -573,6 +575,32 @@ class FrameTransform:
         Q = np.asarray(record["rotation"], dtype=float)
         A = np.asarray(record.get("position_matrix", Q), dtype=float)
         t = np.asarray(record.get("translation", (0.0, 0.0, 0.0)), dtype=float)
+
+        # Unlike inverse()/__matmul__, which build from parts this class computed
+        # itself, a record is outside data: a non-orthogonal A would make
+        # positions() a non-rigid map while orientation_matrices() stayed rigid,
+        # and nothing downstream would notice. A is orthogonal for every
+        # transform this class can produce, composed ones included, so it is the
+        # invariant to check here.
+        if A.shape != (3, 3):
+            raise ValueError(f"position_matrix must be (3, 3), got {A.shape}")
+        if not np.allclose(A @ A.T, np.eye(3), atol=_ROTATION_ATOL):
+            raise ValueError(
+                "position_matrix is not orthogonal; a frame change cannot scale "
+                "or skew positions while leaving orientations rigid"
+            )
+
+        # When the record claims a sign vector, A must be exactly Q diag(s).
+        # Composed transforms store axis_sign=None and are left unconstrained.
+        stored_sign = record.get("axis_sign")
+        if stored_sign is not None:
+            want = Q @ np.diag(np.asarray(stored_sign, dtype=float))
+            if not np.allclose(A, want, atol=_ROTATION_ATOL):
+                raise ValueError(
+                    "position_matrix disagrees with axis_sign: expected "
+                    "A = Q diag(axis_sign)"
+                )
+
         return cls._from_parts(A, Q, t)
 
     def to_json(self, path: str) -> str:
@@ -830,21 +858,3 @@ def _ensure_parent(path: str) -> None:
     """
     parent = os.path.dirname(os.path.abspath(path))
     os.makedirs(parent, exist_ok=True)
-
-
-def frame_transform_from_rotation_matrix(
-    Q: Union[np.ndarray, Sequence], translation: Sequence[float] = (0.0, 0.0, 0.0)
-) -> FrameTransform:
-    """Build a :class:`FrameTransform` from an already-composed rotation matrix.
-
-    Convenience for callers that computed ``Q`` themselves (for example the PCA
-    axes in :meth:`~graintrace.construct_voronoi_mesh.VoronoiMeshBuilder.rotate`).
-
-    Args:
-        Q: (3, 3) proper rotation matrix.
-        translation: origin offset applied after the rotation.
-
-    Returns:
-        FrameTransform: the corresponding transform.
-    """
-    return FrameTransform(rotation=np.asarray(Q, dtype=float), translation=translation)

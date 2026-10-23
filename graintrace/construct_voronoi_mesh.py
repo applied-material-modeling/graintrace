@@ -378,7 +378,10 @@ class VoronoiMeshBuilder:
                 self.rotate_matrix = rotation
             else:
                 df[["X", "Y"]] = rotated[:, :2]
-                self.rotate_matrix = eigenvectors
+                # Same reasoning as the 3D branch above: the coordinates receive
+                # E^T, so storing E would leave _frame() rebuilding the
+                # transpose of the rotation that was applied.
+                self.rotate_matrix = eigenvectors.T
 
             self.data = df
             print("Data rotated to align with principal axes.\n")
