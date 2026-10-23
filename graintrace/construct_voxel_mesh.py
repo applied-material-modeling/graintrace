@@ -107,6 +107,9 @@ class VoxelMeshBuilder:
 
     REQUIRED_SCULPT_KEYS = ("psculpt", "epu", "nprocs")
 
+    #: Columns that, when present, mark a row void with a non-positive value.
+    VOID_MARKER_COLS = ("phase", "cell_id")
+
     def __init__(
         self,
         *,
@@ -373,6 +376,33 @@ class VoxelMeshBuilder:
         if not np.allclose(diffs, diffs[0]):
             print(f"Warning: non-uniform spacing detected in {axis_name}")
 
+    def _solid_mask(self, df: pd.DataFrame) -> np.ndarray:
+        """Boolean mask of the rows that carry material.
+
+        A grid CSV marks void two ways in this codebase: a ``phase`` column,
+        where ``> 0`` is solid, and the ``cell_id`` convention written by
+        :class:`~graintrace.nf_grid_conversion.NFGridConversion`, where ``<= 0``
+        (normalised to ``-1``) is void. A confidence-masked NF voxel reaches
+        this class as the latter, as a row with real coordinates and a zero
+        orientation triple. Left unmarked those rows join the graph as a
+        connected network of identical orientations spanning the sample -- the
+        percolation bridge the mask exists to remove.
+
+        With no marker column every row is solid, which is the historical
+        behaviour for a plain EBSD ``x, y, z, Eul0, Eul1, Eul2`` table.
+
+        Args:
+            df: the loaded grid dataframe.
+
+        Returns:
+            numpy.ndarray: (n,) bool, True where the row carries material.
+        """
+        solid = np.ones(len(df), dtype=bool)
+        for col in (self.cell_id_col, *self.VOID_MARKER_COLS):
+            if col and col in df.columns:
+                solid &= df[col].to_numpy() > 0
+        return solid
+
     def _assign_existing_ids(self, grid_t: torch.Tensor) -> torch.Tensor:
         if self.df is None:
             raise RuntimeError("Dataframe not loaded")
@@ -482,7 +512,19 @@ class VoxelMeshBuilder:
 
         out_dir = self._graph_segmentation_dir()
 
-        df_graph = self.df[["x", "y", "z", *self.euler_cols]].copy()
+        # Segment solid voxels only. flood() already does this (it seeds from
+        # phase > 0); the graph builder used to take every row, so masked or
+        # void voxels -- all carrying the same zero orientation -- formed a
+        # zero-distance network that percolated across real grains.
+        solid = self._solid_mask(self.df)
+        df_solid = self.df.loc[solid]
+        if df_solid.empty:
+            raise ValueError(
+                "every voxel is marked void; nothing to segment "
+                f"(checked columns {self.VOID_MARKER_COLS})"
+            )
+
+        df_graph = df_solid[["x", "y", "z", *self.euler_cols]].copy()
         df_graph.insert(0, "id", np.arange(len(df_graph), dtype=np.int64))
 
         csv_path = out_dir / "graph_input.csv"
@@ -543,9 +585,10 @@ class VoxelMeshBuilder:
         y_map = {v: i for i, v in enumerate(ys)}
         z_map = {v: i for i, v in enumerate(zs)}
 
+        # Void voxels are not in the graph, so they keep id 0.
         cell_ids = torch.zeros(grid_t.shape[:3], dtype=grid_t.dtype)
 
-        for idx, (_, row) in enumerate(self.df.iterrows()):
+        for idx, (_, row) in enumerate(df_solid.iterrows()):
             i = x_map[row["x"]]
             j = y_map[row["y"]]
             k = z_map[row["z"]]
@@ -604,7 +647,11 @@ class VoxelMeshBuilder:
         yi = df["y"].map(y_map).to_numpy()
         zi = df["z"].map(z_map).to_numpy()
 
-        fixed_grid[xi, yi, zi, 0] = 1.0
+        # Void-marked rows keep phase 0, so both segmenters skip them exactly as
+        # they skip a voxel the CSV omits altogether. With no marker column this
+        # is all-ones, i.e. unchanged.
+        solid = self._solid_mask(df)
+        fixed_grid[xi, yi, zi, 0] = solid.astype(np.float32)
         fixed_grid[xi, yi, zi, 1:4] = df[list(self.euler_cols)].to_numpy(
             dtype=np.float32
         )
