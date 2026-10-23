@@ -47,3 +47,21 @@ highest gamma and shatters. Pass a **fixed low `gamma` (~0.1)** there instead.
 Flood fill chains low-angle neighbors into one percolating grain (a single blob
 spanning the whole solid). The hard misorientation cutoff + Leiden + percolation-picked
 gamma + adjacency re-merge de-percolate while keeping distinct grains separate.
+
+## Mask the percolation path first (`min_confidence`)
+The knobs above de-percolate *after the fact*. The network they are fighting is built
+during gridding: every grid point inside a layer's Delaunay hull becomes crystal, so
+air inside the hull, the sample surface, failed-to-index regions and low-confidence
+grain-boundary voxels all reach the segmenter, and the boundary voxels connect grain to
+grain. Pass **`min_confidence`** to `nf_reconstruct` and they become void instead.
+
+| Knob | Value | Why |
+|---|---|---|
+| `min_confidence` | **~0.3-0.5** | NF confidence is bimodal (indexed points near 1.0, air/failed well below), so one threshold separates them. Removes the percolation network at the source. |
+| `max_point_distance` | **1.5 x `TriEdgeSize`** (µm) | replaces the hull test, which fills concave gaps and holes |
+| `voxel_size_um` | `[hx, hy]` (µm) | isotropic voxels; a fixed `nx`/`ny` over a rectangular footprint gives anisotropic ones. Give this *or* `nx`/`ny`. |
+
+All three default to `None` (today's behavior). Both segmenters already ignore
+`phase = 0`, so masked voxels never reach a grain. The per-voxel confidence is written
+to `fixed_grid_confidence.npy`, shape `(nx, ny, nz)`, beside the merged grid — the
+7-channel grid layout is unchanged.

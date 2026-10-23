@@ -110,6 +110,35 @@ scripts that call it must be under an ``if __name__ == "__main__":`` guard. The
 graph-clustering / REI pipeline does not require the guard, but keeping it is good
 practice.
 
+NF gridding is unmasked by default, and that is what percolates
+---------------------------------------------------------------
+
+:meth:`~graintrace.construct_nf_mesh.NearFieldMeshBuilder.reconstruct` defaults
+``min_confidence=None``, which reproduces the historical grid: **every** grid point
+inside a layer's Delaunay hull becomes crystal and takes the nearest measured
+point's orientation. Air inside the hull, the sample surface, regions that failed to
+index and low-confidence grain-boundary voxels therefore all reach the segmenter,
+and the low-confidence voxels form a *connected network between grains* that
+orientation segmentation leaks through. That is the percolation the graph path
+patches after the fact with a size cap. Set ``min_confidence`` on real NF data
+rather than relying on the cap alone, and use ``max_point_distance`` for concave
+outlines, where the hull test fills notches and holes that a radius around the
+measured points does not. See :ref:`config-nf-gridding`.
+
+Two gridding details that look like bugs and are not:
+
+* **Hull mode and radius mode pick the source point differently.** Under the hull
+  test a grid point takes the nearest *vertex of its containing simplex*
+  (:func:`graintrace.nf.convert.nearest_simplex_vertex`); under
+  ``max_point_distance`` it takes the globally nearest measured point. These are not
+  the same point — the nearest site need not be a vertex of the containing simplex
+  (measured: 5 of 102 in-hull points on a 60-point random layer, by up to 0.16 µm).
+  The legacy rule is kept in hull mode deliberately, so that an unmasked grid is
+  identical to the pre-confidence one.
+* :func:`graintrace.nf.convert.pointcloud_to_fixed_grid` and
+  :func:`graintrace.nf.convert.process_layer_pointcloud` return a tuple,
+  ``(grid, confidence)``, not a bare grid.
+
 Unsegmented voxels must not reach the mesh writers
 --------------------------------------------------
 

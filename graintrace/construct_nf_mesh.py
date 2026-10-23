@@ -239,7 +239,10 @@ class NearFieldMeshBuilder:
 
         dz = float(dz)
         if voxel_size_um is not None:
+            # The voxel size sets the grid; the counts, default or not, are unused
             nx = ny = None
+        elif nx is None or ny is None:
+            raise ValueError("Give both nx and ny, or voxel_size_um instead")
         else:
             nx = int(nx)
             ny = int(ny)
