@@ -375,7 +375,7 @@ on Fe-9Cr NF reconstruction), in `FragmentationAnalyzer.segment` + its staticmet
 | RBF sigma (`weight_cfg`) | **fixed ≈ ½ cutoff (~2.5°)**, `sigma_auto=None` | `sigma_auto` collapses to ~0.1° and shatters grains into noise |
 | `weight_cfg` | `mode="rbf", power=2.0` | bounded 0..1 weights (not `inverse`'s 1e8 dynamic range) |
 | `reduce_edges_topweights_k` | **12** | sparser graph, faster Leiden |
-| in-plane `downsample` | **off** by default; opt in only if the graph is too big | coarsens boundaries, drops small grains; it existed partly for the graph size the cap-era recipe produced |
+| in-plane `downsample` | **off** by default; opt in only if the graph is too big | coarsens boundaries, drops grains thinner than the coarsened step; the only benefit is graph size — `(2,2,1)` keeps a quarter of the voxels |
 | Leiden `gamma` | **sweep `[0.5,1,2,4,8]`, `gamma_pick="lowest"`** | the least over-resolved gamma; **no size cap** |
 | `gamma_pick="spread"` | when a leak is suspected | lowest gamma where no cluster's orientation spread exceeds `spread_tol_deg` (default = the cutoff) |
 | `percolation_max_frac` | **`None`** (no cap) | grain size is NOT a percolation signal |

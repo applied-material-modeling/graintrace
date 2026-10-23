@@ -33,7 +33,7 @@ library as `FragmentationAnalyzer.segment` + its staticmethods
 | RBF sigma | **fixed ≈ ½ cutoff (~2.5°)**, `sigma_auto=None` | `sigma_auto` collapses to ~0.1° and shatters grains |
 | `weight_cfg` | `mode="rbf", power=2.0` | bounded 0..1 weights (not `inverse`'s huge dynamic range) |
 | `reduce_edges_topweights_k` | **12** | sparser graph, faster Leiden |
-| `downsample` | **off** (opt in only if the graph is too big) | coarsens boundaries and drops small grains |
+| `downsample` | **off** (opt in only if the graph is too big) | coarsens boundaries, drops grains thinner than the coarsened step; `(2,2,1)` keeps a quarter of the voxels |
 | Leiden `gamma` | **sweep `[0.5,1,2,4,8]`, `gamma_pick="lowest"`** | least over-resolved; no size cap |
 | `gamma_pick="spread"` | when a leak is suspected | lowest gamma where no cluster's orientation spread exceeds the cutoff |
 | `percolation_max_frac` | **`None`** (no cap) | grain size is not a percolation signal |

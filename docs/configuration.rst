@@ -136,8 +136,9 @@ sizeable fraction of the field of view (few-grain data, a small FOV, or
 intragranular sub-grain segmentation). Remove the bridge instead — mask
 low-confidence and void voxels — and leave the cap off. ``downsample`` is
 likewise optional, not recommended by default: it coarsens boundaries and drops
-small grains, and it existed partly for the graph size the cap-era recipe
-produced.
+grains thinner than the coarsened step, and its only benefit is graph size
+(an in-plane ``(2, 2, 1)`` keeps a quarter of the voxels). Turn it on when the
+graph does not fit, not as a matter of course.
 
 Two cap-free gamma picks, via ``gamma_pick``:
 

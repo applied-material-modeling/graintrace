@@ -368,7 +368,13 @@ class FragmentationAnalyzer:
             seed: RNG seed for that subsampling.
 
         Returns:
-            ``{label: spread_deg}`` for every label present in ``labels``.
+            ``{label: spread_deg}`` for every **non-negative** label present in
+            ``labels``. A negative label is not a cluster: ``-1`` marks
+            material-but-unsegmented points (see
+            :meth:`~graintrace.nf.segment.remove_small_segments`), which are
+            scattered orphans with no shared orientation, so their "spread" is
+            large by construction and would be flagged as a leak by every
+            :meth:`pick_gamma` ``"spread"`` candidate.
         """
         # pylint: disable=import-outside-toplevel
         import torch
@@ -381,6 +387,8 @@ class FragmentationAnalyzer:
 
         out: Dict[int, float] = {}
         for lab in np.unique(labels):
+            if lab < 0:
+                continue
             idx = np.flatnonzero(labels == lab)
             if max_points and len(idx) > max_points:
                 idx = rng.choice(idx, max_points, replace=False)
@@ -551,7 +559,11 @@ class FragmentationAnalyzer:
         * ``spread_tol_deg`` -- the physical check. A merge is rejected when the
           union's intragranular orientation spread (:meth:`cluster_orientation_spread`)
           would exceed this, i.e. when the merged cluster would contain clearly
-          different orientations. Costs one spread evaluation per accepted-size pair.
+          different orientations. Costs one spread evaluation per adjacent pair
+          inside ``tol_deg`` that is not already in the same component -- with no
+          size cap by default there is no cheaper filter in front of it, so on
+          data with many adjacent near-identical clusters this is the dominant
+          cost of the re-merge.
         * ``percolation_max_frac`` -- the legacy size cap, kept as an explicit
           opt-in for unmasked data. Any union exceeding this fraction of the point
           count is skipped. It also makes the method inert on small point sets: the
@@ -801,6 +813,14 @@ class FragmentationAnalyzer:
         """
         if not sweep:
             raise ValueError("pick_gamma got an empty sweep.")
+        # Validated before the legacy short-circuit below, not after it: the cap
+        # path ignores mode, so a typo'd mode combined with percolation_max_frac
+        # would otherwise be accepted silently and the caller would believe a
+        # pick they never asked for was the one they configured.
+        if mode not in ("lowest", "spread"):
+            raise ValueError(
+                f"Unknown gamma pick mode '{mode}'; expected 'lowest' or 'spread'."
+            )
         if percolation_max_frac is not None:  # legacy opt-in
             return FragmentationAnalyzer.pick_gamma_by_percolation(
                 sweep, percolation_max_frac
@@ -808,10 +828,6 @@ class FragmentationAnalyzer:
         ordered = sorted(sweep, key=lambda r: r["gamma"])
         if mode == "lowest":
             return ordered[0]
-        if mode != "spread":
-            raise ValueError(
-                f"Unknown gamma pick mode '{mode}'; expected 'lowest' or 'spread'."
-            )
         if mrp is None or spread_tol_deg is None:
             raise ValueError(
                 "gamma_pick='spread' needs both mrp and spread_tol_deg "

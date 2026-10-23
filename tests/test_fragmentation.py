@@ -342,6 +342,15 @@ class TestPickGammaWithoutSizeCap:
         with pytest.raises(ValueError, match="empty sweep"):
             FragmentationAnalyzer.pick_gamma([])
 
+    def test_an_unknown_mode_is_rejected_even_on_the_legacy_cap_path(self):
+        """The cap path ignores ``mode``; it must not swallow a typo as well."""
+        from graintrace.fragmentation import FragmentationAnalyzer
+
+        with pytest.raises(ValueError, match="Unknown gamma pick mode"):
+            FragmentationAnalyzer.pick_gamma(
+                [_sweep_entry(1.0, 2, 0.5)], mode="lowst", percolation_max_frac=0.03
+            )
+
     def test_spread_mode_needs_orientations_and_a_tolerance(self):
         from graintrace.fragmentation import FragmentationAnalyzer
 
@@ -398,6 +407,31 @@ class TestOrientationSpreadCheck:
             self._mrp([[10.0, 20.0, 30.0]]), np.array([0]), symmetry="432"
         )
         assert spread == {0: 0.0}
+
+    def test_unsegmented_points_are_not_a_cluster(self):
+        """``-1`` is material-but-unsegmented, not a cluster with a spread.
+
+        Scattered orphans share no orientation, so a ``-1`` pseudo-cluster is
+        wide by construction; counting it would make every candidate gamma look
+        like it leaked and silently defeat ``pick_gamma(mode="spread")``.
+        """
+        pytest.importorskip("neml2")
+
+        from graintrace.fragmentation import FragmentationAnalyzer
+
+        eul = np.vstack(
+            [
+                np.tile([10.0, 20.0, 30.0], (20, 1)),
+                # Orphans, deliberately far apart in orientation.
+                np.array([[60.0, 30.0, 15.0], [5.0, 80.0, 70.0]]),
+            ]
+        )
+        labels = np.array([0] * 20 + [-1, -1], dtype=np.int64)
+        spread = FragmentationAnalyzer.cluster_orientation_spread(
+            self._mrp(eul), labels, symmetry="432"
+        )
+        assert set(spread) == {0}
+        assert spread[0] < 1.0
 
     def test_spread_mode_picks_the_gamma_that_separates_the_grains(self):
         pytest.importorskip("neml2")
