@@ -1,6 +1,26 @@
 Common pitfalls
 ===============
 
+The percolation size cap is no longer on by default
+---------------------------------------------------
+
+**Behaviour change.** ``percolation_max_frac`` used to default to ``0.03`` in
+:meth:`~graintrace.fragmentation.FragmentationAnalyzer.segment`,
+:meth:`~graintrace.fragmentation.FragmentationAnalyzer.pick_gamma_by_percolation`
+and :meth:`~graintrace.fragmentation.FragmentationAnalyzer.adjacency_remerge`. It
+now defaults to ``None``, i.e. no cap, and the gamma pick is
+``gamma_pick="lowest"`` rather than the percolation sweep. Grain size is not a
+percolation signal: the cap forced any legitimately large grain below 3 % of the
+solid and cut it into arbitrary pieces, which is wrong for few-grain data, a
+small field of view, and intragranular sub-grain segmentation.
+
+An existing script that relied on the old pick will segment differently. Pass
+``percolation_max_frac=0.03`` explicitly to reproduce the previous behaviour
+exactly; it is kept as an opt-in for unmasked data. The recommended replacement
+is to mask low-confidence and void voxels so there is no bridge to percolate
+along, and to use ``gamma_pick="spread"`` when a leak is still suspected --
+see :doc:`configuration`.
+
 NEPER is bring-your-own
 -----------------------
 
