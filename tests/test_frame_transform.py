@@ -24,18 +24,30 @@
 
 """Tests for :mod:`graintrace.frame_transform`."""
 
+import importlib.util
 import unittest
 
 import numpy as np
 
 from graintrace.frame_transform import FrameTransform
 
-# torch and neml2 are not pip-installable, so CI's ``pip install ".[dev]"`` has
-# neither. Importing them at module scope would skip this whole file, including
-# the rotation parsing, tensor, algebra, axis-sign and serialisation tests,
-# which are pure numpy/scipy. Soft-import instead and gate only the orientation
-# tests, the way tests/test_voronoi_rotation_frame.py already does.
-try:  # pragma: no cover - import availability, not behaviour
+# torch is a graintrace runtime dependency, so CI's ``pip install ".[dev]"`` has
+# it; neml2 comes from the PUMA build and is not installed there. A module-scope
+# importorskip on either one skipped this whole file in CI, including the
+# rotation parsing, tensor, algebra, axis-sign and serialisation tests, which are
+# pure numpy. Gate only the tests that need the orientation stack, the way
+# tests/test_voronoi_rotation_frame.py already does.
+#
+# The probe is find_spec, not a soft import: orientation_helper imports neml2
+# lazily inside its functions, so ``from graintrace.orientation_helper import
+# ...`` succeeds without neml2 present and the gate would let the tests run and
+# fail at call time rather than skip. tests/test_stitching.py probes the same way.
+HAS_ORIENTATION_STACK = (
+    importlib.util.find_spec("torch") is not None
+    and importlib.util.find_spec("neml2") is not None
+)
+
+if HAS_ORIENTATION_STACK:  # pragma: no cover - dependency availability
     import torch
     from graintrace.orientation_helper import (
         euler_to_matrix,
@@ -44,13 +56,10 @@ try:  # pragma: no cover - import availability, not behaviour
         misorientation_matrix,
         mrp_to_matrix,
     )
-
-    HAS_ORIENTATION_STACK = True
-except ImportError:  # pragma: no cover - the compiled stack is optional
+else:  # pragma: no cover - the compiled stack is optional
     torch = None
     euler_to_matrix = matrix_to_euler = matrix_to_mrp = None
     misorientation_matrix = mrp_to_matrix = None
-    HAS_ORIENTATION_STACK = False
 
 requires_orientation_stack = unittest.skipUnless(
     HAS_ORIENTATION_STACK, "requires torch and neml2"
