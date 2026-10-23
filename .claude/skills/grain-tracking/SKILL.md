@@ -28,7 +28,7 @@ def make(csv, out, bbox):
         input_csv=csv, output_dir=out, bounding_box=bbox, dim=3, weighted=False,
         auto_fix_bbox=False, auto_rotate=False,
         angle_identifier=["Eul0","Eul1","Eul2"], orientation_descriptor="euler-bunge",
-        orientation_active_convention=True, elastic_strain_identifier=eKen,
+        elastic_strain_identifier=eKen,
         strain_unit="microstrain",
     )
     return b.build_graph(CVT_iter=10)

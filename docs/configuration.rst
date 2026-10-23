@@ -131,6 +131,52 @@ staticmethods (``gamma_sweep_leiden``, ``pick_gamma_by_percolation``,
 for few-grain or intragranular sub-grain segmentation pass a fixed low ``gamma``
 (~0.1).
 
+FrameTransform
+--------------
+
+A **stated** change of specimen frame, applied consistently to positions,
+orientations and second-order tensors. graintrace does not estimate a frame
+change; you supply the one the experiment geometry defines.
+
+.. code-block:: python
+
+   from graintrace import FrameTransform
+
+   frame = FrameTransform(
+       rotation=[("z", 172.3), ("x", 180.0), ("x", 1.4), ("y", -0.9)],
+       # or a 3x3 proper rotation matrix; the (axis, angle) list has no
+       # 3-term cap, so a stage rotation + flip + two tilt components fits.
+       axis_sign=(1, 1, -1),      # +-1 per axis, positions ONLY (index convention)
+       translation=(12.0, -3.5, 40.0),
+       angle_unit="degrees",      # "degrees" | "radians"
+       sequence="extrinsic",      # "extrinsic" (fixed axes) | "intrinsic"
+   )
+
+   xyz = frame.positions(xyz)             # x' = Q (s . x) + t
+   eul = frame.euler(eul, "bunge", "degrees")   # sample side: g' = g Q^T
+   mrp = frame.mrp(mrp)                   # same rule, staying in neml2 MRP
+   eps = frame.tensors(eps)               # e' = Q e Q^T, (...,3,3) or (...,9)
+
+   frame.inverse(); frame_a @ frame_b     # exact algebra, axis_sign included
+   frame.to_json(path); FrameTransform.from_json(path)
+
+``rotation`` must be **proper** (``det = +1``); a matrix that is not orthogonal
+or not proper raises rather than being silently orthogonalised. Axis reversal
+goes in ``axis_sign``, which applies to positions only, because a position index
+convention is not something the orientations ever had. Scale is deliberately not
+a parameter: a frame change is rigid, and a unit conversion belongs upstream.
+
+Dataset adapters write the applied transform next to their output as
+``<dst>.transform.json``:
+
+.. code-block:: python
+
+   frame.apply_ff_csv(src, dst)       # coords, Euler, eKen/eFab, O11..O33
+   frame.apply_pointcloud(src, dst)   # x,y,z (+ Euler if present)
+   frame.apply_voxel_grid(src, dst)
+
+See :doc:`/pitfalls` for why the orientation side is the part that goes wrong.
+
 WeightConfig
 ------------
 

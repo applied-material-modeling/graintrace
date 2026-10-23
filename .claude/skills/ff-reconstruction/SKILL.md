@@ -29,7 +29,7 @@ builder = VoronoiMeshBuilder(
     auto_fix_bbox=True, bbox_fix_mode="remove_points",  # "extend_bounding_box" to debug
     auto_rotate=False, rotate_angles=(0, 0, 0),
     angle_identifier=["Eul0", "Eul1", "Eul2"],
-    orientation_descriptor="euler-bunge", orientation_active_convention=True,
+    orientation_descriptor="euler-bunge",
     elastic_strain_identifier=[f"eKen{i}{j}" for i in (1,2,3) for j in (1,2,3)],
     strain_unit="microstrain", unit="rad",              # unit of the Euler angles
 )

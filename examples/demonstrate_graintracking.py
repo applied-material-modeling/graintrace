@@ -61,7 +61,6 @@ builder_ff1 = VoronoiMeshBuilder(
     auto_rotate=False,
     angle_identifier=["Eul0", "Eul1", "Eul2"],
     orientation_descriptor="euler-bunge",
-    orientation_active_convention=True,
     elastic_strain_identifier=elastic_strain_identifier,
     strain_unit="microstrain",
 )
@@ -78,7 +77,6 @@ builder_ff2 = VoronoiMeshBuilder(
     auto_rotate=False,
     angle_identifier=["Eul0", "Eul1", "Eul2"],
     orientation_descriptor="euler-bunge",
-    orientation_active_convention=True,
     elastic_strain_identifier=elastic_strain_identifier,
     strain_unit="microstrain",
 )

@@ -152,12 +152,11 @@ builder_ff = VoronoiMeshBuilder(
     auto_fix_bbox=True,
     bbox_fix_mode="remove_points",   # "remove_points" for production; "extend_bounding_box" for debug
     bbox_tolerance=2.5,
-    auto_rotate=False,
+    auto_rotate=False,               # True = align to PCA axes instead; IGNORES rotate_angles
     rotate_angles=[0, 0, 8.1],       # sample tilt correction, must match ori_units
     rotate_convention="xyz",
     angle_identifier=["Eul0", "Eul1", "Eul2"],
     orientation_descriptor="euler-bunge",
-    orientation_active_convention=True,
     elastic_strain_identifier=["eKen11","eKen12","eKen13",
                                "eKen21","eKen22","eKen23",
                                "eKen31","eKen32","eKen33"],
@@ -175,6 +174,15 @@ builder_ff.build_voronoi(
     tesr_size=[100, 100, 100],       # voxel grid resolution [nx, ny, nz]
 )
 ```
+
+**The sample rotation is a frame change, and it is applied consistently.** `rotate()` records
+what it applied as a `FrameTransform` on `builder.frame_transform` (`builder.rotate_matrix` is
+its `Q`); the `.tess`/`O11..O33` orientations, `orientations.dat` and the `eKen` strains all
+read `Q` from it. Positions get `Q x + t`, orientations `g Qᵀ` (**sample** side), strains
+`Q ε Qᵀ`. `orientation_active_convention` is **deprecated and ignored** — it used to select
+`Q g`, the crystal side, which is a different operation and invisible modulo cubic symmetry.
+Passing `True` now warns. To move a dataset between frames without a reconstruction, use
+`FrameTransform` directly (§6).
 
 Key outputs in `output_dir`:
 - `reconstruction_reformatted.csv`: per-voxel grain IDs and orientations (input to the default hex mesher)
@@ -482,6 +490,25 @@ sim = CPFESimulation(
 )
 # ... set_parameters and run as normal
 ```
+
+**A translation is only the easy half.** The shift above is correct only when FF and NF already
+share an orientation. When the two datasets differ by a rotation or an axis flip, use
+`FrameTransform` — it applies the one stated frame change to positions, Euler angles,
+`O11..O33` and the `eKen`/`eFab` tensors together, and writes `<dst>.transform.json` beside
+the output so the applied transform is recoverable:
+```python
+from graintrace import FrameTransform
+frame = FrameTransform(
+    rotation=[("z", 172.3), ("x", 180.0), ("x", 1.4), ("y", -0.9)],  # no 3-term cap
+    axis_sign=(1, 1, -1),          # ±1 per axis, POSITIONS only (index convention)
+    translation=ff_translation,
+    angle_unit="degrees", sequence="extrinsic")
+frame.apply_ff_csv("ff_grains.csv", "out/ff_in_nf_frame.csv")
+frame.apply_pointcloud("nf_points.csv", "out/nf.csv")  # or .apply_voxel_grid(npy_in, npy_out)
+frame.inverse(); frame_a @ frame_b          # exact algebra, axis_sign included
+```
+Keep the NF layers native by moving the FF data in, or use `frame.inverse()` to move the
+other way; a rotation that mixes z into x/y cannot be written back as 2D `.mic` layers.
 
 Derive NF bounding box from the saved voxel grid:
 ```python
@@ -902,7 +929,6 @@ update_experiments(
     unit="rad",
     angle_identifier=["Eul0", "Eul1", "Eul2"],
     orientation_descriptor="euler-bunge",
-    orientation_active_convention=True,
     elastic_strain_identifier=["eKen11", ..., "eKen33"],
 )
 ```
@@ -1063,6 +1089,22 @@ use `orientation_type/angle_convention="mrp"` → `mrp_to_matrix`; `simulation_*
 as MRP). Do NOT feed these columns to a tool expecting true Rodrigues. A rename to
 `ori_mrp_*` (aux vars + `initial_conditions*.i` `rodrigues_*` functions + all consumers) is a
 **deferred follow-up** — the blast radius is wide, so it is documented rather than done.
+
+### A frame change rotates orientations on the SAMPLE side, and the wrong side is silent
+A proper rotation `Q` of the specimen frame acts as `x' = Q x + t`, `g' = g Qᵀ`,
+`ε' = Q ε Qᵀ`, where `g = euler_to_matrix(...) = R_activeᵀ` and `R = gᵀ` maps crystal to
+sample. Applying `Q g` instead rotates the **crystal** inside a fixed sample frame — a
+different physical operation. It never fails loudly: for a **cubic** `Q` the crystal-side
+update is invisible modulo crystal symmetry, so misorientation and orientation-only checks
+all pass while the microstructure is wrong. Pin it on a **crystal direction**: a frame change
+must send `R c` to `Q R c` for every `c`. `VoronoiMeshBuilder.orientation_active_convention`
+selected the crystal side; it is deprecated, ignored, and warns. Use `FrameTransform`, which
+applies all three rules from one stated `Q`. Related: `axis_sign` (±1 per axis) is an index
+convention and applies to **positions only** — positions and orientations only correspond
+physically when it is `(1,1,1)`. Scale is deliberately not a parameter; a frame change is
+rigid. `FrameTransform.mrp` stays in neml2 and relies on `compose(a, b) -> matrix(a) @
+matrix(b)`, so the sample-side update is `compose(orientation, Qᵀ)` — the argument order is
+pinned by `tests/test_frame_transform.py`.
 
 ### `.tess` signed indices: decode with `decode_signed_index`, never `abs()`
 `NeperTessToGraphNN.face_edges` and `.cell_to_faces` hold **signed 0-based** indices, where
@@ -1399,6 +1441,7 @@ microstructure (e.g. the shipped `cpfe_hex_fragmentation/mesh.e` is unrelated to
 ```
 graintrace/
   neper_env.py                 resolve_neper_env     : locate a user-installed NEPER (env var/tools.json/PATH); opt-in ~/.local build
+  frame_transform.py           FrameTransform        : one stated specimen-frame change applied to positions (Qx+t), orientations (g Q^T, sample side), MRP, Euler and 2nd-order tensors (Q e Q^T); inverse/compose/to_json; FF-CSV, point-cloud and voxel-grid adapters
   construct_voronoi_mesh.py    VoronoiMeshBuilder    : FF HEDM reconstruction (NEPER)
   construct_nf_mesh.py         NearFieldMeshBuilder  : NF HEDM reconstruction (SCULPT)
   construct_voxel_mesh.py      VoxelMeshBuilder      : EBSD/NF voxel meshing (SCULPT)

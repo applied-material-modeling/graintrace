@@ -40,7 +40,6 @@ _FF_INIT_DEFAULTS: Dict[str, Any] = {
     "rotate_convention": "xyz",
     "angle_identifier": ["Eul0", "Eul1", "Eul2"],
     "orientation_descriptor": "euler-bunge",
-    "orientation_active_convention": True,
     "unit": "deg",
     "elastic_strain_identifier": _EKEN_9,
     "strain_unit": "microstrain",
