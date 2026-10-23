@@ -187,6 +187,8 @@ class FragmentationAnalyzer:
         self.symmetry = symmetry
         self.ori_cols = tuple(ori_cols)
         self.coord_cols = tuple(coord_cols)
+        #: per-gamma diagnostics from the most recent :meth:`segment` sweep
+        self.last_gamma_diagnostics: List[dict] = []
 
     # ----------------------------------------------------------------------- #
     # Reorientation from a reference step
@@ -337,6 +339,65 @@ class FragmentationAnalyzer:
         return matrix_to_mrp(mean_r).cpu().numpy().reshape(3)
 
     @staticmethod
+    def cluster_orientation_spread(
+        mrp: np.ndarray,
+        labels: np.ndarray,
+        symmetry: str = "432",
+        q: float = 95.0,
+        max_points: int = 5000,
+        seed: int = 0,
+    ) -> Dict[int, float]:
+        """Per-cluster intragranular orientation spread, in degrees.
+
+        The spread of a cluster is the ``q``-th percentile (symmetry-aware)
+        misorientation of its points to the cluster's mean orientation. It is the
+        **physical** percolation signal: a cluster that leaked across a grain
+        boundary contains clearly different orientations, so its spread exceeds the
+        segmentation misorientation cutoff. Cluster *size* is not a percolation
+        signal, which is why it is no longer capped by default (see
+        :meth:`pick_gamma` and :meth:`adjacency_remerge`).
+
+        Args:
+            mrp: ``(N, 3)`` neml2 MRP orientations.
+            labels: ``(N,)`` integer cluster labels aligned to ``mrp``.
+            symmetry: crystal symmetry (orbifold notation).
+            q: percentile of the within-cluster misorientation distribution; 95
+                ignores a handful of outlier voxels while still catching a leak.
+            max_points: clusters larger than this are randomly subsampled to keep
+                the check linear on big grids; ``0`` disables subsampling.
+            seed: RNG seed for that subsampling.
+
+        Returns:
+            ``{label: spread_deg}`` for every label present in ``labels``.
+        """
+        # pylint: disable=import-outside-toplevel
+        import torch
+
+        from .orientation_helper import misorientation_matrix, mrp_to_matrix
+
+        mrp = np.asarray(mrp, dtype=float)
+        labels = np.asarray(labels, dtype=np.int64)
+        rng = np.random.default_rng(seed)
+
+        out: Dict[int, float] = {}
+        for lab in np.unique(labels):
+            idx = np.flatnonzero(labels == lab)
+            if max_points and len(idx) > max_points:
+                idx = rng.choice(idx, max_points, replace=False)
+            sub = mrp[idx]
+            if len(sub) < 2:
+                out[int(lab)] = 0.0
+                continue
+            mean = FragmentationAnalyzer.mean_orientation_mrp(sub, symmetry)
+            rsub = mrp_to_matrix(torch.as_tensor(sub, dtype=torch.float64))
+            rmean = mrp_to_matrix(
+                torch.as_tensor(np.tile(mean, (len(sub), 1)), dtype=torch.float64)
+            )
+            mis = misorientation_matrix(rsub, rmean, symmetry, "degrees").cpu().numpy()
+            out[int(lab)] = float(np.percentile(mis, q))
+        return out
+
+    @staticmethod
     def merge_fragments_by_misorientation(
         mrp: np.ndarray,
         labels: np.ndarray,
@@ -473,23 +534,31 @@ class FragmentationAnalyzer:
         tol_deg: float,
         symmetry: str = "432",
         k_neighbors: int = 8,
-        percolation_max_frac: float = 0.03,
+        percolation_max_frac: Optional[float] = None,
+        spread_tol_deg: Optional[float] = None,
     ) -> np.ndarray:
         """Merge spatially adjacent clusters within ``tol_deg`` misorientation.
 
-        Tightest (lowest-misorientation) adjacent pairs merge first, and any union
-        that would exceed ``percolation_max_frac`` of the point count is skipped so
-        a chain of low-angle fragments cannot re-percolate into one giant grain (the
-        failure mode a global orientation merge or naive single-linkage produces).
-        Adjacency is kNN contact, so it works for both voxel grids and scattered
-        mesh element centroids.
+        Tightest (lowest-misorientation) adjacent pairs merge first. Adjacency is
+        kNN contact, so it works for both voxel grids and scattered mesh element
+        centroids.
 
-        Intended for **large, many-cluster** segmentations (NF/EBSD grids): the size
-        cap is a fraction of the *whole* point set, so on a small single-grain point
-        set (e.g. one grain's ~100 elements in :meth:`grain_fragments`) it is smaller
-        than any fragment and blocks every merge (inert). Raising the cap there instead
-        lets union-find chain low-angle fragments (the means are computed once), which
-        over-merges. So sub-grain segmentation disables re-merge and relies on ``gamma``.
+        The merge is bounded by **misorientation only** by default. Grain size is
+        not a percolation signal, so no merge is rejected for being large: a
+        legitimately large grain (a sizeable fraction of a small field of view) must
+        survive intact. Two optional guards are available:
+
+        * ``spread_tol_deg`` -- the physical check. A merge is rejected when the
+          union's intragranular orientation spread (:meth:`cluster_orientation_spread`)
+          would exceed this, i.e. when the merged cluster would contain clearly
+          different orientations. Costs one spread evaluation per accepted-size pair.
+        * ``percolation_max_frac`` -- the legacy size cap, kept as an explicit
+          opt-in for unmasked data. Any union exceeding this fraction of the point
+          count is skipped. It also makes the method inert on small point sets: the
+          cap is a fraction of the *whole* set, so on one grain's ~100 elements in
+          :meth:`grain_fragments` it is smaller than any fragment and blocks every
+          merge. Sub-grain segmentation therefore disables re-merge entirely and
+          relies on ``gamma`` plus ``min_subgrain_miso_deg``.
 
         Args:
             coords: ``(N, 3)`` point coordinates.
@@ -498,7 +567,10 @@ class FragmentationAnalyzer:
             tol_deg: merge adjacent clusters whose mean orientations are within this.
             symmetry: crystal symmetry (orbifold notation).
             k_neighbors: neighbours per point used to measure cluster contact.
-            percolation_max_frac: hard cap on any merged cluster's size fraction.
+            percolation_max_frac: legacy size cap on any merged cluster's size
+                fraction; ``None`` (the default) applies no size cap.
+            spread_tol_deg: reject a merge whose union's orientation spread would
+                exceed this (degrees); ``None`` (the default) skips the check.
 
         Returns:
             ``(N,)`` contiguous 0-based labels.
@@ -529,9 +601,17 @@ class FragmentationAnalyzer:
             ]
         )
 
-        size_cap = percolation_max_frac * float(len(labels))
+        size_cap = (
+            np.inf
+            if percolation_max_frac is None
+            else percolation_max_frac * float(len(labels))
+        )
         comp_size = counts.astype(np.float64).copy()
         parent = list(range(len(uniq)))
+        # point indices per component, only needed for the spread guard
+        members: Optional[Dict[int, np.ndarray]] = None
+        if spread_tol_deg is not None:
+            members = {k: np.flatnonzero(labels == int(u)) for k, u in enumerate(uniq)}
 
         def find(x: int) -> int:
             while parent[x] != x:
@@ -548,8 +628,21 @@ class FragmentationAnalyzer:
                 continue
             if comp_size[ra] + comp_size[rb] > size_cap:
                 continue
+            union_idx = None
+            if members is not None:
+                union_idx = np.concatenate([members[ra], members[rb]])
+                spread = FragmentationAnalyzer.cluster_orientation_spread(
+                    mrp[union_idx],
+                    np.zeros(len(union_idx), dtype=np.int64),
+                    symmetry=symmetry,
+                )[0]
+                if spread > spread_tol_deg:
+                    continue
             parent[rb] = ra
             comp_size[ra] += comp_size[rb]
+            if members is not None:
+                members[ra] = union_idx
+                members.pop(rb, None)
 
         roots = np.array([find(k) for k in range(len(uniq))])
         remap = {r: i for i, r in enumerate(np.unique(roots))}
@@ -629,19 +722,110 @@ class FragmentationAnalyzer:
 
     @staticmethod
     def pick_gamma_by_percolation(
-        sweep: Sequence[dict], percolation_max_frac: float = 0.03
+        sweep: Sequence[dict], percolation_max_frac: Optional[float] = None
     ) -> dict:
-        """Pick the smallest gamma whose biggest cluster is below the percolation cap.
+        """Pick the smallest gamma whose biggest cluster is below a size cap.
+
+        **Legacy size-cap pick.** Grain size is not a valid percolation signal: a
+        legitimately large grain is forced below the cap and cut into arbitrary
+        pieces, so the chosen gamma reflects the cap rather than the data. Prefer
+        :meth:`pick_gamma`, which selects on the physical orientation-spread check.
+        This remains available as an explicit opt-in for legacy, unmasked data.
 
         The raw Leiden count is near gamma-invariant here (all gammas over-segment);
         gamma controls only the biggest ("percolating") cluster, and the final grain
         count is set by absorption. So choose the least over-resolved, still
         de-percolated gamma; if none qualifies, the overall minimum ``max_frac``.
+
+        Args:
+            sweep: per-gamma results from :meth:`gamma_sweep_leiden`.
+            percolation_max_frac: size cap as a fraction of the point count;
+                ``None`` (the default) applies no cap, so the lowest swept gamma
+                wins.
+
+        Returns:
+            The selected sweep entry.
         """
+        if percolation_max_frac is None:
+            return min(sweep, key=lambda r: r["gamma"])
         ok = [r for r in sweep if r["max_frac"] < percolation_max_frac]
         if ok:
             return min(ok, key=lambda r: r["gamma"])
         return min(sweep, key=lambda r: r["max_frac"])
+
+    @staticmethod
+    def pick_gamma(
+        sweep: Sequence[dict],
+        mode: str = "lowest",
+        mrp: Optional[np.ndarray] = None,
+        spread_tol_deg: Optional[float] = None,
+        symmetry: str = "432",
+        percolation_max_frac: Optional[float] = None,
+        spread_q: float = 95.0,
+    ) -> dict:
+        """Choose a Leiden resolution from a gamma sweep, without a size cap.
+
+        Two cap-free modes:
+
+        * ``"lowest"`` (the default) -- the lowest swept gamma, i.e. the least
+          over-resolved segmentation. Correct when the data has already been masked
+          (confidence/void), so there is no bridge for a cluster to percolate along.
+        * ``"spread"`` -- the lowest gamma for which **no** cluster is flagged by
+          the orientation-spread check (:meth:`cluster_orientation_spread` above
+          ``spread_tol_deg``). If every gamma flags something, the one with the
+          fewest flagged clusters wins.
+
+        Passing ``percolation_max_frac`` restores the legacy size-cap pick
+        (:meth:`pick_gamma_by_percolation`) and ignores ``mode``.
+
+        Every entry in ``sweep`` is annotated in place with ``n_flagged`` and
+        ``max_spread_deg`` when the spread check runs, so the choice is inspectable.
+
+        Args:
+            sweep: per-gamma results from :meth:`gamma_sweep_leiden`.
+            mode: ``"lowest"`` or ``"spread"``.
+            mrp: ``(N, 3)`` neml2 MRP orientations; required for ``"spread"``.
+            spread_tol_deg: spread above which a cluster is flagged as percolated;
+                required for ``"spread"``. Set it to the segmentation
+                misorientation cutoff.
+            symmetry: crystal symmetry (orbifold notation).
+            percolation_max_frac: legacy size cap opt-in; ``None`` means no cap.
+            spread_q: percentile used by the spread check.
+
+        Returns:
+            The selected sweep entry.
+
+        Raises:
+            ValueError: on an unknown ``mode``, an empty ``sweep``, or ``"spread"``
+                without ``mrp`` and ``spread_tol_deg``.
+        """
+        if not sweep:
+            raise ValueError("pick_gamma got an empty sweep.")
+        if percolation_max_frac is not None:  # legacy opt-in
+            return FragmentationAnalyzer.pick_gamma_by_percolation(
+                sweep, percolation_max_frac
+            )
+        ordered = sorted(sweep, key=lambda r: r["gamma"])
+        if mode == "lowest":
+            return ordered[0]
+        if mode != "spread":
+            raise ValueError(
+                f"Unknown gamma pick mode '{mode}'; expected 'lowest' or 'spread'."
+            )
+        if mrp is None or spread_tol_deg is None:
+            raise ValueError(
+                "gamma_pick='spread' needs both mrp and spread_tol_deg "
+                "(the orientation-spread check has nothing to measure otherwise)."
+            )
+        for r in ordered:
+            spread = FragmentationAnalyzer.cluster_orientation_spread(
+                mrp, r["labels"], symmetry=symmetry, q=spread_q
+            )
+            r["n_flagged"] = int(sum(v > spread_tol_deg for v in spread.values()))
+            r["max_spread_deg"] = float(max(spread.values())) if spread else 0.0
+            if r["n_flagged"] == 0:
+                return r
+        return min(ordered, key=lambda r: r["n_flagged"])
 
     def segment(
         self,
@@ -657,19 +841,33 @@ class FragmentationAnalyzer:
         reduce_topk: Optional[int] = 12,
         grain_threshold_final: int = 30,
         remerge_miso_deg: float = 3.0,
-        percolation_max_frac: float = 0.03,
+        gamma_pick: str = "lowest",
+        spread_tol_deg: Optional[float] = None,
+        remerge_spread_check: bool = False,
+        percolation_max_frac: Optional[float] = None,
         n_jobs: int = 1,
         n_threads: int = 1,
         seed: int = 42,
         workdir: Optional[str] = None,
+        verbose: bool = True,
     ) -> np.ndarray:
         """Segment a point set by crystal orientation (graph / Leiden).
 
         Preferred over flood fill, which over-merges into percolating grains. Wraps
         :class:`~graintrace.graph_spatial_cluster.GraphSpatialCluster` with the
         symmetry-aware misorientation metric on neml2 MRP orientations and the tuned
-        recipe: fixed broad RBF sigma, hard misorientation cutoff,
-        gamma-by-percolation, then absorb + adjacency re-merge.
+        recipe: fixed broad RBF sigma, hard misorientation cutoff, a gamma pick,
+        then absorb + adjacency re-merge.
+
+        **No grain-size cap by default.** Grain size is not a percolation signal, so
+        nothing here forces a cluster below a fraction of the point set; a real
+        grain that occupies 10-30% of a small field of view survives whole. Mask the
+        data first (confidence/void) so there is no bridge to percolate along, then
+        leave the cap off. ``percolation_max_frac`` restores the legacy cap for
+        unmasked data, and ``gamma_pick="spread"`` is the physical alternative: it
+        flags a cluster whose intragranular orientation spread exceeds the
+        segmentation cutoff. Per-gamma diagnostics land in
+        :attr:`last_gamma_diagnostics`.
 
         Args:
             coords: ``(N, 3)`` point coordinates (voxel centres or element centroids).
@@ -677,7 +875,7 @@ class FragmentationAnalyzer:
             misori_tol_deg: hard misorientation edge cutoff (degrees).
             graph_mode: ``"grid"`` for regular voxel grids (NF/EBSD), ``"knn"`` for
                 scattered mesh element centroids.
-            gamma: fixed Leiden resolution; if ``None``, a percolation-picked sweep.
+            gamma: fixed Leiden resolution; if ``None``, a swept-and-picked gamma.
             gamma_sweep: resolutions to sweep when ``gamma`` is ``None``.
             rbf_sigma_deg: fixed RBF sigma (degrees); defaults to half ``misori_tol_deg``.
             manhattan_radius: grid connectivity radius (``graph_mode="grid"``).
@@ -685,12 +883,21 @@ class FragmentationAnalyzer:
             reduce_topk: keep top-k edges per node by weight before clustering.
             grain_threshold_final: minimum cluster size; smaller ones are absorbed.
             remerge_miso_deg: adjacency re-merge misorientation threshold (degrees).
-            percolation_max_frac: percolation cap for gamma pick and re-merge.
+            gamma_pick: ``"lowest"`` (least over-resolved swept gamma) or
+                ``"spread"`` (lowest gamma flagging no cluster by orientation
+                spread). Ignored when ``percolation_max_frac`` is set.
+            spread_tol_deg: spread above which a cluster counts as percolated;
+                defaults to ``misori_tol_deg``, the segmentation cutoff.
+            remerge_spread_check: also reject an adjacency re-merge whose union
+                would exceed ``spread_tol_deg``.
+            percolation_max_frac: legacy size cap for the gamma pick and the
+                re-merge; ``None`` (the default) applies no cap.
             n_jobs: parallel workers for edge-distance build.
             n_threads: threads for Leiden.
             seed: RNG seed.
             workdir: scratch directory for the graph input CSV + checkpoint (a temp
                 directory is used and cleaned up if ``None``).
+            verbose: print the per-gamma diagnostics table.
 
         Returns:
             ``(N,)`` contiguous 0-based cluster labels aligned to ``coords`` rows.
@@ -753,8 +960,34 @@ class FragmentationAnalyzer:
             n_threads=n_threads,
             seed=seed,
         )
-        best = self.pick_gamma_by_percolation(sweep, percolation_max_frac)
+        if spread_tol_deg is None:
+            spread_tol_deg = misori_tol_deg
+        best = self.pick_gamma(
+            sweep,
+            mode=gamma_pick,
+            mrp=mrp,
+            spread_tol_deg=spread_tol_deg,
+            symmetry=self.symmetry,
+            percolation_max_frac=percolation_max_frac,
+        )
         labels = best["labels"]
+        self.last_gamma_diagnostics = [
+            {k: v for k, v in r.items() if k != "labels"} for r in sweep
+        ]
+        if verbose:
+            print(f"gamma pick: gamma={best['gamma']:g} (mode={gamma_pick}, ", end="")
+            print(
+                "no size cap)"
+                if percolation_max_frac is None
+                else f"legacy size cap={percolation_max_frac:g})"
+            )
+            for r in self.last_gamma_diagnostics:
+                flagged = r.get("n_flagged")
+                print(
+                    f"  gamma={r['gamma']:<8g} n_clusters={r['n_grains']:<8d} "
+                    f"max_frac={r['max_frac']:<8.4f} "
+                    f"n_flagged={'-' if flagged is None else flagged}"
+                )
 
         if grain_threshold_final and grain_threshold_final > 1:
             labels = self.absorb_fragments(coords, labels, grain_threshold_final)
@@ -766,6 +999,7 @@ class FragmentationAnalyzer:
                 remerge_miso_deg,
                 symmetry=self.symmetry,
                 percolation_max_frac=percolation_max_frac,
+                spread_tol_deg=spread_tol_deg if remerge_spread_check else None,
             )
         _, inv = np.unique(labels, return_inverse=True)
         return inv.astype(np.int64)
@@ -976,15 +1210,16 @@ class FragmentationAnalyzer:
                 labels = np.zeros(n_elem, dtype=np.int64)
             else:
                 # remerge_miso_deg=0 (OFF): the adjacency re-merge is an NF-grid tool
-                # whose percolation size-cap (a fraction of the point count) is
-                # meaningless on a single grain's ~100 elements -- it is either inert
-                # (cap < any fragment) or, if forced on, over-merges by single-linkage
-                # chaining. gamma is the lever for sub-grain resolution here.
+                # that on a single grain's ~100 elements over-merges by single-linkage
+                # chaining (its means are computed once). gamma is the lever for
+                # sub-grain resolution here, with min_subgrain_miso_deg below as the
+                # physical threshold. verbose=False: one sweep table per grain is noise.
                 seg_call = {
                     "misori_tol_deg": tol_deg,
                     "graph_mode": "knn",
                     "grain_threshold_final": min_fragment_elems,
                     "remerge_miso_deg": 0.0,
+                    "verbose": False,
                 }
                 seg_call.update(seg_kwargs)
                 labels = self.segment(coords[mask], mrp[mask], **seg_call)
