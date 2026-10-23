@@ -109,6 +109,13 @@ B grain is claimed by its lowest-cost proposer, and :math:`\pi` is updated.
    ``detect_splits`` is the tool for one-to-many lineage, which this matcher by construction
    cannot express.
 
+   ``detect_splits`` also covers the strictly one-to-one case, via
+   ``assignment="one_to_one"``: a Hungarian assignment over its gated candidates, which
+   *does* minimise the total cost. It needs only the grain tables, where this matcher needs
+   tessellation adjacency graphs and a GNN embedding. Reach for this matcher when the
+   neighbourhood topology is the evidence you want to match on, and for ``detect_splits``
+   when centroid distance and misorientation are enough.
+
 Algorithm
 ---------
 1. Build a grain graph for each load step from its FF reconstruction (nodes = grains with

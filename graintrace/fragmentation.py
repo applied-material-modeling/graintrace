@@ -47,6 +47,7 @@ from __future__ import annotations
 
 import os
 import tempfile
+import warnings
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
@@ -156,6 +157,241 @@ def _orientation_matrices(df, ori_cols, angle_convention, angle_type):
     if angle_convention == "mrp":
         return mrp_to_matrix(tens)
     return euler_to_matrix(tens, angle_convention, angle_type)
+
+
+# Cost assigned to a non-candidate cell of a one-to-one assignment block. Any real
+# cost is <= 2 (two normalized terms), so the Hungarian solver fills a sentinel cell
+# only when the block admits no smaller complete assignment; those picks are dropped.
+_INFEASIBLE_COST = 1e6
+
+
+def _candidate_pairs(
+    coords_a: np.ndarray,
+    coords_b: np.ndarray,
+    rad_a: np.ndarray,
+    rad_b: np.ndarray,
+    d_tol: float,
+    d_tol_mode: str,
+    alpha_a: float,
+    alpha_b: float,
+    alpha: float,
+    top_k: Optional[int],
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Candidate cross-step pairs passing the centroid-distance gate.
+
+    The gate is one absolute distance in ``"absolute"`` mode and size-aware in the
+    radius modes, where a pair's own gate depends on the two grain radii. Because the
+    gate then varies per pair, the radius modes find candidates with a ball query at
+    each A grain's *largest possible* gate and apply the exact per-pair gate
+    afterwards, so the search provably covers the gate and ``top_k`` is not consulted.
+
+    Args:
+        coords_a: ``(n_a, 3)`` step-A centroids.
+        coords_b: ``(n_b, 3)`` step-B centroids.
+        rad_a: ``(n_a,)`` step-A grain radii (ignored in ``"absolute"`` mode).
+        rad_b: ``(n_b,)`` step-B grain radii (ignored in ``"absolute"`` mode).
+        d_tol: absolute distance gate; a floor on the gate in ``"radius"`` mode.
+        d_tol_mode: ``"absolute"``, ``"radius"`` or ``"radius_sum"``.
+        alpha_a: multiplier on the A radius in ``"radius"`` mode.
+        alpha_b: multiplier on the B radius in ``"radius"`` mode.
+        alpha: multiplier on the radius sum in ``"radius_sum"`` mode.
+        top_k: cap on B candidates probed per A grain (``"absolute"`` mode only).
+
+    Returns:
+        ``(ai, bj, dist, gate)``: the A index, B index, centroid distance and the
+        gate that pair was tested against, one entry per surviving candidate.
+    """
+    # pylint: disable=import-outside-toplevel
+    from scipy.spatial import cKDTree
+
+    n_a, n_b = len(coords_a), len(coords_b)
+    if n_a == 0 or n_b == 0:
+        zeros_i, zeros_f = np.empty(0, dtype=np.int64), np.empty(0, dtype=float)
+        return zeros_i, zeros_i.copy(), zeros_f, zeros_f.copy()
+
+    tree_b = cKDTree(coords_b)
+
+    if d_tol_mode == "absolute":
+        # Unchanged legacy path: top_k nearest B centroids within a single d_tol.
+        # Capping before or after the d_tol gate gives the same set (every grain
+        # inside the radius is nearer than every grain outside it), so top_k=None
+        # is the only way to widen the search.
+        ai_l: List[int] = []
+        bj_l: List[int] = []
+        dist_l: List[float] = []
+        if top_k is None:
+            for i in range(n_a):
+                for j in tree_b.query_ball_point(coords_a[i], r=d_tol):
+                    ai_l.append(i)
+                    bj_l.append(int(j))
+                    dist_l.append(float(np.linalg.norm(coords_b[j] - coords_a[i])))
+        else:
+            kq = min(top_k, n_b)
+            dist, jdx = tree_b.query(coords_a, k=kq)
+            dist = np.asarray(dist).reshape(n_a, kq)
+            jdx = np.asarray(jdx).reshape(n_a, kq)
+            for i in range(n_a):
+                for col in range(kq):
+                    if dist[i, col] <= d_tol:
+                        ai_l.append(i)
+                        bj_l.append(int(jdx[i, col]))
+                        dist_l.append(float(dist[i, col]))
+        ai = np.asarray(ai_l, dtype=np.int64)
+        bj = np.asarray(bj_l, dtype=np.int64)
+        pair_dist = np.asarray(dist_l, dtype=float)
+        return ai, bj, pair_dist, np.full(ai.size, float(d_tol))
+
+    # Size-aware gates: query at the loosest gate the A grain could possibly use
+    # (its own radius term against the LARGEST B radius), then apply the exact gate.
+    rad_b_max = float(rad_b.max())
+    if d_tol_mode == "radius":
+        r_search = np.maximum(
+            np.maximum(float(d_tol), alpha_a * rad_a), alpha_b * rad_b_max
+        )
+    else:  # "radius_sum"
+        r_search = alpha * (rad_a + rad_b_max)
+
+    cand = tree_b.query_ball_point(coords_a, np.asarray(r_search, dtype=float))
+    counts = [len(c) for c in cand]
+    ai = np.repeat(np.arange(n_a, dtype=np.int64), counts)
+    if ai.size == 0:
+        zeros_f = np.empty(0, dtype=float)
+        return ai, np.empty(0, dtype=np.int64), zeros_f, zeros_f.copy()
+    # Sort each A grain's hits: query_ball_point does not define an order, and the
+    # downstream tie-breaks must not depend on it.
+    bj = np.concatenate([np.sort(np.asarray(c, dtype=np.int64)) for c in cand if c])
+
+    pair_dist = np.linalg.norm(coords_a[ai] - coords_b[bj], axis=1)
+    if d_tol_mode == "radius":
+        gate = np.maximum.reduce(
+            [
+                np.full(ai.size, float(d_tol)),
+                alpha_a * rad_a[ai],
+                alpha_b * rad_b[bj],
+            ]
+        )
+    else:  # "radius_sum"
+        gate = alpha * (rad_a[ai] + rad_b[bj])
+
+    keep = pair_dist <= gate
+    return ai[keep], bj[keep], pair_dist[keep], gate[keep]
+
+
+def _overlap_mask(spec, df, n: int, name: str) -> np.ndarray:
+    """Boolean "inside the shared volume" mask for one side of the recall report.
+
+    Args:
+        spec: ``None`` (everything counts), a boolean array-like of length ``n``, or
+            the name of a boolean column in ``df``.
+        df: the grain table that side came from.
+        n: number of grains on that side.
+        name: parameter name, used in the error message.
+
+    Returns:
+        ``(n,)`` boolean mask.
+
+    Raises:
+        ValueError: if ``spec`` names a column the table does not have, or is an
+            array of the wrong length.
+    """
+    if spec is None:
+        return np.ones(n, dtype=bool)
+    if isinstance(spec, str):
+        # A bare pandas KeyError here is unhelpful next to the length check below.
+        if spec not in df.columns:
+            raise ValueError(
+                f"{name}={spec!r} is not a column of the grain table; "
+                f"available columns are {list(df.columns)}."
+            )
+        arr = df[spec].to_numpy()
+    else:
+        arr = np.asarray(spec)
+    if arr.shape != (n,):
+        raise ValueError(f"{name} must have length {n}, got shape {arr.shape}.")
+    return arr.astype(bool)
+
+
+def _side_recall(
+    linked: np.ndarray, mask: np.ndarray, volume: Optional[np.ndarray], side: str
+) -> Dict[str, Any]:
+    """Linked fraction for one side, by grain count and optionally by volume.
+
+    Args:
+        linked: ``(n,)`` boolean, True where the grain has at least one cross link.
+        mask: ``(n,)`` boolean overlap mask; only these grains are counted.
+        volume: ``(n,)`` per-grain volume, or ``None`` to skip the volume weighting.
+        side: ``"a"`` or ``"b"``, used to name the returned keys.
+
+    Returns:
+        dict of recall entries for that side (``NaN`` fractions on an empty mask).
+    """
+    n_total = int(mask.sum())
+    n_linked = int((linked & mask).sum())
+    out: Dict[str, Any] = {
+        f"{side}_fraction": (n_linked / n_total) if n_total else float("nan"),
+        f"n_{side}_linked": n_linked,
+        f"n_{side}_total": n_total,
+    }
+    if volume is not None:
+        vol_total = float(volume[mask].sum())
+        vol_linked = float(volume[linked & mask].sum())
+        out[f"{side}_fraction_volume"] = (
+            (vol_linked / vol_total) if vol_total > 0 else float("nan")
+        )
+    return out
+
+
+def _one_to_one_blocks(
+    comp: np.ndarray,
+    ai: np.ndarray,
+    bj: np.ndarray,
+    cost: np.ndarray,
+) -> List[Tuple[np.ndarray, np.ndarray, np.ndarray]]:
+    """Solve the one-to-one assignment, one connected component at a time.
+
+    A pair that is not a surviving candidate is infeasible, so no optimal assignment
+    ever crosses a component boundary: the global Hungarian problem decomposes
+    exactly into the per-component blocks solved here, which avoids building the
+    dense ``n_a x n_b`` cost matrix.
+
+    Args:
+        comp: ``(n_a + n_b,)`` connected-component label per union-graph node, whose
+            first ``n_a`` entries are the A grains (so ``comp[ai]`` labels a pair).
+        ai: ``(n_pairs,)`` A index of each surviving candidate pair.
+        bj: ``(n_pairs,)`` B index of each surviving candidate pair.
+        cost: ``(n_pairs,)`` assignment cost of each surviving candidate pair.
+
+    Returns:
+        list of ``(a_idx, b_idx, pair_idx)`` arrays, one per component that
+        contributed at least one assigned pair.
+    """
+    # pylint: disable=import-outside-toplevel
+    from scipy.optimize import linear_sum_assignment
+
+    pair_comp = comp[ai]
+    blocks: List[Tuple[np.ndarray, np.ndarray, np.ndarray]] = []
+    for c in np.unique(pair_comp):
+        sel = np.where(pair_comp == c)[0]
+        a_local = np.unique(ai[sel])
+        b_local = np.unique(bj[sel])
+        a_pos = {int(v): k for k, v in enumerate(a_local)}
+        b_pos = {int(v): k for k, v in enumerate(b_local)}
+        block = np.full((len(a_local), len(b_local)), _INFEASIBLE_COST, dtype=float)
+        where = {}
+        for p in sel:
+            r, s = a_pos[int(ai[p])], b_pos[int(bj[p])]
+            block[r, s] = cost[p]
+            where[(r, s)] = int(p)
+        rows, cols = linear_sum_assignment(block)
+        ok = block[rows, cols] < _INFEASIBLE_COST
+        if not ok.any():
+            continue
+        pair_idx = np.asarray(
+            [where[(int(r), int(s))] for r, s in zip(rows[ok], cols[ok])],
+            dtype=np.int64,
+        )
+        blocks.append((a_local[rows[ok]], b_local[cols[ok]], pair_idx))
+    return blocks
 
 
 class FragmentationAnalyzer:
@@ -1026,6 +1262,17 @@ class FragmentationAnalyzer:
         top_k: Optional[int] = 8,
         adjacency_b: Optional[Iterable[Tuple[int, int]]] = None,
         out_csv: Optional[str] = None,
+        d_tol_mode: str = "absolute",
+        alpha_a: float = 1.0,
+        alpha_b: float = 1.0,
+        alpha: float = 1.0,
+        radius_col: str = "GrainRadius",
+        assignment: Optional[str] = None,
+        volume_col: str = "volume",
+        in_overlap_a: Optional[Union[str, Sequence[bool], np.ndarray]] = None,
+        in_overlap_b: Optional[Union[str, Sequence[bool], np.ndarray]] = None,
+        n_null: int = 0,
+        seed: Optional[int] = None,
     ) -> Dict[str, Any]:
         """Detect grain splits/merges/births/deaths between two load steps.
 
@@ -1052,14 +1299,17 @@ class FragmentationAnalyzer:
             coord_cols: the three coordinate columns.
             id_col: the grain-id column.
             top_k: cap on the number of B candidates probed per A grain
-                (default 8), or ``None`` for no cap. With a cap, ``top_k`` --
-                not ``d_tol`` -- is the binding limit on how many children a
-                split can have whenever more than ``top_k`` B grains sit within
-                ``d_tol``, so a parent that fragments into many pieces, or a
-                dense fine-grained step B, needs ``top_k`` raised as well as
-                ``d_tol``. Pass ``top_k=None`` to take every B grain within
-                ``d_tol`` and let ``d_tol`` alone decide the search, at the
-                cost of a radius query that is slower on dense data.
+                (default 8), or ``None`` for no cap. **Used by**
+                ``d_tol_mode="absolute"`` **only** -- the radius modes size
+                their own search to cover the gate and ignore it, warning if a
+                non-default value is passed anyway. With a cap,
+                ``top_k`` -- not ``d_tol`` -- is the binding limit on how many
+                children a split can have whenever more than ``top_k`` B grains
+                sit within ``d_tol``, so a parent that fragments into many
+                pieces, or a dense fine-grained step B, needs ``top_k`` raised
+                as well as ``d_tol``. Pass ``top_k=None`` to take every B grain
+                within ``d_tol`` and let ``d_tol`` alone decide the search, at
+                the cost of a radius query that is slower on dense data.
 
                 Note that the order of the two filters does not matter: the
                 ``top_k`` nearest B grains that survive ``d_tol`` are exactly
@@ -1075,19 +1325,104 @@ class FragmentationAnalyzer:
                 shortest centroid distance) is kept and the parent matches it rather
                 than being dropped entirely.
             out_csv: if given, write the split correspondences to this CSV path.
+            d_tol_mode: how the centroid-distance gate is sized.
+
+                * ``"absolute"`` (default, unchanged behavior): one ``d_tol`` for
+                  every pair.
+                * ``"radius"``: link when
+                  ``d <= max(d_tol, alpha_a * R_a, alpha_b * R_b)``.
+                * ``"radius_sum"``: link when ``d <= alpha * (R_a + R_b)``.
+
+                One absolute gate fails whenever grain sizes span a wide range or
+                several small B grains sit inside one large A grain (FF duplicates
+                across scan layers, sub-grains an NF step resolves separately,
+                deformation fragments of a coarse parent): those children lie
+                anywhere up to about the parent's radius from its centroid, so a
+                gate sized for the median grain misses them and a gate sized for the
+                largest is too loose for the small ones. The radius modes read the
+                ``radius_col`` column and also replace the ``top_k`` search with a
+                ball query at each A grain's largest possible gate, so the candidate
+                search provably covers the gate.
+            alpha_a: multiplier on the A radius in ``d_tol_mode="radius"``.
+            alpha_b: multiplier on the B radius in ``d_tol_mode="radius"``.
+            alpha: multiplier on the radius sum in ``d_tol_mode="radius_sum"``.
+            radius_col: per-grain radius column read by the radius modes (default
+                ``"GrainRadius"``, the grain-table schema). Required in both tables
+                for those modes; ``"absolute"`` never reads it.
+            assignment: ``"one_to_one"`` to additionally run a Hungarian assignment
+                over the gated candidates and return the strict pairs, or ``None``
+                (default) for the lineage view only. The lineage components are
+                unaffected either way; the assignment is reported alongside them in
+                ``one_to_one`` for callers that need a clean matched count or a
+                per-grain misorientation and centroid error without reaching for
+                :class:`~graintrace.grain_graph_matching.GraphGrainMatcher` and its
+                tessellation graphs. Cost is
+                ``miso / theta_tol_deg + d / gate``, both terms in ``[0, 1]``.
+            volume_col: per-grain volume column (default ``"volume"``). When present
+                in a table, that side's recall is also reported volume-weighted.
+            in_overlap_a: optional boolean mask, or the name of a boolean column in
+                ``nodes_a``, flagging the A grains inside the volume both datasets
+                see. Recall is then computed over those grains only, so material
+                outside the shared volume does not count as a miss.
+            in_overlap_b: the same for ``nodes_b``.
+            n_null: number of chance trials (default 0 = skip). Each trial reruns
+                the misorientation filter over the same distance-gated candidates
+                with uniformly random B orientations, which gives the number of
+                links the gate finds by chance -- a significance check for any gate
+                setting.
+            seed: seed for the ``n_null`` random orientations.
 
         Returns:
             dict with ``components`` (list of ``{a_ids, b_ids, kind}``),
-            ``split_correspondences`` (DataFrame), and the counts ``n_splits``,
-            ``n_merges``, ``n_matches``, ``n_births``, ``n_deaths``.
+            ``split_correspondences`` (DataFrame), the counts ``n_splits``,
+            ``n_merges``, ``n_matches``, ``n_births``, ``n_deaths``, and
+            ``recall`` (per-side linked fractions). ``one_to_one`` (a DataFrame of
+            ``a_id, b_id, miso_deg, dist, cost``) is present when
+            ``assignment="one_to_one"``, and ``null`` (observed against chance
+            links) when ``n_null > 0``. ``null`` carries ``n_null``,
+            ``mean_links``, ``std_links``, ``observed_links`` and
+            ``observed_links_after_adjacency``. Compare ``observed_links``
+            against ``mean_links``: both count distance-gated pairs surviving
+            the misorientation filter, so they are measured at the same point.
+            ``observed_links_after_adjacency`` is the same count once the
+            optional ``adjacency_b`` prune has run, which the null never sees;
+            the two are equal when ``adjacency_b`` is None.
+
+        Raises:
+            ValueError: on an unknown ``d_tol_mode`` or ``assignment``, or when a
+                radius mode is requested and ``radius_col`` is missing from either
+                table.
         """
         # pylint: disable=import-outside-toplevel
         import pandas as pd
         from scipy.sparse import coo_matrix
         from scipy.sparse.csgraph import connected_components
-        from scipy.spatial import cKDTree
 
         from .orientation_helper import misorientation_matrix
+
+        if d_tol_mode not in ("absolute", "radius", "radius_sum"):
+            raise ValueError(
+                f"Unknown d_tol_mode: {d_tol_mode!r} "
+                "(expected 'absolute', 'radius' or 'radius_sum')."
+            )
+        if assignment not in (None, "one_to_one"):
+            raise ValueError(
+                f"Unknown assignment: {assignment!r} (expected None or 'one_to_one')."
+            )
+        # The radius modes search with a ball query at the loosest possible gate,
+        # so top_k has no effect there. Silently ignoring a caller's explicit cap
+        # would let them believe the candidate set is bounded when it is not; the
+        # default (8) is not a choice they made, so it stays quiet. Checked with
+        # the other argument validation, before the node tables are read.
+        if d_tol_mode != "absolute" and top_k != 8:
+            warnings.warn(
+                f"top_k={top_k!r} is ignored when d_tol_mode={d_tol_mode!r}: the "
+                "size-aware gate varies per pair, so candidates come from a radius "
+                "query covering the largest possible gate rather than a k-nearest "
+                "query. Use d_tol_mode='absolute' if you need the cap.",
+                UserWarning,
+                stacklevel=2,
+            )
 
         da = _load_nodes(nodes_a)
         db = _load_nodes(nodes_b)
@@ -1099,35 +1434,48 @@ class FragmentationAnalyzer:
         r_a = _orientation_matrices(da, ori_cols, angle_convention, angle_type)
         r_b = _orientation_matrices(db, ori_cols, angle_convention, angle_type)
 
-        # Candidate cross edges: the B centroids within d_tol of each A grain,
-        # capped at top_k nearest. Capping before or after the d_tol gate gives
-        # the same set (every grain inside the radius is nearer than every grain
-        # outside it), so top_k=None is the only way to widen the search.
-        tree_b = cKDTree(coords_b)
-        ai, bj, pair_dist = [], [], []
-        if top_k is None:
-            for i in range(n_a):
-                for j in tree_b.query_ball_point(coords_a[i], r=d_tol):
-                    ai.append(i)
-                    bj.append(int(j))
-                    pair_dist.append(float(np.linalg.norm(coords_b[j] - coords_a[i])))
-        else:
-            kq = min(top_k, n_b)
-            dist, jdx = tree_b.query(coords_a, k=kq)
-            dist = np.asarray(dist).reshape(n_a, kq)
-            jdx = np.asarray(jdx).reshape(n_a, kq)
+        # Per-grain radii, needed only by the size-aware gates.
+        rad_a = np.zeros(n_a, dtype=float)
+        rad_b = np.zeros(n_b, dtype=float)
+        if d_tol_mode != "absolute":
+            missing = [
+                nm
+                for nm, df in (("nodes_a", da), ("nodes_b", db))
+                if radius_col not in df.columns
+            ]
+            if missing:
+                raise ValueError(
+                    f"d_tol_mode={d_tol_mode!r} needs the {radius_col!r} column, "
+                    f"missing from {', '.join(missing)}."
+                )
+            rad_a = da[radius_col].to_numpy(dtype=float)
+            rad_b = db[radius_col].to_numpy(dtype=float)
 
-            for i in range(n_a):
-                for col in range(kq):
-                    j = int(jdx[i, col])
-                    if dist[i, col] <= d_tol:
-                        ai.append(i)
-                        bj.append(j)
-                        pair_dist.append(float(dist[i, col]))
-        ai = np.asarray(ai, dtype=np.int64)
-        bj = np.asarray(bj, dtype=np.int64)
-        pair_dist = np.asarray(pair_dist, dtype=float)
+        # Candidate cross edges passing the centroid-distance gate (one absolute
+        # d_tol, or a size-aware per-pair gate searched with a covering ball query).
+        ai, bj, pair_dist, pair_gate = _candidate_pairs(
+            coords_a,
+            coords_b,
+            rad_a,
+            rad_b,
+            d_tol,
+            d_tol_mode,
+            alpha_a,
+            alpha_b,
+            alpha,
+            top_k,
+        )
         pair_miso = np.zeros(len(ai), dtype=float)
+
+        # Chance null: how many of these distance-gated pairs survive the
+        # misorientation filter when step B's orientations carry no information.
+        null_report = (
+            self._chance_links(
+                r_a, ai, bj, n_b, theta_tol_deg, n_null, seed, misorientation_matrix
+            )
+            if n_null > 0
+            else None
+        )
 
         # Filter by symmetry-aware misorientation.
         if len(ai) > 0:
@@ -1137,8 +1485,17 @@ class FragmentationAnalyzer:
                 .numpy()
             )
             keep = miso <= theta_tol_deg
-            ai, bj = ai[keep], bj[keep]
+            ai, bj, pair_gate = ai[keep], bj[keep], pair_gate[keep]
             pair_dist, pair_miso = pair_dist[keep], np.asarray(miso)[keep]
+
+        # Record the observed count HERE, where the null measures it: _chance_links
+        # counts distance-gated pairs surviving the misorientation filter, and never
+        # sees the adjacency prune below. Measured after the prune it would be
+        # deflated against mean_links whenever adjacency_b is supplied, making the
+        # significance read falsely weak. The post-prune count is reported too, under
+        # its own key, since that is the number of links actually used downstream.
+        if null_report is not None:
+            null_report["observed_links"] = int(len(ai))
 
         # Optional adjacency consistency: a candidate child that is not adjacent (in B)
         # to any sibling under the same parent is not evidence of a split, so it is
@@ -1171,7 +1528,10 @@ class FragmentationAnalyzer:
                 else:
                     best = sel[np.lexsort((bj[sel], pair_dist[sel], pair_miso[sel]))[0]]
                     keep[sel[sel != best]] = False
-            ai, bj = ai[keep], bj[keep]
+            # All four pair arrays stay aligned: the assignment and recall steps
+            # below index them by the same surviving-pair position.
+            ai, bj, pair_gate = ai[keep], bj[keep], pair_gate[keep]
+            pair_dist, pair_miso = pair_dist[keep], pair_miso[keep]
 
         # Union graph A (0..n_a-1) + B (n_a..n_a+n_b-1); components = grain lineages.
         n = n_a + n_b
@@ -1244,4 +1604,130 @@ class FragmentationAnalyzer:
             os.makedirs(os.path.dirname(os.path.abspath(out_csv)), exist_ok=True)
             split_df.to_csv(out_csv, index=False)
 
-        return {"components": components, "split_correspondences": split_df, **counts}
+        # Per-side recall over the surviving links, restricted to the shared volume
+        # when the caller flags it and volume-weighted where a volume column exists.
+        linked_a = np.zeros(n_a, dtype=bool)
+        linked_b = np.zeros(n_b, dtype=bool)
+        linked_a[ai] = True
+        linked_b[bj] = True
+        recall: Dict[str, Any] = {}
+        for side, linked, df, spec, name in (
+            ("a", linked_a, da, in_overlap_a, "in_overlap_a"),
+            ("b", linked_b, db, in_overlap_b, "in_overlap_b"),
+        ):
+            vol = (
+                df[volume_col].to_numpy(dtype=float)
+                if volume_col in df.columns
+                else None
+            )
+            mask = _overlap_mask(spec, df, len(df), name)
+            recall.update(_side_recall(linked, mask, vol, side))
+
+        result: Dict[str, Any] = {
+            "components": components,
+            "split_correspondences": split_df,
+            "recall": recall,
+            **counts,
+        }
+
+        if assignment == "one_to_one":
+            # Normalise each term by its own tolerance so the two are comparable.
+            # Guard the misorientation division the same way the distance one
+            # below is guarded: theta_tol_deg == 0 is a degenerate but legal gate
+            # (only exactly-equal orientations survive the filter, so every
+            # surviving pair has miso == 0 and the term is 0). Without the guard
+            # it produced NaN, and linear_sum_assignment then raised.
+            miso_term = np.divide(
+                pair_miso,
+                float(theta_tol_deg),
+                out=np.zeros_like(pair_miso),
+                where=float(theta_tol_deg) > 0,
+            )
+            cost = miso_term + np.divide(
+                pair_dist,
+                pair_gate,
+                out=np.zeros_like(pair_dist),
+                where=pair_gate > 0,
+            )
+            rows_o: List[Dict[str, Any]] = []
+            for a_idx, b_idx, pair_idx in _one_to_one_blocks(comp, ai, bj, cost):
+                for a_i, b_j, p in zip(a_idx, b_idx, pair_idx):
+                    rows_o.append(
+                        {
+                            "a_id": int(ids_a[a_i]),
+                            "b_id": int(ids_b[b_j]),
+                            "miso_deg": float(pair_miso[p]),
+                            "dist": float(pair_dist[p]),
+                            "cost": float(cost[p]),
+                        }
+                    )
+            result["one_to_one"] = pd.DataFrame(
+                rows_o, columns=["a_id", "b_id", "miso_deg", "dist", "cost"]
+            ).sort_values("a_id", ignore_index=True)
+
+        if null_report is not None:
+            null_report["observed_links_after_adjacency"] = int(len(ai))
+            result["null"] = null_report
+
+        return result
+
+    def _chance_links(
+        self,
+        r_a,
+        ai: np.ndarray,
+        bj: np.ndarray,
+        n_b: int,
+        theta_tol_deg: float,
+        n_null: int,
+        seed: Optional[int],
+        misorientation_matrix,
+    ) -> Dict[str, Any]:
+        """Links the distance gate finds by chance, over ``n_null`` random trials.
+
+        Each trial keeps the distance-gated candidate pairs fixed and redraws step
+        B's orientations uniformly at random, so the count it returns is what the
+        misorientation filter admits with no real orientation correspondence. Run
+        before the adjacency prune, so it is comparable with the pair count the
+        misorientation filter itself produces.
+
+        Args:
+            r_a: ``(n_a, 3, 3)`` step-A rotation matrices.
+            ai: ``(n_pairs,)`` A index of each distance-gated pair.
+            bj: ``(n_pairs,)`` B index of each distance-gated pair.
+            n_b: number of step-B grains.
+            theta_tol_deg: misorientation gate, in degrees.
+            n_null: number of trials.
+            seed: seed for the random orientations.
+            misorientation_matrix: the symmetry-aware misorientation function.
+
+        Returns:
+            dict with ``n_null``, ``mean_links`` and ``std_links``.
+        """
+        # pylint: disable=import-outside-toplevel
+        import torch
+        from scipy.spatial.transform import Rotation
+
+        if len(ai) == 0:
+            return {"n_null": int(n_null), "mean_links": 0.0, "std_links": 0.0}
+
+        rng = np.random.default_rng(seed)
+        counts = []
+        for _ in range(int(n_null)):
+            # A normalized 4D Gaussian is a uniform random unit quaternion, hence a
+            # uniform random rotation. Drawn here rather than with Rotation.random
+            # so the seeding does not depend on the scipy version.
+            quat = rng.standard_normal((n_b, 4))
+            quat /= np.linalg.norm(quat, axis=1, keepdims=True)
+            rand_b = Rotation.from_quat(quat).as_matrix()
+            tens_b = torch.as_tensor(np.asarray(rand_b, dtype=float)[bj])
+            miso = (
+                misorientation_matrix(r_a[ai], tens_b, self.symmetry, "degrees")
+                .cpu()
+                .numpy()
+            )
+            counts.append(int((miso <= theta_tol_deg).sum()))
+        return {
+            "n_null": int(n_null),
+            "mean_links": float(np.mean(counts)),
+            "std_links": float(np.std(counts)),
+        }

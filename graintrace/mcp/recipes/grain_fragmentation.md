@@ -20,9 +20,12 @@ match / split / merge / birth / death. Pure NumPy+SciPy (+neml2 for orientation 
 
 ## Model
 1. candidate cross edges = each step-A grain's `top_k` nearest step-B centroids,
-2. kept if centroid distance <= `d_tol` AND misorientation <= `theta_tol_deg`,
+2. kept if centroid distance <= the gate AND misorientation <= `theta_tol_deg`,
 3. union graph over A and B → `scipy.sparse.csgraph.connected_components`,
 4. component `(nA,nB)`: (1,1) match, (1,m>1) **split**, (n>1,1) merge, (1,0)/(0,1) death/birth.
+
+The gate is `d_tol` under the default `d_tol_mode="absolute"`, and size-aware in the
+radius modes (below), which also widen step 1 to a ball query covering the gate.
 
 ## Minimum you must supply
 - `nodes_a`, `nodes_b`: per-grain node tables (CSV) for the two steps:
@@ -39,7 +42,41 @@ match / split / merge / birth / death. Pure NumPy+SciPy (+neml2 for orientation 
 - `theta_tol_deg`: GENEROUS (~15°) — children keep diverging across steps, so a tight
   cutoff misses the split. Different base grains stay separate via this filter, so real
   grains must be well-separated in orientation.
-- `top_k`: nearest B centroids probed per A grain.
+- `top_k`: nearest B centroids probed per A grain. **`d_tol_mode="absolute"` only** —
+  the radius modes size their own search to cover the gate and ignore it.
+
+### Size-aware gate (`d_tol_mode`)
+One absolute `d_tol` fails when grain sizes span a wide range, or when several small B
+grains sit inside one large A grain — FF duplicates across scan layers, sub-grains an NF
+step resolves separately, deformation fragments of a coarse parent. Those children sit
+anywhere up to about the parent's radius from its centroid, so a gate sized for the
+median grain misses them and one sized for the largest is too loose for the rest.
+
+- `d_tol_mode="absolute"` (default): one `d_tol` for every pair, unchanged behavior.
+- `d_tol_mode="radius"`: link if `d <= max(d_tol, alpha_a*R_a, alpha_b*R_b)`. Start here
+  for a mixed-size step pair; `d_tol` stays as a floor for grains with a tiny radius.
+- `d_tol_mode="radius_sum"`: link if `d <= alpha*(R_a + R_b)`. Use when a link should
+  mean "the two grains touch"; `alpha` near 1 is the tangent-sphere criterion.
+
+Both read `radius_col` (default `GrainRadius`) from **both** tables and raise if it is
+missing, rather than silently gating at zero.
+
+### One-to-one assignment, recall, and the chance null
+- `assignment="one_to_one"`: adds a Hungarian assignment over the gated candidates as
+  `one_to_one` (`a_id, b_id, miso_deg, dist, cost`), alongside the unchanged lineage
+  components. Use it for a clean matched count or a per-grain misorientation/centroid
+  error without `GraphGrainMatcher` and its tessellation graphs.
+- `recall` is always reported: the linked fraction of each side, volume-weighted when a
+  `volume_col` column exists. Pass `in_overlap_a`/`in_overlap_b` (boolean array or
+  column name) so grains outside the shared volume do not count as misses.
+- `n_null` (with `seed`): reruns the misorientation filter over the same distance-gated
+  pairs with uniformly random B orientations. Compare `null.mean_links` against
+  `null.observed_links` to check a gate setting is finding more than chance. A loose
+  gate whose observed count is near the null mean is measuring nothing. Both are
+  counted at the same point — distance-gated pairs surviving the misorientation
+  filter — so the comparison is like for like. `null.observed_links_after_adjacency`
+  is the same count once the optional `adjacency_b` prune has run, which the null
+  never sees; it equals `observed_links` when `adjacency_b` is None.
 
 ## Synthetic test data
 Shipped `mwe_data/synthetic_split_{ff,nf,ebsd}/` carry a known 1→2 split

@@ -136,7 +136,27 @@ def detect_fragmentation(
     theta_tol_deg : max misorientation for a lineage edge (default 15.0; generous).
     symmetry : crystal symmetry (default '432').
     angle_convention / angle_type : 'bunge'/'degrees' (or 'mrp').
-    top_k : nearest B centroids probed per A grain (default 8).
+    top_k : nearest B centroids probed per A grain (default 8). Used by
+        d_tol_mode='absolute' only; the radius modes size their own search.
+    d_tol_mode : how the distance gate is sized (default 'absolute').
+        'absolute'   -> one d_tol for every pair (unchanged behavior);
+        'radius'     -> d <= max(d_tol, alpha_a*R_a, alpha_b*R_b);
+        'radius_sum' -> d <= alpha*(R_a + R_b).
+        The radius modes read `radius_col` (default 'GrainRadius') from both tables
+        and widen the candidate search to cover the gate. Use them when grain sizes
+        span a wide range, or when small B grains sit inside one large A grain (FF
+        duplicates across scan layers, NF sub-grains, fragments of a coarse parent).
+    alpha_a / alpha_b : radius multipliers in 'radius' mode (default 1.0).
+    alpha : radius-sum multiplier in 'radius_sum' mode (default 1.0).
+    radius_col : per-grain radius column for the radius modes (default 'GrainRadius').
+    assignment : 'one_to_one' to also run a Hungarian assignment over the gated
+        candidates (written to one_to_one.csv), or None (default) for lineage only.
+    volume_col : per-grain volume column (default 'volume'); when present, that
+        side's recall is also reported volume-weighted.
+    n_null / seed : chance trials with uniformly random B orientations (default 0 =
+        skip), reported as null.mean_links against null.observed_links. Both are
+        counted before the optional adjacency prune, so they are comparable;
+        null.observed_links_after_adjacency is the post-prune count.
     """
     # pylint: disable=import-outside-toplevel
     from graintrace.fragmentation import FragmentationAnalyzer
@@ -150,6 +170,15 @@ def detect_fragmentation(
         "angle_convention": "bunge",
         "angle_type": "degrees",
         "top_k": 8,
+        "d_tol_mode": "absolute",
+        "alpha_a": 1.0,
+        "alpha_b": 1.0,
+        "alpha": 1.0,
+        "radius_col": "GrainRadius",
+        "assignment": None,
+        "volume_col": "volume",
+        "n_null": 0,
+        "seed": None,
         **(params or {}),
     }
     resolved = {
@@ -171,9 +200,18 @@ def detect_fragmentation(
             angle_convention=p["angle_convention"],
             angle_type=p["angle_type"],
             top_k=p["top_k"],
+            d_tol_mode=p["d_tol_mode"],
+            alpha_a=p["alpha_a"],
+            alpha_b=p["alpha_b"],
+            alpha=p["alpha"],
+            radius_col=p["radius_col"],
+            assignment=p["assignment"],
+            volume_col=p["volume_col"],
+            n_null=p["n_null"],
+            seed=p["seed"],
             out_csv=os.path.join(output_dir, "split_correspondences.csv"),
         )
-        return {
+        result = {
             "output_dir": output_dir,
             "split_correspondences": os.path.join(
                 output_dir, "split_correspondences.csv"
@@ -183,7 +221,16 @@ def detect_fragmentation(
             "n_matches": out["n_matches"],
             "n_births": out["n_births"],
             "n_deaths": out["n_deaths"],
+            "recall": out["recall"],
         }
+        if "one_to_one" in out:
+            one_to_one_csv = os.path.join(output_dir, "one_to_one.csv")
+            out["one_to_one"].to_csv(one_to_one_csv, index=False)
+            result["one_to_one"] = one_to_one_csv
+            result["n_one_to_one"] = int(len(out["one_to_one"]))
+        if "null" in out:
+            result["null"] = out["null"]
+        return result
 
     return gate(
         tool="detect_fragmentation",

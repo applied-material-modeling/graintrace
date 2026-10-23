@@ -244,6 +244,64 @@ The same detector serves FF, NF, and EBSD; NF/EBSD
 reach it through ``segment`` +
 :meth:`graintrace.fragmentation.FragmentationAnalyzer.seg_to_grain_table`.
 
+``d_tol_mode`` sizes the distance gate. The default ``"absolute"`` applies one
+``d_tol`` to every pair, which fails whenever grain sizes span a wide range or
+several small B grains sit inside one large A grain — FF duplicates across scan
+layers, sub-grains an NF step resolves separately, deformation fragments of a coarse
+parent. Those children sit anywhere up to about the parent's radius from its
+centroid, so a gate sized for the median grain misses them and a gate sized for the
+largest is too loose for the small ones. The size-aware modes read the per-grain
+``radius_col`` (default ``GrainRadius``) from both tables:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 18 32 50
+
+   * - ``d_tol_mode``
+     - Link when
+     - Use it for
+   * - ``"absolute"``
+     - :math:`d \le d_{tol}`
+     - Default. Comparable grain sizes; reproduces the pre-existing behavior.
+   * - ``"radius"``
+     - :math:`d \le \max(d_{tol},\ \alpha_a R_a,\ \alpha_b R_b)`
+     - A mixed-size step pair. ``d_tol`` stays a floor for tiny-radius grains;
+       ``alpha_a``/``alpha_b`` scale each side's reach.
+   * - ``"radius_sum"``
+     - :math:`d \le \alpha (R_a + R_b)`
+     - A link that should mean "the two grains touch"; ``alpha`` near 1 is the
+       tangent-sphere criterion.
+
+.. note::
+
+   ``top_k`` is an ``"absolute"``-mode knob. Because a size-aware gate varies per
+   pair, the radius modes replace the ``top_k`` nearest-neighbour query with a ball
+   query at each A grain's largest possible gate and then apply the exact per-pair
+   gate, so the candidate search always covers the gate and cannot be the binding
+   limit on how many children a split may have. Passing a non-default ``top_k``
+   in a radius mode warns, so the cap is not ignored silently. A radius mode with
+   ``radius_col`` missing from either table raises, rather than silently gating at
+   zero.
+
+Three reporting options sit alongside the lineage view.
+``assignment="one_to_one"`` additionally runs a Hungarian assignment over the gated
+candidates and returns the strict pairs in ``one_to_one`` (``a_id``, ``b_id``,
+``miso_deg``, ``dist``, ``cost``), for a clean matched count or a per-grain
+misorientation and centroid error without
+:class:`~graintrace.grain_graph_matching.GraphGrainMatcher` and its tessellation
+graphs; the components are unchanged either way. ``recall`` is always returned,
+giving the linked fraction of each side, volume-weighted when a ``volume_col``
+column exists, and restricted to ``in_overlap_a``/``in_overlap_b`` (a boolean array
+or a column name) so material outside the volume both datasets see is not counted as
+a miss. ``n_null`` (with ``seed``) reruns the misorientation filter over the same
+distance-gated candidates with uniformly random step-B orientations and reports the
+mean number of links found by chance, which is the significance check for any gate
+setting: an observed count near the null mean means the gate is measuring nothing.
+``mean_links`` and ``observed_links`` are both counted at the same point —
+distance-gated pairs surviving the misorientation filter — so the comparison is like
+for like; ``observed_links_after_adjacency`` is that count once the optional
+``adjacency_b`` prune, which the null never sees, has run.
+
 **Annotated Exodus**
 (:meth:`~graintrace.ipf_postprocess.IPFProcessor.add_element_field_to_exodus` and
 :meth:`~graintrace.ipf_postprocess.IPFProcessor.add_element_rgb_to_exodus`): write a

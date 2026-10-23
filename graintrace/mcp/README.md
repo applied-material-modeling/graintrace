@@ -33,7 +33,7 @@ your chat client (brings the LLM + key)
 | `reorientation_rei` | reorientation (misorientation-from-initial) as an REI criterion → VTK | none (neml2+networkit) |
 | `sim_fragmentation` | sim intragranular fragmentation: sub-grain counts + annotated hex Exodus | none (neml2+networkit) |
 | `track_grains` | grain matching across load steps | NEPER + torch-geometric |
-| `detect_fragmentation` | grain split/merge/birth/death across load steps (FF/NF/EBSD) | none (neml2) |
+| `detect_fragmentation` | grain split/merge/birth/death across load steps (FF/NF/EBSD), size-aware gate + optional 1-to-1 assignment | none (neml2) |
 | `dependency_status`, `list_recommended_recipes`, `get_recommended_parameters`, `job_status`, `list_jobs`, `job_log`, `list_outputs` | introspection / recipes / jobs | none |
 
 Two built-in safety behaviors:
