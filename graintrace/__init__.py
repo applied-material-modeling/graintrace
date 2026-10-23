@@ -47,6 +47,7 @@ _LAZY_EXPORTS = {
     "VoxelMeshBuilder": "construct_voxel_mesh",
     "ExperimentResults": "experiment_postprocessing",
     "FieldFileNaming": "experiment_postprocessing",
+    "FrameTransform": "frame_transform",
     "CrystalGenerator": "generate_random_crystal",
     "GraphGrainMatcher": "grain_graph_matching",
     "GraphSpatialCluster": "graph_spatial_cluster",

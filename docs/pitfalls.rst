@@ -39,6 +39,33 @@ FF output orientations are always in degrees
 ``orientations.dat`` in degrees, regardless of input units. When feeding to
 :class:`~graintrace.VoxelMeshBuilder` afterward, set ``angle_type="degrees"``.
 
+A frame change rotates orientations on the sample side
+------------------------------------------------------
+
+A change of specimen frame by a proper rotation ``Q`` acts as
+
+.. code-block:: text
+
+   x' = Q x + t          positions
+   g' = g Q^T            orientations  (g = R_active^T, crystal -> sample is R = g^T)
+   e' = Q e Q^T          second-order tensors (elastic strain, stress)
+
+The orientation rule is the one that goes wrong. Applying ``Q g`` instead
+rotates the **crystal** inside a fixed sample frame — a different physical
+operation, and not the one the coordinates received. It is also silent: for a
+cubic ``Q`` the crystal-side update is invisible modulo crystal symmetry, so
+every orientation-only check still passes while the microstructure is wrong.
+
+Pin it on a crystal direction rather than on an orientation. For any crystal
+direction ``c``, a frame change must send ``R c`` to ``Q R c``. That test
+distinguishes the two sides; a misorientation comparison does not.
+
+:class:`~graintrace.FrameTransform` applies all three rules together, so a
+stated frame change cannot be applied to coordinates and orientations
+inconsistently. ``VoronoiMeshBuilder`` routes its sample rotation through it.
+Its ``orientation_active_convention`` argument used to select the crystal-side
+update; it is deprecated, ignored, and warns when set to ``True``.
+
 orientation_tolerance units must match ori_units
 ------------------------------------------------
 
