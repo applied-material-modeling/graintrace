@@ -100,25 +100,51 @@ def nf_to_pointcloud(folder, dz, layer_token="layer"):
     return pd.concat(dfs, ignore_index=True)
 
 
+def nearest_simplex_vertex(tri, query_points, simplex_indices):
+    """Index of the nearest vertex of each query point's containing simplex.
+
+    This is the legacy source-point rule, kept for the Delaunay hull path so that
+    an unmasked grid is bit-identical to the pre-confidence one. It is not the same
+    as the globally nearest measured point: the nearest site to a query point need
+    not be a vertex of the simplex containing it (measured on a 60-point random
+    layer, 5 of 102 in-hull grid points differ, by up to 0.16 um).
+
+    Args:
+        tri (scipy.spatial.Delaunay): triangulation of the measured points
+        query_points (np.ndarray): (m, 2) points, all inside the hull
+        simplex_indices (np.ndarray): (m,) index of each point's containing simplex
+
+    Returns:
+        np.ndarray: (m,) indices into the triangulation's points
+    """
+    vertices = tri.simplices[simplex_indices]
+    dists = np.linalg.norm(tri.points[vertices] - query_points[:, None], axis=-1)
+    return vertices[np.arange(len(simplex_indices)), np.argmin(dists, axis=-1)]
+
+
 def process_layer_pointcloud(
     df_layer, plane_points, nx, ny, min_confidence=None, max_point_distance=None
 ):
     """Interpolate one point-cloud layer onto a fixed nx x ny grid.
 
-    Each grid point takes the orientation of the nearest measured point. Which grid
-    points become solid is decided by ``max_point_distance`` (a radius around the
-    measured points) when it is given, otherwise by the Delaunay hull of the layer.
-    Grid points whose nearest measured point is below ``min_confidence`` become void.
+    Which grid points become solid is decided by ``max_point_distance`` (a radius
+    around the measured points) when it is given, otherwise by the Delaunay hull of
+    the layer. Grid points whose source point is below ``min_confidence`` become void.
+
+    The source point is the globally nearest measured point under
+    ``max_point_distance``, and the nearest vertex of the containing simplex under
+    the hull test. The hull path keeps the legacy rule rather than the (strictly
+    closer) global nearest so that an unmasked grid is unchanged; see
+    ``nearest_simplex_vertex``.
 
     Args:
         df_layer (pd.DataFrame): one layer of the point cloud, columns X, Y, Z,
             Eul1, Eul2, Eul3 and optionally Confidence
         plane_points (np.ndarray): (nx*ny, 2) in-plane grid coordinates
         nx, ny (int): in-plane grid resolution
-        min_confidence (float, optional): grid points whose nearest measured point has
-            a lower ``Confidence`` become void (phase 0). None keeps every point that
-            passes the geometric test. Ignored when the layer has no ``Confidence``
-            column.
+        min_confidence (float, optional): grid points whose source point has a lower
+            ``Confidence`` become void (phase 0). None keeps every point that passes
+            the geometric test. Ignored when the layer has no ``Confidence`` column.
         max_point_distance (float, optional): maximum distance in micrometers from a
             grid point to the nearest measured point for it to be solid. None uses the
             legacy Delaunay hull test, which fills concave gaps and holes.
@@ -130,14 +156,14 @@ def process_layer_pointcloud(
     z = df_layer["Z"].iloc[0]
     points = df_layer[["X", "Y"]].to_numpy()
 
-    # Global nearest measured point. For a Delaunay triangulation the nearest site to
-    # a query point is a vertex of the simplex containing it, so inside the hull this
-    # picks the same point as the legacy per-simplex vertex search, without the loop.
-    dist, idx = sp.cKDTree(points).query(plane_points)
-
     if max_point_distance is None:
-        ok = sp.Delaunay(points).find_simplex(plane_points) >= 0
+        tri = sp.Delaunay(points)
+        simplex_indices = tri.find_simplex(plane_points)
+        ok = simplex_indices >= 0
+        idx = np.zeros(len(plane_points), dtype=np.intp)
+        idx[ok] = nearest_simplex_vertex(tri, plane_points[ok], simplex_indices[ok])
     else:
+        dist, idx = sp.cKDTree(points).query(plane_points)
         ok = dist <= float(max_point_distance)
 
     conf = np.ones(len(plane_points))
