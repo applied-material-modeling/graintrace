@@ -117,6 +117,52 @@ For :meth:`~graintrace.NearFieldMeshBuilder.reconstruct`, the ``segmentation``
 argument is a flat dict (no ``method``/``params`` nesting), with
 ``misorientation_tol`` in radians.
 
+.. _config-nf-gridding:
+
+NF gridding: confidence, reach and voxel size
+---------------------------------------------
+
+:meth:`~graintrace.NearFieldMeshBuilder.reconstruct` takes three optional
+arguments that control which voxels become crystal before segmentation ever runs.
+All default to ``None``, which reproduces the pre-confidence grid exactly.
+
+.. code-block:: python
+
+   merged_grid_path = builder_nf.reconstruct(
+       dz=5.0,
+       voxel_size_um=(2.0, 2.0),   # instead of nx/ny
+       min_confidence=0.4,
+       max_point_distance=1.5 * tri_edge_size,
+       segmentation=segmentation,
+   )
+
+``min_confidence``
+    Voxels whose source point has a lower ``.mic`` ``Confidence`` become void
+    (``phase = 0``). Without it every grid point inside a layer's Delaunay hull is
+    crystal, so air inside the hull, the sample surface, regions that failed to
+    index and low-confidence grain-boundary voxels all enter segmentation. Those
+    boundary voxels form a connected network between grains that orientation
+    segmentation leaks through — the percolation the graph path otherwise patches
+    with a size cap. NF confidence is typically bimodal (indexed sample points near
+    1.0, air and failed points well below), so a single threshold separates them.
+
+``max_point_distance``
+    Maximum distance in micrometers from a voxel to the nearest measured point for
+    it to be solid, replacing the hull test. The hull fills concave gaps and holes;
+    a radius does not. A natural value is ``1.5 x TriEdgeSize``.
+
+``voxel_size_um``
+    ``(hx, hy)`` in-plane voxel size, as an alternative to ``nx``/``ny``; give one or
+    the other, not both. A fixed count over a rectangular footprint gives
+    anisotropic voxels, whereas a spacing gives an isotropic grid independent of the
+    footprint. The axis starts at the data minimum and is extended to cover the
+    maximum.
+
+The per-voxel confidence is written to ``fixed_grid_confidence.npy`` of shape
+``(nx, ny, nz)`` beside the merged grid, so segmentation, QC and REI can use it
+without changing the 7-channel grid layout that consumers index
+(``data[..., 4:7]`` = coordinates). It is ``0`` wherever the grid is void.
+
 **Graph/Leiden is the default and better pathway** for NF/EBSD; flood over-merges
 into percolating grains. The vetted recipe (validated on Fe-9Cr NF
 reconstruction): hard 5° misorientation cutoff; ``manhattan_radius=2``;

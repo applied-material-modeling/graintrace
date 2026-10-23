@@ -212,8 +212,11 @@ class NearFieldMeshBuilder:
         self,
         *,
         dz: float = 5.0,
-        nx: int = 300,
-        ny: int = 900,
+        nx: Optional[int] = 300,
+        ny: Optional[int] = 900,
+        voxel_size_um: Optional[Sequence[float]] = None,
+        min_confidence: Optional[float] = None,
+        max_point_distance: Optional[float] = None,
         segmentation: Optional[Dict[str, Any]] = None,
     ) -> Path:
         """Reconstruct a segmented NF voxel grid from .mic/.csv layers.
@@ -222,22 +225,38 @@ class NearFieldMeshBuilder:
 
         Args:
             dz: Layer thickness in micrometers (z spacing between stacked layers).
-            nx: In-plane grid resolution along x.
-            ny: In-plane grid resolution along y.
+            nx: In-plane grid resolution along x; ignored when voxel_size_um is given.
+            ny: In-plane grid resolution along y; ignored when voxel_size_um is given.
+            voxel_size_um: (hx, hy) in-plane voxel size in micrometers, as an alternative to nx/ny. A fixed count over a rectangular footprint gives anisotropic voxels; a spacing gives an isotropic grid independent of the footprint.
+            min_confidence: Voxels whose source point has a lower .mic Confidence become void (phase 0) instead of crystal.
+                None (default) keeps today's behavior, where air inside the hull, the sample surface and failed-to-index
+                points all enter segmentation as crystal.
+            max_point_distance: Maximum distance in micrometers from a voxel to the nearest measured point for it to be solid;
+                an alternative to the Delaunay hull test, which fills concave gaps and holes. A natural value is 1.5x the
+                .mic TriEdgeSize. None (default) keeps the hull test.
             segmentation: Flat segmentation config dict (misorientation_tol in radians, connectivity, batch_norm, grain_threshold, stop_count, grain_threshold_final); None uses the class defaults.
 
         Returns:
-            Path to the written merged_segmented_fixed_grid.npy.
+            Path to the written merged_segmented_fixed_grid.npy. The per-voxel confidence is written beside it as
+            fixed_grid_confidence.npy, shape (nx, ny, nz), so downstream segmentation, QC and REI can use it without
+            changing the 7-channel grid layout.
         """
         seg = self._normalize_segmentation(segmentation)
 
         dz = float(dz)
-        nx = int(nx)
-        ny = int(ny)
+        if voxel_size_um is not None:
+            # The voxel size sets the grid; the counts, default or not, are unused
+            nx = ny = None
+        elif nx is None or ny is None:
+            raise ValueError("Give both nx and ny, or voxel_size_um instead")
+        else:
+            nx = int(nx)
+            ny = int(ny)
 
         pointcloud_csv = self.save_dir / "pointcloud.csv"
         fixed_grid_npy = self.save_dir / "fixed_grid.npy"
         fixed_grid_vtk = self.save_dir / "fixed_grid.vtk"
+        confidence_npy = self.save_dir / "fixed_grid_confidence.npy"
         segmented_grid_npy = self.save_dir / "segmented_fixed_grid.npy"
         segmented_grid_vtk = self.save_dir / "segmented_fixed_grid.vtk"
         merged_grid_vtk = self.save_dir / "merged_segmented_fixed_grid.vtk"
@@ -251,7 +270,17 @@ class NearFieldMeshBuilder:
             pc.to_csv(pointcloud_csv, index=False)
 
         # pointcloud -> fixed grid
-        fixed_grid = convert.pointcloud_to_fixed_grid(pc, nx=nx, ny=ny)
+        fixed_grid, confidence = convert.pointcloud_to_fixed_grid(
+            pc,
+            nx=nx,
+            ny=ny,
+            voxel_size_um=voxel_size_um,
+            min_confidence=min_confidence,
+            max_point_distance=max_point_distance,
+        )
+
+        # Sidecar, so the 7-channel grid layout consumers index stays unchanged
+        np.save(confidence_npy, confidence)
 
         if self.write_intermediate:
             np.save(fixed_grid_npy, fixed_grid)

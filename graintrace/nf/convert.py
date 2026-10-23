@@ -100,60 +100,172 @@ def nf_to_pointcloud(folder, dz, layer_token="layer"):
     return pd.concat(dfs, ignore_index=True)
 
 
-def process_layer_pointcloud(df_layer, plane_points, nx, ny):
-    """Interpolate one point-cloud layer onto a fixed nx x ny grid.
+def nearest_simplex_vertex(tri, query_points, simplex_indices):
+    """Index of the nearest vertex of each query point's containing simplex.
+
+    This is the legacy source-point rule, kept for the Delaunay hull path so that
+    an unmasked grid is bit-identical to the pre-confidence one. It is not the same
+    as the globally nearest measured point: the nearest site to a query point need
+    not be a vertex of the simplex containing it (measured on a 60-point random
+    layer, 5 of 102 in-hull grid points differ, by up to 0.16 um).
+
+    Args:
+        tri (scipy.spatial.Delaunay): triangulation of the measured points
+        query_points (np.ndarray): (m, 2) points, all inside the hull
+        simplex_indices (np.ndarray): (m,) index of each point's containing simplex
 
     Returns:
-        np.ndarray: nx x ny x 7 array [phase, Eul1, Eul2, Eul3, X, Y, Z]
+        np.ndarray: (m,) indices into the triangulation's points
+    """
+    vertices = tri.simplices[simplex_indices]
+    dists = np.linalg.norm(tri.points[vertices] - query_points[:, None], axis=-1)
+    return vertices[np.arange(len(simplex_indices)), np.argmin(dists, axis=-1)]
+
+
+def process_layer_pointcloud(
+    df_layer, plane_points, nx, ny, min_confidence=None, max_point_distance=None
+):
+    """Interpolate one point-cloud layer onto a fixed nx x ny grid.
+
+    Which grid points become solid is decided by ``max_point_distance`` (a radius
+    around the measured points) when it is given, otherwise by the Delaunay hull of
+    the layer. Grid points whose source point is below ``min_confidence`` become void.
+
+    The source point is the globally nearest measured point under
+    ``max_point_distance``, and the nearest vertex of the containing simplex under
+    the hull test. The hull path keeps the legacy rule rather than the (strictly
+    closer) global nearest so that an unmasked grid is unchanged; see
+    ``nearest_simplex_vertex``.
+
+    Args:
+        df_layer (pd.DataFrame): one layer of the point cloud, columns X, Y, Z,
+            Eul1, Eul2, Eul3 and optionally Confidence
+        plane_points (np.ndarray): (nx*ny, 2) in-plane grid coordinates
+        nx, ny (int): in-plane grid resolution
+        min_confidence (float, optional): grid points whose source point has a lower
+            ``Confidence`` become void (phase 0). None keeps every point that passes
+            the geometric test. Ignored when the layer has no ``Confidence`` column.
+        max_point_distance (float, optional): maximum distance in micrometers from a
+            grid point to the nearest measured point for it to be solid. None uses the
+            legacy Delaunay hull test, which fills concave gaps and holes.
+
+    Returns:
+        tuple: (nx x ny x 7 array [phase, Eul1, Eul2, Eul3, X, Y, Z],
+        nx x ny array of the confidence each solid grid point took, 0 where void)
     """
     z = df_layer["Z"].iloc[0]
     points = df_layer[["X", "Y"]].to_numpy()
 
-    tri = sp.Delaunay(points)
-    simplex_indices = tri.find_simplex(plane_points)
+    if max_point_distance is None:
+        tri = sp.Delaunay(points)
+        simplex_indices = tri.find_simplex(plane_points)
+        ok = simplex_indices >= 0
+        idx = np.zeros(len(plane_points), dtype=np.intp)
+        idx[ok] = nearest_simplex_vertex(tri, plane_points[ok], simplex_indices[ok])
+    else:
+        dist, idx = sp.cKDTree(points).query(plane_points)
+        ok = dist <= float(max_point_distance)
 
-    def min_ind(p, simp):
-        vertices = tri.simplices[simp]
-        vert_points = tri.points[vertices]
-        dists = np.linalg.norm(vert_points - p[:, None], axis=-1)
-        which = np.argmin(dists, axis=-1)
-        return [vertices[i, which[i]] for i in range(len(simp))]
-
-    found = np.where(simplex_indices >= 0)[0]
+    conf = np.ones(len(plane_points))
+    if "Confidence" in df_layer:
+        conf = df_layer["Confidence"].to_numpy()[idx]
+        if min_confidence is not None:
+            ok = ok & (conf >= float(min_confidence))
 
     data = np.zeros((nx * ny, 7))
-    idx = min_ind(plane_points[found], simplex_indices[found])
 
-    data[found, 0] = 1
-    data[found, 1:4] = df_layer.iloc[idx][["Eul1", "Eul2", "Eul3"]].to_numpy()
+    data[ok, 0] = 1
+    data[ok, 1:4] = df_layer[["Eul1", "Eul2", "Eul3"]].to_numpy()[idx[ok]]
 
     data[:, 4:6] = plane_points
     data[:, 6] = z
 
-    return data.reshape((nx, ny, 7))
+    return data.reshape((nx, ny, 7)), np.where(ok, conf, 0.0).reshape((nx, ny))
 
 
-def pointcloud_to_fixed_grid(pointcloud, nx, ny):
+def grid_axis(lo, hi, n=None, spacing=None):
+    """Build one in-plane grid axis from either a point count or a spacing.
+
+    Args:
+        lo, hi (float): axis extent of the data
+        n (int, optional): number of grid points, spread evenly over [lo, hi]
+        spacing (float, optional): grid spacing in micrometers; the axis starts at
+            ``lo`` and is extended until it covers ``hi``
+
+    Returns:
+        np.ndarray: the 1D axis coordinates
+
+    Raises:
+        ValueError: if neither or both of ``n`` and ``spacing`` are given, or if they
+            are not positive.
+    """
+    if (n is None) == (spacing is None):
+        raise ValueError("Give exactly one of a grid count or a voxel size, not both")
+
+    if spacing is None:
+        if int(n) < 1:
+            raise ValueError(f"Grid counts must be >= 1, got {n}")
+        return np.linspace(lo, hi, int(n))
+
+    spacing = float(spacing)
+    if spacing <= 0:
+        raise ValueError(f"Voxel sizes must be > 0, got {spacing}")
+
+    # Cover the footprint: round the span up to a whole number of voxels
+    count = int(np.ceil((hi - lo) / spacing - 1e-9)) + 1
+    return lo + np.arange(count) * spacing
+
+
+def pointcloud_to_fixed_grid(
+    pointcloud,
+    nx=None,
+    ny=None,
+    voxel_size_um=None,
+    min_confidence=None,
+    max_point_distance=None,
+):
     """Convert a point cloud to an nx x ny x nz x 7 fixed grid.
 
     Args:
         pointcloud (pd.DataFrame): columns [phase, Eul1, Eul2, Eul3, X, Y, Z, layer]
-        nx, ny (int): in-plane grid resolution
+            and optionally Confidence
+        nx, ny (int, optional): in-plane grid resolution; mutually exclusive with
+            voxel_size_um
+        voxel_size_um (tuple, optional): (hx, hy) in-plane voxel size in micrometers,
+            as an alternative to nx/ny. A fixed count over a rectangular footprint
+            gives anisotropic voxels; a spacing gives an isotropic grid independent of
+            the footprint.
+        min_confidence (float, optional): confidence threshold below which a grid point
+            becomes void; see process_layer_pointcloud
+        max_point_distance (float, optional): maximum distance in micrometers to the
+            nearest measured point; see process_layer_pointcloud
 
     Returns:
-        np.ndarray: nx x ny x nz x 7 grid [phase, Eul1, Eul2, Eul3, X, Y, Z]
+        tuple: (nx x ny x nz x 7 grid [phase, Eul1, Eul2, Eul3, X, Y, Z],
+        nx x ny x nz array of the confidence each solid voxel took, 0 where void)
+
+    Raises:
+        ValueError: if voxel_size_um is given together with nx or ny, if neither is
+            given, or if voxel_size_um is not a pair.
     """
+    if voxel_size_um is not None:
+        if nx is not None or ny is not None:
+            raise ValueError("Give either nx/ny or voxel_size_um, not both")
+        if len(voxel_size_um) != 2:
+            raise ValueError(
+                f"voxel_size_um must be (hx, hy), got {voxel_size_um!r}",
+            )
+        hx, hy = voxel_size_um
+    elif nx is None or ny is None:
+        raise ValueError("Give both nx and ny, or voxel_size_um instead")
+    else:
+        hx = hy = None
+
     layers = pointcloud["layer"].unique()
-    x = np.linspace(
-        pointcloud["X"].min(),
-        pointcloud["X"].max(),
-        nx,
-    )
-    y = np.linspace(
-        pointcloud["Y"].min(),
-        pointcloud["Y"].max(),
-        ny,
-    )
+    x = grid_axis(pointcloud["X"].min(), pointcloud["X"].max(), n=nx, spacing=hx)
+    y = grid_axis(pointcloud["Y"].min(), pointcloud["Y"].max(), n=ny, spacing=hy)
+    nx, ny = len(x), len(y)
+
     X, Y = np.meshgrid(x, y, indexing="ij")
     plane_points = np.vstack([X.ravel(), Y.ravel()]).T
 
@@ -163,7 +275,12 @@ def pointcloud_to_fixed_grid(pointcloud, nx, ny):
         tqdm.tqdm(
             tp.imap(
                 lambda df_layer: process_layer_pointcloud(
-                    df_layer, plane_points, nx, ny
+                    df_layer,
+                    plane_points,
+                    nx,
+                    ny,
+                    min_confidence=min_confidence,
+                    max_point_distance=max_point_distance,
                 ),
                 [pointcloud[pointcloud["layer"] == layer] for layer in layers],
             ),
@@ -172,7 +289,9 @@ def pointcloud_to_fixed_grid(pointcloud, nx, ny):
         )
     )
 
-    return np.stack(layer_collection, axis=2)
+    grids, confidences = zip(*layer_collection)
+
+    return np.stack(grids, axis=2), np.stack(confidences, axis=2)
 
 
 def fixed_grid_to_vtk(  # pylint: disable=dangerous-default-value

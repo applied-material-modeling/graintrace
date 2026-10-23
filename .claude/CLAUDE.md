@@ -60,6 +60,13 @@ Expected `.mic` format (tab-delimited, with `%` header lines):
 ```
 `NearFieldMeshBuilder` reads a folder of `.mic` files. The `exp_file_token` parameter is the filename prefix token used to find files. **graintrace has no `.ang` reader** — no converter ships in the package and no code path recognises the extension, so `.ang` source data must be converted to `.mic` outside graintrace before `NearFieldMeshBuilder` sees it. (The `run_experiment_afrl.py` script this note used to cite is not in the repository.)
 
+`nf_to_pointcloud` keeps **every** column of the file, so `Confidence`,
+`TriEdgeSize` and `OrientationRowNr` survive into the point cloud. `Confidence` is
+the per-point indexing quality and is **bimodal** — indexed sample points near 1.0,
+air and failed points well below — so one threshold separates them. Pass
+`min_confidence` to `reconstruct` to use it (§4); `TriEdgeSize` sets a natural
+`max_point_distance` of `1.5 × TriEdgeSize`.
+
 For the alternate path using `NFGridConversion` (pre-gridded NF data):
 ```python
 from graintrace.nf_grid_conversion import NFGridConversion
@@ -336,6 +343,16 @@ merged_grid_path = builder_nf.reconstruct(
     dz=5.0,          # layer thickness in micrometers
     nx=200,          # in-plane grid resolution x
     ny=300,          # in-plane grid resolution y
+    # voxel_size_um=(2.0, 2.0),  # ALTERNATIVE to nx/ny: isotropic voxels, independent
+                                 # of the footprint. Give one or the other, not both.
+    min_confidence=0.4,          # RECOMMENDED. Voxels whose source .mic point scores
+                                 # below this become void. Default None = today's
+                                 # behavior, where air inside the hull, the sample
+                                 # surface and failed-to-index points are all crystal
+                                 # and the low-confidence boundary voxels percolate
+                                 # between grains. See §10.
+    max_point_distance=None,     # um; replaces the Delaunay hull test, which fills
+                                 # concave gaps/holes. Natural: 1.5 * TriEdgeSize.
     segmentation={   # flat dict for NearFieldMeshBuilder (no method/params nesting)
         "misorientation_tol": 5.0/180*np.pi,   # radians
         "connectivity": 6,
@@ -357,6 +374,9 @@ mesh_path = builder_nf.mesh(
 
 Key outputs in `save_dir`:
 - `merged_segmented_fixed_grid.npy`: segmented voxel grid (restart checkpoint)
+- `fixed_grid_confidence.npy`: per-voxel `.mic` confidence, shape `(nx, ny, nz)`, `0`
+  where void. A **sidecar**, deliberately not an eighth channel, so the 7-channel
+  layout consumers index (`data[..., 4:7]` = coordinates) is unchanged
 - `mesh.e`: Exodus mesh file for CPFE
 - `orientations.csv`: MRP orientations, one row per Exodus **block** (grain), not per element
 
@@ -1237,6 +1257,31 @@ any label set, not just a contiguous `1..N` (one `-1` used to cascade
 `[0,-1,1,1,2,2,3,3]` into the `.spn` `[0,4,4,4,4,4,4,4]` — every grain collapsed into one
 SCULPT id, silently). `nf.mesh.write_voxel_exodus` skips `ids < 0` alongside `background_id`,
 so an orphan never takes a block and shifts every grain id.
+
+### NF gridding is unmasked by default, and that is what percolates
+`reconstruct()` defaults `min_confidence=None`, which reproduces the historical grid:
+**every** grid point inside a layer's Delaunay hull becomes crystal and takes the
+nearest measured point's orientation. Air inside the hull, the sample surface,
+regions that failed to index and low-confidence grain-boundary voxels therefore all
+reach the segmenter, and the low-confidence voxels form a *connected network between
+grains* that orientation segmentation leaks through. That is the percolation the
+graph path patches after the fact with a 3%-of-solid size cap (§4). Masking by
+confidence removes it at the source, so set `min_confidence` on real NF data rather
+than relying on the cap alone. `max_point_distance` is the companion for concave
+outlines: the hull test fills notches and holes, a radius around the measured points
+does not.
+
+Two gridding details that look like bugs and are not:
+
+- **Hull mode and radius mode pick the source point differently.** Under the hull
+  test a grid point takes the nearest *vertex of its containing simplex*; under
+  `max_point_distance` it takes the globally nearest measured point via `cKDTree`.
+  These are **not** the same point — the nearest site need not be a vertex of the
+  containing simplex (measured: 5 of 102 in-hull points on a 60-point random layer,
+  by up to 0.16 µm). The legacy rule is kept in hull mode on purpose, so an unmasked
+  grid is bit-identical to the pre-confidence one.
+- **`pointcloud_to_fixed_grid` and `process_layer_pointcloud` return a tuple**,
+  `(grid, confidence)`, not a bare grid.
 
 ### NF grain orientation averages need the crystal symmetry
 `nf.metrics.average_rotations` takes `symmetry` (default `"1"` = plain quaternion mean,
