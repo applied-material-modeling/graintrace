@@ -91,7 +91,7 @@ class NFGridConversion:
             pc.to_csv(self.pointcloud_csv, index=False)
 
         print("Converting pointcloud to fixed grid...")
-        fixed_grid = convert.pointcloud_to_fixed_grid(pc, nx=nx, ny=ny)
+        fixed_grid, _confidence = convert.pointcloud_to_fixed_grid(pc, nx=nx, ny=ny)
 
         if self.write_intermediate:
             np.save(self.fixed_grid_npy, fixed_grid)
