@@ -55,6 +55,15 @@ pp.plot_ipf_fragmentation_tracking(branches, angle_convention="mrp", arrow_color
 ```python
 res = analyzer.detect_splits(nodes_a, nodes_b, d_tol=20.0, theta_tol_deg=15.0, angle_type="degrees")
 # res["n_splits"], res["split_correspondences"] (parent_a, children_b, n_children) + merges/births/deaths
+
+# Mixed grain sizes: size the gate off the radii instead of one absolute d_tol.
+res = analyzer.detect_splits(nodes_a, nodes_b, d_tol=20.0, theta_tol_deg=15.0,
+        d_tol_mode="radius",        # d <= max(d_tol, alpha_a*R_a, alpha_b*R_b); or
+                                    # "radius_sum" -> d <= alpha*(R_a + R_b)
+        radius_col="GrainRadius",   # needed in BOTH tables by the radius modes (raises if absent)
+        assignment="one_to_one",    # + res["one_to_one"]: Hungarian a_id/b_id/miso_deg/dist/cost
+        in_overlap_a=None, volume_col="volume",  # -> res["recall"] per side (+ volume-weighted)
+        n_null=50, seed=0)          # -> res["null"]: chance links under random B orientations
 ```
 FF grain tables feed it directly; NF/EBSD reach the same detector via `analyzer.segment` (graph/Leiden)
 + `analyzer.seg_to_grain_table`. Synthetic mixed-multiplicity series (1→1/1→2/1→3) with ground truth:
@@ -75,5 +84,9 @@ combined with nye/stress).
 - Segmentation: graph/Leiden is the default (flood over-merges). For few-grain / sub-grain data pass a
   fixed low `gamma` (~0.1); the gamma-by-percolation sweep is for large many-grain NF (CLAUDE §4).
 - `detect_splits`: `d_tol` at grain scale; `theta_tol_deg` generous (~15°) since children keep diverging.
+  On mixed grain sizes no single `d_tol` is right — use `d_tol_mode="radius"`/`"radius_sum"` rather
+  than inflating `d_tol`, which chains unrelated neighbours. `top_k` caps a split's child count in
+  `"absolute"` mode only; the radius modes ignore it. Sanity-check a gate with `n_null=...`: a
+  `null["mean_links"]` near `null["observed_links"]` means the gate is matching by chance.
 - Field-step indices are the CSV indices (non-contiguous with sync times) — index into
   `sorted(res.field_files.keys())`.

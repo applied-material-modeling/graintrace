@@ -58,6 +58,12 @@ diagnostics).
 - Orientations are read as Euler-bunge; keep `angle_identifier`/`orientation_descriptor`
   consistent with the data. NEPER must be on PATH.
 - Uses `build_graph` (not a full mesh); no GMSH/CUBIT needed.
+- `match_grains` is a mutual best-neighbour fixed point, not a global optimum. For a strictly
+  one-to-one correspondence that *does* minimise the total cost, `FragmentationAnalyzer.detect_splits(
+  ..., assignment="one_to_one")` runs a Hungarian assignment over its gated candidates and needs only
+  the grain tables — no tessellation adjacency, no GNN. Use this matcher when neighbourhood topology
+  is the evidence you want to match on, `detect_splits` when centroid distance and misorientation are
+  enough (and for one-to-many lineage, which this matcher cannot express).
 
 ## See also
 `examples/demonstrate_graintracking.py`; CLAUDE.md §3 Step 3 (graph from tessellation).
