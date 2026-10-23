@@ -228,12 +228,18 @@ class NearFieldMeshBuilder:
             nx: In-plane grid resolution along x; ignored when voxel_size_um is given.
             ny: In-plane grid resolution along y; ignored when voxel_size_um is given.
             voxel_size_um: (hx, hy) in-plane voxel size in micrometers, as an alternative to nx/ny. A fixed count over a rectangular footprint gives anisotropic voxels; a spacing gives an isotropic grid independent of the footprint.
-            min_confidence: Voxels whose source point has a lower .mic Confidence become void (phase 0) instead of crystal. None (default) keeps today's behavior, where air inside the hull, the sample surface and failed-to-index points all enter segmentation as crystal.
-            max_point_distance: Maximum distance in micrometers from a voxel to the nearest measured point for it to be solid; an alternative to the Delaunay hull test, which fills concave gaps and holes. A natural value is 1.5x the .mic TriEdgeSize. None (default) keeps the hull test.
+            min_confidence: Voxels whose source point has a lower .mic Confidence become void (phase 0) instead of crystal.
+                None (default) keeps today's behavior, where air inside the hull, the sample surface and failed-to-index
+                points all enter segmentation as crystal.
+            max_point_distance: Maximum distance in micrometers from a voxel to the nearest measured point for it to be solid;
+                an alternative to the Delaunay hull test, which fills concave gaps and holes. A natural value is 1.5x the
+                .mic TriEdgeSize. None (default) keeps the hull test.
             segmentation: Flat segmentation config dict (misorientation_tol in radians, connectivity, batch_norm, grain_threshold, stop_count, grain_threshold_final); None uses the class defaults.
 
         Returns:
-            Path to the written merged_segmented_fixed_grid.npy. The per-voxel confidence is written beside it as fixed_grid_confidence.npy, shape (nx, ny, nz), so downstream segmentation, QC and REI can use it without changing the 7-channel grid layout.
+            Path to the written merged_segmented_fixed_grid.npy. The per-voxel confidence is written beside it as
+            fixed_grid_confidence.npy, shape (nx, ny, nz), so downstream segmentation, QC and REI can use it without
+            changing the 7-channel grid layout.
         """
         seg = self._normalize_segmentation(segmentation)
 
