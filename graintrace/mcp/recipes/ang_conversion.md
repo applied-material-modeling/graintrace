@@ -3,69 +3,27 @@ segment: ang_conversion
 tool: convert_ang
 applies_to: Converting EDAX/TSL .ang EBSD or NF orientation maps into a schema graintrace reads
 defaults:
-  angle_convention: bunge
   angle_type: radians
   output_angle_type: degrees
   file_token: layer
-  confidence_min: 0.0
+  confidence_min: null
 ---
 
-# EDAX/TSL `.ang` conversion: recommended parameters
+# EDAX/TSL `.ang` conversion
 
-Nothing in graintrace reads `.ang` directly. `convert_ang` (library:
-`graintrace.AngConverter`) is the step *before* `nf_reconstruct` or `voxel_mesh`
-when the source data is `.ang`.
-
-## Pick the target by the downstream tool
+No builder reads `.ang` directly; `convert_ang` (`graintrace.AngConverter`) runs first.
 
 | `target` | Writes | Feed it to |
 |---|---|---|
-| `ebsd_csv` | one merged `x,y,z,Eul0,Eul1,Eul2` CSV | `voxel_mesh` (`VoxelMeshBuilder`) |
-| `mic` | one `.mic` per layer, with the three `%` metadata lines | `nf_reconstruct` (`NearFieldMeshBuilder`) |
+| `ebsd_csv` | one merged `x,y,z,Eul0,Eul1,Eul2` CSV | `voxel_mesh` |
+| `mic` | one `.mic` per layer (`Confidence` = CI, `PhaseNr` = 1) | `nf_reconstruct` |
 
-`ebsd_csv` is the usual choice for EBSD serial sections. Use `mic` only when the
-rest of the workflow is already the NF path.
-
-## The convention and the unit are never guessed
-
-`convert_ang` reads them from the `.ang` `#` header when it pins them
-(`ANGLE_UNITS`, `EULER_CONVENTION`), and otherwise **requires** them as
-arguments. It raises instead of defaulting. That is deliberate: a degrees file
-read as radians yields a microstructure that looks plausible, segments without
-complaint and is wrong.
-
-For an unmodified EDAX/TSL OIM export the right answer is
-`angle_convention="bunge"`, `angle_type="radians"` — but confirm with the person
-who produced the file rather than assuming, especially for data that has been
-through MTEX or DREAM.3D.
-
-## Key knobs
-
-| Knob | Recommended | Why |
-|---|---|---|
-| `angle_type` | `radians` for raw OIM | TSL writes radians; pass it explicitly when the header is silent |
-| `angle_convention` | `bunge` for raw OIM | TSL writes `(phi1, PHI, phi2)` |
-| `output_angle_type` | `degrees` | matches the usual `angle_type="degrees"` on the downstream builder; **the two must agree** |
-| `zstep` | the serial-section spacing (µm) | `z` is the filename's layer index minus the lowest one, times `zstep`; the first layer and a single-file input are `z = 0` |
-| `confidence_min` | `0.0` | TSL marks unindexed points with a negative CI; `0.0` drops exactly those. Raise it (0.1–0.2) only for noisy scans |
-| `file_token` | `layer` | the filename token the layer index follows, e.g. `layer03.ang`. Layers are ordered **numerically**, so `layer10` sorts after `layer9` |
-
-## Gotchas
-
-- **`output_angle_type` and the builder's `angle_type` must match.** The
-  converter always writes Bunge angles, but in whichever unit you asked for.
-  Mismatching them is the same silent corruption the refusal above protects
-  against.
-- **Layer step in two places.** For the `mic` target, `zstep` is written into
-  `%GlobalPosition`, but `NearFieldMeshBuilder` recomputes `z` from its own `dz`.
-  Pass the same number to both.
-- **A filtered layer can go empty.** `confidence_min` raises rather than writing
-  an empty layer, so a too-high floor fails loudly.
-- **A gap in the layer numbering is preserved, not closed up.** `layer1` +
-  `layer3` at `zstep=2.0` give `z = 0` and `z = 4`, and the `mic` target names
-  them `layer1.mic` and `layer3.mic`. `nf_to_pointcloud` then raises
-  `Missing layers`, which is the point: renumbering them contiguously would put
-  the stack at the wrong `z` and hide the missing layer.
-- Column layout is driven by the header's `COLUMN_HEADERS` when present,
-  otherwise by column count: the first eight are
-  `phi1, PHI, phi2, x, y, IQ, CI, phase` and the next two are `SEM, fit`.
+- TSL writes Bunge radians, the default `angle_type`. A file whose angles exceed
+  4π (TSL's unindexed marker) is rejected as radians; pass `angle_type="degrees"`.
+- **`output_angle_type` must equal the downstream builder's `angle_type`.**
+- Layers are ordered **numerically** by the integer after `file_token`, and
+  `z = (index - lowest) * zstep`; a missing layer leaves a gap (and `nf_reconstruct`
+  then raises `Missing layers`). For `mic`, pass the same `zstep` as `dz`.
+- `confidence_min=0.0` drops TSL's negative-CI (unindexed) points; `None` keeps all.
+- `GRID: HexGrid` scans are refused for `ebsd_csv` (not a voxel grid); resample to
+  SqrGrid first. `mic` accepts them (NF grids scattered points).

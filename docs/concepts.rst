@@ -68,21 +68,15 @@ schema, including the metadata lines and the ``.csv`` fallback, is in
 
 .. note::
 
-   No builder reads EDAX/TSL ``.ang`` directly.
-   :class:`~graintrace.AngConverter` converts it first, to either the ``.mic``
-   schema above or the merged EBSD CSV below. It will not guess the Euler
-   convention or the angle unit: it takes them from the ``.ang`` header when
-   that pins them, and otherwise requires them as arguments. See
-   :doc:`file-formats` for both target schemas and the header keys it reads.
+   EDAX/TSL ``.ang`` data is converted to the ``.mic`` or merged-CSV schema by
+   :class:`~graintrace.AngConverter`; see :doc:`file-formats`.
 
 EBSD data
 ~~~~~~~~~
 
 A flat CSV with columns ``x, y, z, Eul0, Eul1, Eul2``, where ``z`` is the layer
 index times the EBSD z-step and the Euler columns are Bunge angles. This feeds
-:class:`~graintrace.VoxelMeshBuilder`. graintrace reads only the merged form;
-:class:`~graintrace.AngConverter` produces it from per-layer ``.ang`` files,
-and any other source has to be merged into this schema first.
+:class:`~graintrace.VoxelMeshBuilder`, which reads only the merged form.
 
 Orientations
 ------------

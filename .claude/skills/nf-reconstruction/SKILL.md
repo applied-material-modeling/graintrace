@@ -15,9 +15,8 @@ Uses `NearFieldMeshBuilder`. Env: `conda activate moose-src`. External tools:
 
 ## Inputs
 A folder of per-layer `.mic` files (tab-delimited, `%`-headers). From EDAX/TSL `.ang`, convert
-first: `AngConverter(input_path=..., save_dir=...).to_mic(zstep=dz)` (CLAUDE.md §2.1) — it
-refuses to guess the Euler convention/unit, and its `output_angle_type` must equal the
-builder's `angle_type`. `exp_file_token` is the filename prefix used to find them. For
+first: `AngConverter(input_path=..., save_dir=...).to_mic(zstep=dz)` (CLAUDE.md §4); its
+`output_angle_type` must equal the builder's `angle_type`. `exp_file_token` is the filename prefix used to find them. For
 the synthetic path, `SyntheticHEDMGenerator` writes the NF folder (see `/cpfe-nf-ff`).
 
 ## Recipe
