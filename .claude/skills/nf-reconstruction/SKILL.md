@@ -66,7 +66,9 @@ if __name__ == "__main__":
   (no `method`/`params` nesting, `misorientation_tol` in radians, `connectivity` 6 or 26).
   Either way, isolated islands left at `-1` are voided before meshing.
 - `sculpt_config` (required: `psculpt`,`epu`,`nprocs`; +`launcher`/`environment` for MPI) and
-  `sculpt_options` tuple (e.g. `("--adapt","-S","2","-CS","4","--void_mat","0")`); see CLAUDE.md §9.
+  `sculpt_options` tuple (e.g. `("--adapt","-S","2","-CS","4")`); **no `--void_mat`**:
+  `mesh_sculpt` owns it (SCULPT is 1-based, so a grid with void needs `--void_mat 1`, which it
+  sets; the old `0` meshed the void as block 1). See CLAUDE.md §9.
 
 ## Outputs (`save_dir`)
 - `merged_segmented_fixed_grid.npy` (segmented voxel grid / restart checkpoint)

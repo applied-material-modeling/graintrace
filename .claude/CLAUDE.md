@@ -1000,10 +1000,15 @@ sculpt_options = (
     "-df", "1",              # dilation factor
     "-S", "2",               # smoothing passes
     "-CS", "4",              # curve smoothing
-    "--void_mat", "0",       # void material ID
 )
 ```
-For FF Voronoi meshes without adaptation, use just `("--void_mat", "0")`.
+**Do not pass `--void_mat`; `mesh_sculpt` owns it.** SCULPT numbers spn values by 1-based
+rank: with void present spn `0` is material 1 and grain `g` is block `g + 1`, so the old
+`--void_mat 0` named no material and the void was meshed as block 1 (Fe-9Cr: 911k of 1.6M
+elements in a void block). `nf.mesh.sculpt_void_options` strips any `--void_mat`/`-VM` pair
+and appends `--void_mat 1` when the grid has void (warns on another value); with no void it
+passes none (`--void_mat 1` would delete grain 1). For FF Voronoi meshes without adaptation
+`()` is enough.
 
 ### `segmentation_prop` dict (VoxelMeshBuilder / EBSD / NF-as-voxel)
 Two methods:
@@ -1322,21 +1327,32 @@ carrying a 0-based `.ang` phase column became **all void**. Void detection is no
 only the `cell_id == -1` sentinel `NFGridConversion` writes (`-1` is never a grain id).
 
 ### SCULPT block ids are sparse; the decks need 1..N
-SCULPT keeps the spn material ids as `eb_prop1` and can drop small grains, so the ids come back
+SCULPT's `eb_prop1` is the 1-based rank of each spn value and it can drop small grains, so the ids come back
 sparse (e.g. 1..353 with gaps) and CPFE aborts at setup ("block id 5 does not exist").
 `nf.mesh.mesh_sculpt` now runs `renumber_blocks_contiguous` after `epu`: ids become `1..N` in
-FILE order (eb_names ending in the old id follow), the block-to-grain association is resolved
-from the ORIGINAL ids first and handed to `map_orientations(block_grains=...)`, and
+FILE order (eb_names ending in the old id follow), each block's grain is its majority grid
+label (handed to `map_orientations(block_grains=...)`), and
 `<mesh>_block_map.csv` records `block_id, sculpt_block_id, grain_id, n_elem[, source_grain_id]`.
 Contract: orientations CSV row `k` belongs to block id `k + 1`.
 
-### SCULPT meshes span voxel EDGES (single layers used to be flat)
-`rescale_exodus_mesh` used to map the mesh onto the voxel-CENTRE extents, shrinking it one voxel
-per axis and collapsing a single-layer grid (nz=1) to `coordz == 0` — HEX8 elements in a 2D mesh,
-which puma-opt aborts on when writing Exodus (`map_find() error: key 10 not found`). It now maps
-onto `nf.mesh.voxel_edge_bounds` = `[min − h/2, max + h/2]` per axis (`voxel_spacing`). A
-single-voxel axis has no measurable step: z uses `layer_spacing` (NF: `dz`), else the mean
-in-plane spacing. `write_voxel_exodus` uses the same rule, so both meshers agree on extents.
+### SCULPT coordinates are voxel-INDEX units: map them, do not stretch them
+SCULPT writes coordinates in voxel-index units, `0` at the grid's first voxel edge. The old
+`rescale_exodus_mesh` stretched the mesh's min/max onto the grid's voxel-CENTRE extents: that
+shrank meshes one voxel per axis, collapsed a single-layer grid (nz=1) to `coordz == 0` (HEX8 in
+a 2D mesh; puma-opt aborts writing Exodus, `map_find() error: key 10 not found`), and — once the
+void is removed — inflated the sample onto the whole scan box. It is now the exact affine map
+`x = (c0 − h/2) + raw·h` per axis (`voxel_spacing`, `voxel_edge_bounds`), so the mesh covers
+the sample's own voxel-edge box (± SCULPT boundary smoothing, ~0.1 voxel). A single-voxel axis
+has no measurable step: z uses `layer_spacing` (NF: `dz`), else the mean in-plane spacing.
+`write_voxel_exodus` uses the same rule, so both meshers agree.
+
+### SCULPT `--void_mat` is 1-based; a meshed void is now an error
+See §9 `sculpt_options`: `mesh_sculpt` forces `--void_mat 1` on grids with void. As a backstop,
+`renumber_blocks_contiguous` looks every block's element centroids up against ALL voxels (void
+included) and raises if a block's majority label is void ("the void was meshed ... --void_mat 1"),
+rather than silently pairing it with the nearest solid grain. Block-to-grain association is that
+majority label; SCULPT's own ids (rank of spn value, `g + 1` with void) are only recorded as
+`sculpt_block_id`.
 
 ### NF gridding is unmasked by default, and that is what percolates
 `reconstruct()` defaults `min_confidence=None`, which reproduces the historical grid:
@@ -1379,9 +1395,10 @@ the low-level `nf.mesh` writers directly? Pass the point group explicitly. The f
 void (`background_id`, default 0). A single tree over the whole grid let a surface or
 void-adjacent block take the identity from a void voxel (void Euler is `(0,0,0)`), or a
 neighbour's orientation across the boundary — silently, since nothing downstream checks.
-Blocks map to grains by Exodus `eb_prop1` when those ids name grid grains (the SCULPT path,
-where `write_spn` relabels the grid to the spn material ids), else positionally against the
-sorted non-void ids; neither working is now a `ValueError` instead of a wrong answer.
+Blocks map to grains by the explicit `block_grains` argument (the SCULPT path: each block's
+majority grid label from `renumber_blocks_contiguous`), else by Exodus `eb_prop1` when those ids
+name grid grains (the voxel path), else positionally against the sorted non-void ids; none
+working is a `ValueError` instead of a wrong answer.
 
 ### FF output orientations are always in degrees
 `VoronoiMeshBuilder.build_voronoi()` always writes `orientations.dat` in degrees regardless of input units. When feeding to `VoxelMeshBuilder` afterward:

@@ -185,14 +185,30 @@ grain from its original id, and writes ``<mesh stem>_block_map.csv`` mapping
 ``block_id`` back to ``sculpt_block_id``, ``grain_id`` and ``source_grain_id``. Row
 ``k`` of the orientations CSV belongs to block id ``k + 1``.
 
-SCULPT meshes span voxel edges
-------------------------------
+SCULPT's void material is 1-based
+---------------------------------
 
-The grid stores voxel *centres*; SCULPT's boundary faces lie on voxel *edges*.
-Rescaling onto the centre extents shrank every mesh by one voxel per axis and
-collapsed a single-layer grid to zero thickness, which puma-opt then fails to write
-(``map_find() error: key 10 not found``). The mesh now spans
-:func:`graintrace.nf.mesh.voxel_edge_bounds`, ``[min - h/2, max + h/2]`` per axis.
+SCULPT numbers the ``.spn`` values by 1-based rank: with void present the void
+(spn ``0``) is material 1 and grain ``g`` is block ``g + 1``. The once-recommended
+``--void_mat 0`` names no material, so the void was meshed as block 1 (on a Fe-9Cr
+NF mesh, 911k of 1.6M elements). :func:`graintrace.nf.mesh.mesh_sculpt` now owns
+the flag (:func:`graintrace.nf.mesh.sculpt_void_options`): it strips any
+``--void_mat``/``-VM`` from ``sculpt_options`` and passes ``--void_mat 1`` when the
+grid has void, and nothing when it has none (where ``--void_mat 1`` would delete
+grain 1). If a block is still mostly void, the block map raises instead of pairing
+it with the nearest solid grain.
+
+SCULPT coordinates are voxel-index units
+----------------------------------------
+
+SCULPT writes coordinates in voxel-index units, ``0`` at the grid's first voxel
+edge. Stretching the mesh's min/max onto the grid's voxel-centre extents shrank
+every mesh by one voxel per axis, collapsed a single-layer grid to zero thickness
+(puma-opt then fails with ``map_find() error: key 10 not found``), and, once the
+void is removed, inflated the sample onto the whole scan box. The map is now exact
+and affine, ``x = (c0 - h/2) + raw * h`` per axis, so the mesh covers the sample's
+own voxel-edge box (:func:`graintrace.nf.mesh.voxel_edge_bounds` of the solid, up
+to SCULPT's boundary smoothing).
 A single-voxel axis has no measurable spacing: z uses ``mesh(layer_spacing=...)``
 (``NearFieldMeshBuilder`` defaults to its ``dz``), and otherwise the mean in-plane
 spacing. :func:`graintrace.nf.mesh.write_voxel_exodus` uses the same rule, so both

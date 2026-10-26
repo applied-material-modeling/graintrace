@@ -41,10 +41,19 @@ A tuple of CLI flag strings passed to SCULPT:
        "-df", "1",              # dilation factor
        "-S", "2",               # smoothing passes
        "-CS", "4",              # curve smoothing
-       "--void_mat", "0",       # void material ID
    )
 
-For FF Voronoi meshes without adaptation, use just ``("--void_mat", "0")``.
+Do not pass ``--void_mat``: ``mesh_sculpt`` owns it. SCULPT numbers the ``.spn``
+values by 1-based rank, so with void present the void (spn ``0``) is material 1
+and grain ``g`` is block ``g + 1``. ``--void_mat 0`` (the old recommendation)
+names no material, so the void was meshed as block 1. ``mesh_sculpt`` strips any
+``--void_mat``/``-VM`` pair and passes ``--void_mat 1`` when the grid has void
+(warning if you asked for another value), and no flag when it has none (where
+``--void_mat 1`` would delete grain 1). SCULPT writes voxel-index coordinates,
+which ``mesh_sculpt`` maps to physical ones exactly (first voxel edge + index x
+spacing), so the mesh covers the sample, not the scan box.
+
+For FF Voronoi meshes without adaptation, ``()`` (no extra flags) is enough.
 
 Boundary conditions (bc)
 ------------------------
