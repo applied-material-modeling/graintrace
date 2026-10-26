@@ -263,7 +263,7 @@ class TestLayerOrdering:
         )
         written = conv.to_mic(zstep=2.0)
         assert [p.name for p in written] == ["layer1.mic", "layer3.mic"]
-        with pytest.raises(ValueError, match="Missing layers"):
+        with pytest.raises(ValueError, match="Missing (or duplicate )?layers"):
             nf_convert.nf_to_pointcloud(str(tmp_path / "out"), dz=2.0)
 
     def test_empty_folder_raises(self, tmp_path):

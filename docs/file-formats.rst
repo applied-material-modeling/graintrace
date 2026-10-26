@@ -341,12 +341,13 @@ Two behaviours of the writer matter downstream:
   See the label domain in :doc:`algorithms/meshing`.
 * It **relabels** to a collision-proof contiguous set, so ``.spn`` material ids
   are *not* the grid's grain ids. Block-to-grain mapping therefore goes through
-  the Exodus ``eb_prop1`` property, never by assuming the identity map.
+  each block's majority grid label, never by assuming the identity map.
 
 Exodus ``mesh.e`` and ``sim_output.e``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Binary Exodus II. On the SCULPT path the element **block id is the grain id**.
+Binary Exodus II. On the SCULPT path block ids are renumbered to ``1..N`` and
+``<mesh stem>_block_map.csv`` maps each block to its grain.
 Use ``element_order="FIRST"`` for a SCULPT or voxel hex mesh and ``"SECOND"``
 for a GMSH tet ``.msh``.
 

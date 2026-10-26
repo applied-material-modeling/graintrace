@@ -229,6 +229,27 @@ def infill_nearest_neighbor(grid, connectivity=6):
     return grid
 
 
+def void_unsegmented(grid):
+    """Set every voxel still unsegmented (phase < 0) to void.
+
+    Run after the final cleanup: an island with no solid neighbour survives both
+    infill and small-segment removal at ``-1``, which ``write_spn`` rejects.
+
+    Args:
+        grid (nx,ny,nz,7) tensor: fixed grid, grid[...,0] is the phase index
+
+    Returns:
+        (nx,ny,nz,7) tensor without negative phases; voided orientations are zeroed
+    """
+    grid = grid.clone()
+    leftover = grid[..., 0] < 0
+    n_left = int(leftover.sum().item())
+    if n_left:
+        print(f"Voiding {n_left} isolated unsegmented voxels")
+        grid[..., 0:4][leftover] = 0
+    return grid
+
+
 def remove_small_segments(grid, min_size, connectivity=6):
     """Merge segments smaller than ``min_size`` into their largest-contact neighbor.
 

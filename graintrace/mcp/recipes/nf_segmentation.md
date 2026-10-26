@@ -45,3 +45,8 @@ Mask low-confidence/void voxels instead of capping grain size;
 ## Why not flood
 Flood fill chains low-angle neighbors into one percolating grain (a single blob
 spanning the whole solid). The hard misorientation cutoff + Leiden + adjacency re-merge de-percolate while keeping distinct grains separate.
+
+## In `nf_reconstruct`
+`segmentation={"method": "graph", "misori_tol_deg": 5.0, "gamma": None, "grain_threshold_final": 30}`
+runs this recipe on the solid voxels. Pass `min_confidence` (~0.3-0.5) to void the
+low-confidence boundary network at gridding time.

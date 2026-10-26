@@ -27,7 +27,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Union
+from typing import Optional, Sequence, Union
 
 import numpy as np
 import pandas as pd
@@ -38,7 +38,10 @@ PathLike = Union[str, Path]
 
 
 class NFGridConversion:
-    """Read a folder of pre-gridded NF layers and emit a flat grid CSV."""
+    """Read a folder of NF layers and emit a flat grid CSV for VoxelMeshBuilder.
+
+    Columns: ``cell_id`` (1 solid, -1 void), ``Eul0..2``, ``x, y, z``, ``confidence``.
+    """
 
     def __init__(
         self,
@@ -50,7 +53,20 @@ class NFGridConversion:
         write_intermediate: bool = True,
         write_vtk: bool = True,
         output_csv_filename: str = "fixed_grid.csv",
+        recursive: bool = False,
     ) -> None:
+        """Configure the conversion.
+
+        Args:
+            input_folder: Folder containing the per-layer NF files (.mic or .csv).
+            save_dir: Output directory; created if missing.
+            exp_file_token: Filename token that precedes the layer number.
+            prefix: Filename prefix (kept for parity with NearFieldMeshBuilder).
+            write_intermediate: If True, write the pointcloud CSV and fixed-grid .npy.
+            write_vtk: If True, write a .vtk rendering of the fixed grid.
+            output_csv_filename: Name of the output grid CSV in save_dir.
+            recursive: If True, search subfolders for layer files.
+        """
         self.input_folder = Path(input_folder)
         self.save_dir = Path(save_dir)
         self.save_dir.mkdir(parents=True, exist_ok=True)
@@ -59,39 +75,69 @@ class NFGridConversion:
         self.prefix = str(prefix)
         self.write_intermediate = bool(write_intermediate)
         self.write_vtk = bool(write_vtk)
+        self.recursive = bool(recursive)
 
         self.pointcloud_csv = self.save_dir / "pointcloud.csv"
         self.fixed_grid_npy = self.save_dir / "fixed_grid.npy"
         self.fixed_grid_vtk = self.save_dir / "fixed_grid.vtk"
         self.fixed_grid_csv = self.save_dir / output_csv_filename
+        self.confidence_npy = self.save_dir / "fixed_grid_confidence.npy"
 
     def convert(
         self,
         *,
         dz: float = 5.0,
-        nx: int = 300,
-        ny: int = 900,
+        nx: Optional[int] = None,
+        ny: Optional[int] = None,
+        voxel_size_um: Optional[Sequence[float]] = None,
+        min_confidence: Optional[float] = None,
+        max_point_distance: Optional[float] = None,
     ) -> Path:
         """Convert NF .mic/.csv layers to a gridded CSV for VoxelMeshBuilder.
 
-        Returns the path to fixed_grid.csv.
+        Args:
+            dz: Layer thickness in micrometers.
+            nx: In-plane grid count along x (default 300).
+            ny: In-plane grid count along y (default 900).
+            voxel_size_um: (hx, hy) in-plane spacing (um) instead of nx/ny.
+            min_confidence: Confidence below which a voxel becomes void.
+            max_point_distance: Solid radius (um) replacing the hull test.
+
+        Returns:
+            Path to fixed_grid.csv; the confidence is also saved as fixed_grid_confidence.npy.
+
+        Raises:
+            ValueError: if voxel_size_um is given together with nx or ny.
         """
         dz = float(dz)
-        nx = int(nx)
-        ny = int(ny)
+        if voxel_size_um is not None:
+            if nx is not None or ny is not None:
+                raise ValueError("Give either nx/ny or voxel_size_um, not both")
+        else:
+            nx = 300 if nx is None else int(nx)
+            ny = 900 if ny is None else int(ny)
 
         print("Converting NearField data to pointcloud...")
         pc = convert.nf_to_pointcloud(
             str(self.input_folder),
             dz,
             layer_token=self.exp_file_token,
+            recursive=self.recursive,
         )
 
         if self.write_intermediate:
             pc.to_csv(self.pointcloud_csv, index=False)
 
         print("Converting pointcloud to fixed grid...")
-        fixed_grid = convert.pointcloud_to_fixed_grid(pc, nx=nx, ny=ny)
+        fixed_grid, confidence = convert.pointcloud_to_fixed_grid(
+            pc,
+            nx=nx,
+            ny=ny,
+            voxel_size_um=voxel_size_um,
+            min_confidence=min_confidence,
+            max_point_distance=max_point_distance,
+        )
+        np.save(self.confidence_npy, confidence)
 
         if self.write_intermediate:
             np.save(self.fixed_grid_npy, fixed_grid)
@@ -112,6 +158,7 @@ class NFGridConversion:
                 "x": flat[:, 4],
                 "y": flat[:, 5],
                 "z": flat[:, 6],
+                "confidence": confidence.reshape(-1),
             }
         )
 

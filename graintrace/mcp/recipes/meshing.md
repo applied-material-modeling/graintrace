@@ -103,3 +103,8 @@ builder.mesh(mesher="voxel", merged_grid=merged_grid_path)
 target distribution; fewer grains ⇒ fewer elements ⇒ tractable CPFE wall-clock.
 Add grains only when the distribution histogram or the CPFE quantity of interest
 doesn't converge.
+
+## SCULPT conventions
+Do not pass `--void_mat`: `mesh_sculpt` sets `--void_mat 1` when the grid has void (SCULPT is
+1-based). Block ids come back renumbered `1..N` with `<mesh>_block_map.csv`; the mesh spans the
+sample's voxel-edge box (single layer: `mesh(layer_spacing=...)`).

@@ -59,6 +59,8 @@ Expected `.mic` format (tab-delimited, with `%` header lines):
 %OrientationRowNr  OrientationID  RunTime  X  Y  TriEdgeSize  UpDown  Eul1  Eul2  Eul3  Confidence  PhaseNr
 ```
 `NearFieldMeshBuilder` reads a folder of `.mic` files. The `exp_file_token` parameter is the filename prefix token used to find files. **No builder reads `.ang` directly** — convert it first with `AngConverter` (§4).
+`Confidence`/`TriEdgeSize` are kept in the point cloud (`min_confidence`, §4). MIDAS per-layer
+subfolders (`Layer1/…layer1.mic`): `recursive=True` (an empty top folder falls back to them).
 
 For the alternate path using `NFGridConversion` (pre-gridded NF data):
 ```python
@@ -69,7 +71,8 @@ nf_converter = NFGridConversion(
     exp_file_token="layer_prefix",
     prefix="reconstructed",
 )
-nf_grid_csv = nf_converter.convert(dz=nf_dz, nx=nx, ny=ny)
+nf_grid_csv = nf_converter.convert(dz=nf_dz, nx=nx, ny=ny, min_confidence=0.4)
+# CSV: cell_id (1 solid, -1 void), Eul0..2, x, y, z, confidence
 ```
 
 ### EBSD data (CSV, merged from per-layer `.ang` files)
@@ -78,6 +81,7 @@ After converting and merging from `.ang` files, the expected format is a flat CS
 x, y, z, Eul0, Eul1, Eul2
 ```
 `z` is `file_index * zstep_ebsd`. Columns `Eul0/1/2` hold Bunge Euler angles in degrees or radians. The file is then fed to `VoxelMeshBuilder`.
+Only `cell_id == -1` is void automatically; a `phase` column needs `void_marker_col="phase"` (§10).
 
 ---
 
@@ -349,9 +353,11 @@ builder_nf = NearFieldMeshBuilder(
 
 merged_grid_path = builder_nf.reconstruct(
     dz=5.0,          # layer thickness in micrometers
-    nx=200,          # in-plane grid resolution x
+    nx=200,          # in-plane grid resolution x (or voxel_size_um=(hx, hy); not both)
     ny=300,          # in-plane grid resolution y
-    segmentation={   # flat dict for NearFieldMeshBuilder (no method/params nesting)
+    min_confidence=0.4,          # recommended: low-confidence (air/boundary) voxels -> void
+    max_point_distance=None,     # um; replaces the hull test (~1.5 * TriEdgeSize)
+    segmentation={   # flat flood dict (radians); graph/Leiden variant below
         "misorientation_tol": 5.0/180*np.pi,   # radians
         "connectivity": 6,
         "batch_norm": 200_000,
@@ -374,6 +380,14 @@ Key outputs in `save_dir`:
 - `merged_segmented_fixed_grid.npy`: segmented voxel grid (restart checkpoint)
 - `mesh.e`: Exodus mesh file for CPFE
 - `orientations.csv`: MRP orientations, one row per Exodus **block** (grain), not per element
+- `fixed_grid_confidence.npy` (per-voxel confidence), `mesh_block_map.csv` (block -> grain)
+
+Graph/Leiden (recommended) runs `FragmentationAnalyzer.segment` on the solid voxels:
+```python
+segmentation={"method": "graph", "misori_tol_deg": 5.0, "gamma": None,  # ~0.1 few-grain
+              "grain_threshold_final": 30, "remerge_miso_deg": 3.0,
+              "downsample": (2, 2, 1)}   # optional, large NF
+```
 
 ### Recommended graph (Leiden) segmentation settings (NF/EBSD) — the DEFAULT/better pathway
 
@@ -953,10 +967,9 @@ sculpt_options = (
     "-df", "1",              # dilation factor
     "-S", "2",               # smoothing passes
     "-CS", "4",              # curve smoothing
-    "--void_mat", "0",       # void material ID
 )
 ```
-For FF Voronoi meshes without adaptation, use just `("--void_mat", "0")`.
+Do not pass `--void_mat`: `mesh_sculpt` sets it (§10). FF Voronoi without adaptation: `()`.
 
 ### `segmentation_prop` dict (VoxelMeshBuilder / EBSD / NF-as-voxel)
 Two methods:
@@ -1008,7 +1021,7 @@ segmentation = {
 }
 ```
 
-Note: For `NearFieldMeshBuilder.reconstruct()`, the `segmentation` argument is a flat dict (no `method`/`params` nesting), using `misorientation_tol` directly in radians.
+Note: For `NearFieldMeshBuilder.reconstruct()`, `segmentation` is the flat flood dict (`misorientation_tol` in radians) or `{"method": "graph", ...}` (§4, `misori_tol_deg` in degrees).
 
 ### `bc` dict format
 ```python
@@ -1253,8 +1266,8 @@ if ori_units == "radians":
 ### `write_spn` raises on unsegmented (`phase < 0`) voxels
 Label domain of a segmented grid: `0` void, `>= 1` grain, `-1` material-but-unsegmented.
 `-1` is not only a `flood()` leftover — `segment.remove_small_segments` reassigns a
-sub-threshold segment to `-1` when it has no kept neighbour, so `NearFieldMeshBuilder`
-(infill **then** removal) can still hold orphans at mesh time. `nf.mesh.write_spn` now raises
+sub-threshold segment to `-1` when it has no kept neighbour; both builders now void what is
+left (`segment.void_unsegmented`), e.g. an isolated island in void. `nf.mesh.write_spn` now raises
 `ValueError` naming the remedy (`infill_nearest_neighbor` after `remove_small_segments`, or
 mask to void) instead of meshing them; it will not map them to void for you, because that
 silently deletes material. Its renumber is also out of place now, so it is collision-proof for
@@ -1279,9 +1292,22 @@ the low-level `nf.mesh` writers directly? Pass the point group explicitly. The f
 void (`background_id`, default 0). A single tree over the whole grid let a surface or
 void-adjacent block take the identity from a void voxel (void Euler is `(0,0,0)`), or a
 neighbour's orientation across the boundary — silently, since nothing downstream checks.
-Blocks map to grains by Exodus `eb_prop1` when those ids name grid grains (the SCULPT path,
-where `write_spn` relabels the grid to the spn material ids), else positionally against the
-sorted non-void ids; neither working is now a `ValueError` instead of a wrong answer.
+Blocks map to grains by `block_grains` (SCULPT path: majority label), else `eb_prop1`, else
+positionally; none working is a `ValueError` instead of a wrong answer.
+
+### NF gridding is unmasked by default
+`min_confidence=None` keeps air, surface and low-confidence boundary voxels as crystal; they
+percolate between grains. Set it on real data. No `Confidence` column -> warning.
+
+### SCULPT: `--void_mat` is 1-based, coordinates are voxel indices, block ids are sparse
+SCULPT ranks spn values 1-based (void = material 1, grain g = block g+1), so `mesh_sculpt` forces
+`--void_mat 1` when the grid has void (`0` meshed the void as block 1). It maps index coordinates
+exactly (`x = c0 - h/2 + raw*h`; single layer: `layer_spacing`/`dz`), renumbers blocks `1..N`
+in file order (orientations row k = block k+1), writes `<mesh>_block_map.csv`, and raises if
+a block is mostly void.
+
+### `phase` is not a void marker unless opted in
+A 0-based `.ang` phase would void the whole map; use `VoxelMeshBuilder(void_marker_col="phase")`.
 
 ### FF output orientations are always in degrees
 `VoronoiMeshBuilder.build_voronoi()` always writes `orientations.dat` in degrees regardless of input units. When feeding to `VoxelMeshBuilder` afterward:

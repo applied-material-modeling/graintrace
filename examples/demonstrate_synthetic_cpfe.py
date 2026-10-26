@@ -71,7 +71,7 @@ def main():
             "OPAL_PREFIX": "/path/to/cubit/bin/mpi",
         },
     }
-    sculpt_options = ("--void_mat", "0")
+    sculpt_options = ()  # no --void_mat: mesh_sculpt sets it (SCULPT numbers spn values 1-based)
 
     ## 1. Generate the tessellation
     cg = CrystalGenerator(

@@ -31,7 +31,8 @@ def main():
         symmetry="432", prefix="reconstructed", write_intermediate=True, write_vtk=True,
     )
     merged_grid = builder_nf.reconstruct(
-        dz=5.0, nx=200, ny=300,
+        dz=5.0, nx=200, ny=300, min_confidence=0.4,  # or voxel_size_um=(hx, hy)
+        # graph/Leiden: segmentation={"method": "graph", "misori_tol_deg": 5.0, "gamma": None}
         segmentation={   # legacy flat dict (radians) for NearFieldMeshBuilder
             "misorientation_tol": 5.0/180*np.pi, "connectivity": 6,
             "batch_norm": 200_000, "grain_threshold": 1000, "stop_count": 500,
@@ -52,7 +53,7 @@ if __name__ == "__main__":
   in radians. `connectivity` 6 or 26.
 - No grain-size cap on any path; mask low-confidence/void voxels instead (CLAUDE.md §4).
 - `sculpt_config` (required: `psculpt`,`epu`,`nprocs`; +`launcher`/`environment` for MPI) and
-  `sculpt_options` tuple (e.g. `("--adapt","-S","2","-CS","4","--void_mat","0")`); see CLAUDE.md §9.
+  `sculpt_options` tuple (e.g. `("--adapt","-S","2","-CS","4")`; no `--void_mat`, graintrace sets it); see CLAUDE.md §9.
 
 ## Outputs (`save_dir`)
 - `merged_segmented_fixed_grid.npy` (segmented voxel grid / restart checkpoint)

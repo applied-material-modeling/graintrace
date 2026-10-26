@@ -62,7 +62,16 @@ SCULPT_CONFIG = _tp.sculpt_config() or {
         "OPAL_PREFIX": f"{_CUBIT_BIN}/mpi",
     },
 }
-SCULPT_OPTIONS = ("-A", "4", "-df", "1", "-S", "2", "-CS", "4", "--void_mat", "0")
+SCULPT_OPTIONS = (
+    "-A",
+    "4",
+    "-df",
+    "1",
+    "-S",
+    "2",
+    "-CS",
+    "4",
+)  # no --void_mat: mesh_sculpt sets it (SCULPT numbers spn values 1-based)
 # CPFE (fast, cuda:0). MOOSE-side assembly/user-objects dominate (the NEML2 GPU
 # eval is ~1s), so keep the mesh coarse, the probe grid small, and few load steps.
 # CPFE and calibration MUST use the SAME strain rate (rate-dependent slip). We set

@@ -80,8 +80,7 @@ sculpt_options = (
     "2",
     "-CS",
     "4",
-    "--void_mat",
-    "0",
+    # no --void_mat: mesh_sculpt sets it (SCULPT numbers spn values 1-based)
 )
 
 # postprocess grid parameters

@@ -101,11 +101,13 @@ class VoxelMeshBuilder:
         "2",
         "-CS",
         "4",
-        "--void_mat",
-        "0",
     )
 
     REQUIRED_SCULPT_KEYS = ("psculpt", "epu", "nprocs")
+
+    #: NFGridConversion's void sentinel (never a grain id), read automatically.
+    AUTO_VOID_MARKER_COL = "cell_id"
+    AUTO_VOID_SENTINEL = -1
 
     def __init__(
         self,
@@ -114,6 +116,7 @@ class VoxelMeshBuilder:
         save_dir: PathLike,
         euler_cols: Sequence[str],
         cell_id_col: Optional[str] = None,
+        void_marker_col: Optional[str] = None,
         angle_convention: str = "bunge",
         angle_type: str = "radians",
         symmetry: str = "432",
@@ -129,7 +132,8 @@ class VoxelMeshBuilder:
             file_path: Path to the gridded Euler-angle CSV (columns x, y[, z] and the three Euler columns; optionally a pre-existing grain-id column).
             save_dir: Output directory for intermediate grids, segmentation results, the mesh, and mapped orientations; created if missing.
             euler_cols: The three column names holding the per-voxel Euler angles.
-            cell_id_col: Optional column holding pre-existing grain ids; if present, segmentation is skipped and these ids are used directly.
+            cell_id_col: Optional column holding pre-existing grain ids; if present, segmentation is skipped and these ids are used directly (ids <= 0 are void).
+            void_marker_col: Optional column whose values <= 0 mark void (e.g. a 1-based "phase"); see _solid_mask.
             angle_convention: Euler angle convention, e.g. "bunge".
             angle_type: Euler angle unit, "radians" or "degrees".
             symmetry: Crystal symmetry group used for misorientation, e.g. "432".
@@ -148,6 +152,7 @@ class VoxelMeshBuilder:
             raise ValueError("euler_cols must contain exactly 3 column names")
 
         self.cell_id_col = cell_id_col
+        self.void_marker_col = void_marker_col
 
         self.angle_convention = str(angle_convention)
         self.angle_type = str(angle_type)
@@ -373,6 +378,36 @@ class VoxelMeshBuilder:
         if not np.allclose(diffs, diffs[0]):
             print(f"Warning: non-uniform spacing detected in {axis_name}")
 
+    def _solid_mask(self, df: pd.DataFrame) -> np.ndarray:
+        """Boolean mask of the rows that carry material.
+
+        Void rows: ``void_marker_col <= 0`` (opt-in), ``cell_id_col <= 0``, and the
+        automatic ``cell_id == -1`` sentinel from NFGridConversion. ``phase`` is never
+        read implicitly (an .ang phase may be 0-based).
+
+        Args:
+            df: the loaded grid dataframe.
+
+        Returns:
+            numpy.ndarray: (n,) bool, True where the row carries material.
+
+        Raises:
+            ValueError: if ``void_marker_col`` is set but missing from ``df``.
+        """
+        solid = np.ones(len(df), dtype=bool)
+        if self.void_marker_col is not None:
+            if self.void_marker_col not in df.columns:
+                raise ValueError(
+                    f"void_marker_col {self.void_marker_col!r} not found in dataframe"
+                )
+            solid &= df[self.void_marker_col].to_numpy() > 0
+        if self.cell_id_col and self.cell_id_col in df.columns:
+            solid &= df[self.cell_id_col].to_numpy() > 0
+        auto = self.AUTO_VOID_MARKER_COL
+        if auto in df.columns and auto not in (self.cell_id_col, self.void_marker_col):
+            solid &= df[auto].to_numpy() != self.AUTO_VOID_SENTINEL
+        return solid
+
     def _assign_existing_ids(self, grid_t: torch.Tensor) -> torch.Tensor:
         if self.df is None:
             raise RuntimeError("Dataframe not loaded")
@@ -482,7 +517,17 @@ class VoxelMeshBuilder:
 
         out_dir = self._graph_segmentation_dir()
 
-        df_graph = self.df[["x", "y", "z", *self.euler_cols]].copy()
+        # void rows share one zero orientation and would bridge grains
+        solid = self._solid_mask(self.df)
+        df_solid = self.df.loc[solid]
+        if df_solid.empty:
+            raise ValueError(
+                "every voxel is marked void; nothing to segment "
+                f"(void_marker_col={self.void_marker_col!r}, "
+                f"cell_id_col={self.cell_id_col!r}, auto {self.AUTO_VOID_MARKER_COL!r} == -1)"
+            )
+
+        df_graph = df_solid[["x", "y", "z", *self.euler_cols]].copy()
         df_graph.insert(0, "id", np.arange(len(df_graph), dtype=np.int64))
 
         csv_path = out_dir / "graph_input.csv"
@@ -545,7 +590,7 @@ class VoxelMeshBuilder:
 
         cell_ids = torch.zeros(grid_t.shape[:3], dtype=grid_t.dtype)
 
-        for idx, (_, row) in enumerate(self.df.iterrows()):
+        for idx, (_, row) in enumerate(df_solid.iterrows()):
             i = x_map[row["x"]]
             j = y_map[row["y"]]
             k = z_map[row["z"]]
@@ -562,8 +607,8 @@ class VoxelMeshBuilder:
     ) -> Path:
         """Segment the grid CSV and write grid .npy/.vtk outputs to save_dir.
 
-        Loads the CSV onto a dense voxel grid, optionally smooths it, segments it into grains (flood-fill or graph/Leiden), removes small segments, infills, and
-        relabels grain ids to be contiguous. If cell_id_col was set, the provided ids are used and segmentation is skipped.
+        Loads the CSV onto a dense voxel grid, optionally smooths it, segments it into grains (flood-fill or graph/Leiden), removes small segments, infills,
+        voids leftover unsegmented voxels, and relabels grain ids to be contiguous. If cell_id_col was set, the provided ids are used and segmentation is skipped.
 
         Args:
             segmentation: Segmentation config dict with "method" ("flood" or "graph"), "params", and optional "graph_params"; None uses the class defaults.
@@ -604,7 +649,8 @@ class VoxelMeshBuilder:
         yi = df["y"].map(y_map).to_numpy()
         zi = df["z"].map(z_map).to_numpy()
 
-        fixed_grid[xi, yi, zi, 0] = 1.0
+        solid = self._solid_mask(df)
+        fixed_grid[xi, yi, zi, 0] = solid.astype(np.float32)
         fixed_grid[xi, yi, zi, 1:4] = df[list(self.euler_cols)].to_numpy(
             dtype=np.float32
         )
@@ -684,6 +730,7 @@ class VoxelMeshBuilder:
         grid_t = segment.infill_nearest_neighbor(
             grid_t, connectivity=params["connectivity"]
         )
+        grid_t = segment.void_unsegmented(grid_t)
 
         print("Relabeling phase IDs to be contiguous...")
         grid_t = self._relabel_phase_ids_contiguous(grid_t)
@@ -722,6 +769,7 @@ class VoxelMeshBuilder:
         mapped_orientations_path: Optional[PathLike] = None,
         mesher: str = "sculpt",
         background_id: int = 0,
+        layer_spacing: Optional[float] = None,
     ) -> Path:
         """Mesh the segmented grid and map orientations to the mesh.
 
@@ -743,6 +791,7 @@ class VoxelMeshBuilder:
             mapped_orientations_path: Override for the mapped per-element orientation output basename (".csv" is appended).
             mesher: Meshing backend, "sculpt" (CUBIT/SCULPT conformal hex) or "voxel" (one cube hex per voxel, no external tools).
             background_id: Grain/phase id treated as background/void in the voxel dump (mesher="voxel").
+            layer_spacing: z voxel size of a single-layer grid (e.g. 2D EBSD); None uses the in-plane spacing.
 
         Returns:
             Path to the written Exodus mesh.
@@ -779,6 +828,7 @@ class VoxelMeshBuilder:
                 angle_type=self.angle_type,
                 background_id=background_id,
                 symmetry=self.symmetry,
+                layer_spacing=layer_spacing,
             )
             print(
                 f"Voxel mesh: {info['elements']} hexes, {info['nodes']} nodes, "
@@ -803,6 +853,8 @@ class VoxelMeshBuilder:
             else self.orientations_path
         )
 
+        # write_spn renumbers ids in place
+        source_labels = data[..., 0].clone()
         print("Writing SPN and orientations...")
         mesh.write_spn(
             data,
@@ -824,6 +876,8 @@ class VoxelMeshBuilder:
             angle_convention=self.angle_convention,
             angle_type=self.angle_type,
             symmetry=self.symmetry,
+            layer_spacing=layer_spacing,
+            source_labels=source_labels.cpu().numpy(),
         )
 
         return mesh_out

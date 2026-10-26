@@ -87,10 +87,7 @@ def main():  # wrapped in main() for multiprocessing
         },
     }
 
-    sculpt_options = (
-        "--void_mat",
-        "0",
-    )
+    sculpt_options = ()  # no --void_mat: mesh_sculpt sets it (SCULPT numbers spn values 1-based)
 
     def generate_layered_euler_csv(
         path: str,

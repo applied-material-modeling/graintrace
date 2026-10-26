@@ -41,10 +41,14 @@ A tuple of CLI flag strings passed to SCULPT:
        "-df", "1",              # dilation factor
        "-S", "2",               # smoothing passes
        "-CS", "4",              # curve smoothing
-       "--void_mat", "0",       # void material ID
    )
 
-For FF Voronoi meshes without adaptation, use just ``("--void_mat", "0")``.
+For FF Voronoi meshes without adaptation, pass ``()``. Do not pass
+``--void_mat``: :func:`graintrace.nf.mesh.mesh_sculpt` sets ``--void_mat 1`` when
+the grid has void (see :ref:`pitfall-sculpt`). After meshing, the block ids are
+renumbered to ``1..N`` and ``<mesh stem>_block_map.csv`` maps each ``block_id`` to
+``sculpt_block_id``, ``grain_id``, ``n_elem`` and ``source_grain_id``.
+``mesh(layer_spacing=...)`` sets the z thickness of a single-layer grid.
 
 Boundary conditions (bc)
 ------------------------
@@ -114,8 +118,44 @@ Graph-based (better for complex textures):
    }
 
 For :meth:`~graintrace.NearFieldMeshBuilder.reconstruct`, the ``segmentation``
-argument is a flat dict (no ``method``/``params`` nesting), with
-``misorientation_tol`` in radians.
+argument is either the flat flood dict (no ``method``/``params`` nesting, with
+``misorientation_tol`` in radians), or the graph/Leiden dict below, which runs
+:meth:`~graintrace.fragmentation.FragmentationAnalyzer.segment` on the solid voxels
+(defaults in ``NearFieldMeshBuilder.DEFAULT_GRAPH_SEGMENTATION``):
+
+.. code-block:: python
+
+   segmentation = {
+       "method": "graph",
+       "misori_tol_deg": 5.0,        # degrees
+       "gamma": None,                # percolation sweep; ~0.1 for few-grain data
+       "grain_threshold_final": 30,
+       "remerge_miso_deg": 3.0,
+       "downsample": (2, 2, 1),      # optional; large NF only
+   }
+
+.. _config-nf-gridding:
+
+NF gridding options
+-------------------
+
+:meth:`~graintrace.NearFieldMeshBuilder.reconstruct` and
+:meth:`~graintrace.NFGridConversion.convert` take:
+
+``min_confidence``
+    Voxels whose source ``.mic`` point has a lower ``Confidence`` become void.
+    NF confidence is bimodal, so one threshold (~0.3-0.5) separates sample from
+    air and failed points. ``None`` (default) keeps every in-hull point.
+``max_point_distance``
+    Maximum distance (µm) to the nearest measured point, replacing the Delaunay
+    hull test; ~1.5 x ``TriEdgeSize``.
+``voxel_size_um``
+    ``(hx, hy)`` in-plane spacing instead of ``nx``/``ny`` (giving both raises).
+
+The per-voxel confidence is saved as ``fixed_grid_confidence.npy``. The builders
+take ``recursive=True`` for MIDAS per-layer subfolders. For ``VoxelMeshBuilder``,
+only ``cell_id == -1`` is void automatically; ``void_marker_col`` opts a column in
+(values ``<= 0`` void).
 
 **Graph/Leiden is the default and better pathway** for NF/EBSD; flood over-merges
 into percolating grains. The recipe (validated on Fe-9Cr NF reconstruction): hard

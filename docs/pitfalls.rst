@@ -156,6 +156,38 @@ Run :func:`graintrace.nf.segment.infill_nearest_neighbor` after
 ``write_spn`` will not do it for you, because dropping them silently removes
 material from the mesh. ``nf.mesh.write_voxel_exodus`` skips negative ids the same
 way it skips the background id, so an orphan never becomes a block of its own.
+Both builders end with :func:`graintrace.nf.segment.void_unsegmented`, which voids
+a ``-1`` island that has no grain to join (e.g. a stray point in an air notch).
+
+NF gridding is unmasked by default
+----------------------------------
+
+With ``min_confidence=None`` every grid point inside a layer's Delaunay hull is
+crystal: air, the sample surface and low-confidence boundary voxels included. The
+boundary voxels connect neighbouring grains, so segmentation leaks across them. Set
+``min_confidence`` on real data (see :ref:`config-nf-gridding`).
+
+A ``phase`` column is not a void marker
+---------------------------------------
+
+An EBSD ``.ang`` phase may be 0-based, so ``VoxelMeshBuilder`` no longer reads
+``phase <= 0`` as void. Pass ``void_marker_col="phase"`` when ``0`` means void.
+
+.. _pitfall-sculpt:
+
+SCULPT conventions: 1-based void, index coordinates, sparse block ids
+---------------------------------------------------------------------
+
+* SCULPT ranks ``.spn`` values 1-based: with void present the void is material 1
+  and grain ``g`` is block ``g + 1``. ``--void_mat 0`` meshed the void as block 1.
+  :func:`~graintrace.nf.mesh.mesh_sculpt` passes ``--void_mat 1`` when the grid
+  has void (none otherwise), and raises if a block is still mostly void.
+* SCULPT writes voxel-index coordinates. They are mapped exactly,
+  ``x = c0 - h/2 + raw * h``, so the mesh covers the sample, not the scan box, and
+  a single layer keeps a thickness (``layer_spacing``; NF uses ``dz``).
+* SCULPT may drop small grains, leaving gaps in the block ids that the CPFE decks
+  reject. Blocks are renumbered ``1..N`` in file order; orientations row ``k`` is
+  block ``k + 1``.
 
 Grain orientation averages need the crystal symmetry
 ----------------------------------------------------

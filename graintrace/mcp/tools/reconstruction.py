@@ -257,8 +257,11 @@ def convert_ang(
 def nf_reconstruct(
     input_folder: str,
     dz: float,
-    nx: int,
-    ny: int,
+    nx: Optional[int] = None,
+    ny: Optional[int] = None,
+    voxel_size_um: Optional[List[float]] = None,
+    min_confidence: Optional[float] = None,
+    max_point_distance: Optional[float] = None,
     save_dir: Optional[str] = None,
     init_params: Optional[Dict[str, Any]] = None,
     segmentation: Optional[Dict[str, Any]] = None,
@@ -273,19 +276,27 @@ def nf_reconstruct(
     Parameters
     ----------
     input_folder : folder of .mic layer files.
-    dz, nx, ny : layer thickness (um) and in-plane grid resolution.
+    dz, nx, ny : layer thickness (um) and in-plane grid resolution (default
+        300 x 900).
+    voxel_size_um : [hx, hy] in-plane voxel size (um), instead of nx/ny.
+    min_confidence : void voxels whose source .mic Confidence is lower
+        (recommended, ~0.3-0.5).
+    max_point_distance : solid radius (um) replacing the hull test
+        (~1.5x TriEdgeSize).
     save_dir : output folder (defaults under the MCP workdir).
     init_params : overrides for NearFieldMeshBuilder(...): exp_file_token,
-        angle_convention, angle_type ('radians'|'degrees'), symmetry, prefix.
-    segmentation : legacy flat segmentation dict (misorientation_tol in radians,
-        connectivity, grain_threshold, etc.).
+        angle_convention, angle_type ('radians'|'degrees'), symmetry, prefix,
+        recursive (MIDAS per-layer subfolders).
+    segmentation : the legacy flat flood dict (misorientation_tol in radians),
+        or {"method": "graph", "misori_tol_deg": 5.0, "gamma": None, ...}
+        (recommended; see the nf_segmentation recipe).
     sculpt_config : CUBIT/SCULPT config (psculpt, epu, nprocs, ...). If omitted,
         only segmentation runs (no mesh).
     sculpt_options : SCULPT CLI flags.
 
     Segmentation needs no external binary; meshing needs CUBIT/SCULPT. Runs in
-    the background. Outputs: merged_segmented_fixed_grid.npy, mesh.e (if meshed),
-    orientations.csv.
+    the background. Outputs: merged_segmented_fixed_grid.npy,
+    fixed_grid_confidence.npy, mesh.e (if meshed), orientations.csv.
     """
     # Lazy: heavy graintrace submodule + mcp helper, imported on run.
     # pylint: disable=import-outside-toplevel
@@ -304,6 +315,9 @@ def nf_reconstruct(
         "prefix": "reconstructed",
         **(init_params or {}),
     }
+    if voxel_size_um is not None and (nx is not None or ny is not None):
+        raise ValueError("Give either nx/ny or voxel_size_um, not both")
+
     do_mesh = sculpt_config is not None
     resolved = {
         "input_folder": input_folder,
@@ -311,6 +325,9 @@ def nf_reconstruct(
         "dz": dz,
         "nx": nx,
         "ny": ny,
+        "voxel_size_um": voxel_size_um,
+        "min_confidence": min_confidence,
+        "max_point_distance": max_point_distance,
         "init_params": init,
         "segmentation": segmentation,
         "will_mesh": do_mesh,
@@ -323,7 +340,15 @@ def nf_reconstruct(
             save_dir=save_dir,
             **init,
         )
-        merged = builder.reconstruct(dz=dz, nx=nx, ny=ny, segmentation=segmentation)
+        merged = builder.reconstruct(
+            dz=dz,
+            nx=nx,
+            ny=ny,
+            voxel_size_um=voxel_size_um,
+            min_confidence=min_confidence,
+            max_point_distance=max_point_distance,
+            segmentation=segmentation,
+        )
         out = {"save_dir": save_dir, "merged_grid": str(merged)}
         if do_mesh:
             mesh = builder.mesh(

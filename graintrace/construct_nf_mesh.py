@@ -56,6 +56,32 @@ class NearFieldMeshBuilder:
         "grain_threshold_final": 1000,
     }
 
+    #: Graph/Leiden defaults; all but ``method``/``downsample`` go to ``FragmentationAnalyzer.segment``.
+    DEFAULT_GRAPH_SEGMENTATION: Dict[str, Any] = {
+        "method": "graph",
+        "misori_tol_deg": 5.0,
+        "gamma": None,
+        "gamma_sweep": (0.5, 1.0, 2.0, 4.0, 8.0),
+        "grain_threshold_final": 30,
+        "remerge_miso_deg": 3.0,
+        "n_jobs": 1,
+        "n_threads": 1,
+        "workdir": None,
+        "downsample": None,
+    }
+
+    #: Graph keys forwarded to ``FragmentationAnalyzer.segment`` only when given.
+    OPTIONAL_GRAPH_KEYS = (
+        "manhattan_radius",
+        "reduce_topk",
+        "rbf_sigma_deg",
+        "percolation_max_frac",
+        "seed",
+    )
+
+    DEFAULT_NX = 300
+    DEFAULT_NY = 900
+
     DEFAULT_SCULPT_OPTIONS: Sequence[str] = (
         "--adapt",
         "-A",
@@ -66,8 +92,6 @@ class NearFieldMeshBuilder:
         "2",
         "-CS",
         "4",
-        "--void_mat",
-        "0",
     )
 
     REQUIRED_SCULPT_KEYS = ("psculpt", "epu", "nprocs")
@@ -86,6 +110,7 @@ class NearFieldMeshBuilder:
         write_vtk: bool = True,
         default_mesh_filename: str = "mesh.e",
         default_mapped_orientations_filename: str = "orientations",
+        recursive: bool = False,
     ) -> None:
         """Configure an NF-HEDM reconstruction from a folder of layer files.
 
@@ -101,6 +126,7 @@ class NearFieldMeshBuilder:
             write_vtk: If True, write .vtk renderings of the grids to save_dir.
             default_mesh_filename: Default output mesh filename in save_dir (e.g. "mesh.e").
             default_mapped_orientations_filename: Default basename for the per-element mapped orientation output (".csv" is appended by mesh()).
+            recursive: If True, search subfolders for layer files (MIDAS Layer1/...layer1.mic).
         """
 
         self.input_folder = Path(input_folder)
@@ -115,8 +141,10 @@ class NearFieldMeshBuilder:
         self.write_intermediate = bool(write_intermediate)
         self.write_vtk = bool(write_vtk)
         self.exp_file_token = str(exp_file_token)
+        self.recursive = bool(recursive)
 
         self.merged_grid_npy = self.save_dir / "merged_segmented_fixed_grid.npy"
+        self.layer_spacing: Optional[float] = None
 
         self.spn_path = self.save_dir / f"{self.prefix}.spn"
         self.orientations_path = self.save_dir / f"{self.prefix}.orientations"
@@ -131,6 +159,8 @@ class NearFieldMeshBuilder:
         cfg = dict(self.DEFAULT_SEGMENTATION)
         if segmentation:
             cfg.update(segmentation)
+        if cfg.pop("method", "flood") != "flood":
+            raise ValueError("segmentation['method'] must be 'flood' or 'graph'")
 
         required = set(self.DEFAULT_SEGMENTATION.keys())
         missing = required - set(cfg.keys())
@@ -169,6 +199,128 @@ class NearFieldMeshBuilder:
         cfg["stop_count"] = int(cfg["stop_count"])
         cfg["grain_threshold_final"] = int(cfg["grain_threshold_final"])
         return cfg
+
+    def _normalize_graph_segmentation(
+        self, segmentation: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Validate a graph segmentation dict, filling defaults.
+
+        Args:
+            segmentation: the caller's ``{"method": "graph", ...}`` dict.
+
+        Returns:
+            dict: the completed config.
+
+        Raises:
+            ValueError: on an unknown key or an invalid value.
+        """
+        cfg = dict(self.DEFAULT_GRAPH_SEGMENTATION)
+        cfg.update(segmentation)
+
+        allowed = set(self.DEFAULT_GRAPH_SEGMENTATION) | set(self.OPTIONAL_GRAPH_KEYS)
+        extra = set(cfg) - allowed
+        if extra:
+            raise ValueError(
+                "Unknown graph segmentation keys: "
+                + ", ".join(sorted(extra))
+                + "\nAllowed keys: "
+                + ", ".join(sorted(allowed))
+            )
+
+        if float(cfg["misori_tol_deg"]) <= 0:
+            raise ValueError("segmentation['misori_tol_deg'] must be > 0 (degrees)")
+        cfg["misori_tol_deg"] = float(cfg["misori_tol_deg"])
+        if cfg["gamma"] is not None:
+            cfg["gamma"] = float(cfg["gamma"])
+        cfg["gamma_sweep"] = tuple(float(g) for g in cfg["gamma_sweep"])
+        cfg["grain_threshold_final"] = int(cfg["grain_threshold_final"])
+        cfg["remerge_miso_deg"] = float(cfg["remerge_miso_deg"])
+        cfg["n_jobs"] = int(cfg["n_jobs"])
+        cfg["n_threads"] = int(cfg["n_threads"])
+
+        downsample: Optional[Sequence[int]] = cfg["downsample"]
+        if downsample is not None:
+            ds = tuple(int(d) for d in downsample)
+            if len(ds) != 3 or min(ds) < 1:
+                raise ValueError(
+                    "segmentation['downsample'] must be three ints >= 1, e.g. (2, 2, 1)"
+                )
+            cfg["downsample"] = ds
+        return cfg
+
+    def _segment_graph(self, grid_t: torch.Tensor, cfg: Dict[str, Any]) -> torch.Tensor:
+        """Graph/Leiden-segment the solid voxels of a fixed grid.
+
+        Uses :meth:`~graintrace.fragmentation.FragmentationAnalyzer.segment` on MRP
+        orientations; with ``downsample`` the unkept voxels take their nearest kept
+        voxel's label.
+
+        Args:
+            grid_t: (nx, ny, nz, 7) fixed grid.
+            cfg: a config from :meth:`_normalize_graph_segmentation`.
+
+        Returns:
+            torch.Tensor: the grid with 1-based grain ids in channel 0, void 0.
+
+        Raises:
+            ValueError: if no voxel is solid.
+        """
+        # pylint: disable=import-outside-toplevel
+        from scipy.spatial import cKDTree
+
+        from .fragmentation import FragmentationAnalyzer
+        from .orientation_helper import euler_to_mrp
+
+        grid_t = grid_t.clone()
+        solid = grid_t[..., 0] > 0
+        if not bool(solid.any()):
+            raise ValueError("every voxel is void; nothing to segment")
+
+        ijk = torch.nonzero(solid).cpu().numpy()
+        coords = grid_t[..., 4:7][solid].cpu().numpy().astype(np.float64)
+        euler = grid_t[..., 1:4][solid].to(torch.float64)
+
+        keep = np.ones(len(ijk), dtype=bool)
+        if cfg["downsample"] is not None:
+            keep = np.all(ijk % np.asarray(cfg["downsample"]) == 0, axis=1)
+            if not keep.any():
+                keep[:] = True
+
+        mrp = (
+            euler_to_mrp(
+                euler[torch.from_numpy(keep)], self.angle_convention, self.angle_type
+            )
+            .cpu()
+            .numpy()
+        )
+
+        optional = {
+            k: cfg[k] for k in self.OPTIONAL_GRAPH_KEYS if cfg.get(k) is not None
+        }
+        labels = FragmentationAnalyzer(symmetry=self.symmetry).segment(
+            coords[keep],
+            mrp,
+            misori_tol_deg=cfg["misori_tol_deg"],
+            graph_mode="grid",
+            gamma=cfg["gamma"],
+            gamma_sweep=cfg["gamma_sweep"],
+            grain_threshold_final=cfg["grain_threshold_final"],
+            remerge_miso_deg=cfg["remerge_miso_deg"],
+            n_jobs=cfg["n_jobs"],
+            n_threads=cfg["n_threads"],
+            workdir=None if cfg["workdir"] is None else str(cfg["workdir"]),
+            **optional,
+        )
+        labels = np.asarray(labels, dtype=np.int64)
+
+        if not keep.all():
+            _, nearest = cKDTree(coords[keep]).query(coords)
+            labels = labels[nearest]
+
+        phase = torch.zeros(solid.shape, dtype=grid_t.dtype)
+        phase[solid] = torch.from_numpy(labels + 1).to(grid_t.dtype)
+        grid_t[..., 0] = phase
+        return grid_t
 
     def _validate_sculpt_config(self, sculpt_config: Dict[str, Any]) -> Dict[str, Any]:
         if not isinstance(sculpt_config, dict):
@@ -212,46 +364,78 @@ class NearFieldMeshBuilder:
         self,
         *,
         dz: float = 5.0,
-        nx: int = 300,
-        ny: int = 900,
+        nx: Optional[int] = None,
+        ny: Optional[int] = None,
+        voxel_size_um: Optional[Sequence[float]] = None,
+        min_confidence: Optional[float] = None,
+        max_point_distance: Optional[float] = None,
         segmentation: Optional[Dict[str, Any]] = None,
     ) -> Path:
         """Reconstruct a segmented NF voxel grid from .mic/.csv layers.
 
-        Converts the layer files to a pointcloud, rasterizes it onto a fixed voxel grid, segments it into grains via flood-fill, infills, and removes small segments.
+        Grids the layers, segments them (flood fill, or graph/Leiden), cleans up and voids any voxel left unsegmented.
 
         Args:
             dz: Layer thickness in micrometers (z spacing between stacked layers).
-            nx: In-plane grid resolution along x.
-            ny: In-plane grid resolution along y.
-            segmentation: Flat segmentation config dict (misorientation_tol in radians, connectivity, batch_norm, grain_threshold, stop_count, grain_threshold_final); None uses the class defaults.
+            nx: In-plane grid resolution along x; None uses DEFAULT_NX.
+            ny: In-plane grid resolution along y; None uses DEFAULT_NY.
+            voxel_size_um: (hx, hy) in-plane voxel size in micrometers, instead of nx/ny.
+            min_confidence: Voxels whose source point has a lower .mic Confidence become void; None keeps all.
+            max_point_distance: Solid radius (um) around the measured points, replacing the Delaunay hull test.
+            segmentation: Flat flood dict (DEFAULT_SEGMENTATION keys, misorientation_tol in radians), or
+                {"method": "graph", ...} with DEFAULT_GRAPH_SEGMENTATION / OPTIONAL_GRAPH_KEYS; None uses flood defaults.
 
         Returns:
-            Path to the written merged_segmented_fixed_grid.npy.
+            Path to merged_segmented_fixed_grid.npy; the confidence is saved beside it as fixed_grid_confidence.npy.
+
+        Raises:
+            ValueError: if voxel_size_um is given together with nx or ny, or the segmentation dict is invalid.
         """
-        seg = self._normalize_segmentation(segmentation)
+        method = (segmentation or {}).get("method", "flood")
+        if method == "graph":
+            seg = self._normalize_graph_segmentation(segmentation)
+        else:
+            seg = self._normalize_segmentation(segmentation)
 
         dz = float(dz)
-        nx = int(nx)
-        ny = int(ny)
+        self.layer_spacing = dz
+        if voxel_size_um is not None:
+            if nx is not None or ny is not None:
+                raise ValueError("Give either nx/ny or voxel_size_um, not both")
+        else:
+            nx = self.DEFAULT_NX if nx is None else int(nx)
+            ny = self.DEFAULT_NY if ny is None else int(ny)
 
         pointcloud_csv = self.save_dir / "pointcloud.csv"
         fixed_grid_npy = self.save_dir / "fixed_grid.npy"
         fixed_grid_vtk = self.save_dir / "fixed_grid.vtk"
+        confidence_npy = self.save_dir / "fixed_grid_confidence.npy"
         segmented_grid_npy = self.save_dir / "segmented_fixed_grid.npy"
         segmented_grid_vtk = self.save_dir / "segmented_fixed_grid.vtk"
         merged_grid_vtk = self.save_dir / "merged_segmented_fixed_grid.vtk"
 
         # NearField -> pointcloud
         pc = convert.nf_to_pointcloud(
-            str(self.input_folder), dz, layer_token=self.exp_file_token
+            str(self.input_folder),
+            dz,
+            layer_token=self.exp_file_token,
+            recursive=self.recursive,
         )
 
         if self.write_intermediate:
             pc.to_csv(pointcloud_csv, index=False)
 
         # pointcloud -> fixed grid
-        fixed_grid = convert.pointcloud_to_fixed_grid(pc, nx=nx, ny=ny)
+        fixed_grid, confidence = convert.pointcloud_to_fixed_grid(
+            pc,
+            nx=nx,
+            ny=ny,
+            voxel_size_um=voxel_size_um,
+            min_confidence=min_confidence,
+            max_point_distance=max_point_distance,
+        )
+
+        np.save(confidence_npy, confidence)
 
         if self.write_intermediate:
             np.save(fixed_grid_npy, fixed_grid)
@@ -261,26 +445,32 @@ class NearFieldMeshBuilder:
         # segmentation
         grid_t = torch.from_numpy(fixed_grid)
 
-        grid_t[..., 0] = segment.flood(
-            grid_t[..., 1:4],
-            grid_t[..., 0],
-            seg["misorientation_tol"],
-            connectivity=seg["connectivity"],
-            batch_norm=seg["batch_norm"],
-            grain_threshold=seg["grain_threshold"],
-            stop_count=seg["stop_count"],
-            angle_convention=self.angle_convention,
-            angle_type=self.angle_type,
-            symmetry=self.symmetry,
-        )
+        if method == "graph":
+            grid_t = self._segment_graph(grid_t, seg)
+        else:
+            grid_t[..., 0] = segment.flood(
+                grid_t[..., 1:4],
+                grid_t[..., 0],
+                seg["misorientation_tol"],
+                connectivity=seg["connectivity"],
+                batch_norm=seg["batch_norm"],
+                grain_threshold=seg["grain_threshold"],
+                stop_count=seg["stop_count"],
+                angle_convention=self.angle_convention,
+                angle_type=self.angle_type,
+                symmetry=self.symmetry,
+            )
 
         if self.write_intermediate:
             np.save(segmented_grid_npy, grid_t.cpu().numpy())
         if self.write_vtk:
             convert.fixed_grid_to_vtk(grid_t.cpu().numpy(), str(segmented_grid_vtk))
 
-        grid_t = segment.infill_nearest_neighbor(grid_t)
-        grid_t = segment.remove_small_segments(grid_t, seg["grain_threshold_final"])
+        if method != "graph":
+            # graph labels every solid voxel and absorbs small fragments itself
+            grid_t = segment.infill_nearest_neighbor(grid_t)
+            grid_t = segment.remove_small_segments(grid_t, seg["grain_threshold_final"])
+        grid_t = segment.void_unsegmented(grid_t)
 
         np.save(self.merged_grid_npy, grid_t.cpu().numpy())
         if self.write_vtk:
@@ -299,10 +489,12 @@ class NearFieldMeshBuilder:
         orientations_path: Optional[PathLike] = None,
         mesh_path: Optional[PathLike] = None,
         mapped_orientations_path: Optional[PathLike] = None,
+        layer_spacing: Optional[float] = None,
     ) -> Path:
         """Generate an Exodus mesh via SCULPT from the merged voxel grid.
 
         Uses merged_grid if given, else save_dir/merged_segmented_fixed_grid.npy. Writes the SCULPT .spn/orientations inputs, runs SCULPT, and maps per-element MRP orientations.
+        Block ids come out as 1..N (row k of the orientations CSV is block k + 1) with <mesh stem>_block_map.csv.
 
         Args:
             sculpt_config: SCULPT configuration dict (required keys psculpt, epu, nprocs; optional launcher, environment).
@@ -312,6 +504,7 @@ class NearFieldMeshBuilder:
             orientations_path: Override for the SCULPT per-voxel orientations input path.
             mesh_path: Override for the output Exodus mesh path; None uses the configured default.
             mapped_orientations_path: Override for the mapped per-element orientation output basename (".csv" is appended).
+            layer_spacing: z voxel size of a single-layer grid; None uses the last reconstruct() dz.
 
         Returns:
             Path to the written Exodus mesh.
@@ -346,6 +539,10 @@ class NearFieldMeshBuilder:
         )
 
         data = self._load_grid(grid_path)
+        # write_spn renumbers ids in place
+        source_labels = data[..., 0].clone()
+        if layer_spacing is None:
+            layer_spacing = self.layer_spacing
 
         print("\n")
 
@@ -368,6 +565,8 @@ class NearFieldMeshBuilder:
             angle_convention=self.angle_convention,
             angle_type=self.angle_type,
             symmetry=self.symmetry,
+            layer_spacing=layer_spacing,
+            source_labels=source_labels.cpu().numpy(),
         )
 
         return mesh_out
