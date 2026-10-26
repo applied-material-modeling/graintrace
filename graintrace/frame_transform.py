@@ -75,6 +75,9 @@ _ALLOWED_SIGNS = (-1.0, 1.0)
 # Tolerance on det(Q) == +1 and on the orthogonality of a user-supplied matrix.
 _ROTATION_ATOL = 1e-8
 
+# Tolerance on |q| == 1 for a quaternion ``rotation``; it is never renormalised.
+_QUAT_NORM_ATOL = 1e-6
+
 _AXIS_NAMES = {"x": "x", "y": "y", "z": "z", "X": "x", "Y": "y", "Z": "z"}
 
 
@@ -100,9 +103,9 @@ def _as_scipy_rotation(rotation, angle_unit: str, sequence: str):
     """Build a ``scipy`` ``Rotation`` from any of the accepted ``rotation`` forms.
 
     Args:
-        rotation: ``None`` (identity), a (3, 3) matrix, a scalar-first quaternion
-            ``(w, x, y, z)``, a rotation vector ``(rx, ry, rz)`` whose magnitude is
-            the angle in ``angle_unit``, or an ordered sequence of
+        rotation: ``None`` (identity), a (3, 3) matrix, a scalar-first unit
+            quaternion ``(w, x, y, z)``, a rotation vector ``(rx, ry, rz)`` whose
+            magnitude is the angle in ``angle_unit``, or an ordered sequence of
             ``(axis, angle)`` pairs such as
             ``[("z", 172.3), ("x", 180.0), ("y", -0.9)]``.
         angle_unit: ``"degrees"`` or ``"radians"``; applies to the rotation-vector
@@ -116,7 +119,8 @@ def _as_scipy_rotation(rotation, angle_unit: str, sequence: str):
 
     Raises:
         ValueError: if ``angle_unit``, ``sequence``, an axis name, or the overall
-            shape of ``rotation`` is not recognised.
+            shape of ``rotation`` is not recognised, or if a quaternion is not
+            unit length within ``1e-6`` (it is never silently renormalised).
     """
     # pylint: disable-next=import-outside-toplevel  # scipy is imported lazily
     from scipy.spatial.transform import Rotation
@@ -164,6 +168,14 @@ def _as_scipy_rotation(rotation, angle_unit: str, sequence: str):
     if arr.shape == (3, 3):
         return Rotation.from_matrix(arr)
     if arr.shape == (4,):
+        # scipy silently normalises; a non-unit quaternion is almost always a
+        # wrong component order or a typo, so refuse it rather than repair it.
+        norm = float(np.linalg.norm(arr))
+        if abs(norm - 1.0) > _QUAT_NORM_ATOL:
+            raise ValueError(
+                f"quaternion must be unit length (|q| = 1 within {_QUAT_NORM_ATOL:g}); "
+                f"got |q| = {norm:.6g}"
+            )
         # graintrace quaternions are scalar-first (w, x, y, z); scipy is scalar-last.
         return Rotation.from_quat(np.roll(arr, -1))
     if arr.shape == (3,):
@@ -251,8 +263,9 @@ class FrameTransform:
 
     Args:
         rotation: the composed frame rotation ``Q``. Accepts ``None`` (identity), a
-            (3, 3) matrix, a scalar-first quaternion ``(w, x, y, z)``, a rotation
-            vector, or an ordered list of ``(axis, angle)`` pairs such as
+            (3, 3) matrix, a scalar-first unit quaternion ``(w, x, y, z)`` (not
+            renormalised: ``|q|`` must be 1 within ``1e-6``), a rotation vector,
+            or an ordered list of ``(axis, angle)`` pairs such as
             ``[("z", 172.3), ("x", 180.0), ("x", 1.4), ("y", -0.9)]`` (main stage
             rotation, remount flip, then the two tilt components). Tilt is part of
             the rotation, not a separate step.

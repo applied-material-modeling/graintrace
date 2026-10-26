@@ -163,6 +163,22 @@ class TestRotationParsing(unittest.TestCase):
         with self.assertRaises(ValueError):
             FrameTransform(rotation=[("w", 10.0)])
 
+    def test_non_unit_quaternion_raises(self):
+        """A non-unit quaternion is refused, not silently renormalised."""
+        with self.assertRaises(ValueError) as ctx:
+            FrameTransform(rotation=[2.0, 0.0, 0.0, 0.0])
+        self.assertIn("unit length", str(ctx.exception))
+        with self.assertRaises(ValueError):
+            FrameTransform(rotation=[0.0, 0.0, 0.0, 0.0])
+
+    def test_near_unit_quaternion_is_accepted(self):
+        """Round-off within 1e-6 of unit length is fine."""
+        h = np.sqrt(0.5)
+        T = FrameTransform(rotation=[h * (1 + 5e-7), 0.0, 0.0, h])
+        self.assertTrue(
+            np.allclose(T.positions([[1.0, 0.0, 0.0]]), [[0.0, 1.0, 0.0]], atol=1e-5)
+        )
+
 
 @requires_orientation_stack
 class TestSampleSideCorrectness(unittest.TestCase):
