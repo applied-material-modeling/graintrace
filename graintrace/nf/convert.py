@@ -30,6 +30,7 @@ import glob
 import os
 import os.path
 import re
+import warnings
 
 import multiprocess
 import numpy as np
@@ -63,29 +64,70 @@ def layer_number(path: str, token: str = "layer") -> int:
     return int(m.group(1))
 
 
-def nf_to_pointcloud(folder, dz, layer_token="layer"):
+def _find_layer_files(folder, layer_token, recursive):
+    """Layer files under ``folder``: .mic preferred over .csv, flat or recursive.
+
+    A recursive search keeps only files whose name carries ``layer_token`` plus a
+    number, so unrelated CSVs elsewhere in the tree are not mistaken for layers.
+    """
+    pattern = "**/*" if recursive else "*"
+    for ext in ("mic", "csv"):
+        files = glob.glob(os.path.join(folder, f"{pattern}.{ext}"), recursive=recursive)
+        if recursive:
+            token = re.compile(rf"(?i){re.escape(layer_token)}[\s_\-]*[0-9]+")
+            files = [
+                f
+                for f in files
+                if token.search(os.path.splitext(os.path.basename(f))[0])
+            ]
+        if files:
+            return files
+    return []
+
+
+def nf_to_pointcloud(folder, dz, layer_token="layer", recursive=False):
     """Convert nearfield data (.mic/.csv layers) to a stacked point cloud.
+
+    Layers are ordered by the number after ``layer_token`` in each file name and
+    must be contiguous. MIDAS writes one subfolder per layer
+    (``Layer1/...layer1.mic``, ``Layer2/...``); set ``recursive=True`` to search
+    subfolders. With ``recursive=False`` (default) the folder itself is searched,
+    and only if it holds no layer files does the search fall back to subfolders.
 
     Args:
         folder (str): folder with nearfield data
         dz (float): spacing between layers in the z-direction
+        layer_token (str): filename token that precedes the layer number
+        recursive (bool): search subfolders too
+
+    Returns:
+        pd.DataFrame: the stacked point cloud, one row per measured point, with the
+        layer's columns (Confidence, TriEdgeSize, OrientationRowNr when present)
+        plus Z and layer.
+
+    Raises:
+        FileNotFoundError: if no layer files are found.
+        ValueError: if a layer number is missing or duplicated.
     """
-
-    mic_files = glob.glob(f"{folder}/*.mic")
-    csv_files = glob.glob(f"{folder}/*.csv")
-
-    if mic_files:
-        files = sorted(mic_files, key=lambda f: layer_number(f, token=layer_token))
-    elif csv_files:
-        files = sorted(csv_files, key=lambda f: layer_number(f, token=layer_token))
-    else:
+    files = _find_layer_files(folder, layer_token, recursive)
+    if not files and not recursive:
+        files = _find_layer_files(folder, layer_token, True)
+        if files:
+            print(
+                f"No layer files directly in {folder}; using {len(files)} found in subfolders"
+            )
+    if not files:
         raise FileNotFoundError("No .mic or .csv files found in the specified folder")
+
+    files = sorted(files, key=lambda f: layer_number(f, token=layer_token))
 
     layers = [layer_number(f, token=layer_token) for f in files]
     min_layer = min(layers)
     max_layer = max(layers)
     if layers != list(range(min_layer, max_layer + 1)):
-        raise ValueError(f"Missing layers in nearfield data. Found: {layers[:10]}...")
+        raise ValueError(
+            f"Missing or duplicate layers in nearfield data. Found: {layers[:10]}..."
+        )
 
     dfs = []
     print("\n")
@@ -167,7 +209,8 @@ def process_layer_pointcloud(
         ok = dist <= float(max_point_distance)
 
     conf = np.ones(len(plane_points))
-    if "Confidence" in df_layer:
+    # A layer stacked beside ones that have Confidence gets an all-NaN column
+    if "Confidence" in df_layer and df_layer["Confidence"].notna().any():
         conf = df_layer["Confidence"].to_numpy()[idx]
         if min_confidence is not None:
             ok = ok & (conf >= float(min_confidence))
@@ -262,6 +305,27 @@ def pointcloud_to_fixed_grid(
         hx = hy = None
 
     layers = pointcloud["layer"].unique()
+    if min_confidence is not None:
+        if "Confidence" not in pointcloud.columns:
+            warnings.warn(
+                "min_confidence was given but the NF layers have no Confidence column; "
+                "no voxel is masked by confidence",
+                stacklevel=2,
+            )
+        else:
+            missing = [
+                int(layer)
+                for layer in layers
+                if pointcloud.loc[pointcloud["layer"] == layer, "Confidence"]
+                .isna()
+                .all()
+            ]
+            if missing:
+                warnings.warn(
+                    f"min_confidence was given but layers {missing[:10]} have no "
+                    "Confidence values; those layers are not masked by confidence",
+                    stacklevel=2,
+                )
     x = grid_axis(pointcloud["X"].min(), pointcloud["X"].max(), n=nx, spacing=hx)
     y = grid_axis(pointcloud["Y"].min(), pointcloud["Y"].max(), n=ny, spacing=hy)
     nx, ny = len(x), len(y)
@@ -269,25 +333,24 @@ def pointcloud_to_fixed_grid(
     X, Y = np.meshgrid(x, y, indexing="ij")
     plane_points = np.vstack([X.ravel(), Y.ravel()]).T
 
-    tp = multiprocess.Pool()
-
-    layer_collection = list(
-        tqdm.tqdm(
-            tp.imap(
-                lambda df_layer: process_layer_pointcloud(
-                    df_layer,
-                    plane_points,
-                    nx,
-                    ny,
-                    min_confidence=min_confidence,
-                    max_point_distance=max_point_distance,
+    with multiprocess.Pool() as tp:
+        layer_collection = list(
+            tqdm.tqdm(
+                tp.imap(
+                    lambda df_layer: process_layer_pointcloud(
+                        df_layer,
+                        plane_points,
+                        nx,
+                        ny,
+                        min_confidence=min_confidence,
+                        max_point_distance=max_point_distance,
+                    ),
+                    [pointcloud[pointcloud["layer"] == layer] for layer in layers],
                 ),
-                [pointcloud[pointcloud["layer"] == layer] for layer in layers],
-            ),
-            total=len(layers),
-            desc="Processing layers",
+                total=len(layers),
+                desc="Processing layers",
+            )
         )
-    )
 
     grids, confidences = zip(*layer_collection)
 

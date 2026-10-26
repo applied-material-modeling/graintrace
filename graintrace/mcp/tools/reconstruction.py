@@ -211,8 +211,8 @@ def nf_reconstruct(
     Parameters
     ----------
     input_folder : folder of .mic layer files.
-    dz, nx, ny : layer thickness (um) and in-plane grid resolution. Give nx/ny
-        or voxel_size_um, not both.
+    dz, nx, ny : layer thickness (um) and in-plane grid resolution (default
+        300 x 900). Give nx/ny or voxel_size_um, not both (both is an error).
     voxel_size_um : [hx, hy] in-plane voxel size (um), instead of nx/ny. A fixed
         count over a rectangular footprint gives anisotropic voxels; a spacing
         gives an isotropic grid independent of the footprint.
@@ -226,9 +226,15 @@ def nf_reconstruct(
         concave gaps and holes. A natural value is 1.5x the .mic TriEdgeSize.
     save_dir : output folder (defaults under the MCP workdir).
     init_params : overrides for NearFieldMeshBuilder(...): exp_file_token,
-        angle_convention, angle_type ('radians'|'degrees'), symmetry, prefix.
-    segmentation : legacy flat segmentation dict (misorientation_tol in radians,
-        connectivity, grain_threshold, etc.).
+        angle_convention, angle_type ('radians'|'degrees'), symmetry, prefix,
+        recursive (search per-layer subfolders, e.g. MIDAS Layer1/...layer1.mic;
+        an empty top folder falls back to subfolders anyway).
+    segmentation : None or the legacy flat flood dict (misorientation_tol in
+        radians, connectivity, grain_threshold, etc.), or the recommended
+        graph/Leiden path {"method": "graph", "misori_tol_deg": 5.0,
+        "gamma": None (percolation sweep; ~0.1 fixed for few-grain data),
+        "grain_threshold_final": 30, "remerge_miso_deg": 3.0, "n_jobs": 1,
+        "n_threads": 1, "downsample": [2, 2, 1] (large NF only)}.
     sculpt_config : CUBIT/SCULPT config (psculpt, epu, nprocs, ...). If omitted,
         only segmentation runs (no mesh).
     sculpt_options : SCULPT CLI flags.
@@ -254,8 +260,8 @@ def nf_reconstruct(
         "prefix": "reconstructed",
         **(init_params or {}),
     }
-    if voxel_size_um is None and (nx is None or ny is None):
-        raise ValueError("Give both nx and ny, or voxel_size_um instead")
+    if voxel_size_um is not None and (nx is not None or ny is not None):
+        raise ValueError("Give either nx/ny or voxel_size_um, not both")
 
     do_mesh = sculpt_config is not None
     resolved = {
