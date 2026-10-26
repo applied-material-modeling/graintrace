@@ -14,6 +14,24 @@ from graintrace.mcp.app import mcp, workdir
 from graintrace.mcp.confirm import gate
 
 
+def _json_safe(obj: Any) -> Any:
+    """Recursively map NaN/inf to None and numpy scalars/arrays to Python types."""
+    # pylint: disable=import-outside-toplevel
+    import math
+
+    import numpy as np
+
+    if isinstance(obj, dict):
+        return {str(k): _json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple, np.ndarray)):
+        return [_json_safe(v) for v in obj]
+    if isinstance(obj, np.generic):
+        obj = obj.item()
+    if isinstance(obj, float) and not math.isfinite(obj):
+        return None
+    return obj
+
+
 @mcp.tool()
 def track_grains(
     csv_a: str,
@@ -136,7 +154,18 @@ def detect_fragmentation(
     theta_tol_deg : max misorientation for a lineage edge (default 15.0; generous).
     symmetry : crystal symmetry (default '432').
     angle_convention / angle_type : 'bunge'/'degrees' (or 'mrp').
-    top_k : nearest B centroids probed per A grain (default 8).
+    top_k : nearest B centroids probed per A grain (default 8; 'absolute' mode only).
+    d_tol_mode : 'absolute' (default, d <= d_tol), 'radius'
+        (d <= max(d_tol, alpha_a*R_a, alpha_b*R_b)) or 'radius_sum' (d <= alpha*(R_a+R_b));
+        use a radius mode on mixed grain sizes.
+    alpha_a / alpha_b / alpha : radius multipliers (default 1.0).
+    radius_col : radius column for the radius modes (default 'GrainRadius').
+    assignment : 'one_to_one' adds Hungarian pairs (one_to_one.csv); default None.
+    volume_col : volume column (default 'volume') for volume-weighted recall.
+    in_overlap_a / in_overlap_b : boolean column names limiting recall to the shared
+        volume (default None = all grains); empty-side fractions are None.
+    n_null / seed : chance trials with random B orientations (default 0 = skip);
+        compare null.mean_links with null.observed_links.
     """
     # pylint: disable=import-outside-toplevel
     from graintrace.fragmentation import FragmentationAnalyzer
@@ -150,6 +179,17 @@ def detect_fragmentation(
         "angle_convention": "bunge",
         "angle_type": "degrees",
         "top_k": 8,
+        "d_tol_mode": "absolute",
+        "alpha_a": 1.0,
+        "alpha_b": 1.0,
+        "alpha": 1.0,
+        "radius_col": "GrainRadius",
+        "assignment": None,
+        "volume_col": "volume",
+        "in_overlap_a": None,
+        "in_overlap_b": None,
+        "n_null": 0,
+        "seed": None,
         **(params or {}),
     }
     resolved = {
@@ -171,9 +211,20 @@ def detect_fragmentation(
             angle_convention=p["angle_convention"],
             angle_type=p["angle_type"],
             top_k=p["top_k"],
+            d_tol_mode=p["d_tol_mode"],
+            alpha_a=p["alpha_a"],
+            alpha_b=p["alpha_b"],
+            alpha=p["alpha"],
+            radius_col=p["radius_col"],
+            assignment=p["assignment"],
+            volume_col=p["volume_col"],
+            in_overlap_a=p["in_overlap_a"],
+            in_overlap_b=p["in_overlap_b"],
+            n_null=p["n_null"],
+            seed=p["seed"],
             out_csv=os.path.join(output_dir, "split_correspondences.csv"),
         )
-        return {
+        result = {
             "output_dir": output_dir,
             "split_correspondences": os.path.join(
                 output_dir, "split_correspondences.csv"
@@ -183,7 +234,16 @@ def detect_fragmentation(
             "n_matches": out["n_matches"],
             "n_births": out["n_births"],
             "n_deaths": out["n_deaths"],
+            "recall": _json_safe(out["recall"]),
         }
+        if "one_to_one" in out:
+            one_to_one_csv = os.path.join(output_dir, "one_to_one.csv")
+            out["one_to_one"].to_csv(one_to_one_csv, index=False)
+            result["one_to_one"] = one_to_one_csv
+            result["n_one_to_one"] = int(len(out["one_to_one"]))
+        if "null" in out:
+            result["null"] = _json_safe(out["null"])
+        return result
 
     return gate(
         tool="detect_fragmentation",

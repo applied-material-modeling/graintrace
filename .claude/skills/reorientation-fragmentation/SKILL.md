@@ -55,6 +55,7 @@ pp.plot_ipf_fragmentation_tracking(branches, angle_convention="mrp", arrow_color
 ```python
 res = analyzer.detect_splits(nodes_a, nodes_b, d_tol=20.0, theta_tol_deg=15.0, angle_type="degrees")
 # res["n_splits"], res["split_correspondences"] (parent_a, children_b, n_children) + merges/births/deaths
+# Mixed grain sizes: d_tol_mode="radius"; optional assignment="one_to_one", in_overlap_b, n_null
 ```
 FF grain tables feed it directly; NF/EBSD reach the same detector via `analyzer.segment` (graph/Leiden)
 + `analyzer.seg_to_grain_table`. Synthetic mixed-multiplicity series (1→1/1→2/1→3) with ground truth:

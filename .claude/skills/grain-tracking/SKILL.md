@@ -58,6 +58,7 @@ diagnostics).
 - Orientations are read as Euler-bunge; keep `angle_identifier`/`orientation_descriptor`
   consistent with the data. NEPER must be on PATH.
 - Uses `build_graph` (not a full mesh); no GMSH/CUBIT needed.
+- Strict 1-to-1 from grain tables alone (no tessellation): `detect_splits(..., assignment="one_to_one")`.
 
 ## See also
 `examples/demonstrate_graintracking.py`; CLAUDE.md §3 Step 3 (graph from tessellation).

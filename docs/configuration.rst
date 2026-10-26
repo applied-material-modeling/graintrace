@@ -278,6 +278,33 @@ The same detector serves FF, NF, and EBSD; NF/EBSD
 reach it through ``segment`` +
 :meth:`graintrace.fragmentation.FragmentationAnalyzer.seg_to_grain_table`.
 
+``d_tol_mode`` sizes the distance gate; the radius modes read ``radius_col``
+(default ``GrainRadius``) from both tables:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 18 40 42
+
+   * - ``d_tol_mode``
+     - Link when
+     - Use it for
+   * - ``"absolute"``
+     - :math:`d \le d_{tol}`
+     - Default; comparable grain sizes.
+   * - ``"radius"``
+     - :math:`d \le \max(d_{tol},\ \alpha_a R_a,\ \alpha_b R_b)`
+     - Mixed sizes, e.g. sub-grains inside a coarse parent.
+   * - ``"radius_sum"``
+     - :math:`d \le \alpha (R_a + R_b)`
+     - "The two grains touch" (``alpha`` near 1).
+
+``top_k`` applies only to ``"absolute"``; the radius modes use a ball query that
+covers the gate. ``assignment="one_to_one"`` adds strict Hungarian pairs
+(``one_to_one``). ``recall`` gives each side's linked fraction, volume-weighted when
+``volume_col`` exists and limited to ``in_overlap_a``/``in_overlap_b``. ``n_null``
+(with ``seed``) counts links under random B orientations; compare
+``null["mean_links"]`` with ``null["observed_links"]``.
+
 **Annotated Exodus**
 (:meth:`~graintrace.ipf_postprocess.IPFProcessor.add_element_field_to_exodus` and
 :meth:`~graintrace.ipf_postprocess.IPFProcessor.add_element_rgb_to_exodus`): write a

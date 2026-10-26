@@ -819,7 +819,10 @@ strictly 1-to-1 `GraphGrainMatcher`). See `/reorientation-fragmentation`.
 from graintrace.fragmentation import FragmentationAnalyzer
 res = FragmentationAnalyzer(symmetry="432").detect_splits(
     nodes_a, nodes_b, d_tol=20.0, theta_tol_deg=15.0,
-    angle_convention="bunge", angle_type="degrees", adjacency_b=None)
+    angle_convention="bunge", angle_type="degrees", adjacency_b=None,
+    d_tol_mode="radius",      # "absolute" (default) | "radius" | "radius_sum" (uses GrainRadius)
+    assignment="one_to_one",  # + res["one_to_one"]: Hungarian a_id,b_id,miso_deg,dist,cost
+    in_overlap_b=None, n_null=20, seed=0)  # res["recall"] per side; res["null"] chance links
 # res["n_splits"], res["split_correspondences"] (parent_a, children_b, n_children), + merges/births/deaths
 ```
 `nodes_*` are per-grain tables (`grain_id,X,Y,Z,GrainRadius,Eul0/1/2`). FF supplies them
@@ -1059,11 +1062,14 @@ All on `FragmentationAnalyzer(symmetry="432", ori_cols=…, coord_cols=…)`:
   correctly (default `"1"` = plain mean; no-op on coherent data, but a footgun if left off on data
   that crosses a symmetry boundary).
 - `.detect_splits(nodes_a, nodes_b, d_tol, theta_tol_deg, angle_convention="bunge",
-  angle_type="degrees", top_k=8, adjacency_b=None)` — `d_tol` at grain scale,
+  angle_type="degrees", top_k=8, adjacency_b=None, d_tol_mode="absolute", alpha_a=1.0,
+  alpha_b=1.0, alpha=1.0, radius_col="GrainRadius", assignment=None, volume_col="volume",
+  in_overlap_a=None, in_overlap_b=None, n_null=0, seed=None)` — `d_tol` at grain scale,
   `theta_tol_deg` generous (~15°); uses the instance's `symmetry`. `adjacency_b`
   prunes only when a parent's candidates contain a mutually adjacent pair; with no
   adjacent pair the best candidate (lowest misorientation, then distance) is kept so
-  the parent matches instead of becoming a death plus N births.
+  the parent matches instead of becoming a death plus N births. Gate options: see
+  `docs/configuration.rst` (fragmentation).
 - Synthetic splits: `tests/synthetic_fragmentation.generate_{ff,nf,ebsd}_split(out_dir,
   n_steps=5, theta_max_deg=12.0, misorientation_tol_deg=5.0, ...)` — the shipped
   `mwe_data/synthetic_split_*` + `ground_truth.json` (test helper, not a package module).
@@ -1393,6 +1399,8 @@ misorientation. Set `d_tol` to grain scale — too large chains distinct neighbo
 one "complex" component. Set `theta_tol_deg` GENEROUS (e.g. 15°): children keep diverging across
 steps, so a tight cutoff misses the split. Different base grains stay separate only because they
 are far in orientation (the misorientation filter), so ensure real grains are well-separated.
+On mixed grain sizes use `d_tol_mode="radius"` instead of inflating `d_tol`; `top_k` only applies
+in `"absolute"`. NaN/negative radii count as 0 (warns); negative tolerances raise.
 
 ### Reorientation REI: reference step + `ori_rodrigues` is MRP
 `FragmentationAnalyzer.reorientation_from_reference`/`.write_reorientation_field` default
