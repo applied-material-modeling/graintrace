@@ -123,6 +123,18 @@ def matrix_to_euler(
 ) -> torch.Tensor:
     """Convert rotation matrices to Euler angles (inverse of :func:`euler_to_matrix`).
 
+    The output is canonical, so equal matrices give equal angles:
+
+    * the first and third angles are wrapped to ``[0, 360)`` degrees
+      (``[0, 2*pi)`` radians); the second lies in ``[0, 180]``;
+    * at gimbal lock (``Phi`` within ``1e-8`` rad of 0 or 180 degrees) ``Phi`` is
+      snapped to exactly 0 or 180, the whole in-plane angle goes into the
+      first Bunge angle, and the third Bunge angle is 0.
+
+    ``Phi`` is taken from ``atan2(sin, cos)`` rather than ``arccos``, which loses
+    about half the significant digits next to the poles and made the
+    gimbal/non-gimbal split depend on round-off.
+
     Args:
         M: (..., 3, 3) rotation matrices.
         convention: 'bunge', 'kocks', or 'roe'.
@@ -132,8 +144,8 @@ def matrix_to_euler(
         (..., 3) Euler angles.
     """
     M = torch.as_tensor(M, dtype=torch.float64)
-    Phi = torch.arccos(torch.clamp(M[..., 2, 2], -1.0, 1.0))
-    sP = torch.sin(Phi)
+    sP = torch.hypot(M[..., 2, 0], M[..., 2, 1])
+    Phi = torch.atan2(sP, M[..., 2, 2])
 
     phi1 = torch.atan2(M[..., 2, 0], -M[..., 2, 1])
     phi2 = torch.atan2(M[..., 0, 2], M[..., 1, 2])
@@ -141,16 +153,34 @@ def matrix_to_euler(
     # Gimbal lock (Phi ~ 0 or pi): only phi1 +/- phi2 is defined; put it all in phi1.
     # atan2(M01, M00) recovers phi1+phi2 at Phi=0 and phi1-phi2 at Phi=pi; both rebuild
     # the same matrix, so the round-trip stays exact.
-    gimbal = sP.abs() < 1e-8
+    gimbal = sP < 1e-8
     if torch.any(gimbal):
         phi1_g = torch.atan2(M[..., 0, 1], M[..., 0, 0])
         phi1 = torch.where(gimbal, phi1_g, phi1)
         phi2 = torch.where(gimbal, torch.zeros_like(phi2), phi2)
+        Phi_g = torch.where(
+            M[..., 2, 2] > 0, torch.zeros_like(Phi), torch.full_like(Phi, torch.pi)
+        )
+        Phi = torch.where(gimbal, Phi_g, Phi)
 
     euler = _from_bunge(phi1, Phi, phi2, convention)
+    period = 2.0 * torch.pi
     if angle_type == "degrees":
-        return torch.rad2deg(euler)
-    return euler
+        euler = torch.rad2deg(euler)
+        period = 360.0
+    elif angle_type != "radians":
+        raise ValueError(f"Unknown angle_type: {angle_type!r}")
+    return torch.stack(
+        (_wrap(euler[..., 0], period), euler[..., 1], _wrap(euler[..., 2], period)),
+        dim=-1,
+    )
+
+
+def _wrap(a: torch.Tensor, period: float) -> torch.Tensor:
+    """Wrap angles to ``[0, period)``; a round-off ``period`` and ``-0.0`` become 0."""
+    a = torch.remainder(a, period)
+    a = torch.where(a >= period, a - period, a)
+    return a + 0.0
 
 
 def matrix_to_mrp(M: Union[np.ndarray, torch.Tensor]) -> torch.Tensor:

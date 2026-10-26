@@ -542,6 +542,43 @@ class TestEulerRoundTrips(unittest.TestCase):
         got = euler_to_matrix(torch.tensor(out), "bunge", "degrees").numpy()
         self.assertTrue(np.allclose(got, want, atol=1e-9))
 
+    def test_output_angles_are_wrapped(self):
+        """phi1/phi2 land in [0, 360) deg / [0, 2 pi) rad, Phi in [0, 180]."""
+        rng = np.random.default_rng(9)
+        eul = rng.uniform([-360.0, 0.0, -360.0], [720.0, 180.0, 720.0], (400, 3))
+        T = FrameTransform(rotation=ROTATION_SEQUENCE)
+        for angle_type, period in (("degrees", 360.0), ("radians", 2 * np.pi)):
+            src = eul if angle_type == "degrees" else np.deg2rad(eul)
+            out = T.euler(src, "bunge", angle_type)
+            for k in (0, 2):
+                self.assertTrue(np.all(out[:, k] >= 0.0), angle_type)
+                self.assertTrue(np.all(out[:, k] < period), angle_type)
+            self.assertTrue(np.all((out[:, 1] >= 0.0) & (out[:, 1] <= period / 2)))
+            want = T.orientation_matrices(
+                euler_to_matrix(torch.tensor(src), "bunge", angle_type)
+            ).numpy()
+            got = euler_to_matrix(torch.tensor(out), "bunge", angle_type).numpy()
+            self.assertTrue(np.allclose(got, want, atol=1e-9), angle_type)
+
+    def test_near_gimbal_split_is_deterministic(self):
+        """A Phi = 180 round trip snaps to (phi1 - phi2, 180, 0), not a noisy split."""
+        T = FrameTransform(rotation=[("z", 25.0)])
+        locked = np.array([[30.0, 180.0, 40.0], [30.0, 0.0, 40.0], [10.0, 1e-9, 5.0]])
+        back = T.inverse().euler(T.euler(locked))
+        self.assertTrue(
+            np.allclose(
+                back,
+                [[350.0, 180.0, 0.0], [70.0, 0.0, 0.0], [15.0, 0.0, 0.0]],
+                atol=1e-9,
+            ),
+            back,
+        )
+        # Equal matrices give identical angles, whatever Euler triple built them.
+        g = euler_to_matrix(torch.tensor([[350.0, 180.0, 0.0]]), "bunge", "degrees")
+        a = matrix_to_euler(g, "bunge", "degrees").numpy()
+        b = T.inverse().euler(T.euler(np.array([[30.0, 180.0, 40.0]])))
+        self.assertTrue(np.allclose(a, b, atol=1e-9))
+
     def test_other_conventions(self):
         """Kocks and Roe go through the same orientation, not angle arithmetic."""
         T = FrameTransform(rotation=ROTATION_SEQUENCE)

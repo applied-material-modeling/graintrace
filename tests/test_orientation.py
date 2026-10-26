@@ -353,7 +353,9 @@ class TestAverageRotationsSymmetry:
             oh.matrix_to_mrp(oh.euler_to_matrix(mixed, "bunge", "degrees")).numpy(),
             "432",
         )
-        assert _miso_mrp(got, want) < 1e-6
+        # The trace-based misorientation is quantised at one ulp of cos(theta),
+        # ~1.2e-6 deg, so 1e-6 sat exactly on the noise floor.
+        assert _miso_mrp(got, want) < 1e-5
 
     def test_symmetry_1_is_unchanged_default(self):
         """Default stays the plain quaternion mean, so direct callers are unaffected."""
