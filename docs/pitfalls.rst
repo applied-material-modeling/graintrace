@@ -21,6 +21,13 @@ seed gives different grains, the same seed is byte-identical. The FF *reconstruc
 :class:`~graintrace.VoronoiMeshBuilder` ``centroid``/``centroidsize`` is data-seeded via
 ``-morphooptiini``, so its seed is inert — grains come from the measured centroids.)
 
+detect_splits on mixed grain sizes
+----------------------------------
+
+No single ``d_tol`` works when grain sizes differ widely: use ``d_tol_mode="radius"``
+rather than inflating ``d_tol``, which chains unrelated neighbours. A NaN or negative
+radius counts as 0 (with a warning); negative tolerances raise ``ValueError``.
+
 Derive the cpfe_base path dynamically
 -------------------------------------
 

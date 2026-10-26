@@ -802,24 +802,11 @@ from graintrace.fragmentation import FragmentationAnalyzer
 res = FragmentationAnalyzer(symmetry="432").detect_splits(
     nodes_a, nodes_b, d_tol=20.0, theta_tol_deg=15.0,
     angle_convention="bunge", angle_type="degrees", adjacency_b=None,
-    d_tol_mode="radius",        # "absolute" (default) | "radius" | "radius_sum" — see below
-    alpha_a=1.0, alpha_b=1.0,   # "radius": d <= max(d_tol, alpha_a*R_a, alpha_b*R_b)
-    alpha=1.0,                  # "radius_sum": d <= alpha*(R_a + R_b)
-    assignment="one_to_one",    # optional Hungarian pairs, ALONGSIDE the lineage view
-    in_overlap_a=None, in_overlap_b=None,   # bool array or column name -> recall denominator
-    n_null=0, seed=None)        # chance links under random B orientations
+    d_tol_mode="radius",      # "absolute" (default) | "radius" | "radius_sum" (uses GrainRadius)
+    assignment="one_to_one",  # + res["one_to_one"]: Hungarian a_id,b_id,miso_deg,dist,cost
+    in_overlap_b=None, n_null=20, seed=0)  # res["recall"] per side; res["null"] chance links
 # res["n_splits"], res["split_correspondences"] (parent_a, children_b, n_children), + merges/births/deaths
-# res["recall"] always; res["one_to_one"] (a_id,b_id,miso_deg,dist,cost) and res["null"] on request
 ```
-**Size-aware gate.** One absolute `d_tol` fails when grain sizes span a wide range or several
-small B grains sit inside one large A grain (FF duplicates across scan layers, NF sub-grains, a
-coarse parent's fragments): the children sit anywhere up to ~the parent's radius from its
-centroid, so a median-sized gate misses them and a largest-sized gate is too loose for the rest.
-`d_tol_mode="radius"`/`"radius_sum"` read `radius_col` (default `GrainRadius`) from BOTH tables
-(missing → raises, not a silent zero gate; a NaN/negative value counts as 0 with one
-`UserWarning`, so that grain falls back to `d_tol`) and **replace the `top_k` query with a ball query
-covering the gate**, so `top_k` is an `"absolute"`-mode knob only and can no longer cap a split's
-child count below the gate.
 `nodes_*` are per-grain tables (`grain_id,X,Y,Z,GrainRadius,Eul0/1/2`). FF supplies them
 directly; **NF/EBSD** reach the SAME detector through `FragmentationAnalyzer.segment`
 (graph/Leiden) + `FragmentationAnalyzer.seg_to_grain_table` (the seg→centroid grain-table bridge —
@@ -1058,26 +1045,14 @@ All on `FragmentationAnalyzer(symmetry="432", ori_cols=…, coord_cols=…)`:
   correctly (default `"1"` = plain mean; no-op on coherent data, but a footgun if left off on data
   that crosses a symmetry boundary).
 - `.detect_splits(nodes_a, nodes_b, d_tol, theta_tol_deg, angle_convention="bunge",
-  angle_type="degrees", top_k=8, adjacency_b=None, d_tol_mode="absolute",
-  alpha_a=1.0, alpha_b=1.0, alpha=1.0, radius_col="GrainRadius", assignment=None,
-  volume_col="volume", in_overlap_a=None, in_overlap_b=None, n_null=0, seed=None)` —
-  `d_tol` at grain scale, `theta_tol_deg` generous (~15°); uses the instance's
-  `symmetry`. `adjacency_b` prunes only when a parent's candidates contain a mutually
-  adjacent pair; with no adjacent pair the best candidate (lowest misorientation, then
-  distance) is kept so the parent matches instead of becoming a death plus N births.
-  `d_tol_mode` picks the gate: `"absolute"` (default, one `d_tol`), `"radius"`
-  (`max(d_tol, alpha_a*R_a, alpha_b*R_b)`; `d_tol` is a floor for tiny grains) or
-  `"radius_sum"` (`alpha*(R_a+R_b)`; `alpha`≈1 is the tangent-sphere criterion). Both
-  radius modes ignore `top_k` and search a ball covering the gate. A NaN/negative
-  radius counts as 0 (one `UserWarning` with the count) so that grain's gate falls back
-  to `d_tol`; a negative/NaN `d_tol`, `theta_tol_deg`, `alpha`, `alpha_a` or `alpha_b`
-  raises `ValueError`.
-  `assignment="one_to_one"` adds a Hungarian assignment over the gated candidates
-  (cost `miso/theta_tol_deg + d/gate`, solved per connected component, components
-  unchanged) in `res["one_to_one"]`. `res["recall"]` is always present: per-side linked
-  fractions, volume-weighted when `volume_col` exists, denominators limited to
-  `in_overlap_*`. `n_null`/`seed` report `mean_links` under random B orientations —
-  an observed count near the null mean means the gate is measuring nothing.
+  angle_type="degrees", top_k=8, adjacency_b=None, d_tol_mode="absolute", alpha_a=1.0,
+  alpha_b=1.0, alpha=1.0, radius_col="GrainRadius", assignment=None, volume_col="volume",
+  in_overlap_a=None, in_overlap_b=None, n_null=0, seed=None)` — `d_tol` at grain scale,
+  `theta_tol_deg` generous (~15°); uses the instance's `symmetry`. `adjacency_b`
+  prunes only when a parent's candidates contain a mutually adjacent pair; with no
+  adjacent pair the best candidate (lowest misorientation, then distance) is kept so
+  the parent matches instead of becoming a death plus N births. Gate options: see
+  `docs/configuration.rst` (fragmentation).
 - Synthetic splits: `tests/synthetic_fragmentation.generate_{ff,nf,ebsd}_split(out_dir,
   n_steps=5, theta_max_deg=12.0, misorientation_tol_deg=5.0, ...)` — the shipped
   `mwe_data/synthetic_split_*` + `ground_truth.json` (test helper, not a package module).
@@ -1404,21 +1379,8 @@ misorientation. Set `d_tol` to grain scale — too large chains distinct neighbo
 one "complex" component. Set `theta_tol_deg` GENEROUS (e.g. 15°): children keep diverging across
 steps, so a tight cutoff misses the split. Different base grains stay separate only because they
 are far in orientation (the misorientation filter), so ensure real grains are well-separated.
-
-**A single `d_tol` has no correct value on mixed grain sizes** — that is a limitation of
-`d_tol_mode="absolute"`, not a tuning failure. A child can sit anywhere up to ~its parent's
-radius from the parent centroid, so with an R=50 parent and sub-grains at 0.8R, `d_tol=10`
-reports 3 births + 1 death where `d_tol_mode="radius"` reports the 1 split with 3 children.
-Switch modes instead of inflating `d_tol`, which chains unrelated neighbours. Two traps: the
-radius modes need `radius_col` in BOTH tables (they raise if it is missing; a NaN or negative
-radius is treated as 0 with a `UserWarning`, so that grain falls back to the `d_tol` floor
-rather than one bad row silently dropping every link), and `top_k` does
-nothing in them (a non-default value warns) — in `"absolute"` mode `top_k`, not `d_tol`, is
-still the binding cap on a split's child count. Validate a gate with `n_null=...`: if
-`null["mean_links"]` is close to `null["observed_links"]`, the gate is admitting chance
-matches, not lineage. Both counts are taken before the `adjacency_b` prune, which the null
-never sees; `null["observed_links_after_adjacency"]` is the post-prune count. Negative (or
-NaN) `d_tol`/`theta_tol_deg`/`alpha*` raise `ValueError` instead of returning no links.
+On mixed grain sizes use `d_tol_mode="radius"` instead of inflating `d_tol`; `top_k` only applies
+in `"absolute"`. NaN/negative radii count as 0 (warns); negative tolerances raise.
 
 ### Reorientation REI: reference step + `ori_rodrigues` is MRP
 `FragmentationAnalyzer.reorientation_from_reference`/`.write_reorientation_field` default

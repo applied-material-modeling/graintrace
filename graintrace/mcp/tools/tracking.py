@@ -154,32 +154,18 @@ def detect_fragmentation(
     theta_tol_deg : max misorientation for a lineage edge (default 15.0; generous).
     symmetry : crystal symmetry (default '432').
     angle_convention / angle_type : 'bunge'/'degrees' (or 'mrp').
-    top_k : nearest B centroids probed per A grain (default 8). Used by
-        d_tol_mode='absolute' only; the radius modes size their own search.
-    d_tol_mode : how the distance gate is sized (default 'absolute').
-        'absolute'   -> one d_tol for every pair (unchanged behavior);
-        'radius'     -> d <= max(d_tol, alpha_a*R_a, alpha_b*R_b);
-        'radius_sum' -> d <= alpha*(R_a + R_b).
-        The radius modes read `radius_col` (default 'GrainRadius') from both tables
-        and widen the candidate search to cover the gate. Use them when grain sizes
-        span a wide range, or when small B grains sit inside one large A grain (FF
-        duplicates across scan layers, NF sub-grains, fragments of a coarse parent).
-    alpha_a / alpha_b : radius multipliers in 'radius' mode (default 1.0).
-    alpha : radius-sum multiplier in 'radius_sum' mode (default 1.0).
-    radius_col : per-grain radius column for the radius modes (default 'GrainRadius').
-    assignment : 'one_to_one' to also run a Hungarian assignment over the gated
-        candidates (written to one_to_one.csv), or None (default) for lineage only.
-    volume_col : per-grain volume column (default 'volume'); when present, that
-        side's recall is also reported volume-weighted.
-    in_overlap_a / in_overlap_b : optional names of boolean columns in nodes_a /
-        nodes_b flagging the grains inside the volume both steps see (default None
-        = every grain counts). Recall is computed over those grains only, so
-        material outside the shared volume is not counted as a miss. Recall
-        fractions are None (not NaN) when a side has no grains to count.
-    n_null / seed : chance trials with uniformly random B orientations (default 0 =
-        skip), reported as null.mean_links against null.observed_links. Both are
-        counted before the optional adjacency prune, so they are comparable;
-        null.observed_links_after_adjacency is the post-prune count.
+    top_k : nearest B centroids probed per A grain (default 8; 'absolute' mode only).
+    d_tol_mode : 'absolute' (default, d <= d_tol), 'radius'
+        (d <= max(d_tol, alpha_a*R_a, alpha_b*R_b)) or 'radius_sum' (d <= alpha*(R_a+R_b));
+        use a radius mode on mixed grain sizes.
+    alpha_a / alpha_b / alpha : radius multipliers (default 1.0).
+    radius_col : radius column for the radius modes (default 'GrainRadius').
+    assignment : 'one_to_one' adds Hungarian pairs (one_to_one.csv); default None.
+    volume_col : volume column (default 'volume') for volume-weighted recall.
+    in_overlap_a / in_overlap_b : boolean column names limiting recall to the shared
+        volume (default None = all grains); empty-side fractions are None.
+    n_null / seed : chance trials with random B orientations (default 0 = skip);
+        compare null.mean_links with null.observed_links.
     """
     # pylint: disable=import-outside-toplevel
     from graintrace.fragmentation import FragmentationAnalyzer
