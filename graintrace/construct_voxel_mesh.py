@@ -101,8 +101,7 @@ class VoxelMeshBuilder:
         "2",
         "-CS",
         "4",
-        "--void_mat",
-        "0",
+        # no --void_mat: mesh_sculpt owns it (--void_mat 1 when the grid has void)
     )
 
     REQUIRED_SCULPT_KEYS = ("psculpt", "epu", "nprocs")

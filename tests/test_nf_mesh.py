@@ -34,6 +34,11 @@ with such a grid.
 
 from __future__ import annotations
 
+import json
+import os
+import warnings
+from pathlib import Path
+
 import numpy as np
 import pytest
 import torch
@@ -148,30 +153,30 @@ def test_write_voxel_exodus_skips_unsegmented_voxels(monkeypatch, tmp_path):
 
 
 # --------------------------------------------------------------------------- #
-# SCULPT post-processing: voxel-edge rescale + contiguous block renumbering
+# SCULPT post-processing: void flag, affine rescale, contiguous block ids
 # --------------------------------------------------------------------------- #
 
+REPO = Path(__file__).resolve().parent.parent
 
-def _physical_grid(labels):
+
+def _physical_grid(labels, h=(10.0, 5.0, 2.0), origin=(100.0, 0.0, 1.0)):
     """A fixed grid over ``labels`` (nx, ny, nz) with anisotropic spacing.
 
-    Centres sit at x = 100 + 10 i, y = 5 j, z = 1 + 2 k, and grain ``g`` carries
-    the Euler triple ``(g, 0, 0)`` so a mapped orientation row names its grain.
+    Grain ``g`` carries the Euler triple ``(g, 0, 0)`` so a mapped orientation
+    row names its grain.
     """
     labels = np.asarray(labels, dtype=np.float64)
-    nx, ny, nz = labels.shape
-    grid = np.zeros((nx, ny, nz, 7))
+    grid = np.zeros((*labels.shape, 7))
     grid[..., 0] = labels
     grid[..., 1] = labels
-    i, j, k = np.meshgrid(np.arange(nx), np.arange(ny), np.arange(nz), indexing="ij")
-    grid[..., 4] = 100.0 + 10.0 * i
-    grid[..., 5] = 5.0 * j
-    grid[..., 6] = 1.0 + 2.0 * k
+    ijk = np.meshgrid(*[np.arange(n) for n in labels.shape], indexing="ij")
+    for a in range(3):
+        grid[..., 4 + a] = origin[a] + h[a] * ijk[a]
     return torch.from_numpy(grid)
 
 
 def _index_grid(labels):
-    """Same labels on unit voxels at i + 0.5, i.e. SCULPT's index-space output."""
+    """``labels`` on unit voxels centred at i + 0.5 (SCULPT's index space)."""
     labels = np.asarray(labels, dtype=np.float64)
     grid = np.zeros((*labels.shape, 7))
     grid[..., 0] = labels
@@ -181,40 +186,77 @@ def _index_grid(labels):
     return torch.from_numpy(grid)
 
 
-def _write_fake_sculpt_output(path, sculpt_labels, block_ids, tmp_path):
-    """An Exodus mesh shaped like SCULPT's: index-space coords, given block ids."""
-    import scipy.io as sio  # pylint: disable=import-outside-toplevel
+def _flag(call, name):
+    return call[call.index(name) + 1] if name in call else None
 
-    mesh.write_voxel_exodus(
-        _index_grid(sculpt_labels), str(path), str(tmp_path / "unused_ori")
+
+class FakeSculpt:
+    """psculpt/epu stand-in that follows SCULPT's measured conventions.
+
+    Measured with CUBIT psculpt on a void-bordered toy grid: material/block ids
+    are the 1-based RANK of each spn value (void present: spn 0 -> 1, grain g ->
+    g + 1; no void: g -> g); ``--void_mat v`` removes the material with id ``v``;
+    coordinates are voxel-INDEX units, 0 at the first voxel edge. ``absorb``
+    maps an spn value to the spn value whose block swallows it, standing in for
+    SCULPT dropping a small grain (which leaves the block ids sparse).
+    """
+
+    def __init__(self, tmp_path, absorb=None):
+        self.tmp_path = tmp_path
+        self.absorb = absorb or {}
+        self.calls = []
+
+    def __call__(self, call, check, cwd, env):  # pylint: disable=unused-argument
+        self.calls.append(list(call))
+        if "-isp" not in call:
+            return  # epu: nothing to concatenate in the stand-in
+        shape = tuple(int(_flag(call, k)) for k in ("-x", "-y", "-z"))
+        spn = np.loadtxt(_flag(call, "-isp")).astype(np.int64).reshape(shape)
+        values = np.unique(spn)
+        rank = {int(v): r + 1 for r, v in enumerate(values)}
+        ids = np.vectorize(rank.get)(spn)
+        for src, dst in self.absorb.items():
+            ids[spn == src] = rank[dst]
+        void_mat = _flag(call, "--void_mat")
+        if void_mat is not None:
+            ids[ids == int(void_mat)] = 0
+        out = f"{cwd}/{_flag(call, '-e')}.e"
+        mesh.write_voxel_exodus(_index_grid(ids), out, str(self.tmp_path / "fake_ori"))
+        import scipy.io as sio  # pylint: disable=import-outside-toplevel
+
+        kept = np.unique(ids[ids > 0]).astype(np.int32)
+        with sio.netcdf_file(out, "a", mmap=False) as f:
+            f.variables["eb_prop1"][:] = kept
+            f.variables["eb_names"][:] = mesh._exodus_char_array(
+                [f"block_{b}" for b in kept]
+            )
+
+    @property
+    def psculpt_call(self):
+        return next(c for c in self.calls if "-isp" in c)
+
+
+CFG = {"launcher": "mpiexec", "psculpt": "psculpt", "epu": "epu", "nprocs": 2}
+
+
+def _run_mesh_sculpt(monkeypatch, tmp_path, data, options=(), absorb=None, **kw):
+    """write_spn + mesh_sculpt with SCULPT stubbed; returns (mesh, map, fake)."""
+    fake = FakeSculpt(tmp_path, absorb)
+    monkeypatch.setattr(mesh.subprocess, "run", fake)
+    mesh.write_spn(
+        data, str(tmp_path / "grid.spn"), str(tmp_path / "grid.ori"), symmetry="1"
     )
-    with sio.netcdf_file(str(path), "a", mmap=False) as f:
-        f.variables["eb_prop1"][:] = np.asarray(block_ids, dtype=np.int32)
-        f.variables["eb_names"][:] = mesh._exodus_char_array(
-            [f"block_{b}" for b in block_ids]
-        )
-
-
-def _run_mesh_sculpt(monkeypatch, tmp_path, data, fake, **kwargs):
-    """Run mesh_sculpt with SCULPT/epu stubbed to drop ``fake`` in place."""
-    import shutil  # pylint: disable=import-outside-toplevel
-
-    def fake_run(call, check, cwd, env):  # pylint: disable=unused-argument
-        if call[0] == "mpiexec":
-            shutil.copy(fake, f"{cwd}/output_mesh.e")
-
-    monkeypatch.setattr(mesh.subprocess, "run", fake_run)
     out = tmp_path / "mesh.e"
     block_map = mesh.mesh_sculpt(
-        {"launcher": "mpiexec", "psculpt": "psculpt", "epu": "epu", "nprocs": 2},
-        [],
+        CFG,
+        list(options),
         str(tmp_path / "grid.spn"),
         data,
         str(out),
         str(tmp_path / "orientations"),
-        **kwargs,
+        **kw,
     )
-    return out, block_map
+    return out, block_map, fake
 
 
 def _read_exodus(path):
@@ -229,34 +271,62 @@ def _read_exodus(path):
     return coords, ids, names
 
 
-def test_mesh_sculpt_renumbers_sparse_block_ids(monkeypatch, tmp_path):
-    """SCULPT dropped a grain, so eb_prop1 is sparse; the CPFE decks need 1..N.
+def _bordered_labels():
+    """Grains 2, 5, 7 (one voxel), 9 inside an asymmetric 2-voxel void border."""
+    labels = np.zeros((10, 8, 3))
+    labels[2:5, 2:5] = 2.0
+    labels[5:8, 2:5] = 5.0
+    labels[2:8, 5:6] = 9.0
+    labels[7, 5, 2] = 7.0
+    return labels
 
-    The grid has grains 2, 5, 7, 9 (merged-grid ids); write_spn renumbers them to
-    spn ids 1, 2, 3, 4, and the one-voxel grain 7 (spn 3) is lost by SCULPT, so
-    the mesh comes back with blocks 1, 2, 4.
+
+class TestSculptVoidOptions:
+    def test_void_forces_void_mat_one(self):
+        with pytest.warns(UserWarning, match="--void_mat 1"):
+            out = mesh.sculpt_void_options(["-A", "7", "--void_mat", "0"], True)
+        assert out == ["-A", "7", "--void_mat", "1"]
+
+    @pytest.mark.parametrize("opts", [["-VM", "1"], ["--void_mat=1"], []])
+    def test_void_mat_one_is_silent(self, opts):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            assert mesh.sculpt_void_options(opts, True) == ["--void_mat", "1"]
+
+    def test_no_void_drops_the_flag(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            assert mesh.sculpt_void_options(["--void_mat", "0", "-S", "2"], False) == [
+                "-S",
+                "2",
+            ]
+        with pytest.warns(UserWarning, match="remove grain 1"):
+            assert mesh.sculpt_void_options(["--void_mat", "1"], False) == []
+
+
+def test_mesh_sculpt_removes_void_and_renumbers_sparse_ids(monkeypatch, tmp_path):
+    """Void present + a grain SCULPT drops: the realistic NF case.
+
+    write_spn renumbers grains 2, 5, 7, 9 to spn 1..4; SCULPT ranks spn 0..4 to
+    materials 1..5, --void_mat 1 removes the void, and the one-voxel grain (spn
+    3, material 4) is absorbed, so the blocks come back as 2, 3, 5.
     """
     import pandas as pd  # pylint: disable=import-outside-toplevel
 
     _stub_average_rotations(monkeypatch)
-    labels = np.full((6, 4, 3), 9.0)
-    labels[:2] = 2.0
-    labels[2:4] = 5.0
-    labels[5, 3, 2] = 7.0
-    data = _physical_grid(labels)
+    data = _physical_grid(_bordered_labels())
     source = data[..., 0].clone().numpy()
-    mesh.write_spn(
-        data, str(tmp_path / "grid.spn"), str(tmp_path / "grid.ori"), symmetry="1"
-    )
-
-    sculpt_labels = data[..., 0].numpy().copy()
-    sculpt_labels[sculpt_labels == 3] = 4  # SCULPT absorbs the tiny grain
-    fake = tmp_path / "fake_sculpt.e"
-    _write_fake_sculpt_output(fake, sculpt_labels, [1, 2, 4], tmp_path)
-
-    out, block_map = _run_mesh_sculpt(
-        monkeypatch, tmp_path, data, fake, source_labels=source
-    )
+    with pytest.warns(UserWarning, match="--void_mat 1"):
+        out, block_map, fake = _run_mesh_sculpt(
+            monkeypatch,
+            tmp_path,
+            data,
+            options=["--void_mat", "0"],
+            absorb={3: 4},
+            source_labels=source,
+        )
+    assert _flag(fake.psculpt_call, "--void_mat") == "1"
+    assert fake.psculpt_call.count("--void_mat") == 1
 
     _, ids, names = _read_exodus(out)
     assert ids.tolist() == [1, 2, 3]
@@ -265,51 +335,60 @@ def test_mesh_sculpt_renumbers_sparse_block_ids(monkeypatch, tmp_path):
     bm = pd.read_csv(block_map)
     assert block_map == str(tmp_path / "mesh_block_map.csv")
     assert bm["block_id"].tolist() == [1, 2, 3]
-    assert bm["sculpt_block_id"].tolist() == [1, 2, 4]
+    assert bm["sculpt_block_id"].tolist() == [2, 3, 5]
     assert bm["grain_id"].tolist() == [1, 2, 4]
     assert bm["source_grain_id"].tolist() == [2, 5, 9]
-    assert bm["n_elem"].tolist() == [24, 24, 24]
+    assert bm["n_elem"].tolist() == [27, 27, 18]
 
     # row k of the orientations CSV is block k + 1; Eul1 encodes the source grain
     ori = np.loadtxt(tmp_path / "orientations.csv", delimiter=",")
     assert ori[:, 0].tolist() == [2.0, 5.0, 9.0]
 
 
-def test_mesh_sculpt_leaves_contiguous_ids_alone(monkeypatch, tmp_path):
-    """Already-contiguous block ids pass through, and the block map is written."""
+def test_mesh_sculpt_without_void_passes_ids_through(monkeypatch, tmp_path):
+    """No void: no flag is passed and SCULPT's ids already equal the spn ids."""
     import pandas as pd  # pylint: disable=import-outside-toplevel
 
     _stub_average_rotations(monkeypatch)
     labels = np.ones((4, 2, 2))
     labels[2:] = 2.0
-    data = _physical_grid(labels)
-    fake = tmp_path / "fake_sculpt.e"
-    _write_fake_sculpt_output(fake, labels, [1, 2], tmp_path)
-
-    out, block_map = _run_mesh_sculpt(monkeypatch, tmp_path, data, fake)
+    out, block_map, fake = _run_mesh_sculpt(
+        monkeypatch, tmp_path, _physical_grid(labels), options=["--void_mat", "0"]
+    )
+    assert "--void_mat" not in fake.psculpt_call
     _, ids, _ = _read_exodus(out)
     assert ids.tolist() == [1, 2]
     bm = pd.read_csv(block_map)
+    assert bm["sculpt_block_id"].tolist() == [1, 2]
     assert bm["grain_id"].tolist() == [1, 2]
     assert "source_grain_id" not in bm.columns
 
 
-def test_mesh_sculpt_rescales_to_voxel_edges(monkeypatch, tmp_path):
-    """The mesh spans the voxel-EDGE box, half a voxel beyond the centres."""
+def test_a_meshed_void_is_an_error(monkeypatch, tmp_path):
+    """If the void is meshed anyway (--void_mat 0 forced), say so, loudly."""
     _stub_average_rotations(monkeypatch)
-    labels = np.ones((6, 4, 3))
-    data = _physical_grid(labels)
-    fake = tmp_path / "fake_sculpt.e"
-    _write_fake_sculpt_output(fake, labels, [1], tmp_path)
+    monkeypatch.setattr(mesh, "sculpt_void_options", lambda opts, has_void: opts)
+    with pytest.raises(ValueError, match="void_mat 1"):
+        _run_mesh_sculpt(
+            monkeypatch,
+            tmp_path,
+            _physical_grid(_bordered_labels()),
+            options=["--void_mat", "0"],
+        )
 
-    out, _ = _run_mesh_sculpt(monkeypatch, tmp_path, data, fake)
+
+def test_mesh_sculpt_maps_index_coordinates_exactly(monkeypatch, tmp_path):
+    """The sample keeps its own voxel-edge box; it is not stretched to the grid's.
+
+    The solid is i 2..7, j 2..5 of a 10 x 8 x 3 grid with spacing (10, 5, 2) and
+    origin (100, 0, 1): edges x 115..175, y 7.5..27.5, z 0..6.
+    """
+    _stub_average_rotations(monkeypatch)
+    data = _physical_grid(_bordered_labels())
+    out, _, _ = _run_mesh_sculpt(monkeypatch, tmp_path, data)
     coords, _, _ = _read_exodus(out)
-    np.testing.assert_allclose(coords.min(0), [95.0, -2.5, 0.0], atol=1e-4)
-    np.testing.assert_allclose(coords.max(0), [155.0, 17.5, 6.0], atol=1e-4)
-
-    lo, hi = mesh.voxel_edge_bounds(data.numpy())
-    np.testing.assert_allclose(coords.min(0), lo, atol=1e-4)
-    np.testing.assert_allclose(coords.max(0), hi, atol=1e-4)
+    np.testing.assert_allclose(coords.min(0), [115.0, 7.5, 0.0], atol=1e-4)
+    np.testing.assert_allclose(coords.max(0), [175.0, 27.5, 6.0], atol=1e-4)
 
 
 @pytest.mark.parametrize("layer_spacing, thickness", [(None, 7.5), (3.0, 3.0)])
@@ -322,13 +401,9 @@ def test_single_layer_mesh_keeps_a_thickness(
     in-plane spacing, (10 + 5) / 2.
     """
     _stub_average_rotations(monkeypatch)
-    labels = np.ones((6, 4, 1))
-    data = _physical_grid(labels)
-    fake = tmp_path / "fake_sculpt.e"
-    _write_fake_sculpt_output(fake, labels, [1], tmp_path)
-
-    out, _ = _run_mesh_sculpt(
-        monkeypatch, tmp_path, data, fake, layer_spacing=layer_spacing
+    data = _physical_grid(np.ones((6, 4, 1)))
+    out, _, _ = _run_mesh_sculpt(
+        monkeypatch, tmp_path, data, layer_spacing=layer_spacing
     )
     coords, _, _ = _read_exodus(out)
     np.testing.assert_allclose(
@@ -350,3 +425,54 @@ def test_voxel_exodus_agrees_with_the_sculpt_extents(monkeypatch, tmp_path, nz):
     np.testing.assert_allclose(coords.min(0), lo, atol=1e-4)
     np.testing.assert_allclose(coords.max(0), hi, atol=1e-4)
     assert hi[2] - lo[2] > 0
+
+
+def _real_sculpt_config():
+    """sculpt_config from $GRAINTRACE_TOOLS_JSON or deploy/tools.json, if usable."""
+    for path in (os.environ.get("GRAINTRACE_TOOLS_JSON"), REPO / "deploy/tools.json"):
+        if path and Path(path).is_file():
+            cfg = json.loads(Path(path).read_text(encoding="utf-8")).get(
+                "sculpt_config"
+            )
+            if cfg and all(Path(cfg.get(k, "")).exists() for k in ("psculpt", "epu")):
+                return cfg
+    return None
+
+
+@pytest.mark.skipif(
+    _real_sculpt_config() is None,
+    reason="needs CUBIT psculpt: set GRAINTRACE_TOOLS_JSON or deploy/tools.json",
+)
+def test_real_sculpt_void_bordered_toy(monkeypatch, tmp_path):
+    """psculpt on a void-bordered asymmetric toy: void removed, ids and box right.
+
+    Solid i 3..16, j 3..11 of a 20 x 20 x 10 grid (h = 4, 4, 5 um): voxel edges
+    x 10..66, y 10..46, z -2.5..47.5. SCULPT smoothing moves the boundary by
+    under ~0.1 voxel.
+    """
+    import pandas as pd  # pylint: disable=import-outside-toplevel
+
+    _stub_average_rotations(monkeypatch)
+    n = (20, 20, 10)
+    i, j, _ = np.meshgrid(*[np.arange(k) for k in n], indexing="ij")
+    inner = (i >= 3) & (i < 17) & (j >= 3) & (j < 12)
+    labels = np.where(inner, 1 + (i >= 10) + 2 * (j >= 7), 0)
+    data = _physical_grid(labels, h=(4.0, 4.0, 5.0), origin=(0.0, 0.0, 0.0))
+    mesh.write_spn(data, str(tmp_path / "t.spn"), str(tmp_path / "t.ori"))
+    monkeypatch.chdir(tmp_path)
+    block_map = mesh.mesh_sculpt(
+        _real_sculpt_config(),
+        ["--void_mat", "1"],
+        str(tmp_path / "t.spn"),
+        data,
+        str(tmp_path / "t.e"),
+        str(tmp_path / "ori"),
+        layer_spacing=5.0,
+    )
+    coords, ids, _ = _read_exodus(tmp_path / "t.e")
+    assert ids.tolist() == [1, 2, 3, 4]
+    assert pd.read_csv(block_map)["grain_id"].tolist() == [1, 2, 3, 4]
+    tol = 0.15 * np.array([4.0, 4.0, 5.0])
+    lo, hi = coords.min(0), coords.max(0)
+    assert (np.abs(lo - [10.0, 10.0, -2.5]) <= tol).all(), lo
+    assert (np.abs(hi - [66.0, 46.0, 47.5]) <= tol).all(), hi
