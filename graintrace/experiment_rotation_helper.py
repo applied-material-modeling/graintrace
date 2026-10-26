@@ -74,6 +74,11 @@ def update_experiments(
     :class:`~graintrace.MaterialCalibration` fit: the output is the FF
     calibration CSV schema described in :doc:`/file-formats`.
 
+    .. note::
+
+       ``orientation_active_convention`` is deprecated and ignored. For a frame
+       change without a reconstruction use :meth:`~graintrace.FrameTransform.apply_ff_csv`.
+
     .. important::
 
        ``reconstruction.ori`` and the grain table are concatenated **by row

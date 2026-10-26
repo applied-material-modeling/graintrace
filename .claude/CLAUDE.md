@@ -152,12 +152,11 @@ builder_ff = VoronoiMeshBuilder(
     auto_fix_bbox=True,
     bbox_fix_mode="remove_points",   # "remove_points" for production; "extend_bounding_box" for debug
     bbox_tolerance=2.5,
-    auto_rotate=False,
+    auto_rotate=False,               # True = align to PCA axes; ignores rotate_angles
     rotate_angles=[0, 0, 8.1],       # sample tilt correction, must match ori_units
     rotate_convention="xyz",
     angle_identifier=["Eul0", "Eul1", "Eul2"],
     orientation_descriptor="euler-bunge",
-    orientation_active_convention=True,
     elastic_strain_identifier=["eKen11","eKen12","eKen13",
                                "eKen21","eKen22","eKen23",
                                "eKen31","eKen32","eKen33"],
@@ -175,6 +174,9 @@ builder_ff.build_voronoi(
     tesr_size=[100, 100, 100],       # voxel grid resolution [nx, ny, nz]
 )
 ```
+
+`rotate()` records its frame change on `builder.frame_transform`; positions, orientations and
+strains all use it. `orientation_active_convention` is deprecated and ignored (warns on `True`).
 
 Key outputs in `output_dir`:
 - `reconstruction_reformatted.csv`: per-voxel grain IDs and orientations (input to the default hex mesher)
@@ -476,20 +478,17 @@ builder_ff = VoronoiMeshBuilder(...)
 builder_ff.build_voronoi(generate_mesh=False, ...)
 # produces: out/FF/reconstruction_cpfe_ee.csv
 
-# 3. Spatially shift FF ee data to align with NF coordinate frame
-ff_translation = (dx, dy, dz)   # determined by experiment geometry
-ee_data = pd.read_csv("out/FF/reconstruction_cpfe_ee.csv", header=None, index_col=False)
-ee_data.iloc[:, 0] += ff_translation[0]
-ee_data.iloc[:, 1] += ff_translation[1]
-ee_data.iloc[:, 2] += ff_translation[2]
-ee_data.to_csv("out/FF/reconstruction_cpfe_ee_shifted.csv", index=False, header=False)
+# 3. Move FF into the NF frame (NF stays native); positions and strains move together
+from graintrace import FrameTransform
+ff_to_nf = FrameTransform(rotation=[("z", 172.3), ("x", 180.0)], translation=(dx, dy, dz))
+ff_to_nf.apply_ee_csv("out/FF/reconstruction_cpfe_ee.csv", "out/FF/reconstruction_cpfe_ee_in_nf.csv")
 
 # 4. Run CPFE using NF mesh, NF orientations, FF initial strain
 sim = CPFESimulation(
     mesh_file="out/NF/mesh.e",
     save_simulation_folder="out/simulation",
     element_order="FIRST",           # NF mesh typically uses FIRST order
-    eeres_file="out/FF/reconstruction_cpfe_ee_shifted.csv",
+    eeres_file="out/FF/reconstruction_cpfe_ee_in_nf.csv",
     ori_file="out/NF/orientations.csv",
     dim=3,
     moose_run_file="/path/to/puma-opt",
@@ -497,6 +496,10 @@ sim = CPFESimulation(
 )
 # ... set_parameters and run as normal
 ```
+
+Move one dataset, never both. Other adapters: `apply_ff_csv`, `apply_pointcloud`, `apply_voxel_grid`.
+FF-in-NF overlap mask for `detect_splits(in_overlap_b=...)`:
+`FrameTransform().inside_voxel_solid(ff_xyz_in_nf, *voxel_solid_from_grid(nf_npy), margin_vox=1)`.
 
 Derive NF bounding box from the saved voxel grid:
 ```python
@@ -917,7 +920,6 @@ update_experiments(
     unit="rad",
     angle_identifier=["Eul0", "Eul1", "Eul2"],
     orientation_descriptor="euler-bunge",
-    orientation_active_convention=True,
     elastic_strain_identifier=["eKen11", ..., "eKen33"],
 )
 ```
@@ -1078,6 +1080,9 @@ use `orientation_type/angle_convention="mrp"` → `mrp_to_matrix`; `simulation_*
 as MRP). Do NOT feed these columns to a tool expecting true Rodrigues. A rename to
 `ori_mrp_*` (aux vars + `initial_conditions*.i` `rodrigues_*` functions + all consumers) is a
 **deferred follow-up** — the blast radius is wide, so it is documented rather than done.
+
+### A frame change rotates orientations on the SAMPLE side (`g' = g Qᵀ`, not `Q g`)
+The wrong side is invisible modulo cubic symmetry; test on a crystal direction (`R c -> Q R c`).
 
 ### `.tess` signed indices: decode with `decode_signed_index`, never `abs()`
 `NeperTessToGraphNN.face_edges` and `.cell_to_faces` hold **signed 0-based** indices, where
@@ -1414,6 +1419,7 @@ microstructure (e.g. the shipped `cpfe_hex_fragmentation/mesh.e` is unrelated to
 ```
 graintrace/
   neper_env.py                 resolve_neper_env     : locate a user-installed NEPER (env var/tools.json/PATH); opt-in ~/.local build
+  frame_transform.py           FrameTransform        : stated frame change for positions/orientations/tensors; FF/ee/point-cloud/voxel adapters; inside_voxel_solid
   construct_voronoi_mesh.py    VoronoiMeshBuilder    : FF HEDM reconstruction (NEPER)
   construct_nf_mesh.py         NearFieldMeshBuilder  : NF HEDM reconstruction (SCULPT)
   construct_voxel_mesh.py      VoxelMeshBuilder      : EBSD/NF voxel meshing (SCULPT)

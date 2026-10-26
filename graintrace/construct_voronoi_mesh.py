@@ -29,10 +29,13 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+import warnings
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+
+from .frame_transform import FrameTransform
 
 
 class VoronoiMeshBuilder:
@@ -85,7 +88,7 @@ class VoronoiMeshBuilder:
             rotate_convention: Euler rotation convention for rotate_angles; only "xyz" is supported.
             angle_identifier: The 3 column names holding the per-grain Euler angles, or None to skip orientation parsing.
             orientation_descriptor: NEPER orientation descriptor for the input angles (e.g. "euler-bunge").
-            orientation_active_convention: If True, treat orientations as the active convention when applying the rotation matrix.
+            orientation_active_convention: Deprecated and ignored (orientations always update on the sample side); True warns.
             unit: Angle/rotation unit, "deg" or "rad"; must match the actual data units.
             elastic_strain_identifier: The 9 column names (row-major) of the per-grain elastic strain tensor, or None to skip strain.
             ori_rotmat_identifier: The 9 column names for the rotated orientation matrix written into self.data; defaults to O11..O33.
@@ -106,8 +109,16 @@ class VoronoiMeshBuilder:
         self.ori_descriptor = orientation_descriptor
         self.angle_id = angle_identifier
         self.rotate_matrix = np.eye(3)
+        self.frame_transform = None
         self.auto_rotate = auto_rotate
-        self.orientation_active_convention = orientation_active_convention
+        if orientation_active_convention:
+            warnings.warn(
+                "orientation_active_convention is deprecated and ignored; the "
+                "sample-side update (g Q^T) is always applied.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        self.orientation_active_convention = False
         self.data = None
         self.elastic_strain_id = elastic_strain_identifier
         self.strain_unit = strain_unit
@@ -305,7 +316,10 @@ class VoronoiMeshBuilder:
         self.rotate()
 
     def rotate(self):
-        """Align data to PCA principal axes (auto_rotate) or apply explicit xyz Euler rotation."""
+        """Align data to PCA principal axes (auto_rotate) or apply explicit xyz Euler rotation.
+
+        The applied change is recorded on ``self.frame_transform`` and ``self.rotate_matrix``.
+        """
 
         if self.data is None:
             raise RuntimeError("No data loaded. Call read_input() first.")
@@ -325,26 +339,27 @@ class VoronoiMeshBuilder:
             mean = np.mean(coords, axis=0)
             centered = coords - mean
 
-            rotated = np.dot(centered, eigenvectors)
-
-            # Ensure right-handed orientation
+            # Sign-align before the handedness fix, or an odd flip count leaves E improper.
+            signs = np.sign(np.diag(eigenvectors))
+            signs[signs == 0] = 1.0
+            eigenvectors = eigenvectors * signs
             if np.linalg.det(eigenvectors) < 0:
-                eigenvectors[:, 2] *= -1
-                rotated = np.dot(centered, eigenvectors)
-
-            # Align PCA axes' signs to global XYZ
-            ref_axis = np.eye(3)
-            signs = np.sign(np.diag(np.dot(eigenvectors.T, ref_axis)))
-            eigenvectors *= signs
+                eigenvectors[:, -1] *= -1
             rotated = np.dot(centered, eigenvectors)
 
             if self.dim == 3:
                 df[["X", "Y", "Z"]] = rotated
+                # (x - mean) @ E applies E^T plus a shift, not E.
+                rotation = eigenvectors.T
+                self.frame_transform = FrameTransform(
+                    rotation=rotation, translation=-rotation @ mean
+                )
+                self.rotate_matrix = rotation
             else:
                 df[["X", "Y"]] = rotated[:, :2]
+                self.rotate_matrix = eigenvectors.T
 
             self.data = df
-            self.rotate_matrix = eigenvectors
             print("Data rotated to align with principal axes.\n")
             return
 
@@ -361,8 +376,9 @@ class VoronoiMeshBuilder:
             rot = R.from_euler("xyz", ang, degrees=False)
             self.rotate_matrix = rot.as_matrix()
             if self.dim == 3:
-                df[["X", "Y", "Z"]] = np.dot(
-                    df[["X", "Y", "Z"]].to_numpy(), self.rotate_matrix.T
+                self.frame_transform = FrameTransform(rotation=self.rotate_matrix)
+                df[["X", "Y", "Z"]] = self.frame_transform.positions(
+                    df[["X", "Y", "Z"]].to_numpy()
                 )
             else:
                 df[["X", "Y"]] = np.dot(
@@ -1006,6 +1022,14 @@ class VoronoiMeshBuilder:
 
         return graph
 
+    def _frame(self) -> FrameTransform:
+        """The applied frame change; rebuilt from ``rotate_matrix`` if ``rotate`` did not set it."""
+        if self.frame_transform is None:
+            self.frame_transform = FrameTransform(
+                rotation=np.asarray(self.rotate_matrix, dtype=float)
+            )
+        return self.frame_transform
+
     def _rewrite_orientations_dat_rotated(self, orientation_path: str):
         """Rewrite orientations.dat (Euler, degrees) in the rotated sample frame.
 
@@ -1014,20 +1038,9 @@ class VoronoiMeshBuilder:
         orientations.dat consumers use, so no NEPER matrix-convention dependency
         enters. ``self.data`` Euler are degrees after ``read_input``.
         """
-        # pylint: disable=import-outside-toplevel  # heavy/optional deps
-        import torch
-
-        from .orientation_helper import euler_to_matrix, matrix_to_euler
-
         convention = self.ori_descriptor.replace("euler-", "")
         euler = self.data[self.angle_id].to_numpy(dtype=float)
-        g0 = euler_to_matrix(torch.tensor(euler), convention, "degrees")
-        Rr = torch.tensor(self.rotate_matrix, dtype=g0.dtype)
-        if self.orientation_active_convention:
-            g_rot = torch.einsum("ij,njk->nik", Rr, g0)  # Rr @ g
-        else:
-            g_rot = torch.einsum("nij,kj->nik", g0, Rr)  # g @ Rr^T
-        new_euler = matrix_to_euler(g_rot, convention, "degrees").numpy()
+        new_euler = self._frame().euler(euler, convention, "degrees")
         self.data[self.angle_id] = new_euler
         np.savetxt(orientation_path, new_euler, fmt="%.10g")
         print(f"Rewrote {orientation_path} in the rotated sample frame.")
@@ -1043,7 +1056,7 @@ class VoronoiMeshBuilder:
         if not os.path.exists(tess_file):
             raise FileNotFoundError(f"Tessellation file not found: {tess_file}")
 
-        transpose = self.orientation_active_convention
+        frame = self._frame()
 
         # Backup file
         backup_path = tess_file + ".bak"
@@ -1094,12 +1107,8 @@ class VoronoiMeshBuilder:
                     "this indicates corrupted .tess file."
                 )
             ori_mats = ori_data.reshape((-1, 3, 3))
-            if transpose:
-                ori_rot = np.array([np.dot(self.rotate_matrix, R) for R in ori_mats])
-            else:
-                ori_rot = np.array(
-                    [np.dot(self.rotate_matrix, R.T).T for R in ori_mats]
-                )
+            # g' = g Q^T in numpy, so the FF build does not import torch.
+            ori_rot = ori_mats @ frame.Q.T
 
         self.data[self.ori_rotmat_id] = ori_rot.reshape(-1, 9)
 
@@ -1119,15 +1128,9 @@ class VoronoiMeshBuilder:
         if self.elastic_strain_id is not None:
             print("\nApply rotation to elastic strain tensors\n")
 
-            strain_tensors = (
-                self.data[self.elastic_strain_id]
-                .to_numpy(dtype=float)
-                .reshape(-1, 3, 3)
-            )
+            strain_tensors = self.data[self.elastic_strain_id].to_numpy(dtype=float)
 
-            # Rotate: e' = R e R^T
-            R = self.rotate_matrix
-            strain_rot = np.array([np.dot(R, np.dot(E, R.T)) for E in strain_tensors])
+            strain_rot = frame.tensors(strain_tensors)
 
             self.data[self.elastic_strain_id] = strain_rot.reshape(-1, 9)
         else:

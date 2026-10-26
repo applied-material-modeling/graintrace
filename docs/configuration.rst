@@ -131,6 +131,40 @@ staticmethods (``gamma_sweep_leiden``, ``pick_gamma_by_percolation``,
 for few-grain or intragranular sub-grain segmentation pass a fixed low ``gamma``
 (~0.1).
 
+FrameTransform
+--------------
+
+A stated specimen-frame change: ``x' = Q (s * x) + t``, ``g' = g Q^T``,
+``e' = Q e Q^T``. graintrace never estimates it.
+
+.. code-block:: python
+
+   from graintrace import FrameTransform
+
+   frame = FrameTransform(
+       rotation=[("z", 172.3), ("x", 180.0), ("y", -0.9)],  # or 3x3 / unit quaternion / rotvec
+       axis_sign=(1, 1, -1),        # +-1 per axis, positions only
+       translation=(12.0, -3.5, 40.0),
+       angle_unit="degrees",        # "degrees" | "radians"
+       sequence="extrinsic",        # "extrinsic" | "intrinsic"
+   )
+   frame.positions(xyz); frame.euler(eul); frame.mrp(p); frame.tensors(eps)
+   frame.inverse(); frame_a @ frame_b; frame.to_json(path)
+
+   # adapters, each also writes <dst>.transform.json
+   frame.apply_ff_csv(src, dst)       # coords, Euler, eKen/eFab, O11..O33
+   frame.apply_ee_csv(src, dst)       # headerless x, y, z + 9 strains
+   frame.apply_pointcloud(src, dst)
+   frame.apply_voxel_grid(src, dst)
+
+   # points (target frame) on a source-frame voxel solid, e.g. for in_overlap masks
+   from graintrace.frame_transform import voxel_solid_from_grid
+   solid, origin, spacing = voxel_solid_from_grid("merged_segmented_fixed_grid.npy")
+   mask = frame.inside_voxel_solid(points, solid, origin, spacing, margin_vox=1)
+
+``rotation`` must be proper; non-orthogonal matrices and non-unit quaternions
+raise. There is no scale term.
+
 WeightConfig
 ------------
 

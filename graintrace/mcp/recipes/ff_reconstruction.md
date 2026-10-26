@@ -49,9 +49,11 @@ returns `needs_input`. See the `experiment_metadata` recipe.
 | `weighted` | `false` | Set `true` for a Laguerre (radius-weighted) tessellation when grain sizes vary a lot. |
 
 ## Sample tilt correction
-If the sample was tilted, set `auto_rotate=true` with
-`rotate_angles=[0,0,<deg>]` and `rotate_convention="xyz"` (angles in the same
-unit as `unit`). Otherwise leave `auto_rotate=false`.
+If the sample was tilted, leave `auto_rotate=false` and set
+`rotate_angles=[0,0,<deg>]` with `rotate_convention="xyz"` (angles in the same
+unit as `unit`). `auto_rotate=true` instead aligns to PCA axes and ignores
+`rotate_angles`. Do not pass the deprecated `orientation_active_convention`.
+For a frame change with no reconstruction, use `graintrace.FrameTransform`.
 
 ## Bounding box hygiene
 Keep `auto_fix_bbox=true`. Use `bbox_fix_mode="remove_points"` for production

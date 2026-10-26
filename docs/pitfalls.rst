@@ -39,6 +39,15 @@ FF output orientations are always in degrees
 ``orientations.dat`` in degrees, regardless of input units. When feeding to
 :class:`~graintrace.VoxelMeshBuilder` afterward, set ``angle_type="degrees"``.
 
+A frame change rotates orientations on the sample side
+------------------------------------------------------
+
+A frame rotation ``Q`` sends orientations to ``g Q^T``, not ``Q g``. The
+crystal-side update is invisible modulo cubic symmetry, so test it on a crystal
+direction (``R c -> Q R c``), not a misorientation.
+:class:`~graintrace.FrameTransform` applies the sample-side rule;
+``VoronoiMeshBuilder``'s ``orientation_active_convention`` is deprecated and ignored.
+
 orientation_tolerance units must match ori_units
 ------------------------------------------------
 
