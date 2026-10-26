@@ -366,7 +366,7 @@ Graph/Leiden is the default and better segmentation for NF/EBSD; **flood over-me
 percolating grains**. Use `method="graph"` (§9 `segmentation_prop`). Recipe (validated
 on Fe-9Cr NF reconstruction), in `FragmentationAnalyzer.segment` + its staticmethods
 `gamma_sweep_leiden`, `pick_gamma`, `absorb_fragments`, `adjacency_remerge`,
-`cluster_orientation_spread`:
+`cluster_orientation_spread`, `cluster_leak_check`:
 
 | Knob | Value | Why |
 |---|---|---|
@@ -377,10 +377,13 @@ on Fe-9Cr NF reconstruction), in `FragmentationAnalyzer.segment` + its staticmet
 | `reduce_edges_topweights_k` | **12** | sparser graph, faster Leiden |
 | in-plane `downsample` | **off** by default; opt in only if the graph is too big | coarsens boundaries, drops grains thinner than the coarsened step; the only benefit is graph size — `(2,2,1)` keeps a quarter of the voxels |
 | Leiden `gamma` | **sweep `[0.5,1,2,4,8]`, `gamma_pick="lowest"`** | the least over-resolved gamma; **no size cap** |
-| `gamma_pick="spread"` | when a leak is suspected | lowest gamma where no cluster's orientation spread exceeds `spread_tol_deg` (default = the cutoff) |
+| `gamma_pick="spread"` | when a leak is suspected | lowest gamma where `cluster_leak_check` flags no cluster at `spread_tol_deg` (default = the cutoff) |
 | `percolation_max_frac` | **`None`** (no cap) | grain size is NOT a percolation signal |
-| absorb (`grain_threshold_final`) | **30 vox** | merge sub-threshold fragments into largest-contact neighbor |
-| adjacency re-merge (`remerge_miso_deg`) | **~3°**, adjacency-ONLY | coalesce Leiden-split fragments; bounded by **misorientation only**, not size |
+| absorb (`grain_threshold_final`) | **30 vox** | merge sub-threshold fragments into a touching neighbor... |
+| absorb gate (`absorb_max_miso_deg`) | **= cutoff (5°)**, default ON | ...only one within this misorientation, the closest; else it stays a small grain. The blind largest-contact rule swallowed every small differently-oriented grain on Fe-9Cr NF (median grain 3.9% voxels >5° off, means off 0.88°) |
+| adjacency re-merge (`remerge_miso_deg`) | **~3°**, adjacency-ONLY, **agglomerative** | closest pair first, union mean recomputed → cannot chain a gradual orientation change (8 blocks 2.5° apart no longer collapse) |
+| `remerge_spread_check` | **ON** (default `"auto"`) | reject a union that fails `cluster_leak_check` |
+| grain-table mean | `seg_to_grain_table(..., trim_miso_deg=5.0)` | drop voxels >5° from the mean and recompute (0.88° → 0.04° on Fe-9Cr) |
 
 **Mask first, then no cap.** The 3%-of-solid percolation cap is **legacy**, not the default.
 It is a symptom fix for segmentation leaking across grain boundaries through air or
@@ -392,11 +395,18 @@ low-confidence and void voxels**, then leave `percolation_max_frac=None`. Pass a
 to reproduce legacy behaviour on unmasked data.
 
 A percolated cluster is defined by containing clearly different orientations, not by being
-large. That is what `cluster_orientation_spread` measures (95th-percentile symmetry-aware
-misorientation of a cluster's points to its own mean) and what `gamma_pick="spread"` selects
-on. Per-gamma diagnostics — cluster count, largest fraction, number flagged — are printed and
-left on `FragmentationAnalyzer.last_gamma_diagnostics`, so the choice is visible. Flood has no
-size cap either: `grain_threshold` is a *minimum* and `stop_count` an iteration budget.
+large. `cluster_leak_check` (what `gamma_pick="spread"` and the re-merge guard use) flags a
+cluster when a sizeable orientation population (>= `min_leak_frac`=2% and >= 10 points) is
+split off from the dominant one by an orientation *gap* (rotation vectors from the mean binned
+at tol/4; dense touching cells = one population) and sits > tol from it, or when its p95 spread
+exceeds 2× tol (backstop). The bare p95 (`cluster_orientation_spread`, kept as a descriptive
+stat) is NOT a leak detector: it misses a 4% leak 30° away (p95 1.9°) and flags a real grain
+with a smooth 12° gradient (5.7°). Per-gamma diagnostics — cluster count, largest fraction,
+number flagged, largest spread — are computed for every gamma in every pick mode, printed, and
+left on `FragmentationAnalyzer.last_gamma_diagnostics`. `percolation_max_frac=0.03` restores the
+WHOLE legacy pipeline bit-exactly (cap pick, blind absorb, fixed-mean union-find re-merge, no
+spread check). Flood has no size cap either: `grain_threshold` is a *minimum* and `stop_count`
+an iteration budget.
 
 **Scale note:** for **intragranular sub-grain** segmentation (§7 sim fragmentation) still pass
 a **fixed low `gamma`** (~0.25 — 0.1 under-splits/leaves grains whole, higher resolves finer
@@ -823,7 +833,9 @@ res = FragmentationAnalyzer(symmetry="432").detect_splits(
 `nodes_*` are per-grain tables (`grain_id,X,Y,Z,GrainRadius,Eul0/1/2`). FF supplies them
 directly; **NF/EBSD** reach the SAME detector through `FragmentationAnalyzer.segment`
 (graph/Leiden) + `FragmentationAnalyzer.seg_to_grain_table` (the seg→centroid grain-table bridge —
-proper quaternion mean orientation, equivalent-sphere radius). Shipped synthetic split datasets
+proper quaternion mean orientation, equivalent-sphere radius). Pass `trim_miso_deg=5.0` for a
+**robust mean**: drop points >5° (symmetry-aware) from the grain mean and recompute
+(`trim_iters=2`); orientation only, centroid/radius keep every point. Default `None` = unchanged. Shipped synthetic split datasets
 `mwe_data/synthetic_split_{ff,nf,ebsd}/` (+ ground truth) come from the test helper
 `tests/synthetic_fragmentation.py`.
 
@@ -1038,22 +1050,39 @@ All on `FragmentationAnalyzer(symmetry="432", ori_cols=…, coord_cols=…)`:
 - `.segment(coords, mrp, misori_tol_deg=5.0, graph_mode="grid"|"knn", gamma=None|<float>,
   gamma_sweep=(0.5,1,2,4,8), rbf_sigma_deg=None, manhattan_radius=2, reduce_topk=12,
   grain_threshold_final=30, remerge_miso_deg=3.0, gamma_pick="lowest"|"spread",
-  spread_tol_deg=None, remerge_spread_check=False, percolation_max_frac=None,
-  verbose=True)` —
+  spread_tol_deg=None, remerge_spread_check="auto", percolation_max_frac=None,
+  absorb_max_miso_deg="auto", verbose=True)` —
   `graph_mode="grid"` for voxel grids (NF/EBSD), `"knn"` for scattered mesh elements.
   `gamma=None` sweeps and picks by `gamma_pick`; **no grain-size cap by default**
   (`percolation_max_frac=None`), so a 10–30%-of-solid grain survives whole. `spread_tol_deg`
-  defaults to `misori_tol_deg`. Pass a fixed low gamma for intragranular sub-grain
-  (~0.25; 0.1 under-splits) data. Diagnostics: `.last_gamma_diagnostics`.
-- `.cluster_orientation_spread(mrp, labels, symmetry="432", q=95.0, max_points=5000, seed=0)`
-  (staticmethod) — per-cluster q-th percentile misorientation to the cluster mean (deg); the
-  physical percolation signal behind `gamma_pick="spread"`.
+  defaults to `misori_tol_deg`. `absorb_max_miso_deg="auto"` = `misori_tol_deg` (gated absorb;
+  `None` = blind), `remerge_spread_check="auto"` = on; both "auto"s go OFF when
+  `percolation_max_frac` is set (legacy pipeline, bit-exact). Pass a fixed low gamma for
+  intragranular sub-grain (~0.25; 0.1 under-splits) data. Diagnostics: `.last_gamma_diagnostics`.
+- `.cluster_orientation_spread(mrp, labels, symmetry="432", q=95.0, max_points=5000, seed=0,
+  background_label=-1)` (staticmethod) — per-cluster q-th percentile misorientation to the
+  cluster mean (deg); descriptive only (vectorised).
+- `.cluster_leak_check(mrp, labels, tol_deg, symmetry="432", min_leak_frac=0.02,
+  min_leak_points=10, q=95.0, backstop_factor=2.0, max_points=5000, seed=0,
+  background_label=-1)` (staticmethod) — the percolation flag: `{label: {flagged, spread_deg,
+  leak_frac, leak_sep_deg}}` (gap-separated population > tol, or p95 > 2×tol).
+- `.absorb_fragments(coords, labels, min_size, k_neighbors=8, max_passes=25, mrp=None,
+  max_miso_deg=None, symmetry="432", background_label=-1)` (staticmethod) — with
+  `mrp`+`max_miso_deg` a fragment joins only the closest-misorientation touching neighbor within
+  tolerance (else stays); without = legacy largest-contact. Vectorised.
+- `.adjacency_remerge(coords, mrp, labels, tol_deg, symmetry="432", k_neighbors=8,
+  percolation_max_frac=None, spread_tol_deg=None, background_label=-1)` (staticmethod) —
+  agglomerative (no chaining) without a cap; with the cap = legacy fixed-mean union-find.
+- Labels `< 0` (unsegmented) are never clusters in absorb/remerge/spread/leak-check and keep
+  their label; `background_label=(0, -1)` on a raw grid (void 0; clusters then numbered from 1).
 - `.pick_gamma(sweep, mode="lowest"|"spread", mrp=None, spread_tol_deg=None, symmetry="432",
   percolation_max_frac=None)` (staticmethod) — cap-free gamma choice; passing
-  `percolation_max_frac` delegates to the legacy `pick_gamma_by_percolation`.
+  `percolation_max_frac` delegates to the legacy `pick_gamma_by_percolation`. With `mrp` +
+  `spread_tol_deg` every row gets `n_flagged`/`max_spread_deg` in every mode.
 - `.grain_fragments(res, step, tol_deg=5.0, block_id_col="block_id", min_fragment_elems=5,
-  min_subgrain_miso_deg=1.0, seg_kwargs={...})` — `seg_kwargs` forwards to `.segment` (e.g.
-  `{"gamma": 0.25}`). Sub-grain segmentation runs with the segmenter's `remerge_miso_deg=0` (OFF:
+  min_subgrain_miso_deg=1.0, seg_kwargs={...})` — `seg_kwargs` forwards to `.segment`; with no
+  `"gamma"` key it uses **`gamma=0.25`** (pass `{"gamma": None}` to sweep), and absorption stays
+  orientation-blind (`absorb_max_miso_deg=None`) so sub-grain results are unchanged. Sub-grain segmentation runs with the segmenter's `remerge_miso_deg=0` (OFF:
   the adjacency re-merge's percolation size-cap is meaningless on one grain's ~100 elements — inert
   or chaining), and instead applies **`min_subgrain_miso_deg`** — the minimum misorientation
   between two sub-grains to keep them distinct. After Leiden, fragments whose (symmetry-aware) mean
@@ -1393,9 +1422,16 @@ rather than fail.
   the cap rather than the data — wrong whenever a real grain is 10–30% of the solid
   (few-grain, small FOV, intragranular sub-grains). **Mask low-confidence/void voxels first**
   so there is no bridge to leak along. If a leak is still suspected use the physical check,
-  `gamma_pick="spread"` (a cluster is percolated when its orientation spread exceeds the
-  cutoff), not a size limit. Pass `percolation_max_frac=0.03` only to reproduce legacy
+  `gamma_pick="spread"` (a cluster is percolated when `cluster_leak_check` finds a
+  gap-separated orientation population beyond the cutoff), not a size limit. Pass `percolation_max_frac=0.03` only to reproduce legacy
   behaviour on unmasked data.
+- **Absorption must be orientation-gated** (default `absorb_max_miso_deg=misori_tol_deg`). The
+  blind largest-contact absorb swallowed every small differently-oriented NF grain and biased
+  grain means (Fe-9Cr: median 0.88° off; `seg_to_grain_table(trim_miso_deg=5)` → 0.04°). Expect
+  more small grains than the legacy pipeline.
+- **The p95 spread is not a leak detector** (misses <5% leaks, flags smooth 12° gradients) —
+  use `cluster_leak_check`. A fixed-mean union-find re-merge chains gradients; the no-cap
+  re-merge is agglomerative + leak-checked.
 - **Sub-grain segmentation still wants a fixed gamma** (~0.25 intragranular; 0.1 under-splits
   — calibrate against the per-element spread) rather than the sweep.
 
@@ -1442,7 +1478,7 @@ graintrace/
   plot_postprocessing.py       plot_*                : Distribution/stress-strain/pole figures/IPF reorientation
   ipf_postprocess.py           IPFProcessor          : IPF coloring on mesh; get_ipf_points/get_ipf_color; add_element_field_to_exodus (per-elem scalar) / add_element_rgb_to_exodus (per-elem RGB)
   ipf_orientation_tracking.py  OrientationTracker : per-entity orientation tracks for IPF reorientation plots (simulation_grain_tracks/simulation_element_tracks/experiment_grain_tracks[_by_id]/compose_tracks)
-  fragmentation.py             FragmentationAnalyzer : reorientation REI criterion (reorientation_from_reference/write_reorientation_field), orientation segmentation + grain-table bridge (segment/seg_to_grain_table), cap-free gamma choice (pick_gamma) + the orientation-spread percolation check (cluster_orientation_spread), sim intragranular fragments (grain_fragments, with min_subgrain_miso_deg merge via merge_fragments_by_misorientation), FF/NF/EBSD cross-step split detection (detect_splits), symmetry-aware mean_orientation_mrp
+  fragmentation.py             FragmentationAnalyzer : reorientation REI criterion (reorientation_from_reference/write_reorientation_field), orientation segmentation + grain-table bridge (segment/seg_to_grain_table), cap-free gamma choice (pick_gamma) + the leak-aware percolation check (cluster_leak_check; descriptive cluster_orientation_spread), orientation-gated absorb_fragments + agglomerative adjacency_remerge, robust trimmed grain mean (seg_to_grain_table trim_miso_deg), sim intragranular fragments (grain_fragments, with min_subgrain_miso_deg merge via merge_fragments_by_misorientation), FF/NF/EBSD cross-step split detection (detect_splits), symmetry-aware mean_orientation_mrp
     (synthetic split datasets are generated by the test helper tests/synthetic_fragmentation.py, not a graintrace module)
   rare_cluster_indicator.py    IdentifyRareClusters  : REI full pipeline
   graph_spatial_cluster.py     GraphSpatialCluster   : Graph segmentation of field data
