@@ -183,6 +183,14 @@ class TestToMic:
         np.testing.assert_allclose(first["Eul1"], np.rad2deg(raw["phi1"]), atol=1e-5)
         assert (first["TriEdgeSize"] == 0.5).all()
 
+    def test_zero_based_phase_is_written_as_phase_one(self, tmp_path):
+        written = _converter(_write_ang(tmp_path / "in", ROWS), tmp_path).to_mic(
+            zstep=1.0
+        )
+        df = pd.read_csv(written[0], skiprows=3, sep=r"\s+")
+        assert (df["PhaseNr"] == 1).all()
+        np.testing.assert_allclose(df["Confidence"], [0.9, 0.4, -1.0, 0.8])
+
     def test_tri_edge_size_and_prefix_override(self, tmp_path):
         written = _converter(FIXTURE_DIR / "layer1.ang", tmp_path).to_mic(
             zstep=1.0, tri_edge_size=3.5, prefix="scan"

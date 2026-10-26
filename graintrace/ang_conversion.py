@@ -172,7 +172,6 @@ class AngConverter:
         out = pd.DataFrame({"x": df["x"].to_numpy(float), "y": df["y"].to_numpy(float)})
         out[["Eul0", "Eul1", "Eul2"]] = euler
         out["CI"] = df["CI"].to_numpy(float)
-        out["phase"] = df["phase"].to_numpy(float)
         return out, header
 
     def to_ebsd_csv(
@@ -205,7 +204,7 @@ class AngConverter:
     ) -> List[Path]:
         """Write one ``.mic`` per layer for NearFieldMeshBuilder.
 
-        ``Confidence`` is the ``.ang`` CI and ``PhaseNr`` its phase. Output names keep
+        ``Confidence`` is the ``.ang`` CI and ``PhaseNr`` is always 1. Output names keep
         any gap in the layer numbering so ``nf_to_pointcloud`` reports it.
 
         Args:
@@ -238,7 +237,7 @@ class AngConverter:
                 layer["Eul1"],
                 layer["Eul2"],
                 layer["CI"],
-                layer["phase"],
+                np.ones(n),
             ]
             out_path = self.save_dir / f"{prefix}{offset + 1}.mic"
             with open(out_path, "w", encoding="utf-8") as fh:
