@@ -108,6 +108,21 @@ class TestToEbsdCsv:
         np.testing.assert_allclose(rad["Eul0"], raw["phi1"])
         np.testing.assert_allclose(deg["Eul0"], np.rad2deg(raw["phi1"]))
 
+    def test_degrees_file_read_as_radians_raises(self, tmp_path):
+        rows = [(r[0] * 100, *r[1:]) for r in ROWS]  # phi1 up to 110: not radians
+        path = _write_ang(tmp_path / "in", rows)
+        with pytest.raises(ValueError, match="cannot be radians"):
+            _converter(path, tmp_path).to_ebsd_csv(zstep=1.0)
+        out = _converter(path, tmp_path, angle_type="degrees").to_ebsd_csv(zstep=1.0)
+        np.testing.assert_allclose(pd.read_csv(out)["Eul0"], [10.0, 10.0, 110.0, 110.0])
+
+    def test_unindexed_four_pi_marker_is_accepted(self, tmp_path):
+        rows = ROWS + [(4 * np.pi, 4 * np.pi, 4 * np.pi, 1.0, 1.0, 0.0, -1.0, 0.0)]
+        out = _converter(_write_ang(tmp_path / "in", rows), tmp_path).to_ebsd_csv(
+            zstep=1.0
+        )
+        assert len(pd.read_csv(out)) == len(rows)
+
     def test_confidence_filter(self, tmp_path):
         path = _write_ang(tmp_path / "in", ROWS)
         out = _converter(path, tmp_path, confidence_min=0.0).to_ebsd_csv(zstep=1.0)

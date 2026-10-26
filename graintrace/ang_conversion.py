@@ -47,6 +47,9 @@ ANGLE_TYPES = ("radians", "degrees")
 
 _MIC_HEADER = "%OrientationRowNr\tNrMatches\tRunTime\tX\tY\tTriEdgeSize\tUpDown\tEul1\tEul2\tEul3\tConfidence\tPhaseNr"
 
+# TSL flags unindexed points with Euler angles of 4*pi; anything larger is not radians.
+_MAX_RADIANS = 4.0 * np.pi + 1e-3
+
 
 def _check_unit(name: str, value: str) -> str:
     """Return ``value`` if it is one of :data:`ANGLE_TYPES`, else raise ``ValueError``."""
@@ -156,6 +159,10 @@ class AngConverter:
         """Read one layer, apply the CI filter and convert the angles to the output unit."""
         df, header = read_ang(path)
         euler = df[["phi1", "PHI", "phi2"]].to_numpy(dtype=float)
+        if self.angle_type == "radians" and np.abs(euler).max() > _MAX_RADIANS:
+            raise ValueError(
+                f"{path}: Euler angles up to {np.abs(euler).max():.1f} cannot be radians; pass angle_type='degrees'"
+            )
         if self.confidence_min is not None:
             keep = df["CI"].to_numpy() >= self.confidence_min
             df, euler = df[keep], euler[keep]
