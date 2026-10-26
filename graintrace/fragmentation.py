@@ -34,11 +34,6 @@ capabilities that share the same crystal symmetry and column conventions:
   (:meth:`FragmentationAnalyzer.grain_fragments`) and experiment grain splits
   across load steps (:meth:`FragmentationAnalyzer.detect_splits`).
 
-The segmenter uses a fixed broad RBF sigma (``sigma_auto`` collapses on
-near-identical intra-grain edges and shatters grains), a hard misorientation edge
-cutoff, gamma chosen by percolation, then fragment absorption and an
-adjacency-only re-merge.
-
 Heavy dependencies (torch, neml2, scipy, networkit via ``GraphSpatialCluster``)
 are imported lazily inside the methods.
 """
@@ -70,35 +65,6 @@ def _pair_misorientation_deg(
     return float(misorientation_matrix(ra, rb, symmetry, "degrees").item())
 
 
-def _knn_cluster_adjacency(
-    coords: np.ndarray, labels: np.ndarray, k_neighbors: int
-) -> Dict[Tuple[int, int], int]:
-    """Adjacent (touching) cluster-label pairs and their contact counts, via kNN.
-
-    Two clusters are adjacent when a point of one is among the ``k_neighbors``
-    nearest neighbours of a point of the other. Works for both voxel grids and
-    scattered mesh element centroids (no regular-grid assumption).
-    """
-    # pylint: disable=import-outside-toplevel
-    from scipy.spatial import cKDTree
-
-    tree = cKDTree(coords)
-    kq = min(k_neighbors + 1, len(coords))
-    _, idx = tree.query(coords, k=kq)
-    idx = np.atleast_2d(idx)
-
-    contacts: Dict[Tuple[int, int], int] = {}
-    for i in range(coords.shape[0]):
-        li = labels[i]
-        for j in idx[i, 1:]:
-            lj = labels[j]
-            if li == lj:
-                continue
-            key = (int(min(li, lj)), int(max(li, lj)))
-            contacts[key] = contacts.get(key, 0) + 1
-    return contacts
-
-
 def _as_label_set(background_label: Union[int, Iterable[int]]) -> set:
     """Normalise a background-label argument to a set of ints.
 
@@ -121,6 +87,337 @@ def _as_label_set(background_label: Union[int, Iterable[int]]) -> set:
             "background_label must be an int or an iterable of ints, got "
             f"{type(background_label).__name__}"
         ) from exc
+
+
+def _knn_indices(coords: np.ndarray, k_neighbors: int) -> np.ndarray:
+    """``(N, k+1)`` kNN indices (self first) used to measure cluster contact."""
+    # pylint: disable=import-outside-toplevel
+    from scipy.spatial import cKDTree
+
+    tree = cKDTree(coords)
+    kq = min(k_neighbors + 1, len(coords))
+    _, idx = tree.query(coords, k=kq)
+    return np.atleast_2d(idx).reshape(len(coords), -1)
+
+
+def _contact_pairs(
+    nbr_idx: np.ndarray, labels: np.ndarray, ignore: Optional[np.ndarray] = None
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Touching label pairs ``(P, 2)`` (``a < b``) and their contact counts.
+
+    Pairs keep the first-appearance order of a per-point scan, which legacy
+    tie-breaks depend on. ``ignore``-flagged points never form a contact.
+    """
+    li = labels[:, None]
+    lj = labels[nbr_idx[:, 1:]]
+    valid = li != lj
+    if ignore is not None:
+        valid &= ~ignore[:, None]
+        valid &= ~ignore[nbr_idx[:, 1:]]
+    a = np.minimum(li, lj)[valid].astype(np.int64)
+    b = np.maximum(li, lj)[valid].astype(np.int64)
+    if a.size == 0:
+        return np.zeros((0, 2), dtype=np.int64), np.zeros(0, dtype=np.int64)
+    off = int(min(a.min(), 0))
+    span = int(b.max()) - off + 1
+    key = (a - off) * span + (b - off)
+    ukey, first, counts = np.unique(key, return_index=True, return_counts=True)
+    order = np.argsort(first, kind="stable")
+    ukey, counts = ukey[order], counts[order]
+    pairs = np.stack([ukey // span + off, ukey % span + off], axis=1)
+    return pairs.astype(np.int64), counts.astype(np.int64)
+
+
+def _knn_cluster_adjacency(
+    coords: np.ndarray,
+    labels: np.ndarray,
+    k_neighbors: int,
+    ignore: Optional[np.ndarray] = None,
+    nbr_idx: Optional[np.ndarray] = None,
+) -> Dict[Tuple[int, int], int]:
+    """Adjacent cluster-label pairs and their kNN contact counts.
+
+    Two clusters are adjacent when a point of one is among the ``k_neighbors``
+    nearest neighbours of a point of the other; works for grids and scattered points.
+    """
+    if nbr_idx is None:
+        nbr_idx = _knn_indices(coords, k_neighbors)
+    pairs, counts = _contact_pairs(nbr_idx, np.asarray(labels), ignore)
+    return {(int(a), int(b)): int(n) for (a, b), n in zip(pairs, counts)}
+
+
+def _ignored_mask(
+    labels: np.ndarray, background_label: Union[int, Iterable[int], None]
+) -> np.ndarray:
+    """Points that are not part of any cluster: every label ``< 0`` plus the
+    ``background_label`` set (e.g. raw-grid void ``0``)."""
+    mask = labels < 0
+    if background_label is not None:
+        extra = [v for v in _as_label_set(background_label) if v >= 0]
+        if extra:
+            mask |= np.isin(labels, extra)
+    return mask
+
+
+def _relabel_contiguous(labels: np.ndarray, ignore: np.ndarray) -> np.ndarray:
+    """Relabel non-ignored clusters contiguously from 0, skipping ignored values."""
+    out = labels.astype(np.int64).copy()
+    if not ignore.any():
+        return np.unique(out, return_inverse=True)[1].astype(np.int64).reshape(-1)
+    keep = ~ignore
+    uniq, inv = np.unique(out[keep], return_inverse=True)
+    taken = set(int(v) for v in np.unique(out[ignore]) if v >= 0)
+    ids = [i for i in range(len(uniq) + len(taken)) if i not in taken][: len(uniq)]
+    out[keep] = np.asarray(ids, dtype=np.int64)[inv.reshape(-1)]
+    return out
+
+
+_FOLD_CHUNK = 50_000
+
+
+def _symmetry_ops_np(symmetry: str) -> np.ndarray:
+    """Crystal symmetry operators as a ``(nops, 3, 3)`` numpy array."""
+    # pylint: disable=import-outside-toplevel
+    from .orientation_helper import symmetry_operators
+
+    return symmetry_operators(symmetry).cpu().numpy().astype(np.float64)
+
+
+def _mrp_to_matrix_np(mrp: np.ndarray) -> np.ndarray:
+    """neml2 MRP ``(N, 3)`` -> rotation matrices ``(N, 3, 3)`` (numpy)."""
+    # pylint: disable=import-outside-toplevel
+    import torch
+
+    from .orientation_helper import mrp_to_matrix
+
+    tens = torch.as_tensor(np.asarray(mrp, dtype=np.float64).reshape(-1, 3))
+    return mrp_to_matrix(tens).cpu().numpy().reshape(-1, 3, 3)
+
+
+def _matrix_to_quat_np(rmat: np.ndarray) -> np.ndarray:
+    """Rotation matrices ``(N, 3, 3)`` -> scalar-first quaternions ``(N, 4)``."""
+    # pylint: disable=import-outside-toplevel
+    import torch
+
+    from .orientation_helper import matrix_to_quat
+
+    return matrix_to_quat(torch.as_tensor(rmat)).cpu().numpy().reshape(-1, 4)
+
+
+def _quat_to_matrix_np(q: np.ndarray) -> np.ndarray:
+    """Unit quaternions ``(..., 4)`` (w, x, y, z) -> matrices, neml2 convention."""
+    w, x, y, z = (q[..., i] for i in range(4))
+    return np.stack(
+        [
+            np.stack(
+                [1 - 2 * (y * y + z * z), 2 * (x * y - w * z), 2 * (x * z + w * y)], -1
+            ),
+            np.stack(
+                [2 * (x * y + w * z), 1 - 2 * (x * x + z * z), 2 * (y * z - w * x)], -1
+            ),
+            np.stack(
+                [2 * (x * z - w * y), 2 * (y * z + w * x), 1 - 2 * (x * x + y * y)], -1
+            ),
+        ],
+        -2,
+    )
+
+
+def _left_quat_matrix(q: np.ndarray) -> np.ndarray:
+    """``L(q)`` with ``q (x) p == L(q) @ p`` (Hamilton product, scalar first).
+
+    Folding a cluster by symmetry operator ``S`` maps its moments to ``L M L^T``.
+    """
+    w, x, y, z = q
+    return np.array(
+        [[w, -x, -y, -z], [x, w, -z, y], [y, z, w, -x], [z, -y, x, w]], dtype=float
+    )
+
+
+def _fold_to_reference(
+    rmat: np.ndarray, ref: np.ndarray, ops: np.ndarray
+) -> np.ndarray:
+    """Fold each ``rmat[i]`` to the variant ``ops[k] @ rmat[i]`` closest to ``ref[i]``."""
+    # sum_ij ref_ij (O_k r)_ij == sum_il O_kil (r ref^T)_li: one (n,9)x(9,k) GEMM
+    ops_flat = np.ascontiguousarray(np.swapaxes(ops, 1, 2)).reshape(len(ops), 9).T
+    out = np.empty_like(rmat)
+    for s in range(0, len(rmat), _FOLD_CHUNK):
+        r = rmat[s : s + _FOLD_CHUNK]
+        prod = np.matmul(r, np.swapaxes(ref[s : s + _FOLD_CHUNK], -1, -2))
+        best = np.argmax(prod.reshape(len(r), 9) @ ops_flat, axis=1)
+        out[s : s + _FOLD_CHUNK] = np.matmul(ops[best], r)
+    return out
+
+
+def _cluster_moments(
+    rmat: np.ndarray, inv: np.ndarray, n_clusters: int, ops: np.ndarray
+) -> np.ndarray:
+    """Per-cluster quaternion moments ``M_k = sum q q^T`` ``(K, 4, 4)``.
+
+    Points are folded to their cluster's first point, as in
+    :meth:`FragmentationAnalyzer.mean_orientation_mrp`.
+    """
+    _, first = np.unique(inv, return_index=True)
+    folded = _fold_to_reference(rmat, rmat[first][inv], ops)
+    q = _matrix_to_quat_np(folded)
+    mom = np.zeros((n_clusters, 4, 4))
+    for i in range(4):
+        for j in range(i, 4):
+            col = np.bincount(inv, weights=q[:, i] * q[:, j], minlength=n_clusters)
+            mom[:, i, j] = col
+            mom[:, j, i] = col
+    return mom
+
+
+def _moments_mean_matrix(mom: np.ndarray) -> np.ndarray:
+    """Mean rotation matrices from moment matrices (Markley top eigenvector)."""
+    _, vecs = np.linalg.eigh(mom)
+    return _quat_to_matrix_np(vecs[..., -1])
+
+
+def _sym_miso_deg(ra: np.ndarray, rb: np.ndarray, ops: np.ndarray) -> np.ndarray:
+    """Symmetry-reduced misorientation (deg) between row-aligned matrix stacks."""
+    dr = np.matmul(ra, np.swapaxes(rb, -1, -2))
+    tr = np.einsum("kij,nji->nk", ops, dr).max(axis=1)
+    return np.rad2deg(np.arccos(np.clip((tr - 1.0) / 2.0, -1.0, 1.0)))
+
+
+def _rotation_vector_deg(rmat: np.ndarray) -> np.ndarray:
+    """Rotation vectors (axis * angle, degrees) of ``(N, 3, 3)`` matrices (< 180 deg)."""
+    tr = np.trace(rmat, axis1=-2, axis2=-1)
+    theta = np.arccos(np.clip((tr - 1.0) / 2.0, -1.0, 1.0))
+    axis = np.stack(
+        [
+            rmat[:, 2, 1] - rmat[:, 1, 2],
+            rmat[:, 0, 2] - rmat[:, 2, 0],
+            rmat[:, 1, 0] - rmat[:, 0, 1],
+        ],
+        axis=1,
+    )
+    sin = np.sin(theta)
+    scale = np.where(sin > 1e-12, theta / np.maximum(2.0 * sin, 1e-300), 0.5)
+    return np.rad2deg(axis * scale[:, None])
+
+
+def _cluster_tangent(
+    mrp: np.ndarray, inv: np.ndarray, n_clusters: int, ops: np.ndarray
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Cluster mean matrices ``(K, 3, 3)`` and per-point rotation vectors (deg) from them."""
+    rmat = _mrp_to_matrix_np(mrp)
+    mean_r = _moments_mean_matrix(_cluster_moments(rmat, inv, n_clusters, ops))
+    ref = mean_r[inv]
+    folded = _fold_to_reference(rmat, ref, ops)
+    return mean_r, _rotation_vector_deg(np.matmul(folded, np.swapaxes(ref, -1, -2)))
+
+
+def _group_offsets(inv: np.ndarray, n_clusters: int) -> Tuple[np.ndarray, np.ndarray]:
+    """Counts and start offsets of each cluster in a ``inv``-sorted array."""
+    counts = np.bincount(inv, minlength=n_clusters)
+    return counts, np.cumsum(counts) - counts
+
+
+def _group_percentile(
+    values: np.ndarray, inv: np.ndarray, n_clusters: int, q: float
+) -> np.ndarray:
+    """Per-cluster ``q``-th percentile (``np.percentile`` linear rule), vectorised."""
+    order = np.lexsort((values, inv))
+    sv = values[order]
+    counts, starts = _group_offsets(inv, n_clusters)
+    pos = np.maximum(counts - 1, 0) * (q / 100.0)
+    lo = np.floor(pos).astype(np.int64)
+    hi = np.minimum(lo + 1, np.maximum(counts - 1, 0))
+    frac = pos - lo
+    out = np.zeros(n_clusters)
+    has = counts > 0
+    out[has] = (
+        sv[starts[has] + lo[has]] * (1.0 - frac[has])
+        + sv[starts[has] + hi[has]] * frac[has]
+    )
+    return out
+
+
+def _subsample_per_cluster(
+    inv: np.ndarray, max_points: int, rng: np.random.Generator
+) -> np.ndarray:
+    """Sorted point indices keeping at most ``max_points`` random points per cluster."""
+    n = len(inv)
+    if not max_points:
+        return np.arange(n)
+    order = np.lexsort((rng.random(n), inv))
+    sorted_inv = inv[order]
+    rank = np.arange(n) - np.searchsorted(sorted_inv, sorted_inv, side="left")
+    return np.sort(order[rank < max_points])
+
+
+def _separated_populations(
+    vecs: np.ndarray, tol_deg: float, min_size: int, min_cell_points: int = 2
+) -> Tuple[int, float]:
+    """Points in, and separation of, gap-separated orientation populations.
+
+    Tangent vectors are binned on a ``tol_deg / 4`` grid; touching cells with at
+    least ``min_cell_points`` points form a population. A population of
+    ``min_size`` or more points whose centroid is over ``tol_deg`` from the largest
+    one is a leak.
+
+    Returns:
+        ``(n_leaked_points, max_separation_deg)``.
+    """
+    # pylint: disable=import-outside-toplevel
+    from scipy import ndimage
+
+    h = tol_deg / 4.0
+    lo = vecs.min(axis=0)
+    span = vecs.max(axis=0) - lo
+    while np.prod(np.floor(span / h) + 1.0) > 8e6:
+        h *= 2.0
+    cell = np.floor((vecs - lo) / h).astype(np.int64)
+    dims = tuple(int(v) for v in cell.max(axis=0) + 1)
+    flat = np.ravel_multi_index(tuple(cell.T), dims)
+    dense = (
+        np.bincount(flat, minlength=int(np.prod(dims))) >= min_cell_points
+    ).reshape(dims)
+    comp_grid, n_comp = ndimage.label(dense, structure=np.ones((3, 3, 3)))
+    if n_comp < 2:
+        return 0, 0.0
+    comp = comp_grid.reshape(-1)[flat]
+    sizes = np.bincount(comp, minlength=n_comp + 1)
+    sizes[0] = 0
+    main = int(np.argmax(sizes))
+    cent = (
+        np.stack(
+            [
+                np.bincount(comp, weights=vecs[:, i], minlength=n_comp + 1)
+                for i in range(3)
+            ],
+            axis=1,
+        )
+        / np.maximum(sizes, 1)[:, None]
+    )
+    sep = np.linalg.norm(cent - cent[main], axis=1)
+    leak = (sizes >= min_size) & (sep > tol_deg)
+    leak[0] = False
+    leak[main] = False
+    if not leak.any():
+        return 0, 0.0
+    return int(sizes[leak].sum()), float(sep[leak].max())
+
+
+def _cluster_stats(mrp, labels, symmetry, q, max_points, seed, background_label):
+    """Shared engine: (labels, tangent vecs, cluster index, spread, counts)."""
+    mrp = np.asarray(mrp, dtype=float).reshape(-1, 3)
+    labels = np.asarray(labels, dtype=np.int64).reshape(-1)
+    keep = np.flatnonzero(~_ignored_mask(labels, background_label))
+    if keep.size == 0:
+        return None
+    uniq, inv = np.unique(labels[keep], return_inverse=True)
+    inv = inv.reshape(-1)
+    sub = _subsample_per_cluster(inv, max_points, np.random.default_rng(seed))
+    inv = inv[sub]
+    _, vecs = _cluster_tangent(
+        mrp[keep[sub]], inv, len(uniq), _symmetry_ops_np(symmetry)
+    )
+    spread = _group_percentile(np.linalg.norm(vecs, axis=1), inv, len(uniq), q)
+    return uniq, vecs, inv, spread, np.bincount(inv, minlength=len(uniq))
 
 
 def _voxel_volume(coords: np.ndarray) -> float:
@@ -426,6 +723,8 @@ class FragmentationAnalyzer:
         self.symmetry = symmetry
         self.ori_cols = tuple(ori_cols)
         self.coord_cols = tuple(coord_cols)
+        #: per-gamma diagnostics from the most recent :meth:`segment` sweep
+        self.last_gamma_diagnostics: List[dict] = []
 
     # ----------------------------------------------------------------------- #
     # Reorientation from a reference step
@@ -576,6 +875,116 @@ class FragmentationAnalyzer:
         return matrix_to_mrp(mean_r).cpu().numpy().reshape(3)
 
     @staticmethod
+    def cluster_orientation_spread(
+        mrp: np.ndarray,
+        labels: np.ndarray,
+        symmetry: str = "432",
+        q: float = 95.0,
+        max_points: int = 5000,
+        seed: int = 0,
+        background_label: Union[int, Iterable[int], None] = -1,
+    ) -> Dict[int, float]:
+        """Per-cluster ``q``-th percentile misorientation (deg) of points to the mean.
+
+        Descriptive only; use :meth:`cluster_leak_check` to flag percolation.
+
+        Args:
+            mrp: ``(N, 3)`` neml2 MRP orientations.
+            labels: ``(N,)`` integer cluster labels.
+            symmetry: crystal symmetry (orbifold notation).
+            q: percentile.
+            max_points: per-cluster random subsample size; ``0`` uses all points.
+            seed: RNG seed for the subsampling.
+            background_label: label(s) to skip in addition to all negative labels.
+
+        Returns:
+            ``{label: spread_deg}`` per cluster.
+        """
+        stats = _cluster_stats(
+            mrp, labels, symmetry, q, max_points, seed, background_label
+        )
+        if stats is None:
+            return {}
+        uniq, _, _, spread, counts = stats
+        return {
+            int(u): (float(s) if c >= 2 else 0.0)
+            for u, s, c in zip(uniq, spread, counts)
+        }
+
+    @staticmethod
+    def cluster_leak_check(
+        mrp: np.ndarray,
+        labels: np.ndarray,
+        tol_deg: float,
+        symmetry: str = "432",
+        min_leak_frac: float = 0.02,
+        min_leak_points: int = 10,
+        q: float = 95.0,
+        backstop_factor: float = 2.0,
+        max_points: int = 5000,
+        seed: int = 0,
+        background_label: Union[int, Iterable[int], None] = -1,
+    ) -> Dict[int, Dict[str, Any]]:
+        """Flag clusters that leaked across a grain boundary.
+
+        A cluster is flagged when a population of at least ``min_leak_frac`` and
+        ``min_leak_points`` of its points is separated from the dominant one by an
+        orientation gap and lies more than ``tol_deg`` away, or when its ``q``-th
+        percentile spread exceeds ``backstop_factor * tol_deg``. Gap separation, unlike
+        a spread percentile, catches a small leak without flagging a smooth
+        intragranular gradient.
+
+        Args:
+            mrp: ``(N, 3)`` neml2 MRP orientations.
+            labels: ``(N,)`` integer cluster labels.
+            tol_deg: segmentation misorientation cutoff (degrees).
+            symmetry: crystal symmetry (orbifold notation).
+            min_leak_frac: minimum fraction of the cluster in a leaked population.
+            min_leak_points: minimum number of points in a leaked population.
+            q: percentile for the reported spread and the backstop.
+            backstop_factor: spread backstop as a multiple of ``tol_deg``; ``None`` disables it.
+            max_points: per-cluster random subsample size; ``0`` uses all points.
+            seed: RNG seed for the subsampling.
+            background_label: label(s) to skip in addition to all negative labels.
+
+        Returns:
+            ``{label: {"flagged", "spread_deg", "leak_frac", "leak_sep_deg"}}``.
+        """
+        stats = _cluster_stats(
+            mrp, labels, symmetry, q, max_points, seed, background_label
+        )
+        if stats is None:
+            return {}
+        uniq, vecs, inv, spread, counts = stats
+        dist = np.linalg.norm(vecs, axis=1)
+        max_dist = np.zeros(len(uniq))
+        np.maximum.at(max_dist, inv, dist)
+        order = np.argsort(inv, kind="stable")
+        _, starts = _group_offsets(inv, len(uniq))
+        backstop = (
+            np.inf
+            if backstop_factor is None
+            else float(backstop_factor) * float(tol_deg)
+        )
+        out: Dict[int, Dict[str, Any]] = {}
+        for c, lab in enumerate(uniq):
+            n_c = int(counts[c])
+            sp = float(spread[c]) if n_c >= 2 else 0.0
+            n_leak, sep = 0, 0.0
+            min_size = max(int(min_leak_points), int(np.ceil(min_leak_frac * n_c)))
+            # cheap reject: a leak needs >= 2*min_size points and a point beyond tol/2
+            if n_c >= 2 * min_size and max_dist[c] > tol_deg / 2.0:
+                sel = order[starts[c] : starts[c] + n_c]
+                n_leak, sep = _separated_populations(vecs[sel], tol_deg, min_size)
+            out[int(lab)] = {
+                "flagged": bool(n_leak > 0 or sp > backstop),
+                "spread_deg": sp,
+                "leak_frac": float(n_leak / n_c) if n_c else 0.0,
+                "leak_sep_deg": float(sep),
+            }
+        return out
+
+    @staticmethod
     def merge_fragments_by_misorientation(
         mrp: np.ndarray,
         labels: np.ndarray,
@@ -649,60 +1058,122 @@ class FragmentationAnalyzer:
         min_size: int,
         k_neighbors: int = 8,
         max_passes: int = 25,
+        mrp: Optional[np.ndarray] = None,
+        max_miso_deg: Optional[float] = None,
+        symmetry: str = "432",
+        background_label: Union[int, Iterable[int], None] = -1,
     ) -> np.ndarray:
-        """Absorb sub-``min_size`` clusters into their largest-contact neighbour.
+        """Absorb sub-``min_size`` clusters into a touching neighbour.
 
-        Uses kNN contact counts for adjacency, so it works for any point set (voxel
-        grids or scattered mesh centroids). Iterates until no sub-``min_size``
-        cluster remains (or no further merge is possible), then relabels
-        contiguously from 0.
+        Without the gate, a small cluster joins its largest-contact neighbour (legacy).
+        With ``mrp`` and ``max_miso_deg``, it joins the closest-misorientation
+        neighbour within ``max_miso_deg``, or stays as it is.
 
         Args:
             coords: ``(N, 3)`` point coordinates.
             labels: ``(N,)`` integer cluster labels.
             min_size: clusters with fewer points are absorbed.
-            k_neighbors: neighbours per point used to measure cluster contact.
-            max_passes: safety cap on absorption passes.
+            k_neighbors: neighbours per point used to measure contact.
+            max_passes: maximum number of absorption passes.
+            mrp: ``(N, 3)`` neml2 MRP orientations; enables the gate.
+            max_miso_deg: gate tolerance (degrees); ``None`` disables the gate.
+            symmetry: crystal symmetry (orbifold notation).
+            background_label: label(s) left untouched in addition to all negative
+                labels; use ``(0, -1)`` for a raw voxel grid.
 
         Returns:
-            ``(N,)`` contiguous 0-based labels.
+            ``(N,)`` labels, with clusters contiguous from 0 and ignored labels unchanged.
         """
-        labels = np.asarray(labels, dtype=np.int64).copy()
+        labels = np.asarray(labels, dtype=np.int64).reshape(-1).copy()
+        ignore = _ignored_mask(labels, background_label)
+        gated = mrp is not None and max_miso_deg is not None
+        nbr_idx = _knn_indices(np.asarray(coords, dtype=float), k_neighbors)
+        ops = _symmetry_ops_np(symmetry) if gated else None
+        rmat = _mrp_to_matrix_np(mrp) if gated else None
 
         for _ in range(max_passes):
-            uniq, counts = np.unique(labels, return_counts=True)
+            uniq, counts = np.unique(labels[~ignore], return_counts=True)
             small = set(int(u) for u, c in zip(uniq, counts) if c < min_size)
             if not small or len(uniq) == 1:
                 break
 
-            contacts = _knn_cluster_adjacency(coords, labels, k_neighbors)
-            # best (largest-contact) neighbour per label
-            best: Dict[int, Tuple[int, int]] = {}
-            for (a, b), n in contacts.items():
-                for x, y in ((a, b), (b, a)):
-                    if n > best.get(x, (0, -1))[0]:
-                        best[x] = (n, y)
-
-            remap = {}
-            for s in small:
-                if s in best:
-                    remap[s] = best[s][1]
-            if not remap:
+            pairs, ncontact = _contact_pairs(nbr_idx, labels, ignore)
+            if len(pairs) == 0:
                 break
-            # resolve chains (small -> small) to a stable target
-            for s in list(remap):
-                seen = {s}
-                tgt = remap[s]
-                while tgt in remap and tgt not in seen:
-                    seen.add(tgt)
-                    tgt = remap[tgt]
-                remap[s] = tgt
-            labels = np.array(
-                [remap.get(int(l), int(l)) for l in labels], dtype=np.int64
-            )
+            # directed (src -> dst) rows in the legacy dict-scan order
+            src = np.stack([pairs[:, 0], pairs[:, 1]], axis=1).reshape(-1)
+            dst = np.stack([pairs[:, 1], pairs[:, 0]], axis=1).reshape(-1)
+            cnt = np.repeat(ncontact, 2)
+            seq = np.arange(len(src))
+            if not gated:
+                # largest contact, first-seen on ties (legacy `n > best` rule)
+                pick = np.lexsort((seq, -cnt, src))
+                first = np.ones(len(pick), dtype=bool)
+                first[1:] = src[pick][1:] != src[pick][:-1]
+                best = dict(zip(src[pick][first].tolist(), dst[pick][first].tolist()))
+                remap = {}
+                for s in small:
+                    if s in best:
+                        remap[s] = best[s]
+                if not remap:
+                    break
+                # resolve chains (small -> small) to a stable target
+                for s in list(remap):
+                    seen = {s}
+                    tgt = remap[s]
+                    while tgt in remap and tgt not in seen:
+                        seen.add(tgt)
+                        tgt = remap[tgt]
+                    remap[s] = tgt
+            else:
+                remap = FragmentationAnalyzer._gated_absorb_targets(
+                    labels, ignore, rmat, ops, small, src, dst, cnt, max_miso_deg
+                )
+                if not remap:
+                    break
+            vals = np.unique(labels)
+            new = np.array([remap.get(int(v), int(v)) for v in vals], dtype=np.int64)
+            labels = new[np.searchsorted(vals, labels)]
 
-        _, inv = np.unique(labels, return_inverse=True)
-        return inv.astype(np.int64)
+        return _relabel_contiguous(labels, ignore)
+
+    @staticmethod
+    def _gated_absorb_targets(
+        labels, ignore, rmat, ops, small, src, dst, cnt, max_miso_deg
+    ) -> Dict[int, int]:
+        """One pass of misorientation-gated absorption targets (``small -> dst``)."""
+        is_small = np.isin(src, np.fromiter(small, dtype=np.int64))
+        src, dst, cnt = src[is_small], dst[is_small], cnt[is_small]
+        if len(src) == 0:
+            return {}
+        involved = np.unique(np.concatenate([src, dst]))
+        pts = np.flatnonzero(np.isin(labels, involved) & ~ignore)
+        inv = np.searchsorted(involved, labels[pts])
+        mean_r = _moments_mean_matrix(
+            _cluster_moments(rmat[pts], inv, len(involved), ops)
+        )
+        a = np.searchsorted(involved, src)
+        b = np.searchsorted(involved, dst)
+        miso = _sym_miso_deg(mean_r[a], mean_r[b], ops)
+        ok = miso <= float(max_miso_deg)
+        if not ok.any():
+            return {}
+        src, dst, cnt, miso = src[ok], dst[ok], cnt[ok], miso[ok]
+        pick = np.lexsort((-cnt, miso, src))  # closest, then largest contact
+        first = np.ones(len(pick), dtype=bool)
+        first[1:] = src[pick][1:] != src[pick][:-1]
+        tgt = dict(zip(src[pick][first].tolist(), dst[pick][first].tolist()))
+        size = dict(zip(*np.unique(labels[~ignore], return_counts=True)))
+        remap = {}
+        for s, t in sorted(tgt.items()):
+            if t not in tgt:
+                remap[s] = t
+            elif tgt[t] == s and (size[s], -s) < (size[t], -t):
+                remap[s] = t  # mutual pair: the smaller joins the larger
+        if not remap:  # a cycle of >= 3 small clusters: break it at one edge
+            s0 = min(tgt)
+            remap[s0] = tgt[s0]
+        return remap
 
     @staticmethod
     def adjacency_remerge(
@@ -712,42 +1183,72 @@ class FragmentationAnalyzer:
         tol_deg: float,
         symmetry: str = "432",
         k_neighbors: int = 8,
-        percolation_max_frac: float = 0.03,
+        percolation_max_frac: Optional[float] = None,
+        spread_tol_deg: Optional[float] = None,
+        background_label: Union[int, Iterable[int], None] = -1,
     ) -> np.ndarray:
-        """Merge spatially adjacent clusters within ``tol_deg`` misorientation.
+        """Merge spatially adjacent clusters within ``tol_deg`` mean misorientation.
 
-        Tightest (lowest-misorientation) adjacent pairs merge first, and any union
-        that would exceed ``percolation_max_frac`` of the point count is skipped so
-        a chain of low-angle fragments cannot re-percolate into one giant grain (the
-        failure mode a global orientation merge or naive single-linkage produces).
-        Adjacency is kNN contact, so it works for both voxel grids and scattered
-        mesh element centroids.
-
-        Intended for **large, many-cluster** segmentations (NF/EBSD grids): the size
-        cap is a fraction of the *whole* point set, so on a small single-grain point
-        set (e.g. one grain's ~100 elements in :meth:`grain_fragments`) it is smaller
-        than any fragment and blocks every merge (inert). Raising the cap there instead
-        lets union-find chain low-angle fragments (the means are computed once), which
-        over-merges. So sub-grain segmentation disables re-merge and relies on ``gamma``.
+        Merges are agglomerative: the closest pair merges first and the union mean is
+        recomputed, so a gradual orientation change does not chain. The size cap applies
+        only when ``percolation_max_frac`` is set, which also restores the legacy
+        fixed-mean union-find.
 
         Args:
             coords: ``(N, 3)`` point coordinates.
             mrp: ``(N, 3)`` neml2 MRP orientations.
             labels: ``(N,)`` integer cluster labels.
-            tol_deg: merge adjacent clusters whose mean orientations are within this.
+            tol_deg: merge threshold on mean misorientation (degrees).
             symmetry: crystal symmetry (orbifold notation).
-            k_neighbors: neighbours per point used to measure cluster contact.
-            percolation_max_frac: hard cap on any merged cluster's size fraction.
+            k_neighbors: neighbours per point used to measure contact.
+            percolation_max_frac: legacy size cap, as a fraction of points; ``None`` means no cap.
+            spread_tol_deg: reject a union that :meth:`cluster_leak_check` flags at this
+                tolerance; ``None`` skips the check.
+            background_label: label(s) left untouched in addition to all negative labels.
 
         Returns:
-            ``(N,)`` contiguous 0-based labels.
+            ``(N,)`` labels, with clusters contiguous from 0 and ignored labels unchanged.
         """
-        labels = np.asarray(labels, dtype=np.int64).copy()
-        mrp = np.asarray(mrp, dtype=float)
-
-        uniq, counts = np.unique(labels, return_counts=True)
-        if len(uniq) < 2:
+        labels = np.asarray(labels, dtype=np.int64).reshape(-1).copy()
+        mrp = np.asarray(mrp, dtype=float).reshape(-1, 3)
+        ignore = _ignored_mask(labels, background_label)
+        if len(np.unique(labels[~ignore])) < 2:
             return labels
+        contacts = _knn_cluster_adjacency(coords, labels, k_neighbors, ignore=ignore)
+        if not contacts:
+            return labels
+        if percolation_max_frac is not None:
+            return FragmentationAnalyzer._remerge_union_find(
+                mrp,
+                labels,
+                ignore,
+                contacts,
+                tol_deg,
+                symmetry,
+                percolation_max_frac * float(len(labels)),
+                spread_tol_deg,
+            )
+        return FragmentationAnalyzer._remerge_agglomerative(
+            mrp, labels, ignore, contacts, tol_deg, symmetry, spread_tol_deg
+        )
+
+    @staticmethod
+    def _union_is_leaky(mrp_union: np.ndarray, spread_tol_deg: float, symmetry: str):
+        """True when the union of two clusters fails :meth:`cluster_leak_check`."""
+        chk = FragmentationAnalyzer.cluster_leak_check(
+            mrp_union,
+            np.zeros(len(mrp_union), dtype=np.int64),
+            spread_tol_deg,
+            symmetry=symmetry,
+        )
+        return bool(chk[0]["flagged"])
+
+    @staticmethod
+    def _remerge_union_find(
+        mrp, labels, ignore, contacts, tol_deg, symmetry, size_cap, spread_tol_deg
+    ) -> np.ndarray:
+        """Legacy fixed-mean union-find re-merge (``percolation_max_frac`` path)."""
+        uniq, counts = np.unique(labels[~ignore], return_counts=True)
         id2idx = {int(u): k for k, u in enumerate(uniq)}
         means = np.array(
             [
@@ -755,11 +1256,6 @@ class FragmentationAnalyzer:
                 for u in uniq
             ]
         )
-
-        contacts = _knn_cluster_adjacency(coords, labels, k_neighbors)
-        if not contacts:
-            return labels
-
         pairs = list(contacts.keys())
         misos = np.array(
             [
@@ -767,10 +1263,11 @@ class FragmentationAnalyzer:
                 for a, b in pairs
             ]
         )
-
-        size_cap = percolation_max_frac * float(len(labels))
         comp_size = counts.astype(np.float64).copy()
         parent = list(range(len(uniq)))
+        members: Optional[Dict[int, np.ndarray]] = None
+        if spread_tol_deg is not None:
+            members = {k: np.flatnonzero(labels == int(u)) for k, u in enumerate(uniq)}
 
         def find(x: int) -> int:
             while parent[x] != x:
@@ -787,14 +1284,118 @@ class FragmentationAnalyzer:
                 continue
             if comp_size[ra] + comp_size[rb] > size_cap:
                 continue
+            union_idx = None
+            if members is not None:
+                union_idx = np.concatenate([members[ra], members[rb]])
+                if FragmentationAnalyzer._union_is_leaky(
+                    mrp[union_idx], spread_tol_deg, symmetry
+                ):
+                    continue
             parent[rb] = ra
             comp_size[ra] += comp_size[rb]
+            if members is not None:
+                members[ra] = union_idx
+                members.pop(rb, None)
 
         roots = np.array([find(k) for k in range(len(uniq))])
-        remap = {r: i for i, r in enumerate(np.unique(roots))}
-        new_of_idx = np.array([remap[r] for r in roots])
-        lab_idx = np.array([id2idx[int(l)] for l in labels])
-        return new_of_idx[lab_idx].astype(np.int64)
+        out = labels.copy()
+        valid = ~ignore
+        out[valid] = roots[np.searchsorted(uniq, labels[valid])]
+        return _relabel_contiguous(out, ignore)
+
+    @staticmethod
+    def _remerge_agglomerative(
+        mrp, labels, ignore, contacts, tol_deg, symmetry, spread_tol_deg
+    ) -> np.ndarray:
+        """Closest-pair-first re-merge with the union mean recomputed per merge."""
+        # pylint: disable=import-outside-toplevel
+        import heapq
+
+        valid = np.flatnonzero(~ignore)
+        uniq, inv = np.unique(labels[valid], return_inverse=True)
+        inv = inv.reshape(-1)
+        n_c = len(uniq)
+        ops = _symmetry_ops_np(symmetry)
+        op_quat = _matrix_to_quat_np(ops)
+        mom = _cluster_moments(_mrp_to_matrix_np(mrp[valid]), inv, n_c, ops)
+        mean_r = _moments_mean_matrix(mom)
+        size = np.bincount(inv, minlength=n_c).astype(np.int64)
+        members: Optional[List[np.ndarray]] = None
+        if spread_tol_deg is not None:
+            order = np.argsort(inv, kind="stable")
+            _, starts = _group_offsets(inv, n_c)
+            members = [order[starts[c] : starts[c] + size[c]] for c in range(n_c)]
+        mrp_valid = mrp[valid]
+
+        pairs = np.searchsorted(uniq, np.array(list(contacts.keys()), dtype=np.int64))
+        nbrs: List[set] = [set() for _ in range(n_c)]
+        for a, b in pairs.tolist():
+            nbrs[a].add(b)
+            nbrs[b].add(a)
+        misos = _sym_miso_deg(mean_r[pairs[:, 0]], mean_r[pairs[:, 1]], ops)
+        version = np.zeros(n_c, dtype=np.int64)
+        heap = [
+            (float(m), int(a), int(b), 0, 0)
+            for m, (a, b) in zip(misos, pairs.tolist())
+            if m < tol_deg
+        ]
+        heapq.heapify(heap)
+        alive = np.ones(n_c, dtype=bool)
+        parent = np.arange(n_c)
+
+        while heap:
+            _, a, b, va, vb = heapq.heappop(heap)
+            if not (alive[a] and alive[b]) or version[a] != va or version[b] != vb:
+                continue
+            if members is not None and FragmentationAnalyzer._union_is_leaky(
+                mrp_valid[np.concatenate([members[a], members[b]])],
+                spread_tol_deg,
+                symmetry,
+            ):
+                continue
+            if size[b] > size[a]:
+                a, b = b, a
+            # fold b's moments into a's variant frame, then add
+            cand = np.einsum("kij,jl->kil", ops, mean_r[b])
+            s_op = int(np.argmax(np.einsum("ij,kij->k", mean_r[a], cand)))
+            lq = _left_quat_matrix(op_quat[s_op])
+            mom[a] = mom[a] + lq @ mom[b] @ lq.T
+            mean_r[a] = _moments_mean_matrix(mom[a][None])[0]
+            size[a] += size[b]
+            alive[b] = False
+            parent[b] = a
+            version[a] += 1
+            if members is not None:
+                members[a] = np.concatenate([members[a], members[b]])
+                members[b] = members[b][:0]
+            for n in nbrs[b]:
+                nbrs[n].discard(b)
+                if n != a:
+                    nbrs[n].add(a)
+                    nbrs[a].add(n)
+            nbrs[a].discard(b)
+            nbrs[a].discard(a)
+            nbrs[b] = set()
+            if nbrs[a]:
+                arr = np.fromiter(nbrs[a], dtype=np.int64)
+                mm = _sym_miso_deg(
+                    np.repeat(mean_r[a][None], len(arr), 0), mean_r[arr], ops
+                )
+                for m, n in zip(mm.tolist(), arr.tolist()):
+                    if m < tol_deg:
+                        heapq.heappush(
+                            heap, (m, a, n, int(version[a]), int(version[n]))
+                        )
+
+        roots = parent.copy()
+        for c in range(n_c):
+            r = c
+            while roots[r] != r:
+                r = roots[r]
+            roots[c] = r
+        out = labels.copy()
+        out[valid] = roots[inv]
+        return _relabel_contiguous(out, ignore)
 
     @staticmethod
     def gamma_sweep_leiden(
@@ -868,19 +1469,94 @@ class FragmentationAnalyzer:
 
     @staticmethod
     def pick_gamma_by_percolation(
-        sweep: Sequence[dict], percolation_max_frac: float = 0.03
+        sweep: Sequence[dict], percolation_max_frac: Optional[float] = None
     ) -> dict:
-        """Pick the smallest gamma whose biggest cluster is below the percolation cap.
+        """Legacy pick: the smallest gamma whose biggest cluster is below a size cap.
 
-        The raw Leiden count is near gamma-invariant here (all gammas over-segment);
-        gamma controls only the biggest ("percolating") cluster, and the final grain
-        count is set by absorption. So choose the least over-resolved, still
-        de-percolated gamma; if none qualifies, the overall minimum ``max_frac``.
+        If no gamma is below the cap, returns the one with the smallest ``max_frac``.
+        Prefer :meth:`pick_gamma`.
+
+        Args:
+            sweep: per-gamma results from :meth:`gamma_sweep_leiden`.
+            percolation_max_frac: size cap as a fraction of points; ``None`` returns
+                the lowest gamma.
+
+        Returns:
+            The selected sweep entry.
         """
+        if percolation_max_frac is None:
+            return min(sweep, key=lambda r: r["gamma"])
         ok = [r for r in sweep if r["max_frac"] < percolation_max_frac]
         if ok:
             return min(ok, key=lambda r: r["gamma"])
         return min(sweep, key=lambda r: r["max_frac"])
+
+    @staticmethod
+    def pick_gamma(
+        sweep: Sequence[dict],
+        mode: str = "lowest",
+        mrp: Optional[np.ndarray] = None,
+        spread_tol_deg: Optional[float] = None,
+        symmetry: str = "432",
+        percolation_max_frac: Optional[float] = None,
+        spread_q: float = 95.0,
+    ) -> dict:
+        """Choose a Leiden resolution from a gamma sweep, without a size cap.
+
+        ``"lowest"`` returns the lowest swept gamma. ``"spread"`` returns the lowest
+        gamma that :meth:`cluster_leak_check` does not flag, or else the one with the
+        fewest flagged clusters. When ``mrp`` and ``spread_tol_deg`` are given, every
+        row is annotated in place with ``n_flagged`` and ``max_spread_deg``.
+
+        Args:
+            sweep: per-gamma results from :meth:`gamma_sweep_leiden`.
+            mode: ``"lowest"`` or ``"spread"``.
+            mrp: ``(N, 3)`` neml2 MRP orientations; required for ``"spread"``.
+            spread_tol_deg: leak-check tolerance (degrees); required for ``"spread"``.
+            symmetry: crystal symmetry (orbifold notation).
+            percolation_max_frac: if set, use the legacy :meth:`pick_gamma_by_percolation`.
+            spread_q: percentile for the spread diagnostics.
+
+        Returns:
+            The selected sweep entry.
+
+        Raises:
+            ValueError: for an unknown ``mode`` or an empty ``sweep``, or for
+                ``"spread"`` without ``mrp`` and ``spread_tol_deg``.
+        """
+        if not sweep:
+            raise ValueError("pick_gamma got an empty sweep.")
+        # validate first: the legacy path ignores mode and would hide a typo
+        if mode not in ("lowest", "spread"):
+            raise ValueError(
+                f"Unknown gamma pick mode '{mode}'; expected 'lowest' or 'spread'."
+            )
+        if mode == "spread" and percolation_max_frac is None:
+            if mrp is None or spread_tol_deg is None:
+                raise ValueError(
+                    "gamma_pick='spread' needs both mrp and spread_tol_deg "
+                    "(the orientation-spread check has nothing to measure otherwise)."
+                )
+        if mrp is not None and spread_tol_deg is not None:
+            for r in sweep:
+                chk = FragmentationAnalyzer.cluster_leak_check(
+                    mrp, r["labels"], spread_tol_deg, symmetry=symmetry, q=spread_q
+                )
+                r["n_flagged"] = int(sum(v["flagged"] for v in chk.values()))
+                r["max_spread_deg"] = (
+                    float(max(v["spread_deg"] for v in chk.values())) if chk else 0.0
+                )
+        if percolation_max_frac is not None:  # legacy opt-in
+            return FragmentationAnalyzer.pick_gamma_by_percolation(
+                sweep, percolation_max_frac
+            )
+        ordered = sorted(sweep, key=lambda r: r["gamma"])
+        if mode == "lowest":
+            return ordered[0]
+        for r in ordered:
+            if r["n_flagged"] == 0:
+                return r
+        return min(ordered, key=lambda r: r["n_flagged"])
 
     def segment(
         self,
@@ -896,43 +1572,57 @@ class FragmentationAnalyzer:
         reduce_topk: Optional[int] = 12,
         grain_threshold_final: int = 30,
         remerge_miso_deg: float = 3.0,
-        percolation_max_frac: float = 0.03,
+        gamma_pick: str = "lowest",
+        spread_tol_deg: Optional[float] = None,
+        remerge_spread_check: Union[bool, str] = "auto",
+        percolation_max_frac: Optional[float] = None,
+        absorb_max_miso_deg: Union[float, str, None] = "auto",
         n_jobs: int = 1,
         n_threads: int = 1,
         seed: int = 42,
         workdir: Optional[str] = None,
+        verbose: bool = True,
     ) -> np.ndarray:
         """Segment a point set by crystal orientation (graph / Leiden).
 
-        Preferred over flood fill, which over-merges into percolating grains. Wraps
-        :class:`~graintrace.graph_spatial_cluster.GraphSpatialCluster` with the
-        symmetry-aware misorientation metric on neml2 MRP orientations and the tuned
-        recipe: fixed broad RBF sigma, hard misorientation cutoff,
-        gamma-by-percolation, then absorb + adjacency re-merge.
+        Wraps :class:`~graintrace.graph_spatial_cluster.GraphSpatialCluster` with a
+        symmetry-aware misorientation metric. It picks a gamma, absorbs small fragments
+        under a misorientation gate, then runs an agglomerative adjacency re-merge.
+        There is no grain-size cap by default. Per-gamma diagnostics are stored in
+        :attr:`last_gamma_diagnostics`.
 
         Args:
             coords: ``(N, 3)`` point coordinates (voxel centres or element centroids).
             mrp: ``(N, 3)`` neml2 MRP orientations.
             misori_tol_deg: hard misorientation edge cutoff (degrees).
-            graph_mode: ``"grid"`` for regular voxel grids (NF/EBSD), ``"knn"`` for
-                scattered mesh element centroids.
-            gamma: fixed Leiden resolution; if ``None``, a percolation-picked sweep.
+            graph_mode: ``"grid"`` for voxel grids, ``"knn"`` for scattered centroids.
+            gamma: fixed Leiden resolution; ``None`` sweeps ``gamma_sweep``.
             gamma_sweep: resolutions to sweep when ``gamma`` is ``None``.
             rbf_sigma_deg: fixed RBF sigma (degrees); defaults to half ``misori_tol_deg``.
             manhattan_radius: grid connectivity radius (``graph_mode="grid"``).
             k: neighbours per node (``graph_mode="knn"``).
-            reduce_topk: keep top-k edges per node by weight before clustering.
-            grain_threshold_final: minimum cluster size; smaller ones are absorbed.
-            remerge_miso_deg: adjacency re-merge misorientation threshold (degrees).
-            percolation_max_frac: percolation cap for gamma pick and re-merge.
-            n_jobs: parallel workers for edge-distance build.
+            reduce_topk: keep the top-k edges per node by weight.
+            grain_threshold_final: clusters smaller than this are absorbed.
+            remerge_miso_deg: adjacency re-merge threshold (degrees).
+            gamma_pick: ``"lowest"`` or ``"spread"`` (see :meth:`pick_gamma`).
+            spread_tol_deg: leak-check tolerance (degrees); defaults to ``misori_tol_deg``.
+            remerge_spread_check: reject re-merges that the leak check flags; ``"auto"``
+                means on, except on the legacy path.
+            percolation_max_frac: legacy size cap; setting it restores the legacy
+                pipeline exactly. ``None`` means no cap.
+            absorb_max_miso_deg: absorption gate (degrees); ``"auto"`` means
+                ``misori_tol_deg`` (off on the legacy path), ``None`` disables the gate.
+            n_jobs: parallel workers for the edge-distance build.
             n_threads: threads for Leiden.
             seed: RNG seed.
-            workdir: scratch directory for the graph input CSV + checkpoint (a temp
-                directory is used and cleaned up if ``None``).
+            workdir: scratch directory; a temporary directory is used if ``None``.
+            verbose: print the per-gamma diagnostics.
 
         Returns:
             ``(N,)`` contiguous 0-based cluster labels aligned to ``coords`` rows.
+
+        Raises:
+            ValueError: for an invalid ``"auto"``-style string option.
         """
         # pylint: disable=import-outside-toplevel
         import pandas as pd
@@ -992,11 +1682,56 @@ class FragmentationAnalyzer:
             n_threads=n_threads,
             seed=seed,
         )
-        best = self.pick_gamma_by_percolation(sweep, percolation_max_frac)
+        if spread_tol_deg is None:
+            spread_tol_deg = misori_tol_deg
+        legacy = percolation_max_frac is not None
+        if isinstance(absorb_max_miso_deg, str):
+            if absorb_max_miso_deg != "auto":
+                raise ValueError(
+                    "absorb_max_miso_deg must be a number, None or 'auto'."
+                )
+            absorb_max_miso_deg = None if legacy else misori_tol_deg
+        if isinstance(remerge_spread_check, str):
+            if remerge_spread_check != "auto":
+                raise ValueError("remerge_spread_check must be a bool or 'auto'.")
+            remerge_spread_check = not legacy
+        best = self.pick_gamma(
+            sweep,
+            mode=gamma_pick,
+            mrp=mrp,
+            spread_tol_deg=spread_tol_deg,
+            symmetry=self.symmetry,
+            percolation_max_frac=percolation_max_frac,
+        )
         labels = best["labels"]
+        self.last_gamma_diagnostics = [
+            {k: v for k, v in r.items() if k != "labels"} for r in sweep
+        ]
+        if verbose:
+            print(f"gamma pick: gamma={best['gamma']:g} (mode={gamma_pick}, ", end="")
+            print(
+                "no size cap)"
+                if percolation_max_frac is None
+                else f"legacy size cap={percolation_max_frac:g})"
+            )
+            for r in self.last_gamma_diagnostics:
+                flagged = r.get("n_flagged")
+                print(
+                    f"  gamma={r['gamma']:<8g} n_clusters={r['n_grains']:<8d} "
+                    f"max_frac={r['max_frac']:<8.4f} "
+                    f"n_flagged={'-' if flagged is None else flagged} "
+                    f"max_spread_deg={r.get('max_spread_deg', float('nan')):.2f}"
+                )
 
         if grain_threshold_final and grain_threshold_final > 1:
-            labels = self.absorb_fragments(coords, labels, grain_threshold_final)
+            labels = self.absorb_fragments(
+                coords,
+                labels,
+                grain_threshold_final,
+                mrp=mrp if absorb_max_miso_deg is not None else None,
+                max_miso_deg=absorb_max_miso_deg,
+                symmetry=self.symmetry,
+            )
         if remerge_miso_deg and remerge_miso_deg > 0:
             labels = self.adjacency_remerge(
                 coords,
@@ -1005,6 +1740,7 @@ class FragmentationAnalyzer:
                 remerge_miso_deg,
                 symmetry=self.symmetry,
                 percolation_max_frac=percolation_max_frac,
+                spread_tol_deg=spread_tol_deg if remerge_spread_check else None,
             )
         _, inv = np.unique(labels, return_inverse=True)
         return inv.astype(np.int64)
@@ -1022,6 +1758,8 @@ class FragmentationAnalyzer:
         angle_type: str = "radians",
         out_csv: Optional[str] = None,
         background_label: Union[int, Iterable[int]] = -1,
+        trim_miso_deg: Optional[float] = None,
+        trim_iters: int = 2,
     ) -> "object":
         """Reduce a labelled point set to a per-grain table (FF/NF/EBSD connector).
 
@@ -1045,6 +1783,9 @@ class FragmentationAnalyzer:
             background_label: label, or iterable of labels, treated as
                 non-grain and skipped. Defaults to ``-1``. See the note on
                 label domains below before changing it.
+            trim_miso_deg: if set, drop points farther than this (degrees) from
+                the grain mean and recompute it (orientation only).
+            trim_iters: number of trim-and-recompute passes.
 
         .. note::
 
@@ -1074,7 +1815,12 @@ class FragmentationAnalyzer:
         import pandas as pd
         import torch
 
-        from .orientation_helper import euler_to_mrp, matrix_to_euler, mrp_to_matrix
+        from .orientation_helper import (
+            euler_to_mrp,
+            matrix_to_euler,
+            misorientation_matrix,
+            mrp_to_matrix,
+        )
 
         labels = np.asarray(labels, dtype=np.int64)
         coords = np.asarray(coords, dtype=float)
@@ -1104,6 +1850,26 @@ class FragmentationAnalyzer:
             cnt = int(mask.sum())
             cen = coords[mask].mean(axis=0)
             mean_mrp = self.mean_orientation_mrp(mrp[mask], self.symmetry)
+            if trim_miso_deg is not None and cnt > 1:
+                grain_mrp = mrp[mask]
+                grain_r = mrp_to_matrix(torch.as_tensor(grain_mrp, dtype=torch.float64))
+                for _ in range(int(trim_iters)):
+                    ref = mrp_to_matrix(
+                        torch.as_tensor(
+                            np.tile(mean_mrp, (cnt, 1)), dtype=torch.float64
+                        )
+                    )
+                    dev = (
+                        misorientation_matrix(grain_r, ref, self.symmetry, "degrees")
+                        .cpu()
+                        .numpy()
+                    )
+                    inlier = dev <= float(trim_miso_deg)
+                    if inlier.all() or not inlier.any():
+                        break
+                    mean_mrp = self.mean_orientation_mrp(
+                        grain_mrp[inlier], self.symmetry
+                    )
             eul = (
                 matrix_to_euler(
                     mrp_to_matrix(
@@ -1177,7 +1943,8 @@ class FragmentationAnalyzer:
                 a smooth intragranular gradient chopped into near-identical Leiden
                 communities collapses back to one fragment while genuine sub-grains
                 (a real low-angle sub-boundary) survive. ``0`` disables the merge.
-            seg_kwargs: extra keyword overrides forwarded to :meth:`segment`.
+            seg_kwargs: overrides forwarded to :meth:`segment`; ``gamma`` defaults
+                to 0.25 (``{"gamma": None}`` sweeps) and absorption is ungated.
 
         Returns:
             ``(fragments_df, per_element_labels)`` where ``fragments_df`` has one row
@@ -1214,16 +1981,15 @@ class FragmentationAnalyzer:
                 # too small to split meaningfully -> one fragment
                 labels = np.zeros(n_elem, dtype=np.int64)
             else:
-                # remerge_miso_deg=0 (OFF): the adjacency re-merge is an NF-grid tool
-                # whose percolation size-cap (a fraction of the point count) is
-                # meaningless on a single grain's ~100 elements -- it is either inert
-                # (cap < any fragment) or, if forced on, over-merges by single-linkage
-                # chaining. gamma is the lever for sub-grain resolution here.
+                # re-merge off: min_subgrain_miso_deg is the sub-grain threshold here
                 seg_call = {
                     "misori_tol_deg": tol_deg,
                     "graph_mode": "knn",
+                    "gamma": 0.25,
                     "grain_threshold_final": min_fragment_elems,
                     "remerge_miso_deg": 0.0,
+                    "absorb_max_miso_deg": None,
+                    "verbose": False,
                 }
                 seg_call.update(seg_kwargs)
                 labels = self.segment(coords[mask], mrp[mask], **seg_call)

@@ -50,6 +50,7 @@ if __name__ == "__main__":
 - `dz` (layer thickness µm) must match the data; `nx,ny` in-plane grid resolution.
 - `segmentation`: **legacy flat dict** (no `method`/`params` nesting), `misorientation_tol`
   in radians. `connectivity` 6 or 26.
+- No grain-size cap on any path; mask low-confidence/void voxels instead (CLAUDE.md §4).
 - `sculpt_config` (required: `psculpt`,`epu`,`nprocs`; +`launcher`/`environment` for MPI) and
   `sculpt_options` tuple (e.g. `("--adapt","-S","2","-CS","4","--void_mat","0")`); see CLAUDE.md §9.
 

@@ -1,6 +1,19 @@
 Common pitfalls
 ===============
 
+Segmentation no longer caps grain size
+--------------------------------------
+
+**Behaviour change.** :meth:`~graintrace.fragmentation.FragmentationAnalyzer.segment`
+now runs with no size cap (``percolation_max_frac=None``) and ``gamma_pick="lowest"``.
+Its absorption is orientation-gated, and its re-merge is agglomerative and
+leak-checked. Scripts will therefore get more small grains and no cap-split large
+grains. Pass ``percolation_max_frac=0.03`` to reproduce the old labels exactly.
+
+Do not use the p95 orientation spread to detect leaks. It misses a small leak and
+flags a smooth intragranular gradient. Use
+:meth:`~graintrace.fragmentation.FragmentationAnalyzer.cluster_leak_check` instead.
+
 NEPER is bring-your-own
 -----------------------
 

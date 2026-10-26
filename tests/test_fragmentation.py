@@ -280,6 +280,350 @@ class TestSegmentByOrientation:
         assert len(np.unique(labels)) == 2
 
 
+def _sweep_entry(gamma, n_grains, max_frac, labels=None):
+    """A minimal gamma_sweep_leiden-shaped result row."""
+    return {
+        "gamma": float(gamma),
+        "n_grains": int(n_grains),
+        "max_frac": float(max_frac),
+        "labels": np.zeros(1, dtype=np.int64) if labels is None else labels,
+    }
+
+
+class TestPickGammaWithoutSizeCap:
+    """The gamma pick must not be driven by cluster size (issue #60)."""
+
+    def test_default_is_the_lowest_gamma_not_the_size_capped_one(self):
+        from graintrace.fragmentation import FragmentationAnalyzer
+
+        # A legitimately large grain: 40% of the solid at the least over-resolved
+        # gamma. The old 3% cap rejected it and forced the shattered high gamma.
+        sweep = [
+            _sweep_entry(0.5, 5, 0.40),
+            _sweep_entry(2.0, 11, 0.18),
+            _sweep_entry(8.0, 60, 0.02),
+        ]
+        assert FragmentationAnalyzer.pick_gamma(sweep)["gamma"] == 0.5
+        assert FragmentationAnalyzer.pick_gamma(sweep, mode="lowest")["gamma"] == 0.5
+
+    def test_legacy_size_cap_opt_in_reproduces_the_old_choice(self):
+        from graintrace.fragmentation import FragmentationAnalyzer
+
+        sweep = [
+            _sweep_entry(0.5, 5, 0.40),
+            _sweep_entry(2.0, 11, 0.18),
+            _sweep_entry(8.0, 60, 0.02),
+        ]
+        # smallest gamma under the cap, exactly as pick_gamma_by_percolation did
+        assert (
+            FragmentationAnalyzer.pick_gamma(sweep, percolation_max_frac=0.03)["gamma"]
+            == 8.0
+        )
+        assert (
+            FragmentationAnalyzer.pick_gamma_by_percolation(sweep, 0.03)["gamma"] == 8.0
+        )
+        # no gamma clears the cap -> the overall minimum max_frac
+        assert (
+            FragmentationAnalyzer.pick_gamma_by_percolation(sweep[:2], 0.03)["gamma"]
+            == 2.0
+        )
+
+    def test_percolation_pick_without_a_cap_takes_the_lowest_gamma(self):
+        from graintrace.fragmentation import FragmentationAnalyzer
+
+        sweep = [_sweep_entry(4.0, 30, 0.05), _sweep_entry(1.0, 6, 0.33)]
+        assert FragmentationAnalyzer.pick_gamma_by_percolation(sweep)["gamma"] == 1.0
+
+    def test_rejects_an_unknown_mode_and_an_empty_sweep(self):
+        from graintrace.fragmentation import FragmentationAnalyzer
+
+        with pytest.raises(ValueError, match="Unknown gamma pick mode"):
+            FragmentationAnalyzer.pick_gamma([_sweep_entry(1.0, 2, 0.5)], mode="nope")
+        with pytest.raises(ValueError, match="empty sweep"):
+            FragmentationAnalyzer.pick_gamma([])
+
+    def test_an_unknown_mode_is_rejected_even_on_the_legacy_cap_path(self):
+        """The cap path ignores ``mode``; it must not swallow a typo as well."""
+        from graintrace.fragmentation import FragmentationAnalyzer
+
+        with pytest.raises(ValueError, match="Unknown gamma pick mode"):
+            FragmentationAnalyzer.pick_gamma(
+                [_sweep_entry(1.0, 2, 0.5)], mode="lowst", percolation_max_frac=0.03
+            )
+
+    def test_spread_mode_needs_orientations_and_a_tolerance(self):
+        from graintrace.fragmentation import FragmentationAnalyzer
+
+        with pytest.raises(ValueError, match="spread_tol_deg"):
+            FragmentationAnalyzer.pick_gamma([_sweep_entry(1.0, 2, 0.5)], mode="spread")
+
+
+class TestOrientationSpreadCheck:
+    """The physical percolation signal: within-cluster orientation spread."""
+
+    @staticmethod
+    def _mrp(euler_deg):
+        import torch
+
+        from graintrace.orientation_helper import euler_to_mrp
+
+        return (
+            euler_to_mrp(
+                torch.tensor(np.asarray(euler_deg, dtype=float), dtype=torch.float64),
+                "bunge",
+                "degrees",
+            )
+            .cpu()
+            .numpy()
+        )
+
+    def test_coherent_cluster_is_tight_merged_cluster_is_wide(self):
+        pytest.importorskip("neml2")
+
+        from graintrace.fragmentation import FragmentationAnalyzer
+
+        # cluster 0: one orientation. cluster 1: two orientations ~40 deg apart,
+        # i.e. a cluster that leaked across a grain boundary.
+        eul = np.vstack(
+            [
+                np.tile([10.0, 20.0, 30.0], (20, 1)),
+                np.tile([10.0, 20.0, 30.0], (20, 1)),
+                np.tile([60.0, 30.0, 15.0], (20, 1)),
+            ]
+        )
+        labels = np.array([0] * 20 + [1] * 40, dtype=np.int64)
+        spread = FragmentationAnalyzer.cluster_orientation_spread(
+            self._mrp(eul), labels, symmetry="432"
+        )
+        assert spread[0] < 1.0
+        assert spread[1] > 5.0
+
+    def test_singleton_cluster_has_zero_spread(self):
+        pytest.importorskip("neml2")
+
+        from graintrace.fragmentation import FragmentationAnalyzer
+
+        spread = FragmentationAnalyzer.cluster_orientation_spread(
+            self._mrp([[10.0, 20.0, 30.0]]), np.array([0]), symmetry="432"
+        )
+        assert spread == {0: 0.0}
+
+    def test_unsegmented_points_are_not_a_cluster(self):
+        """``-1`` is material-but-unsegmented, not a cluster with a spread.
+
+        Scattered orphans share no orientation, so a ``-1`` pseudo-cluster is
+        wide by construction; counting it would make every candidate gamma look
+        like it leaked and silently defeat ``pick_gamma(mode="spread")``.
+        """
+        pytest.importorskip("neml2")
+
+        from graintrace.fragmentation import FragmentationAnalyzer
+
+        eul = np.vstack(
+            [
+                np.tile([10.0, 20.0, 30.0], (20, 1)),
+                # Orphans, deliberately far apart in orientation.
+                np.array([[60.0, 30.0, 15.0], [5.0, 80.0, 70.0]]),
+            ]
+        )
+        labels = np.array([0] * 20 + [-1, -1], dtype=np.int64)
+        spread = FragmentationAnalyzer.cluster_orientation_spread(
+            self._mrp(eul), labels, symmetry="432"
+        )
+        assert set(spread) == {0}
+        assert spread[0] < 1.0
+
+    def test_spread_mode_picks_the_gamma_that_separates_the_grains(self):
+        pytest.importorskip("neml2")
+
+        from graintrace.fragmentation import FragmentationAnalyzer
+
+        # gamma 0.5 leaves the two grains in one cluster (a leak); gamma 4 splits
+        # them. The spread check must reject the first and accept the second.
+        mrp = self._mrp(
+            np.vstack(
+                [
+                    np.tile([10.0, 20.0, 30.0], (20, 1)),
+                    np.tile([60.0, 30.0, 15.0], (20, 1)),
+                ]
+            )
+        )
+        merged = np.zeros(40, dtype=np.int64)
+        split = np.array([0] * 20 + [1] * 20, dtype=np.int64)
+        sweep = [
+            _sweep_entry(0.5, 1, 1.00, labels=merged),
+            _sweep_entry(4.0, 2, 0.50, labels=split),
+        ]
+        best = FragmentationAnalyzer.pick_gamma(
+            sweep, mode="spread", mrp=mrp, spread_tol_deg=5.0, symmetry="432"
+        )
+        assert best["gamma"] == 4.0
+        # diagnostics are annotated in place so the choice is inspectable
+        assert sweep[0]["n_flagged"] == 1
+        assert sweep[1]["n_flagged"] == 0
+
+
+class TestSegmentWithoutSizeCap:
+    """End-to-end: a grain far above 3% of the solid must survive (issue #60)."""
+
+    @staticmethod
+    def _slab(x0, x1):
+        pts = [[x, y, z] for x in range(x0, x1) for y in range(5) for z in range(5)]
+        return np.array(pts, dtype=float)
+
+    def _case(self):
+        import torch
+
+        from graintrace.orientation_helper import euler_to_mrp
+
+        # 500 voxels: one grain of 200 (40% of the solid) plus four of 75.
+        blocks = [
+            (self._slab(0, 8), [10.0, 20.0, 30.0]),
+            (self._slab(8, 11), [60.0, 30.0, 15.0]),
+            (self._slab(11, 14), [25.0, 70.0, 40.0]),
+            (self._slab(14, 17), [80.0, 15.0, 55.0]),
+            (self._slab(17, 20), [45.0, 50.0, 5.0]),
+        ]
+        coords = np.vstack([b[0] for b in blocks])
+        eul = np.vstack([np.tile(e, (len(c), 1)) for c, e in blocks])
+        mrp = (
+            euler_to_mrp(torch.tensor(eul, dtype=torch.float64), "bunge", "degrees")
+            .cpu()
+            .numpy()
+        )
+        big = np.zeros(len(coords), dtype=bool)
+        big[: len(blocks[0][0])] = True
+        return coords, mrp, big
+
+    def test_large_grain_stays_whole_by_default(self, tmp_path):
+        pytest.importorskip("neml2")
+        pytest.importorskip("networkit")
+
+        from graintrace.fragmentation import FragmentationAnalyzer
+
+        coords, mrp, big = self._case()
+        analyzer = FragmentationAnalyzer()
+        labels = analyzer.segment(
+            coords,
+            mrp,
+            misori_tol_deg=5.0,
+            graph_mode="grid",
+            manhattan_radius=2,
+            gamma_sweep=(0.5, 2.0, 8.0, 64.0),
+            grain_threshold_final=0,
+            remerge_miso_deg=0.0,
+            workdir=str(tmp_path / "default"),
+            verbose=False,
+        )
+        assert big.sum() / len(coords) == pytest.approx(0.40)
+        # the 40%-of-solid grain is one cluster, and all five grains are resolved
+        assert len(np.unique(labels[big])) == 1
+        assert len(np.unique(labels)) == 5
+        # diagnostics are recorded for every swept gamma
+        assert len(analyzer.last_gamma_diagnostics) == 4
+        assert {"gamma", "n_grains", "max_frac"} <= set(
+            analyzer.last_gamma_diagnostics[0]
+        )
+        assert "labels" not in analyzer.last_gamma_diagnostics[0]
+
+    def test_legacy_size_cap_splits_the_same_large_grain(self, tmp_path):
+        pytest.importorskip("neml2")
+        pytest.importorskip("networkit")
+
+        from graintrace.fragmentation import FragmentationAnalyzer
+
+        coords, mrp, big = self._case()
+        labels = FragmentationAnalyzer().segment(
+            coords,
+            mrp,
+            misori_tol_deg=5.0,
+            graph_mode="grid",
+            manhattan_radius=2,
+            gamma_sweep=(0.5, 2.0, 8.0, 64.0),
+            grain_threshold_final=0,
+            remerge_miso_deg=0.0,
+            percolation_max_frac=0.03,
+            workdir=str(tmp_path / "capped"),
+            verbose=False,
+        )
+        # the cap is the reported defect: it cuts a real grain into pieces
+        assert len(np.unique(labels[big])) > 1
+
+
+class TestAdjacencyRemergeWithoutSizeCap:
+    """Re-merge is bounded by misorientation, not by size (issue #60 item 4)."""
+
+    @staticmethod
+    def _two_touching_halves(euler_a, euler_b):
+        import torch
+
+        from graintrace.orientation_helper import euler_to_mrp
+
+        pts = [[x, y, z] for x in range(10) for y in range(4) for z in range(4)]
+        coords = np.array(pts, dtype=float)
+        labels = (coords[:, 0] >= 5).astype(np.int64)
+        eul = np.where(labels[:, None] == 0, np.array(euler_a), np.array(euler_b))
+        mrp = (
+            euler_to_mrp(torch.tensor(eul, dtype=torch.float64), "bunge", "degrees")
+            .cpu()
+            .numpy()
+        )
+        return coords, mrp, labels
+
+    def test_low_angle_halves_merge_with_no_cap_but_not_under_the_legacy_cap(self):
+        pytest.importorskip("neml2")
+
+        from graintrace.fragmentation import FragmentationAnalyzer
+
+        # two adjacent halves ~1 deg apart: one grain, each half 50% of the points
+        coords, mrp, labels = self._two_touching_halves(
+            [10.0, 20.0, 30.0], [11.0, 20.0, 30.0]
+        )
+        merged = FragmentationAnalyzer.adjacency_remerge(
+            coords, mrp, labels, tol_deg=3.0, symmetry="432"
+        )
+        assert len(np.unique(merged)) == 1
+        # the legacy size cap blocks the same physically correct merge
+        capped = FragmentationAnalyzer.adjacency_remerge(
+            coords,
+            mrp,
+            labels,
+            tol_deg=3.0,
+            symmetry="432",
+            percolation_max_frac=0.03,
+        )
+        assert len(np.unique(capped)) == 2
+
+    def test_spread_guard_rejects_a_merge_that_would_straddle_a_boundary(self):
+        pytest.importorskip("neml2")
+
+        from graintrace.fragmentation import FragmentationAnalyzer
+
+        # 4 deg apart: inside tol_deg=5, but the union's spread exceeds 2 deg
+        coords, mrp, labels = self._two_touching_halves(
+            [10.0, 20.0, 30.0], [14.0, 20.0, 30.0]
+        )
+        assert (
+            len(
+                np.unique(
+                    FragmentationAnalyzer.adjacency_remerge(
+                        coords, mrp, labels, tol_deg=5.0, symmetry="432"
+                    )
+                )
+            )
+            == 1
+        )
+        guarded = FragmentationAnalyzer.adjacency_remerge(
+            coords,
+            mrp,
+            labels,
+            tol_deg=5.0,
+            symmetry="432",
+            spread_tol_deg=2.0,
+        )
+        assert len(np.unique(guarded)) == 2
+
+
 class TestMeanOrientationAndMerge:
     def test_mean_symmetry_aware_vs_variant_mixed(self):
         pytest.importorskip("neml2")

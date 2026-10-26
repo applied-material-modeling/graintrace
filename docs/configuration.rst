@@ -118,18 +118,28 @@ argument is a flat dict (no ``method``/``params`` nesting), with
 ``misorientation_tol`` in radians.
 
 **Graph/Leiden is the default and better pathway** for NF/EBSD; flood over-merges
-into percolating grains. The vetted recipe (validated on Fe-9Cr NF
-reconstruction): hard 5° misorientation cutoff; ``manhattan_radius=2``;
-a **fixed broad RBF sigma ≈ half the cutoff** (``sigma_auto`` collapses to ~0.1° and
-shatters grains); ``reduce_edges_topweights_k=12``; optional ``downsample=(2,2,1)``;
-Leiden ``gamma`` chosen by **percolation** (smallest gamma whose biggest grain is
-below ~3% of solid) over a sweep ``[0.5, 1, 2, 4, 8]``; then absorb sub-30-voxel
-fragments and an adjacency-only re-merge (~3°). This recipe is promoted into the
-library as :meth:`graintrace.fragmentation.FragmentationAnalyzer.segment` and its
-staticmethods (``gamma_sweep_leiden``, ``pick_gamma_by_percolation``,
-``absorb_fragments``, ``adjacency_remerge``). The percolation gamma-pick is for large, many-grain data;
-for few-grain or intragranular sub-grain segmentation pass a fixed low ``gamma``
-(~0.1).
+into percolating grains. The recipe (validated on Fe-9Cr NF reconstruction): hard
+5° misorientation cutoff; ``manhattan_radius=2``; a **fixed broad RBF sigma ≈ half
+the cutoff** (``sigma_auto`` collapses to ~0.1° and shatters grains);
+``reduce_edges_topweights_k=12``; a Leiden ``gamma`` picked from a sweep
+``[0.5, 1, 2, 4, 8]``; then absorb sub-30-voxel fragments and an adjacency-only
+re-merge (~3°). It is implemented by
+:meth:`graintrace.fragmentation.FragmentationAnalyzer.segment`.
+
+* **No grain-size cap.** Mask low-confidence and void voxels instead.
+  ``percolation_max_frac=0.03`` restores the legacy pipeline exactly.
+* ``gamma_pick``: ``"lowest"`` (default) or ``"spread"``, which picks the lowest
+  gamma that
+  :meth:`~graintrace.fragmentation.FragmentationAnalyzer.cluster_leak_check` does
+  not flag at ``spread_tol_deg`` (default: the cutoff). Per-gamma diagnostics are
+  stored in ``last_gamma_diagnostics``.
+* ``absorb_max_miso_deg`` (default: the cutoff): a fragment joins only the
+  closest touching neighbour within this misorientation.
+* The re-merge is agglomerative, so it does not chain. ``remerge_spread_check``
+  (default on) rejects unions that fail the leak check.
+* ``downsample`` is optional; use it only when the graph does not fit.
+* ``seg_to_grain_table(trim_miso_deg=...)`` recomputes each grain mean without
+  outlier points.
 
 FrameTransform
 --------------
@@ -244,15 +254,16 @@ metric (exactly one feature column).
 (:meth:`graintrace.fragmentation.FragmentationAnalyzer.segment`): ``misori_tol_deg``
 (hard edge cutoff, default 5°), ``graph_mode`` (``"grid"`` for voxel grids,
 ``"knn"`` for scattered mesh elements), ``gamma`` (fixed Leiden resolution; when
-``None`` a percolation-picked sweep over ``gamma_sweep`` runs), ``rbf_sigma_deg``
-(fixed broad RBF sigma, default ≈ half the cutoff — **not** ``sigma_auto``, which
-shatters grains), ``manhattan_radius``, ``reduce_topk``, ``grain_threshold_final``
-(absorb threshold), ``remerge_miso_deg`` (adjacency re-merge), and
-``percolation_max_frac``. Graph/Leiden is the default/better pathway; flood
-over-merges into percolating grains. The gamma-by-percolation sweep is for large,
-many-grain NF/EBSD; for few-grain or intragranular sub-grain segmentation pass a
-fixed low ``gamma`` (~0.25 for the shipped CPFE data — ``gamma=0.1`` under-splits and
-leaves most grains whole; raise ``gamma`` to resolve finer sub-grains).
+``None`` a sweep over ``gamma_sweep`` runs and ``gamma_pick`` chooses),
+``rbf_sigma_deg`` (fixed broad RBF sigma, default ≈ half the cutoff — **not**
+``sigma_auto``, which shatters grains), ``manhattan_radius``, ``reduce_topk``,
+``grain_threshold_final`` (absorb threshold), ``remerge_miso_deg`` (adjacency
+re-merge), ``gamma_pick``, ``spread_tol_deg``, ``remerge_spread_check``,
+``absorb_max_miso_deg``, ``percolation_max_frac`` (legacy cap, ``None`` = off)
+and ``verbose``. For intragranular sub-grain segmentation use a fixed low
+``gamma`` (~0.25 for the shipped CPFE data; ``gamma=0.1`` under-splits).
+:meth:`~graintrace.fragmentation.FragmentationAnalyzer.grain_fragments` uses
+``gamma=0.25`` by default.
 
 For intragranular sub-grain segmentation,
 :meth:`~graintrace.fragmentation.FragmentationAnalyzer.grain_fragments` adds

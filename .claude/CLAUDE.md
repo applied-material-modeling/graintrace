@@ -380,7 +380,7 @@ Key outputs in `save_dir`:
 Graph/Leiden is the default and better segmentation for NF/EBSD; **flood over-merges into
 percolating grains**. Use `method="graph"` (§9 `segmentation_prop`). Vetted recipe (validated
 on Fe-9Cr NF reconstruction), in `FragmentationAnalyzer.segment` + its staticmethods
-`gamma_sweep_leiden`, `pick_gamma_by_percolation`, `absorb_fragments`, `adjacency_remerge`:
+`gamma_sweep_leiden`, `pick_gamma`, `absorb_fragments`, `adjacency_remerge`, `cluster_leak_check`:
 
 | Knob | Value | Why |
 |---|---|---|
@@ -389,17 +389,14 @@ on Fe-9Cr NF reconstruction), in `FragmentationAnalyzer.segment` + its staticmet
 | RBF sigma (`weight_cfg`) | **fixed ≈ ½ cutoff (~2.5°)**, `sigma_auto=None` | `sigma_auto` collapses to ~0.1° and shatters grains into noise |
 | `weight_cfg` | `mode="rbf", power=2.0` | bounded 0..1 weights (not `inverse`'s 1e8 dynamic range) |
 | `reduce_edges_topweights_k` | **12** | sparser graph, faster Leiden |
-| in-plane `downsample` | `(2,2,1)` (large NF only) | NF grid is finer than needed for ~40µm grains |
-| Leiden `gamma` | **sweep `[0.5,1,2,4,8]`, pick by PERCOLATION** | smallest gamma whose biggest grain < 3% of solid (`pick_gamma_by_percolation`) |
-| absorb (`grain_threshold_final`) | **30 vox** | merge sub-threshold fragments into largest-contact neighbor |
-| adjacency re-merge (`REMERGE_MISO_DEG`) | **~3°**, adjacency-ONLY, size-capped | coalesce Leiden-split fragments without re-percolating (global merge collapsed 596→90) |
+| in-plane `downsample` | off; opt in only if the graph is too big | coarsens boundaries |
+| Leiden `gamma` | **sweep `[0.5,1,2,4,8]`, `gamma_pick="lowest"`** (`"spread"` = lowest unflagged by `cluster_leak_check`) | **no size cap** (`percolation_max_frac=None`); mask conf/void first |
+| absorb (`grain_threshold_final`) | **30 vox**, gated by `absorb_max_miso_deg` (= cutoff) | joins only the closest neighbor within tol; small real grains survive |
+| adjacency re-merge (`remerge_miso_deg`) | **~3°**, agglomerative + `remerge_spread_check` | means recomputed per merge → no chaining |
+| grain-table mean | `seg_to_grain_table(trim_miso_deg=5.0)` | drops outlier voxels from the mean |
 
-**Scale caveat:** gamma-by-percolation (3%-of-solid cap) is for **large, many-grain** NF/EBSD.
-For **small / few-grain** data (a legit grain is a large fraction of solid) or **intragranular
-sub-grain** segmentation (§7 sim fragmentation), the percolation pick misfires (falls back to the
-highest gamma → shatters) — pass a **fixed low `gamma`** instead (~0.1 for few-grain data;
-for **intragranular sub-grains** ~0.25 — 0.1 under-splits/leaves grains whole, higher resolves
-finer sub-grains; calibrate against the per-element spread).
+`percolation_max_frac=0.03` restores the legacy pipeline exactly. Intragranular sub-grains: fixed
+`gamma≈0.25` (`grain_fragments` default; 0.1 under-splits). Options: docs/configuration.rst.
 
 ---
 
@@ -1041,12 +1038,14 @@ weight_cfg = WeightConfig(
 All on `FragmentationAnalyzer(symmetry="432", ori_cols=…, coord_cols=…)`:
 - `.segment(coords, mrp, misori_tol_deg=5.0, graph_mode="grid"|"knn", gamma=None|<float>,
   gamma_sweep=(0.5,1,2,4,8), rbf_sigma_deg=None, manhattan_radius=2, reduce_topk=12,
-  grain_threshold_final=30, remerge_miso_deg=3.0, percolation_max_frac=0.03)` —
+  grain_threshold_final=30, remerge_miso_deg=3.0, gamma_pick="lowest", spread_tol_deg=None,
+  remerge_spread_check="auto", absorb_max_miso_deg="auto", percolation_max_frac=None)` —
   `graph_mode="grid"` for voxel grids (NF/EBSD), `"knn"` for scattered mesh elements.
-  `gamma=None` runs the percolation sweep (large NF); pass a fixed low gamma for
-  few-grain (~0.1) or intragranular sub-grain (~0.25; 0.1 under-splits) data.
+  Pass a fixed low gamma for few-grain (~0.1) or intragranular sub-grain (~0.25) data.
+- `.cluster_leak_check(mrp, labels, tol_deg, ...)` / `.absorb_fragments(..., mrp=, max_miso_deg=)`
+  / `.adjacency_remerge(...)`: labels `< 0` and `background_label` are left untouched.
 - `.grain_fragments(res, step, tol_deg=5.0, block_id_col="block_id", min_fragment_elems=5,
-  min_subgrain_miso_deg=1.0, seg_kwargs={...})` — `seg_kwargs` forwards to `.segment` (e.g.
+  min_subgrain_miso_deg=1.0, seg_kwargs={...})` — `seg_kwargs` forwards to `.segment` (default
   `{"gamma": 0.25}`). Sub-grain segmentation runs with the segmenter's `remerge_miso_deg=0` (OFF:
   the adjacency re-merge's percolation size-cap is meaningless on one grain's ~100 elements — inert
   or chaining), and instead applies **`min_subgrain_miso_deg`** — the minimum misorientation
@@ -1387,11 +1386,8 @@ rather than fail.
   the default/better pathway (§4). Everything runs in moose-src (has networkit).
 - **Fixed broad RBF sigma, not `sigma_auto`.** On near-identical intra-grain edges `sigma_auto`
   collapses to ~0.1° and shatters grains into noise; use `sigma ≈ ½` the misorientation cutoff.
-- **gamma-by-percolation is for large, many-grain data.** Its 3%-of-solid cap misfires on
-  few-grain / small grids and on intragranular sub-grain segmentation (a legit grain is a large
-  fraction of solid) → it falls back to the highest gamma and shatters. Pass a **fixed low gamma**
-  there (~0.1 few-grain; ~0.25 intragranular sub-grains — 0.1 under-splits, calibrate against the
-  per-element spread); keep the percolation sweep for NF/EBSD reconstructions (§4).
+- **Never cap grain size; never trust the p95 spread as a leak test.** The cap splits real large
+  grains; p95 misses small leaks and flags gradients. Mask first, use `cluster_leak_check`.
 
 ### Fragmentation detector: `d_tol` scale and cross-step `theta_tol`
 `FragmentationAnalyzer.detect_splits` links a grain to its next-step lineage by centroid distance AND
@@ -1440,7 +1436,7 @@ graintrace/
   plot_postprocessing.py       plot_*                : Distribution/stress-strain/pole figures/IPF reorientation
   ipf_postprocess.py           IPFProcessor          : IPF coloring on mesh; get_ipf_points/get_ipf_color; add_element_field_to_exodus (per-elem scalar) / add_element_rgb_to_exodus (per-elem RGB)
   ipf_orientation_tracking.py  OrientationTracker : per-entity orientation tracks for IPF reorientation plots (simulation_grain_tracks/simulation_element_tracks/experiment_grain_tracks[_by_id]/compose_tracks)
-  fragmentation.py             FragmentationAnalyzer : reorientation REI criterion (reorientation_from_reference/write_reorientation_field), orientation segmentation + grain-table bridge (segment/seg_to_grain_table), sim intragranular fragments (grain_fragments, with min_subgrain_miso_deg merge via merge_fragments_by_misorientation), FF/NF/EBSD cross-step split detection (detect_splits), symmetry-aware mean_orientation_mrp
+  fragmentation.py             FragmentationAnalyzer : reorientation REI criterion (reorientation_from_reference/write_reorientation_field), orientation segmentation + grain-table bridge (segment/seg_to_grain_table, cluster_leak_check), sim intragranular fragments (grain_fragments, with min_subgrain_miso_deg merge via merge_fragments_by_misorientation), FF/NF/EBSD cross-step split detection (detect_splits), symmetry-aware mean_orientation_mrp
     (synthetic split datasets are generated by the test helper tests/synthetic_fragmentation.py, not a graintrace module)
   rare_cluster_indicator.py    IdentifyRareClusters  : REI full pipeline
   graph_spatial_cluster.py     GraphSpatialCluster   : Graph segmentation of field data
