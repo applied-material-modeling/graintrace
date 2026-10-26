@@ -22,43 +22,11 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-"""Technique-agnostic specimen-frame change for FF / NF / EBSD datasets.
+"""Stated specimen-frame change for FF / NF / EBSD datasets.
 
-:class:`FrameTransform` takes **one** dataset and a **user-stated** transform and
-rewrites positions, crystal orientations and sample-frame tensors consistently
-into a target specimen frame (for example Z = loading axis).
-
-The transform is
-
-.. math::
-
-    x' = Q\\,(s \\odot x) + t, \\qquad
-    g' = g\\,Q^{T}, \\qquad
-    \\varepsilon' = Q\\,\\varepsilon\\,Q^{T}
-
-where ``Q`` is a proper rotation (main stage rotation, remount flip and specimen
-tilt composed into one), ``s`` is a per-axis sign convention that acts on
-**positions only**, and ``t`` is the origin offset. ``g`` is the orientation
-matrix in :mod:`graintrace.orientation_helper`'s convention, i.e.
-``g = euler_to_matrix(...) = R_active^T`` where ``R_active`` maps crystal to
-sample.
-
-Scale is deliberately **not** part of a frame change: a per-axis scale difference
-between two datasets is either a wrong reconstruction input (layer spacing, pixel
-size) or real deformation, and neither is a coordinate-frame property.
-
-graintrace does not estimate transforms. If the frames are known, each dataset is
-converted independently and the datasets then agree by construction; registration
-(estimating an unknown transform) stays a one-off diagnostic outside the library.
-
-.. important::
-
-   The orientation update is on the **sample side**. For a cubic ``Q`` (say a 90
-   degree axis permutation) the crystal-side update ``Q g`` is invisible modulo
-   crystal symmetry, so a wrong-side implementation can pass orientation-only
-   checks while doing nothing physical. The pinning check is
-   ``R' c = Q R c`` for a crystal direction ``c``; see
-   ``tests/test_frame_transform.py``.
+``x' = Q (s * x) + t``, ``g' = g Q^T`` (sample side, ``g = euler_to_matrix(...)``),
+``eps' = Q eps Q^T``. ``Q`` is a proper rotation, ``s`` a per-axis sign applied to
+positions only, ``t`` a translation. There is no scale term.
 """
 
 from __future__ import annotations
@@ -69,30 +37,14 @@ from typing import Optional, Sequence
 
 import numpy as np
 
-# Entries of ``axis_sign`` must be exactly +1 or -1: a frame change carries no scale.
 _ALLOWED_SIGNS = (-1.0, 1.0)
-
-# Tolerance on det(Q) == +1 and on the orthogonality of a user-supplied matrix.
 _ROTATION_ATOL = 1e-8
-
-# Tolerance on |q| == 1 for a quaternion ``rotation``; it is never renormalised.
 _QUAT_NORM_ATOL = 1e-6
-
 _AXIS_NAMES = {"x": "x", "y": "y", "z": "z", "X": "x", "Y": "y", "Z": "z"}
 
 
 def _is_axis_angle_sequence(rotation) -> bool:
-    """True when ``rotation`` is the ordered ``(axis, angle)`` list form.
-
-    The list form holds axis *names*, so it must be recognised before anything
-    tries to coerce ``rotation`` to a float array.
-
-    Args:
-        rotation: any accepted ``rotation`` value.
-
-    Returns:
-        bool: whether the value is a non-empty sequence of 2-element pairs.
-    """
+    """True when ``rotation`` is a non-empty list of ``(axis, angle)`` pairs."""
     if not isinstance(rotation, (list, tuple)) or len(rotation) == 0:
         return False
     first = rotation[0]
@@ -100,29 +52,20 @@ def _is_axis_angle_sequence(rotation) -> bool:
 
 
 def _as_scipy_rotation(rotation, angle_unit: str, sequence: str):
-    """Build a ``scipy`` ``Rotation`` from any of the accepted ``rotation`` forms.
+    """Build a scipy ``Rotation`` from any accepted ``rotation`` form.
 
     Args:
-        rotation: ``None`` (identity), a (3, 3) matrix, a scalar-first unit
-            quaternion ``(w, x, y, z)``, a rotation vector ``(rx, ry, rz)`` whose
-            magnitude is the angle in ``angle_unit``, or an ordered sequence of
-            ``(axis, angle)`` pairs such as
-            ``[("z", 172.3), ("x", 180.0), ("y", -0.9)]``.
-        angle_unit: ``"degrees"`` or ``"radians"``; applies to the rotation-vector
-            and ``(axis, angle)`` forms.
-        sequence: ``"extrinsic"`` (fixed axes, the default) or ``"intrinsic"``
-            (axes carried along by the preceding rotations). Only read by the
-            ``(axis, angle)`` form.
+        rotation: see :class:`FrameTransform`.
+        angle_unit: ``"degrees"`` or ``"radians"``.
+        sequence: ``"extrinsic"`` or ``"intrinsic"`` (``(axis, angle)`` form only).
 
     Returns:
         scipy.spatial.transform.Rotation: the composed rotation.
 
     Raises:
-        ValueError: if ``angle_unit``, ``sequence``, an axis name, or the overall
-            shape of ``rotation`` is not recognised, or if a quaternion is not
-            unit length within ``1e-6`` (it is never silently renormalised).
+        ValueError: on an unknown unit, sequence, axis or shape, or a non-unit quaternion.
     """
-    # pylint: disable-next=import-outside-toplevel  # scipy is imported lazily
+    # pylint: disable-next=import-outside-toplevel
     from scipy.spatial.transform import Rotation
 
     if angle_unit not in ("degrees", "radians"):
@@ -138,9 +81,8 @@ def _as_scipy_rotation(rotation, angle_unit: str, sequence: str):
     if rotation is None:
         return Rotation.identity()
 
-    # Ordered list of (axis, angle) pairs -- the documented human-readable form.
     if _is_axis_angle_sequence(rotation):
-        axes, angles = [], []
+        total = Rotation.identity()
         for item in rotation:
             if not (isinstance(item, (list, tuple)) and len(item) == 2):
                 raise ValueError(
@@ -150,17 +92,8 @@ def _as_scipy_rotation(rotation, angle_unit: str, sequence: str):
             axis, angle = item
             if axis not in _AXIS_NAMES:
                 raise ValueError(f"rotation axis must be one of x/y/z, got {axis!r}")
-            axes.append(_AXIS_NAMES[axis])
-            angles.append(float(angle))
-        # Composed one axis at a time rather than through a single from_euler
-        # call: a frame change routinely needs four or more terms (stage
-        # rotation, flip, then both tilt components) and from_euler caps at 3.
-        # Extrinsic rotations are about the fixed axes, so each new term
-        # pre-multiplies; intrinsic rotations carry the axes along, so each new
-        # term post-multiplies.
-        total = Rotation.identity()
-        for axis, angle in zip(axes, angles):
-            step = Rotation.from_euler(axis, angle, degrees=degrees)
+            # One term at a time: from_euler caps at three axes.
+            step = Rotation.from_euler(_AXIS_NAMES[axis], float(angle), degrees=degrees)
             total = total * step if sequence == "intrinsic" else step * total
         return total
 
@@ -168,16 +101,13 @@ def _as_scipy_rotation(rotation, angle_unit: str, sequence: str):
     if arr.shape == (3, 3):
         return Rotation.from_matrix(arr)
     if arr.shape == (4,):
-        # scipy silently normalises; a non-unit quaternion is almost always a
-        # wrong component order or a typo, so refuse it rather than repair it.
         norm = float(np.linalg.norm(arr))
         if abs(norm - 1.0) > _QUAT_NORM_ATOL:
             raise ValueError(
                 f"quaternion must be unit length (|q| = 1 within {_QUAT_NORM_ATOL:g}); "
                 f"got |q| = {norm:.6g}"
             )
-        # graintrace quaternions are scalar-first (w, x, y, z); scipy is scalar-last.
-        return Rotation.from_quat(np.roll(arr, -1))
+        return Rotation.from_quat(np.roll(arr, -1))  # scalar-first -> scipy order
     if arr.shape == (3,):
         vec = arr if not degrees else np.deg2rad(arr)
         return Rotation.from_rotvec(vec)
@@ -189,27 +119,16 @@ def _as_scipy_rotation(rotation, angle_unit: str, sequence: str):
 
 
 def _rotation_matrix(rotation, angle_unit: str, sequence: str) -> np.ndarray:
-    """Return the proper (3, 3) rotation matrix for any accepted ``rotation`` form.
-
-    Args:
-        rotation: see :func:`_as_scipy_rotation`.
-        angle_unit: ``"degrees"`` or ``"radians"``.
-        sequence: ``"extrinsic"`` or ``"intrinsic"``.
-
-    Returns:
-        numpy.ndarray: (3, 3) float64 rotation matrix.
+    """Return the (3, 3) rotation matrix for any accepted ``rotation`` form.
 
     Raises:
-        ValueError: if a supplied (3, 3) matrix is not a proper rotation. ``scipy``
-            silently orthogonalises a near-rotation, so the matrix form is checked
-            here before it is handed over.
+        ValueError: if a supplied matrix is not orthogonal or not proper.
     """
     arr = None
     if rotation is not None and not _is_axis_angle_sequence(rotation):
         arr = np.asarray(rotation, dtype=float)
     if arr is not None and arr.shape == (3, 3):
-        # scipy's from_matrix orthogonalises; refuse an improper or non-orthogonal
-        # input here rather than silently repairing it.
+        # scipy's from_matrix would silently orthogonalise.
         if not np.allclose(arr.T @ arr, np.eye(3), atol=1e-6):
             raise ValueError(
                 "rotation matrix is not orthogonal (R^T R != I); a frame change "
@@ -225,19 +144,7 @@ def _rotation_matrix(rotation, angle_unit: str, sequence: str) -> np.ndarray:
 
 
 def _check_proper(Q: np.ndarray) -> np.ndarray:
-    """Validate that ``Q`` is a proper rotation and return it as float64.
-
-    Args:
-        Q: candidate (3, 3) matrix.
-
-    Returns:
-        numpy.ndarray: ``Q`` as a contiguous float64 array.
-
-    Raises:
-        ValueError: if ``Q`` is not (3, 3) or ``det(Q) != +1``. Mirroring an
-            orientation changes crystal handedness, so an improper matrix is
-            never silently accepted.
-    """
+    """Return ``Q`` as float64, raising ``ValueError`` unless it is a proper (3, 3) rotation."""
     Q = np.ascontiguousarray(Q, dtype=float)
     if Q.shape != (3, 3):
         raise ValueError(f"rotation must be a (3, 3) matrix, got shape {Q.shape}")
@@ -251,37 +158,20 @@ def _check_proper(Q: np.ndarray) -> np.ndarray:
 class FrameTransform:
     """Sample-frame change ``x' = Q (s * x) + t``, ``g' = g Q^T``, ``eps' = Q eps Q^T``.
 
-    The transform is stated by the user, never estimated. Positions, crystal
-    orientations and sample-frame tensors are all moved by the same rotation, so a
-    dataset converted with it is consistent by construction.
-
-    Internally the position map and the orientation map are stored separately: the
-    position matrix ``A = Q diag(s)`` may be improper (an axis reversal), while the
-    orientation rotation ``Q`` is always proper. Keeping them apart is what makes
-    :meth:`inverse` and :meth:`__matmul__` exact when ``s != (1, 1, 1)``, since
-    ``x = s * (Q^T (x' - t))`` puts the sign *after* the rotation.
+    Positions use ``A = Q diag(s)`` (possibly improper); orientations and tensors
+    use the proper ``Q``. Both are stored so :meth:`inverse` and ``@`` stay exact.
 
     Args:
-        rotation: the composed frame rotation ``Q``. Accepts ``None`` (identity), a
-            (3, 3) matrix, a scalar-first unit quaternion ``(w, x, y, z)`` (not
-            renormalised: ``|q|`` must be 1 within ``1e-6``), a rotation vector,
-            or an ordered list of ``(axis, angle)`` pairs such as
-            ``[("z", 172.3), ("x", 180.0), ("x", 1.4), ("y", -0.9)]`` (main stage
-            rotation, remount flip, then the two tilt components). Tilt is part of
-            the rotation, not a separate step.
-        axis_sign: per-axis sign convention ``s``, entries exactly ``+1`` or ``-1``.
-            It corrects an index convention (for example NF layers numbered
-            top-down against a target Z that points up) and is applied to
-            **positions only**, never to orientations or tensors.
+        rotation: ``None``, a (3, 3) proper matrix, a scalar-first unit quaternion
+            ``(w, x, y, z)``, a rotation vector, or ``(axis, angle)`` pairs such as
+            ``[("z", 172.3), ("x", 180.0), ("y", -0.9)]``.
+        axis_sign: per-axis ``+1``/``-1``, applied to positions only.
         translation: origin offset ``t``, applied after the rotation.
-        angle_unit: ``"degrees"`` (default) or ``"radians"``, for the angle-bearing
-            ``rotation`` forms.
-        sequence: ``"extrinsic"`` (default, fixed axes) or ``"intrinsic"``, for the
-            ``(axis, angle)`` list form.
+        angle_unit: ``"degrees"`` (default) or ``"radians"``.
+        sequence: ``"extrinsic"`` (default, fixed axes) or ``"intrinsic"``.
 
     Raises:
-        ValueError: if ``rotation`` is not a proper rotation, or ``axis_sign`` has
-            an entry other than ``+1``/``-1`` (a frame change carries no scale).
+        ValueError: on an improper rotation or an ``axis_sign`` entry other than +-1.
 
     Example:
         >>> import numpy as np
@@ -315,29 +205,14 @@ class FrameTransform:
             raise ValueError(f"translation must have 3 entries, got {t.shape[0]}")
 
         self.t = t
-        #: Position matrix; ``A = Q diag(s)`` and may be improper when ``s`` reverses an axis.
+        #: Position matrix ``A = Q diag(s)``.
         self.A = self.Q @ np.diag(s)
 
-    # ------------------------------------------------------------------
-    # construction from stored parts
-    # ------------------------------------------------------------------
     @classmethod
     def _from_parts(
         cls, A: np.ndarray, Q: np.ndarray, t: np.ndarray
     ) -> "FrameTransform":
-        """Build a transform directly from its three stored parts.
-
-        Used by :meth:`inverse` and :meth:`__matmul__`, whose results need not
-        factor as ``Q diag(s)`` with ``s`` a sign vector.
-
-        Args:
-            A: (3, 3) position matrix (orthogonal, possibly improper).
-            Q: (3, 3) proper orientation rotation.
-            t: (3,) translation.
-
-        Returns:
-            FrameTransform: the transform with exactly these parts.
-        """
+        """Build a transform from its stored parts ``(A, Q, t)``."""
         obj = cls.__new__(cls)
         obj.Q = _check_proper(Q)
         obj.A = np.ascontiguousarray(A, dtype=float)
@@ -346,12 +221,7 @@ class FrameTransform:
 
     @property
     def axis_sign(self) -> Optional[np.ndarray]:
-        """The per-axis sign vector ``s``, or ``None`` if the transform has none.
-
-        ``s`` is recoverable as ``Q^T A`` whenever that is a diagonal matrix of
-        ``+-1``. After a composition with a rotation it generally is not, and the
-        position map is then only expressible as the matrix :attr:`A`.
-        """
+        """The sign vector ``s``, or ``None`` when ``Q^T A`` is not a +-1 diagonal (composed transforms)."""
         d = self.Q.T @ self.A
         off = d - np.diag(np.diag(d))
         if not np.allclose(off, 0.0, atol=_ROTATION_ATOL):
@@ -369,17 +239,14 @@ class FrameTransform:
             f"axis_sign={sign_txt}, translation={tuple(self.t)})"
         )
 
-    # ------------------------------------------------------------------
-    # core maps
-    # ------------------------------------------------------------------
     def positions(self, x) -> np.ndarray:
-        """Transform positions: ``x' = A x + t`` with ``A = Q diag(s)``.
+        """Transform positions: ``x' = A x + t``.
 
         Args:
             x: (..., 3) positions.
 
         Returns:
-            numpy.ndarray: (..., 3) float64 positions in the target frame.
+            numpy.ndarray: (..., 3) positions in the target frame.
         """
         arr = np.asarray(x, dtype=float)
         if arr.shape[-1] != 3:
@@ -387,64 +254,39 @@ class FrameTransform:
         return arr @ self.A.T + self.t
 
     def orientation_matrices(self, g):
-        """Transform orientation matrices on the **sample** side: ``g' = g Q^T``.
+        """Transform orientation matrices on the sample side: ``g' = g Q^T``.
 
         Args:
-            g: (..., 3, 3) orientation matrices in
-                :func:`~graintrace.orientation_helper.euler_to_matrix`'s convention
-                (``g = R_active^T``, where ``R_active`` maps crystal to sample). A
-                ``torch.Tensor`` is returned as a tensor with its dtype and device
-                preserved; anything else is returned as a float64 tensor.
+            g: (..., 3, 3) matrices in :func:`~graintrace.orientation_helper.euler_to_matrix`'s
+                convention; a tensor keeps its dtype and device.
 
         Returns:
-            torch.Tensor: (..., 3, 3) transformed orientation matrices.
+            torch.Tensor: (..., 3, 3) transformed matrices.
         """
-        # pylint: disable-next=import-outside-toplevel  # torch is a heavy dep
+        # pylint: disable-next=import-outside-toplevel
         import torch
 
         if isinstance(g, torch.Tensor):
             gt = g
         else:
-            # np.array, not asarray: a read-only input would otherwise make a
-            # non-writable tensor and torch warns about it.
+            # np.array, not asarray: a read-only input makes torch warn.
             gt = torch.as_tensor(np.array(g, dtype=float), dtype=torch.float64)
         Qt = torch.as_tensor(self.Q.T, dtype=gt.dtype, device=gt.device)
         return gt @ Qt
 
     def mrp(self, p):
-        """Transform neml2 v3 MRP orientations, staying in neml2 throughout.
-
-        ``R' = Q R`` is applied by composing the frame rotation onto the
-        orientation inside neml2, so the orientation never leaves the CPFE
-        interchange format for a hand-built matrix step.
-
-        The ``compose`` argument order is load bearing and is pinned by
-        ``tests/test_frame_transform.py``: ``compose(a, b)`` produces the
-        orientation whose matrix is ``matrix(a) @ matrix(b)``, so the sample-side
-        update ``g' = g Q^T`` is ``compose(orientation, Q^T)``. Swapping the
-        arguments gives the crystal-side update, which is the error this class
-        exists to prevent.
-
-        The result is the **short-rotation** MRP set (``|p'| <= 1``, rotation
-        angle ``<= 180`` degrees). An MRP ``p`` and its shadow ``-p / |p|^2``
-        (neml2 ``shadow``) are the same rotation; the inputs are brought onto
-        the short set and the frame rotation's set is chosen so that the
-        ``compose`` denominator stays ``>= 1``, which keeps the result finite
-        even when the composed rotation is close to 360 degrees.
+        """Transform neml2 v3 MRP orientations in neml2; returns the short set ``|p'| <= 1``.
 
         Args:
-            p: (..., 3) neml2 v3 MRP orientations (either set).
+            p: (..., 3) neml2 v3 MRP orientations (either shadow set).
 
         Returns:
-            torch.Tensor: (..., 3) transformed MRP orientations, ``|p'| <= 1``.
+            torch.Tensor: (..., 3) transformed MRP, ``|p'| <= 1``.
         """
-        # pylint: disable-next=import-outside-toplevel  # neml2/torch are heavy deps
+        # pylint: disable=import-outside-toplevel
         import torch
-
-        # pylint: disable-next=import-outside-toplevel  # neml2 is an optional dep
         from neml2.types import MRP, compose
 
-        # pylint: disable-next=import-outside-toplevel  # avoid a module-level cycle
         from .orientation_helper import matrix_to_mrp
 
         pt = _short_mrp(
@@ -453,8 +295,8 @@ class FrameTransform:
         q_frame = _short_mrp(
             matrix_to_mrp(torch.as_tensor(self.Q.T, dtype=torch.float64))
         ).expand_as(pt)
-        # compose's denominator is 1 + |a|^2 |b|^2 - 2 a.b; with a.b <= 0 it is >= 1.
-        # Swapping q for its shadow flips the sign of a.b and leaves the rotation.
+        # compose(a, b) has matrix(a) @ matrix(b), so g Q^T is compose(p, Q^T).
+        # Its denominator 1 + |a|^2|b|^2 - 2 a.b stays >= 1 when a.b <= 0.
         flip = (pt * q_frame).sum(dim=-1, keepdim=True) > 0.0
         q_frame = torch.where(flip, _shadow(q_frame), q_frame)
         composed = compose(MRP(pt.contiguous(), 0), MRP(q_frame.contiguous(), 0))
@@ -466,26 +308,21 @@ class FrameTransform:
         convention: str = "bunge",
         angle_type: str = "degrees",
     ) -> np.ndarray:
-        """Transform Euler angles: notation -> orientation -> transform -> notation.
-
-        No arithmetic is done on the angles themselves; adding angles is wrong for
-        any rotation that is not about the first Bunge axis.
+        """Transform Euler angles via the orientation matrix (no angle arithmetic).
 
         Args:
             eul: (..., 3) Euler angles.
             convention: ``'bunge'``, ``'kocks'`` or ``'roe'``.
-            angle_type: ``'degrees'`` or ``'radians'``; applies to input and output.
+            angle_type: ``'degrees'`` or ``'radians'``, for input and output.
 
         Returns:
             numpy.ndarray: (..., 3) Euler angles in the same convention and unit.
         """
-        # pylint: disable-next=import-outside-toplevel  # torch is a heavy dep
+        # pylint: disable=import-outside-toplevel
         import torch
 
-        # pylint: disable-next=import-outside-toplevel  # avoid a module-level cycle
         from .orientation_helper import euler_to_matrix, matrix_to_euler
 
-        # np.array (not asarray): a read-only input would make a non-writable tensor.
         e = torch.as_tensor(np.array(eul, dtype=float), dtype=torch.float64)
         g = euler_to_matrix(e, convention, angle_type)
         return matrix_to_euler(
@@ -496,11 +333,10 @@ class FrameTransform:
         """Transform sample-frame rank-2 tensors: ``eps' = Q eps Q^T``.
 
         Args:
-            eps: (..., 3, 3) tensors, or (..., 9) row-major flattened tensors
-                (the ``eKen``/``eFab``/stress column layout).
+            eps: (..., 3, 3) tensors or (..., 9) row-major components.
 
         Returns:
-            numpy.ndarray: the transformed tensors, in the same shape as the input.
+            numpy.ndarray: transformed tensors, same shape as the input.
         """
         arr = np.asarray(eps, dtype=float)
         flat9 = arr.shape[-1] == 9 and arr.shape[-2:] != (3, 3)
@@ -515,36 +351,13 @@ class FrameTransform:
         out = np.einsum("ij,...jk,lk->...il", self.Q, mats, self.Q)
         return out.reshape(arr.shape) if flat9 else out
 
-    # ------------------------------------------------------------------
-    # algebra
-    # ------------------------------------------------------------------
     def inverse(self) -> "FrameTransform":
-        """Return the inverse frame change.
-
-        With ``x' = A x + t`` the inverse is ``x = A^T (x' - t)``, so the inverted
-        parts are ``(A^T, Q^T, -A^T t)``. The sign vector lands *after* the
-        rotation on the way back, which is why ``A`` and ``Q`` are stored
-        separately.
-
-        Returns:
-            FrameTransform: ``T.inverse() @ T`` is the identity.
-        """
+        """Return the inverse, with parts ``(A^T, Q^T, -A^T t)``."""
         A_inv = self.A.T
         return FrameTransform._from_parts(A_inv, self.Q.T, -(A_inv @ self.t))
 
     def __matmul__(self, other: "FrameTransform") -> "FrameTransform":
-        """Compose two frame changes: ``(self @ other)(x) == self(other(x))``.
-
-        The position matrices and the orientation rotations compose separately,
-        and the translation picks up ``other``'s offset through ``self``'s
-        position matrix.
-
-        Args:
-            other: the transform applied first.
-
-        Returns:
-            FrameTransform: the composed transform.
-        """
+        """Compose: ``(self @ other)`` applies ``other`` first, then ``self``."""
         if not isinstance(other, FrameTransform):
             return NotImplemented
         return FrameTransform._from_parts(
@@ -553,17 +366,8 @@ class FrameTransform:
             self.A @ other.t + self.t,
         )
 
-    # ------------------------------------------------------------------
-    # serialisation
-    # ------------------------------------------------------------------
     def to_dict(self) -> dict:
-        """Return a JSON-serialisable record of the transform.
-
-        Returns:
-            dict: the three stored parts plus the recovered ``axis_sign`` when the
-            transform still has one, under a ``"graintrace_frame_transform"``
-            schema key.
-        """
+        """Return a JSON-serialisable record of the transform."""
         s = self.axis_sign
         return {
             "schema": "graintrace_frame_transform",
@@ -590,9 +394,8 @@ class FrameTransform:
             FrameTransform: the stored transform.
 
         Raises:
-            ValueError: if the record is not a graintrace frame-transform record,
-                if ``position_matrix`` is not orthogonal, or if it disagrees with
-                a non-null ``axis_sign``.
+            ValueError: on a foreign record, a non-orthogonal ``position_matrix``, or
+                one that disagrees with a non-null ``axis_sign``.
         """
         if record.get("schema") != "graintrace_frame_transform":
             raise ValueError(
@@ -602,12 +405,6 @@ class FrameTransform:
         A = np.asarray(record.get("position_matrix", Q), dtype=float)
         t = np.asarray(record.get("translation", (0.0, 0.0, 0.0)), dtype=float)
 
-        # Unlike inverse()/__matmul__, which build from parts this class computed
-        # itself, a record is outside data: a non-orthogonal A would make
-        # positions() a non-rigid map while orientation_matrices() stayed rigid,
-        # and nothing downstream would notice. A is orthogonal for every
-        # transform this class can produce, composed ones included, so it is the
-        # invariant to check here.
         if A.shape != (3, 3):
             raise ValueError(f"position_matrix must be (3, 3), got {A.shape}")
         if not np.allclose(A @ A.T, np.eye(3), atol=_ROTATION_ATOL):
@@ -616,8 +413,6 @@ class FrameTransform:
                 "or skew positions while leaving orientations rigid"
             )
 
-        # When the record claims a sign vector, A must be exactly Q diag(s).
-        # Composed transforms store axis_sign=None and are left unconstrained.
         stored_sign = record.get("axis_sign")
         if stored_sign is not None:
             want = Q @ np.diag(np.asarray(stored_sign, dtype=float))
@@ -630,14 +425,7 @@ class FrameTransform:
         return cls._from_parts(A, Q, t)
 
     def to_json(self, path: str) -> str:
-        """Write the transform record to ``path`` as JSON.
-
-        Args:
-            path: destination file path.
-
-        Returns:
-            str: ``path``.
-        """
+        """Write :meth:`to_dict` to ``path`` as JSON and return ``path``."""
         directory = os.path.dirname(os.path.abspath(path))
         os.makedirs(directory, exist_ok=True)
         with open(path, "w", encoding="utf-8") as fh:
@@ -646,52 +434,23 @@ class FrameTransform:
 
     @classmethod
     def from_json(cls, path: str) -> "FrameTransform":
-        """Read a transform back from a :meth:`to_json` file.
-
-        Args:
-            path: the JSON file written by :meth:`to_json`.
-
-        Returns:
-            FrameTransform: the stored transform.
-        """
+        """Read a transform written by :meth:`to_json`."""
         with open(path, "r", encoding="utf-8") as fh:
             return cls.from_dict(json.load(fh))
 
-    # ------------------------------------------------------------------
-    # dataset adapters
-    # ------------------------------------------------------------------
     def _write_record(self, dst: str) -> str:
-        """Write ``<dst>.transform.json`` beside an adapter's output.
-
-        Args:
-            dst: the output file the record accompanies.
-
-        Returns:
-            str: the record path.
-        """
+        """Write ``<dst>.transform.json`` beside an adapter's output."""
         return self.to_json(f"{dst}.transform.json")
 
     @staticmethod
     def _resolve_angle_type(values: np.ndarray, angle_type: str) -> str:
-        """Resolve ``angle_type="auto"`` from the magnitude of the Euler values.
-
-        Args:
-            values: the Euler angle array to inspect.
-            angle_type: ``'degrees'``, ``'radians'`` or ``'auto'``.
-
-        Returns:
-            str: ``'degrees'`` or ``'radians'``.
-
-        Raises:
-            ValueError: if ``angle_type`` is not one of the three accepted strings.
-        """
+        """Resolve ``angle_type="auto"``: any value beyond ``2*pi`` means degrees."""
         if angle_type in ("degrees", "radians"):
             return angle_type
         if angle_type != "auto":
             raise ValueError(
                 f"angle_type must be 'degrees', 'radians' or 'auto', got {angle_type!r}"
             )
-        # Same rule the rest of graintrace uses: anything beyond 2*pi must be degrees.
         return "degrees" if np.nanmax(np.abs(values)) > 2.0 * np.pi else "radians"
 
     def apply_ff_csv(
@@ -705,32 +464,22 @@ class FrameTransform:
         tensor_prefixes: Sequence[str] = ("eKen", "eFab"),
         extra_matrix_prefixes: Sequence[str] = ("O",),
     ) -> str:
-        """Move a far-field grain table into the target frame.
-
-        Positions, Euler angles, every present 9-component sample-frame tensor and
-        every present 9-component orientation matrix are transformed; grain radius,
-        volume, confidence and ids are left untouched. A
-        ``<dst>.transform.json`` record is written beside the output.
+        """Move an FF grain table into the target frame and write ``<dst>.transform.json``.
 
         Args:
-            src: input CSV path, or a ``pandas.DataFrame``.
+            src: input CSV path or ``pandas.DataFrame``.
             dst: output CSV path.
             coord_cols: the three position columns.
-            euler_cols: the three Euler columns, or ``None`` to skip orientations.
-            convention: Euler convention, ``'bunge'``/``'kocks'``/``'roe'``.
-            angle_type: ``'degrees'``, ``'radians'`` or ``'auto'`` (detect from the
-                values: anything beyond ``2*pi`` is degrees).
-            tensor_prefixes: prefixes whose ``<prefix>11``..``<prefix>33`` columns
-                are sample-frame tensors transformed as ``Q eps Q^T``. Missing
-                prefixes are skipped.
-            extra_matrix_prefixes: prefixes whose ``<prefix>11``..``<prefix>33``
-                columns hold an orientation **matrix** ``g``, transformed as
-                ``g Q^T``. Missing prefixes are skipped.
+            euler_cols: the three Euler columns, or ``None`` to skip.
+            convention: ``'bunge'``, ``'kocks'`` or ``'roe'``.
+            angle_type: ``'degrees'``, ``'radians'`` or ``'auto'``.
+            tensor_prefixes: ``<prefix>11..33`` tensor columns (``Q eps Q^T``); missing ones are skipped.
+            extra_matrix_prefixes: ``<prefix>11..33`` orientation-matrix columns (``g Q^T``); missing ones are skipped.
 
         Returns:
             str: ``dst``.
         """
-        # pylint: disable-next=import-outside-toplevel  # pandas at call time
+        # pylint: disable-next=import-outside-toplevel
         import pandas as pd
 
         df = pd.read_csv(src).copy() if isinstance(src, str) else src.copy()
@@ -770,25 +519,20 @@ class FrameTransform:
         convention: str = "bunge",
         angle_type: str = "radians",
     ) -> str:
-        """Move a NF / EBSD point cloud into the target frame.
-
-        A rotation that mixes z into x and y (a flip or a tilt) cannot be written
-        back as 2D ``.mic`` layers, so this adapter works on the stacked point
-        cloud and outputs 3D coordinates. To keep a layered NF dataset native
-        instead, move the *other* dataset in with :meth:`inverse`.
+        """Move an NF / EBSD point cloud into the target frame and write ``<dst>.transform.json``.
 
         Args:
             df_or_csv: input CSV path or ``pandas.DataFrame``.
             dst: output CSV path.
             coord_cols: the three position columns.
-            euler_cols: the three Euler columns, or ``None`` to skip orientations.
+            euler_cols: the three Euler columns, or ``None`` to skip.
             convention: Euler convention.
             angle_type: ``'degrees'``, ``'radians'`` or ``'auto'``.
 
         Returns:
             str: ``dst``.
         """
-        # pylint: disable-next=import-outside-toplevel  # pandas at call time
+        # pylint: disable-next=import-outside-toplevel
         import pandas as pd
 
         df = (
@@ -819,14 +563,10 @@ class FrameTransform:
         convention: str = "bunge",
         angle_type: str = "radians",
     ) -> str:
-        """Move a ``[phase, Eul1, Eul2, Eul3, X, Y, Z]`` voxel grid into the target frame.
+        """Move a ``[phase, Eul1..3, X, Y, Z]`` voxel grid (``.npy``) into the target frame.
 
-        This is the layout written by the NF reconstruction
-        (``merged_segmented_fixed_grid.npy``): the last axis holds the phase/grain
-        label, three Euler angles and three coordinates. The grid keeps its array
-        shape -- only the stored coordinates and orientations move, so after a
-        rotation that mixes axes the grid is no longer axis-aligned and should be
-        treated as a point cloud downstream.
+        The array shape is kept; after a rotation that mixes axes the grid is no
+        longer axis aligned.
 
         Args:
             npy_in: input ``.npy`` path.
@@ -838,7 +578,7 @@ class FrameTransform:
             str: ``npy_out``.
 
         Raises:
-            ValueError: if the last axis is shorter than 7 entries.
+            ValueError: if the last axis has fewer than 7 entries.
         """
         grid = np.load(npy_in)
         if grid.shape[-1] < 7:
@@ -861,28 +601,21 @@ class FrameTransform:
         return npy_out
 
     def apply_ee_csv(self, src: str, dst: str) -> str:
-        """Move a headerless 12-column elastic-strain file into the target frame.
+        """Move a headerless ``x, y, z`` + 9 row-major strain file (``reconstruction_cpfe_ee.csv``).
 
-        This is the ``reconstruction_cpfe_ee.csv`` layout written by
-        :meth:`~graintrace.construct_voronoi_mesh.VoronoiMeshBuilder.build_voronoi`
-        and read by :class:`~graintrace.run_cpfe_simulation.CPFESimulation`
-        (``eeres_file``): one row per grain, ``x, y, z`` then the nine strain
-        components ``e11, e12, e13, e21, ..., e33`` in row-major order. Positions
-        get ``x' = Q (s * x) + t`` and strains ``eps' = Q eps Q^T``, so an FF strain
-        field can be moved into an NF mesh frame in one call (CLAUDE.md section 6).
-        A ``<dst>.transform.json`` record is written beside the output.
+        Writes ``dst`` comma-delimited without a header, plus ``<dst>.transform.json``.
 
         Args:
-            src: input file (comma- or whitespace-delimited, no header).
-            dst: output CSV path, written comma-delimited with no header.
+            src: input file, comma- or whitespace-delimited.
+            dst: output CSV path.
 
         Returns:
             str: ``dst``.
 
         Raises:
-            ValueError: if the file does not have exactly 12 columns.
+            ValueError: if the file does not have 12 columns.
         """
-        # pylint: disable-next=import-outside-toplevel  # pandas at call time
+        # pylint: disable-next=import-outside-toplevel
         import pandas as pd
 
         data = pd.read_csv(src, sep=r"[,\s]+", engine="python", header=None).to_numpy(
@@ -912,44 +645,22 @@ class FrameTransform:
     ) -> np.ndarray:
         """Flag target-frame points that land on solid voxels of a source-frame grid.
 
-        ``self`` maps the grid's (source) frame to the target frame. Each point is
-        mapped back with :meth:`inverse`, snapped to its nearest voxel centre, and
-        reported ``True`` when that voxel is solid. Points outside the grid are
-        ``False``. This is the "inside the volume both datasets see" mask that the
-        one-to-one recall of
-        :meth:`~graintrace.fragmentation.FragmentationAnalyzer.detect_splits`
-        consumes as ``in_overlap_a`` / ``in_overlap_b`` (the size-aware split
-        gate), e.g. FF grain centroids tested against the NF solid:
-
-        .. code-block:: python
-
-            solid, origin, spacing = voxel_solid_from_grid(
-                "out/NF/merged_segmented_fixed_grid.npy"
-            )
-            # FF table already moved into the NF frame -> the grid frame IS the
-            # target frame, so the identity transform is the right one.
-            ff = pd.read_csv("out/FF/stitched_in_nf_frame.csv")
-            ff["in_nf"] = FrameTransform().inside_voxel_solid(
-                ff[["X", "Y", "Z"]].to_numpy(), solid, origin, spacing, margin_vox=1
-            )
-            analyzer.detect_splits(nf_table, ff, ..., in_overlap_b="in_nf")
+        Points are mapped back with :meth:`inverse` and snapped to the nearest voxel
+        centre; points outside the grid are ``False``. Use it for the
+        ``in_overlap_a``/``in_overlap_b`` masks of ``detect_splits``.
 
         Args:
             points: (N, 3) points in the target frame.
-            solid_mask: (nx, ny, nz) boolean array; axis ``k`` of the mask runs
-                along source-frame coordinate ``k``.
-            origin: source-frame coordinates of the centre of voxel ``(0, 0, 0)``.
-            spacing: voxel size, a scalar or ``(dx, dy, dz)``.
-            margin_vox: erode the solid by this many voxels (6-connected) first,
-                so points within ``margin_vox`` voxels of the free surface count as
-                outside. Default 0 (no erosion).
+            solid_mask: (nx, ny, nz) boolean array, axis ``k`` along coordinate ``k``.
+            origin: source-frame centre of voxel ``(0, 0, 0)``.
+            spacing: voxel size, scalar or ``(dx, dy, dz)``.
+            margin_vox: erode the solid by this many voxels first (default 0).
 
         Returns:
             numpy.ndarray: (N,) boolean mask.
 
         Raises:
-            ValueError: on a non-3D mask, a non-positive spacing, a negative
-                ``margin_vox``, or points that are not (N, 3).
+            ValueError: on a non-3D mask, non-positive spacing, negative margin or non-(N, 3) points.
         """
         mask = np.asarray(solid_mask, dtype=bool)
         if mask.ndim != 3:
@@ -964,7 +675,7 @@ class FrameTransform:
             raise ValueError(f"points must be (N, 3), got shape {pts.shape}")
 
         if margin_vox:
-            # pylint: disable-next=import-outside-toplevel  # scipy imported lazily
+            # pylint: disable-next=import-outside-toplevel
             from scipy.ndimage import binary_erosion
 
             mask = binary_erosion(mask, iterations=int(margin_vox), border_value=0)
@@ -979,25 +690,19 @@ class FrameTransform:
 
 
 def voxel_solid_from_grid(grid, spacing=None):
-    """Solid mask, origin and spacing of a ``[phase, Eul1..3, X, Y, Z]`` voxel grid.
+    """Return ``(solid_mask, origin, spacing)`` of a ``[phase, Eul1..3, X, Y, Z]`` voxel grid.
 
-    Reads the NF reconstruction layout (``merged_segmented_fixed_grid.npy``):
-    phase ``> 0`` is solid, ``0`` is void, and the coordinates are axis aligned
-    with mask axis ``k`` along coordinate ``k``. The result feeds
-    :meth:`FrameTransform.inside_voxel_solid`.
+    Phase ``> 0`` is solid. The result feeds :meth:`FrameTransform.inside_voxel_solid`.
 
     Args:
-        grid: (nx, ny, nz, >=7) array, or the path of a ``.npy`` holding one.
-        spacing: voxel size (scalar or ``(dx, dy, dz)``); inferred from the
-            coordinates of neighbouring voxels when ``None``.
+        grid: (nx, ny, nz, >=7) array or ``.npy`` path (e.g. ``merged_segmented_fixed_grid.npy``).
+        spacing: voxel size; inferred from neighbouring voxel coordinates when ``None``.
 
     Returns:
-        tuple: ``(solid_mask, origin, spacing)`` -- a boolean (nx, ny, nz) array,
-        the (3,) centre of voxel ``(0, 0, 0)``, and the (3,) spacing.
+        tuple: boolean (nx, ny, nz) mask, (3,) centre of voxel ``(0, 0, 0)``, (3,) spacing.
 
     Raises:
-        ValueError: if the grid is not 4D with at least 7 entries per voxel, or
-            the spacing cannot be inferred along a single-voxel axis.
+        ValueError: on a malformed grid, or a single-voxel axis with no ``spacing``.
     """
     arr = np.load(grid) if isinstance(grid, (str, os.PathLike)) else np.asarray(grid)
     if arr.ndim != 4 or arr.shape[-1] < 7:
@@ -1022,37 +727,19 @@ def voxel_solid_from_grid(grid, spacing=None):
 
 
 def _shadow(p):
-    """neml2's shadow MRP set ``-p / |p|^2`` (the same rotation), safe at ``p = 0``.
-
-    Args:
-        p: (..., 3) MRP tensor.
-
-    Returns:
-        torch.Tensor: the shadow set; rows with ``p = 0`` are returned unchanged
-        (the identity has no finite shadow and never needs one here).
-    """
-    # pylint: disable-next=import-outside-toplevel  # torch is a heavy dep
+    """neml2 shadow MRP ``-p / |p|^2`` (same rotation); ``p = 0`` is returned unchanged."""
+    # pylint: disable=import-outside-toplevel
     import torch
-
-    # pylint: disable-next=import-outside-toplevel  # neml2 is an optional dep
     from neml2.types import MRP, shadow
 
-    nsq = (p * p).sum(dim=-1, keepdim=True)
-    zero = nsq == 0.0
+    zero = (p * p).sum(dim=-1, keepdim=True) == 0.0
     safe = torch.where(zero, torch.ones_like(p), p).contiguous()
     return torch.where(zero, p, shadow(MRP(safe, 0)).data)
 
 
 def _short_mrp(p):
-    """Map each MRP onto the short-rotation set ``|p| <= 1`` via its shadow.
-
-    Args:
-        p: (..., 3) MRP tensor.
-
-    Returns:
-        torch.Tensor: the same rotations with ``|p| <= 1``.
-    """
-    # pylint: disable-next=import-outside-toplevel  # torch is a heavy dep
+    """Map each MRP onto the short-rotation set ``|p| <= 1``."""
+    # pylint: disable-next=import-outside-toplevel
     import torch
 
     long_set = (p * p).sum(dim=-1, keepdim=True) > 1.0
@@ -1060,25 +747,11 @@ def _short_mrp(p):
 
 
 def _component_columns(df, prefix: str) -> Optional[list]:
-    """Return the nine ``<prefix>11``..``<prefix>33`` columns, or ``None`` if absent.
-
-    Args:
-        df: the dataframe to inspect.
-        prefix: the component-column prefix, e.g. ``"eKen"`` or ``"O"``.
-
-    Returns:
-        list | None: the nine column names in row-major order when all are
-        present, otherwise ``None``.
-    """
+    """The nine ``<prefix>11..33`` columns in row-major order, or ``None`` if any is absent."""
     cols = [f"{prefix}{i}{j}" for i in (1, 2, 3) for j in (1, 2, 3)]
     return cols if all(c in df.columns for c in cols) else None
 
 
 def _ensure_parent(path: str) -> None:
-    """Create the parent directory of ``path`` if it does not already exist.
-
-    Args:
-        path: the file about to be written.
-    """
-    parent = os.path.dirname(os.path.abspath(path))
-    os.makedirs(parent, exist_ok=True)
+    """Create the parent directory of ``path`` if needed."""
+    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)

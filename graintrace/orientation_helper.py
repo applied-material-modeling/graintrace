@@ -123,17 +123,8 @@ def matrix_to_euler(
 ) -> torch.Tensor:
     """Convert rotation matrices to Euler angles (inverse of :func:`euler_to_matrix`).
 
-    The output is canonical, so equal matrices give equal angles:
-
-    * the first and third angles are wrapped to ``[0, 360)`` degrees
-      (``[0, 2*pi)`` radians); the second lies in ``[0, 180]``;
-    * at gimbal lock (``Phi`` within ``1e-8`` rad of 0 or 180 degrees) ``Phi`` is
-      snapped to exactly 0 or 180, the whole in-plane angle goes into the
-      first Bunge angle, and the third Bunge angle is 0.
-
-    ``Phi`` is taken from ``atan2(sin, cos)`` rather than ``arccos``, which loses
-    about half the significant digits next to the poles and made the
-    gimbal/non-gimbal split depend on round-off.
+    First and third angles are wrapped to ``[0, 360)`` deg (``[0, 2*pi)`` rad). At
+    gimbal lock ``Phi`` snaps to 0 or 180 and the third Bunge angle is 0.
 
     Args:
         M: (..., 3, 3) rotation matrices.
@@ -144,6 +135,7 @@ def matrix_to_euler(
         (..., 3) Euler angles.
     """
     M = torch.as_tensor(M, dtype=torch.float64)
+    # atan2 keeps precision near the poles, where arccos does not.
     sP = torch.hypot(M[..., 2, 0], M[..., 2, 1])
     Phi = torch.atan2(sP, M[..., 2, 2])
 

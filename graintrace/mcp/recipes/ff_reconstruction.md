@@ -51,14 +51,9 @@ returns `needs_input`. See the `experiment_metadata` recipe.
 ## Sample tilt correction
 If the sample was tilted, leave `auto_rotate=false` and set
 `rotate_angles=[0,0,<deg>]` with `rotate_convention="xyz"` (angles in the same
-unit as `unit`). `auto_rotate=true` is the *other* option: it aligns the point
-cloud to its own PCA axes and ignores `rotate_angles`.
-
-The rotation is applied to positions, orientations (`g -> g Q^T`, the sample
-side) and the elastic strain (`Q e Q^T`) together. The deprecated
-`orientation_active_convention` flag is gone from the defaults; do not pass it.
-For a frame change with no reconstruction, use `graintrace.FrameTransform`
-directly.
+unit as `unit`). `auto_rotate=true` instead aligns to PCA axes and ignores
+`rotate_angles`. Do not pass the deprecated `orientation_active_convention`.
+For a frame change with no reconstruction, use `graintrace.FrameTransform`.
 
 ## Bounding box hygiene
 Keep `auto_fix_bbox=true`. Use `bbox_fix_mode="remove_points"` for production

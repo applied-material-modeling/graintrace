@@ -76,13 +76,8 @@ def update_experiments(
 
     .. note::
 
-       ``orientation_active_convention`` is deprecated: it is forwarded to the
-       builder, which ignores it and warns when it is ``True``. The sample
-       rotation always updates orientations on the sample side (``g -> g Q^T``).
-       For a frame change that needs no reconstruction, use
-       :class:`~graintrace.FrameTransform` and its
-       :meth:`~graintrace.FrameTransform.apply_ff_csv` adapter instead of this
-       function.
+       ``orientation_active_convention`` is deprecated and ignored. For a frame
+       change without a reconstruction use :meth:`~graintrace.FrameTransform.apply_ff_csv`.
 
     .. important::
 
