@@ -1022,3 +1022,106 @@ class TestRecallAndNull:
             a, b, d_tol=10.0, theta_tol_deg=5.0, angle_type="degrees"
         )
         assert "null" not in res
+
+
+class TestRadiusSanitizingAndValidation:
+    """NaN/negative radii fall back to ``d_tol``; negative tolerances are rejected."""
+
+    @staticmethod
+    def _parent_subgrains_and_a_nan_outlier():
+        """A parent of R=50, three sub-grains at 0.8R, one far B grain with NaN R."""
+        a, b = TestSizeAwareSplitDetection._parent_and_subgrains()
+        far = _sized_nodes(
+            [99],
+            np.array([[1000.0, 0.0, 0.0]]),
+            np.array([[60.0, 40.0, 10.0]]),
+            [np.nan],
+        )
+        return a, pd.concat([b, far], ignore_index=True)
+
+    def test_candidate_search_survives_a_nan_b_radius(self):
+        pytest.importorskip("scipy")
+        from graintrace.fragmentation import _candidate_pairs
+
+        ca = np.zeros((1, 3))
+        cb = np.array([[40.0, 0.0, 0.0], [1000.0, 0.0, 0.0]])
+        ai, bj, _, _ = _candidate_pairs(
+            ca,
+            cb,
+            np.array([50.0]),
+            np.array([5.0, np.nan]),
+            10.0,
+            "radius",
+            1.0,
+            1.0,
+            1.0,
+            8,
+        )
+        assert ai.tolist() == [0] and bj.tolist() == [0]
+
+    def test_one_nan_b_radius_does_not_drop_every_link(self):
+        pytest.importorskip("neml2")
+        from graintrace.fragmentation import FragmentationAnalyzer
+
+        a, b = self._parent_subgrains_and_a_nan_outlier()
+        with pytest.warns(UserWarning, match="1 grain.*nodes_b.*NaN or negative"):
+            res = FragmentationAnalyzer().detect_splits(
+                a,
+                b,
+                d_tol=10.0,
+                theta_tol_deg=5.0,
+                angle_type="degrees",
+                d_tol_mode="radius",
+            )
+        assert res["n_splits"] == 1
+        assert res["n_births"] == 1  # only the unrelated far grain
+        assert res["n_deaths"] == 0
+
+    @pytest.mark.parametrize("bad", [np.nan, -5.0])
+    def test_bad_a_radius_falls_back_to_the_d_tol_floor(self, bad):
+        pytest.importorskip("neml2")
+        from graintrace.fragmentation import FragmentationAnalyzer
+
+        # One A grain with a bad radius and one B grain 8 away: d_tol=10 must link it.
+        a = _sized_nodes([1], np.zeros((1, 3)), np.array([[10.0, 20.0, 30.0]]), [bad])
+        b = _sized_nodes(
+            [11],
+            np.array([[8.0, 0.0, 0.0]]),
+            np.array([[10.5, 20.0, 30.0]]),
+            [1.0],
+        )
+        with pytest.warns(UserWarning, match="nodes_a"):
+            res = FragmentationAnalyzer().detect_splits(
+                a,
+                b,
+                d_tol=10.0,
+                theta_tol_deg=5.0,
+                angle_type="degrees",
+                d_tol_mode="radius",
+            )
+        assert res["n_matches"] == 1
+
+    def test_absolute_mode_ignores_radii_and_stays_quiet(self):
+        pytest.importorskip("neml2")
+        from graintrace.fragmentation import FragmentationAnalyzer
+
+        a, b = self._parent_subgrains_and_a_nan_outlier()
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            FragmentationAnalyzer().detect_splits(
+                a, b, d_tol=10.0, theta_tol_deg=5.0, angle_type="degrees"
+            )
+
+    @pytest.mark.parametrize(
+        "name", ["d_tol", "theta_tol_deg", "alpha", "alpha_a", "alpha_b"]
+    )
+    def test_negative_tolerance_or_multiplier_raises(self, name):
+        pytest.importorskip("neml2")
+        from graintrace.fragmentation import FragmentationAnalyzer
+
+        a, b = TestSizeAwareSplitDetection._parent_and_subgrains()
+        kw = dict(d_tol=10.0, theta_tol_deg=5.0, angle_type="degrees")
+        kw[name] = -1.0
+        with pytest.raises(ValueError, match=f"{name} must be non-negative"):
+            FragmentationAnalyzer().detect_splits(a, b, **kw)
+

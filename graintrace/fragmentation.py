@@ -243,7 +243,9 @@ def _candidate_pairs(
 
     # Size-aware gates: query at the loosest gate the A grain could possibly use
     # (its own radius term against the LARGEST B radius), then apply the exact gate.
-    rad_b_max = float(rad_b.max())
+    # nanmax: one NaN radius must not turn every search radius into NaN (an empty
+    # ball query). detect_splits already zeroes NaN radii; this guards direct callers.
+    rad_b_max = float(np.nanmax(rad_b)) if np.any(np.isfinite(rad_b)) else 0.0
     if d_tol_mode == "radius":
         r_search = np.maximum(
             np.maximum(float(d_tol), alpha_a * rad_a), alpha_b * rad_b_max
@@ -275,6 +277,33 @@ def _candidate_pairs(
 
     keep = pair_dist <= gate
     return ai[keep], bj[keep], pair_dist[keep], gate[keep]
+
+
+def _sanitize_radii(rad: np.ndarray, name: str) -> np.ndarray:
+    """Replace NaN or negative grain radii by 0, warning once with the count.
+
+    A radius of 0 drops that grain's radius term from the size-aware gate, so the
+    gate falls back to ``d_tol`` (``"radius"``) or to the other grain's radius
+    (``"radius_sum"``) instead of a NaN that silently removes every link.
+
+    Args:
+        rad: ``(n,)`` per-grain radii.
+        name: table name, used in the warning.
+
+    Returns:
+        ``(n,)`` radii with every NaN or negative entry set to 0.
+    """
+    bad = ~(rad >= 0)  # True for NaN and for negatives
+    n_bad = int(bad.sum())
+    if n_bad:
+        warnings.warn(
+            f"{n_bad} grain(s) in {name} have a NaN or negative radius; treating "
+            "them as radius 0, so their distance gate falls back to d_tol.",
+            UserWarning,
+            stacklevel=3,
+        )
+        rad = np.where(bad, 0.0, rad)
+    return rad
 
 
 def _overlap_mask(spec, df, n: int, name: str) -> np.ndarray:
@@ -1348,7 +1377,9 @@ class FragmentationAnalyzer:
             alpha: multiplier on the radius sum in ``d_tol_mode="radius_sum"``.
             radius_col: per-grain radius column read by the radius modes (default
                 ``"GrainRadius"``, the grain-table schema). Required in both tables
-                for those modes; ``"absolute"`` never reads it.
+                for those modes; ``"absolute"`` never reads it. A NaN or negative
+                radius counts as 0 (with a ``UserWarning``), so that grain's gate
+                falls back to ``d_tol``.
             assignment: ``"one_to_one"`` to additionally run a Hungarian assignment
                 over the gated candidates and return the strict pairs, or ``None``
                 (default) for the lineage view only. The lineage components are
@@ -1389,9 +1420,15 @@ class FragmentationAnalyzer:
             the two are equal when ``adjacency_b`` is None.
 
         Raises:
-            ValueError: on an unknown ``d_tol_mode`` or ``assignment``, or when a
-                radius mode is requested and ``radius_col`` is missing from either
-                table.
+            ValueError: on an unknown ``d_tol_mode`` or ``assignment``; on a
+                negative (or NaN) ``d_tol``, ``theta_tol_deg``, ``alpha``,
+                ``alpha_a`` or ``alpha_b``; or when a radius mode is requested and
+                ``radius_col`` is missing from either table.
+
+        Warns:
+            UserWarning: in the radius modes, when any ``radius_col`` value is NaN
+                or negative. Those radii are treated as 0, so that grain's gate falls
+                back to ``d_tol`` (``"radius"``) rather than dropping its links.
         """
         # pylint: disable=import-outside-toplevel
         import pandas as pd
@@ -1405,6 +1442,17 @@ class FragmentationAnalyzer:
                 f"Unknown d_tol_mode: {d_tol_mode!r} "
                 "(expected 'absolute', 'radius' or 'radius_sum')."
             )
+        # Negative (or NaN) tolerances and multipliers have no meaning; the legacy
+        # path silently returned no links for them, which hides the typo.
+        for nm, val in (
+            ("d_tol", d_tol),
+            ("theta_tol_deg", theta_tol_deg),
+            ("alpha", alpha),
+            ("alpha_a", alpha_a),
+            ("alpha_b", alpha_b),
+        ):
+            if not float(val) >= 0:
+                raise ValueError(f"{nm} must be non-negative, got {val!r}.")
         if assignment not in (None, "one_to_one"):
             raise ValueError(
                 f"Unknown assignment: {assignment!r} (expected None or 'one_to_one')."
@@ -1448,8 +1496,8 @@ class FragmentationAnalyzer:
                     f"d_tol_mode={d_tol_mode!r} needs the {radius_col!r} column, "
                     f"missing from {', '.join(missing)}."
                 )
-            rad_a = da[radius_col].to_numpy(dtype=float)
-            rad_b = db[radius_col].to_numpy(dtype=float)
+            rad_a = _sanitize_radii(da[radius_col].to_numpy(dtype=float), "nodes_a")
+            rad_b = _sanitize_radii(db[radius_col].to_numpy(dtype=float), "nodes_b")
 
         # Candidate cross edges passing the centroid-distance gate (one absolute
         # d_tol, or a size-aware per-pair gate searched with a covering ball query).
