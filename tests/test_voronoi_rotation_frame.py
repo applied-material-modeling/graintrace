@@ -134,6 +134,34 @@ class TestRotateRecordsWhatItApplied:
         )
         np.testing.assert_allclose(builder.rotate_matrix, frame.Q, atol=1e-12)
 
+    @pytest.mark.parametrize("seed", range(48))
+    def test_auto_rotate_is_always_proper(self, tmp_path, seed):
+        """Sign alignment must run before the handedness fix (seeds 13/23/30 failed)."""
+        pytest.importorskip("sklearn")
+        # pylint: disable-next=import-outside-toplevel  # pandas/scipy kept local
+        import pandas as pd
+
+        # pylint: disable-next=import-outside-toplevel
+        from scipy.spatial.transform import Rotation
+
+        rng = np.random.default_rng(seed)
+        x = rng.normal(size=(300, 3)) * [50.0, 30.0, 10.0]
+        x = x @ Rotation.random(random_state=seed).as_matrix().T
+        data = pd.DataFrame(x, columns=["X", "Y", "Z"])
+        builder = _builder(tmp_path, data, auto_rotate=True)
+        builder.rotate()
+
+        frame = builder.frame_transform
+        assert np.isclose(np.linalg.det(frame.Q), 1.0)
+        # Each principal axis keeps a non-negative component along its global axis
+        # (up to the last axis, which may be flipped to stay right-handed).
+        assert np.all(np.diag(frame.Q)[:2] >= 0.0)
+        np.testing.assert_allclose(
+            builder.data[["X", "Y", "Z"]].to_numpy(dtype=float),
+            frame.positions(x),
+            atol=1e-9,
+        )
+
 
 class TestOrientationsAreUpdatedOnTheSampleSide:
     """``g' = g Q^T``, pinned through a crystal direction."""

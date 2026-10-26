@@ -351,17 +351,15 @@ class VoronoiMeshBuilder:
             mean = np.mean(coords, axis=0)
             centered = coords - mean
 
-            rotated = np.dot(centered, eigenvectors)
-
-            # Ensure right-handed orientation
+            # Align PCA axes' signs to global XYZ first, then restore
+            # right-handedness. The other order breaks: an odd number of sign
+            # flips after the det fix leaves E improper (det = -1), and
+            # FrameTransform then refuses the rotation.
+            signs = np.sign(np.diag(eigenvectors))
+            signs[signs == 0] = 1.0
+            eigenvectors = eigenvectors * signs
             if np.linalg.det(eigenvectors) < 0:
-                eigenvectors[:, 2] *= -1
-                rotated = np.dot(centered, eigenvectors)
-
-            # Align PCA axes' signs to global XYZ
-            ref_axis = np.eye(3)
-            signs = np.sign(np.diag(np.dot(eigenvectors.T, ref_axis)))
-            eigenvectors *= signs
+                eigenvectors[:, -1] *= -1
             rotated = np.dot(centered, eigenvectors)
 
             if self.dim == 3:
