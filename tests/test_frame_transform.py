@@ -461,6 +461,46 @@ class TestMRPPath(unittest.TestCase):
         expected = np.einsum("ij,nj->ni", T.Q, g.transpose(-2, -1).numpy() @ c)
         self.assertTrue(np.allclose(gp.transpose(0, 2, 1) @ c, expected, atol=1e-10))
 
+    def test_mrp_output_is_the_short_rotation_set(self):
+        """Random inputs come back with ``|p'| <= 1`` and still equal ``Q R``."""
+        # pylint: disable-next=import-outside-toplevel  # scipy only needed here
+        from scipy.spatial.transform import Rotation
+
+        g = torch.tensor(
+            np.transpose(Rotation.random(500, random_state=4).as_matrix(), (0, 2, 1))
+        )
+        p = matrix_to_mrp(g)
+        # Feed the long (shadow) set for half the inputs: it is the same rotation.
+        p[::2] = -p[::2] / (p[::2] ** 2).sum(dim=-1, keepdim=True)
+        for seed in range(5):
+            Q = Rotation.random(random_state=100 + seed).as_matrix()
+            T = FrameTransform(rotation=Q)
+            out = T.mrp(p)
+            self.assertTrue(torch.all(torch.isfinite(out)))
+            self.assertLessEqual(float(out.norm(dim=-1).max()), 1.0 + 1e-12)
+            want = T.orientation_matrices(g).numpy()
+            self.assertTrue(np.allclose(mrp_to_matrix(out).numpy(), want, atol=1e-9))
+
+    def test_mrp_near_360_degree_composition_stays_finite(self):
+        """Rz(a) composed with a frame Rz(a), a -> 180, used to blow up or NaN."""
+        # pylint: disable-next=import-outside-toplevel  # scipy only needed here
+        from scipy.spatial.transform import Rotation
+
+        for a in (179.0, 179.999, 179.9999999, 180.0):
+            R = Rotation.from_euler("z", a, degrees=True).as_matrix()
+            g = torch.tensor(R.T[None])
+            T = FrameTransform(rotation=[("z", a)])
+            out = T.mrp(matrix_to_mrp(g))
+            self.assertTrue(torch.all(torch.isfinite(out)), a)
+            self.assertLessEqual(float(out.norm(dim=-1).max()), 1.0 + 1e-12)
+            want = T.orientation_matrices(g).numpy()
+            self.assertTrue(np.allclose(mrp_to_matrix(out).numpy(), want, atol=1e-7), a)
+
+    def test_identity_frame_leaves_mrp_unchanged(self):
+        """Q = I is a no-op on short-set inputs (the zero MRP has no shadow)."""
+        p = torch.tensor([[0.0, 0.0, 0.0], [0.1, -0.2, 0.3]], dtype=torch.float64)
+        self.assertTrue(torch.allclose(FrameTransform().mrp(p), p, atol=1e-14))
+
 
 @requires_orientation_stack
 class TestEulerRoundTrips(unittest.TestCase):

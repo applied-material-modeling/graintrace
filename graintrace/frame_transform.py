@@ -412,11 +412,18 @@ class FrameTransform:
         arguments gives the crystal-side update, which is the error this class
         exists to prevent.
 
+        The result is the **short-rotation** MRP set (``|p'| <= 1``, rotation
+        angle ``<= 180`` degrees). An MRP ``p`` and its shadow ``-p / |p|^2``
+        (neml2 ``shadow``) are the same rotation; the inputs are brought onto
+        the short set and the frame rotation's set is chosen so that the
+        ``compose`` denominator stays ``>= 1``, which keeps the result finite
+        even when the composed rotation is close to 360 degrees.
+
         Args:
-            p: (..., 3) neml2 v3 MRP orientations.
+            p: (..., 3) neml2 v3 MRP orientations (either set).
 
         Returns:
-            torch.Tensor: (..., 3) transformed MRP orientations.
+            torch.Tensor: (..., 3) transformed MRP orientations, ``|p'| <= 1``.
         """
         # pylint: disable-next=import-outside-toplevel  # neml2/torch are heavy deps
         import torch
@@ -427,12 +434,18 @@ class FrameTransform:
         # pylint: disable-next=import-outside-toplevel  # avoid a module-level cycle
         from .orientation_helper import matrix_to_mrp
 
-        pt = torch.as_tensor(np.asarray(p, dtype=float), dtype=torch.float64)
-        q_frame = matrix_to_mrp(
-            torch.as_tensor(self.Q.T, dtype=torch.float64)
-        ).contiguous()
-        composed = compose(MRP(pt.contiguous(), 0), MRP(q_frame, 0))
-        return composed.data
+        pt = _short_mrp(
+            torch.as_tensor(np.asarray(p, dtype=float), dtype=torch.float64)
+        )
+        q_frame = _short_mrp(
+            matrix_to_mrp(torch.as_tensor(self.Q.T, dtype=torch.float64))
+        ).expand_as(pt)
+        # compose's denominator is 1 + |a|^2 |b|^2 - 2 a.b; with a.b <= 0 it is >= 1.
+        # Swapping q for its shadow flips the sign of a.b and leaves the rotation.
+        flip = (pt * q_frame).sum(dim=-1, keepdim=True) > 0.0
+        q_frame = torch.where(flip, _shadow(q_frame), q_frame)
+        composed = compose(MRP(pt.contiguous(), 0), MRP(q_frame.contiguous(), 0))
+        return _short_mrp(composed.data)
 
     def euler(
         self,
@@ -833,6 +846,44 @@ class FrameTransform:
         np.save(npy_out, out.reshape(grid.shape))
         self._write_record(npy_out)
         return npy_out
+
+
+def _shadow(p):
+    """neml2's shadow MRP set ``-p / |p|^2`` (the same rotation), safe at ``p = 0``.
+
+    Args:
+        p: (..., 3) MRP tensor.
+
+    Returns:
+        torch.Tensor: the shadow set; rows with ``p = 0`` are returned unchanged
+        (the identity has no finite shadow and never needs one here).
+    """
+    # pylint: disable-next=import-outside-toplevel  # torch is a heavy dep
+    import torch
+
+    # pylint: disable-next=import-outside-toplevel  # neml2 is an optional dep
+    from neml2.types import MRP, shadow
+
+    nsq = (p * p).sum(dim=-1, keepdim=True)
+    zero = nsq == 0.0
+    safe = torch.where(zero, torch.ones_like(p), p).contiguous()
+    return torch.where(zero, p, shadow(MRP(safe, 0)).data)
+
+
+def _short_mrp(p):
+    """Map each MRP onto the short-rotation set ``|p| <= 1`` via its shadow.
+
+    Args:
+        p: (..., 3) MRP tensor.
+
+    Returns:
+        torch.Tensor: the same rotations with ``|p| <= 1``.
+    """
+    # pylint: disable-next=import-outside-toplevel  # torch is a heavy dep
+    import torch
+
+    long_set = (p * p).sum(dim=-1, keepdim=True) > 1.0
+    return torch.where(long_set, _shadow(p), p)
 
 
 def _component_columns(df, prefix: str) -> Optional[list]:
