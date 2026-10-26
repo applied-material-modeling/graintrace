@@ -41,9 +41,7 @@ except PackageNotFoundError:  # running from a source tree without install metad
 # don't need the compiled stack still `import graintrace`.
 _LAZY_EXPORTS = {
     "AngConverter": "ang_conversion",
-    "AngHeader": "ang_conversion",
     "read_ang": "ang_conversion",
-    "read_ang_header": "ang_conversion",
     "BaseMaterialApproximationModel": "base_material_approximation",
     "ClusterAnalysisIndicator": "cluster_indicator",
     "NearFieldMeshBuilder": "construct_nf_mesh",

@@ -7,8 +7,6 @@
 # NROWS: 5
 # MaterialName  	Nickel
 # Symmetry              43
-# ANGLE_UNITS: radians
-# EULER_CONVENTION: bunge
 # COLUMN_COUNT: 10
 #
   0.17454  0.34966  0.52305    0.00000    0.00000    122.3   0.690  1   200.0   0.800
