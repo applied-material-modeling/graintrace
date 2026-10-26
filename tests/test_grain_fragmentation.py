@@ -1125,3 +1125,73 @@ class TestRadiusSanitizingAndValidation:
         with pytest.raises(ValueError, match=f"{name} must be non-negative"):
             FragmentationAnalyzer().detect_splits(a, b, **kw)
 
+
+def _import_tracking_tool(monkeypatch):
+    """Import the MCP tracking tool, stubbing FastMCP when the SDK lacks it.
+
+    The tool body is plain Python; only the ``@mcp.tool()`` registration needs the
+    SDK, so a pass-through ``FastMCP`` lets the wrapper be tested anywhere.
+    """
+    import importlib
+    import sys
+    import types
+
+    try:
+        importlib.import_module("mcp.server.fastmcp")
+    except ImportError:
+
+        class _FastMCP:  # minimal stand-in: every decorator is the identity
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def __getattr__(self, _name):
+                return lambda *a, **k: (lambda fn: fn)
+
+        stub = types.ModuleType("mcp.server.fastmcp")
+        stub.FastMCP = _FastMCP
+        monkeypatch.setitem(sys.modules, "mcp.server.fastmcp", stub)
+        for name in [m for m in sys.modules if m.startswith("graintrace.mcp")]:
+            monkeypatch.delitem(sys.modules, name)
+    return importlib.import_module("graintrace.mcp.tools.tracking")
+
+
+class TestMcpDetectFragmentation:
+    """The MCP wrapper forwards the overlap masks and returns JSON-safe recall."""
+
+    def test_overlap_columns_and_json_safe_recall(self, tmp_path, monkeypatch):
+        pytest.importorskip("neml2")
+        import json
+
+        tracking = _import_tracking_tool(monkeypatch)
+        monkeypatch.setattr(
+            tracking,
+            "gate",
+            lambda **kw: {"status": "done", "result": kw["run"]()},
+        )
+        a, b = TestSizeAwareSplitDetection._parent_and_subgrains()
+        a["seen"] = [False]  # empty A overlap -> NaN a_fraction -> None
+        b["seen"] = [True, True, False]
+        b["volume"] = [1.0, 2.0, 3.0]
+        pa, pb = tmp_path / "a.csv", tmp_path / "b.csv"
+        a.to_csv(pa, index=False)
+        b.to_csv(pb, index=False)
+        out = tracking.detect_fragmentation(
+            str(pa),
+            str(pb),
+            output_dir=str(tmp_path / "out"),
+            params={
+                "d_tol": 10.0,
+                "theta_tol_deg": 5.0,
+                "d_tol_mode": "radius",
+                "in_overlap_a": "seen",
+                "in_overlap_b": "seen",
+                "n_null": 2,
+                "seed": 0,
+            },
+            confirm=True,
+        )["result"]
+        recall = out["recall"]
+        assert recall["a_fraction"] is None
+        assert recall["n_b_total"] == 2 and recall["b_fraction"] == 1.0
+        assert recall["b_fraction_volume"] == 1.0
+        json.dumps(out, allow_nan=False)  # raises on NaN or numpy scalars

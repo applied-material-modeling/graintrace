@@ -14,6 +14,24 @@ from graintrace.mcp.app import mcp, workdir
 from graintrace.mcp.confirm import gate
 
 
+def _json_safe(obj: Any) -> Any:
+    """Recursively map NaN/inf to None and numpy scalars/arrays to Python types."""
+    # pylint: disable=import-outside-toplevel
+    import math
+
+    import numpy as np
+
+    if isinstance(obj, dict):
+        return {str(k): _json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple, np.ndarray)):
+        return [_json_safe(v) for v in obj]
+    if isinstance(obj, np.generic):
+        obj = obj.item()
+    if isinstance(obj, float) and not math.isfinite(obj):
+        return None
+    return obj
+
+
 @mcp.tool()
 def track_grains(
     csv_a: str,
@@ -153,6 +171,11 @@ def detect_fragmentation(
         candidates (written to one_to_one.csv), or None (default) for lineage only.
     volume_col : per-grain volume column (default 'volume'); when present, that
         side's recall is also reported volume-weighted.
+    in_overlap_a / in_overlap_b : optional names of boolean columns in nodes_a /
+        nodes_b flagging the grains inside the volume both steps see (default None
+        = every grain counts). Recall is computed over those grains only, so
+        material outside the shared volume is not counted as a miss. Recall
+        fractions are None (not NaN) when a side has no grains to count.
     n_null / seed : chance trials with uniformly random B orientations (default 0 =
         skip), reported as null.mean_links against null.observed_links. Both are
         counted before the optional adjacency prune, so they are comparable;
@@ -177,6 +200,8 @@ def detect_fragmentation(
         "radius_col": "GrainRadius",
         "assignment": None,
         "volume_col": "volume",
+        "in_overlap_a": None,
+        "in_overlap_b": None,
         "n_null": 0,
         "seed": None,
         **(params or {}),
@@ -207,6 +232,8 @@ def detect_fragmentation(
             radius_col=p["radius_col"],
             assignment=p["assignment"],
             volume_col=p["volume_col"],
+            in_overlap_a=p["in_overlap_a"],
+            in_overlap_b=p["in_overlap_b"],
             n_null=p["n_null"],
             seed=p["seed"],
             out_csv=os.path.join(output_dir, "split_correspondences.csv"),
@@ -221,7 +248,7 @@ def detect_fragmentation(
             "n_matches": out["n_matches"],
             "n_births": out["n_births"],
             "n_deaths": out["n_deaths"],
-            "recall": out["recall"],
+            "recall": _json_safe(out["recall"]),
         }
         if "one_to_one" in out:
             one_to_one_csv = os.path.join(output_dir, "one_to_one.csv")
@@ -229,7 +256,7 @@ def detect_fragmentation(
             result["one_to_one"] = one_to_one_csv
             result["n_one_to_one"] = int(len(out["one_to_one"]))
         if "null" in out:
-            result["null"] = out["null"]
+            result["null"] = _json_safe(out["null"])
         return result
 
     return gate(
