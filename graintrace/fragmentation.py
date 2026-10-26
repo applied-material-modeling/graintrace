@@ -1451,7 +1451,7 @@ class FragmentationAnalyzer:
             ("alpha_a", alpha_a),
             ("alpha_b", alpha_b),
         ):
-            if not float(val) >= 0:
+            if np.isnan(float(val)) or float(val) < 0:
                 raise ValueError(f"{nm} must be non-negative, got {val!r}.")
         if assignment not in (None, "one_to_one"):
             raise ValueError(
