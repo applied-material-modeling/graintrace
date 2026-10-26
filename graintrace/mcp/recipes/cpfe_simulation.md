@@ -103,7 +103,12 @@ where `grid_bb` is the BC box inset by `0.0001` on every face.
 ## Setup notes
 - `use_ff_initial_field=true` only when the mesh and `ee` file are the same,
   co-registered FF reconstruction. For NF-mesh + FF-strain, set it `false` and
-  spatially shift the `ee` CSV into the NF frame first.
+  move the `ee` CSV into the NF frame first with one stated
+  `graintrace.FrameTransform(rotation=..., axis_sign=..., translation=...)`:
+  `ff_to_nf.apply_ee_csv("reconstruction_cpfe_ee.csv", "ee_in_nf.csv")` moves
+  positions and strains together (headerless 12 columns: x, y, z + 9 row-major
+  strains) and writes `ee_in_nf.csv.transform.json`. Keep NF native; move only
+  the FF data. A pure shift is `FrameTransform(translation=(dx, dy, dz))`.
 - `eeres_file=None` writes a zeroed initial strain (no residual).
 - Multi-GPU: fewer MPI ranks (~#GPUs) → bigger per-rank NEML2 batches → better
   GPU utilization for the neml2-dominated solve.

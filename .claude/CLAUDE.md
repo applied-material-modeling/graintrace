@@ -469,20 +469,25 @@ builder_ff = VoronoiMeshBuilder(...)
 builder_ff.build_voronoi(generate_mesh=False, ...)
 # produces: out/FF/reconstruction_cpfe_ee.csv
 
-# 3. Spatially shift FF ee data to align with NF coordinate frame
-ff_translation = (dx, dy, dz)   # determined by experiment geometry
-ee_data = pd.read_csv("out/FF/reconstruction_cpfe_ee.csv", header=None, index_col=False)
-ee_data.iloc[:, 0] += ff_translation[0]
-ee_data.iloc[:, 1] += ff_translation[1]
-ee_data.iloc[:, 2] += ff_translation[2]
-ee_data.to_csv("out/FF/reconstruction_cpfe_ee_shifted.csv", index=False, header=False)
+# 3. Move the FF data INTO the NF frame (NF stays native: its grid/mesh is untouched).
+#    One stated transform FF-frame -> NF-frame; positions AND strains move together.
+from graintrace import FrameTransform
+ff_to_nf = FrameTransform(
+    rotation=[("z", 172.3), ("x", 180.0), ("x", 1.4), ("y", -0.9)],  # stage rot, flip, tilt
+    axis_sign=(1, 1, 1),            # ±1 per axis, POSITIONS only (index convention)
+    translation=(dx, dy, dz),       # FF origin -> NF origin, applied after the rotation
+    angle_unit="degrees", sequence="extrinsic")
+ff_to_nf.apply_ee_csv("out/FF/reconstruction_cpfe_ee.csv",       # headerless x,y,z + 9 strains
+                      "out/FF/reconstruction_cpfe_ee_in_nf.csv")  # + .transform.json record
+# (optional) the FF grain table too: X/Y/Z, Euler, O11..O33, eKen/eFab in one call
+ff_to_nf.apply_ff_csv("out/stitched_output.csv", "out/FF/stitched_in_nf.csv")
 
-# 4. Run CPFE using NF mesh, NF orientations, FF initial strain
+# 4. Run CPFE using NF mesh, NF orientations, FF initial strain (now in the NF frame)
 sim = CPFESimulation(
     mesh_file="out/NF/mesh.e",
     save_simulation_folder="out/simulation",
     element_order="FIRST",           # NF mesh typically uses FIRST order
-    eeres_file="out/FF/reconstruction_cpfe_ee_shifted.csv",
+    eeres_file="out/FF/reconstruction_cpfe_ee_in_nf.csv",
     ori_file="out/NF/orientations.csv",
     dim=3,
     moose_run_file="/path/to/puma-opt",
@@ -491,24 +496,24 @@ sim = CPFESimulation(
 # ... set_parameters and run as normal
 ```
 
-**A translation is only the easy half.** The shift above is correct only when FF and NF already
-share an orientation. When the two datasets differ by a rotation or an axis flip, use
-`FrameTransform` — it applies the one stated frame change to positions, Euler angles,
-`O11..O33` and the `eKen`/`eFab` tensors together, and writes `<dst>.transform.json` beside
-the output so the applied transform is recoverable:
+**Move one dataset into the other's frame, never both.** A pure translation is the special
+case `FrameTransform(translation=(dx, dy, dz))`; a rotation or flip must reach positions,
+orientations and strains together, which is what the adapters do (`apply_ff_csv`,
+`apply_ee_csv`, `apply_pointcloud`, `apply_voxel_grid`; each writes `<dst>.transform.json`).
+Keep NF native: a rotation that mixes z into x/y cannot be written back as 2D `.mic` layers.
+To go the other way use `ff_to_nf.inverse()`; `a @ b` composes exactly (axis_sign included).
+
+**FF-in-NF overlap mask** (which FF grains sit inside the NF solid, for one-to-one recall in
+`detect_splits(in_overlap_b=...)`, the size-aware split gate):
 ```python
-from graintrace import FrameTransform
-frame = FrameTransform(
-    rotation=[("z", 172.3), ("x", 180.0), ("x", 1.4), ("y", -0.9)],  # no 3-term cap
-    axis_sign=(1, 1, -1),          # ±1 per axis, POSITIONS only (index convention)
-    translation=ff_translation,
-    angle_unit="degrees", sequence="extrinsic")
-frame.apply_ff_csv("ff_grains.csv", "out/ff_in_nf_frame.csv")
-frame.apply_pointcloud("nf_points.csv", "out/nf.csv")  # or .apply_voxel_grid(npy_in, npy_out)
-frame.inverse(); frame_a @ frame_b          # exact algebra, axis_sign included
+from graintrace.frame_transform import voxel_solid_from_grid
+solid, origin, spacing = voxel_solid_from_grid("out/NF/merged_segmented_fixed_grid.npy")  # phase>0
+ff = pd.read_csv("out/FF/stitched_in_nf.csv")      # already in the NF frame -> identity transform
+ff["in_nf"] = FrameTransform().inside_voxel_solid(ff[["X", "Y", "Z"]].to_numpy(),
+                                                  solid, origin, spacing, margin_vox=1)
+# Points are in the transform's TARGET frame, the grid in its SOURCE frame. FF left native ->
+# ff_to_nf.inverse().inside_voxel_solid(ff_native_xyz, solid, origin, spacing)  (NF -> FF frame)
 ```
-Keep the NF layers native by moving the FF data in, or use `frame.inverse()` to move the
-other way; a rotation that mixes z into x/y cannot be written back as 2D `.mic` layers.
 
 Derive NF bounding box from the saved voxel grid:
 ```python
@@ -1104,7 +1109,12 @@ convention and applies to **positions only** — positions and orientations only
 physically when it is `(1,1,1)`. Scale is deliberately not a parameter; a frame change is
 rigid. `FrameTransform.mrp` stays in neml2 and relies on `compose(a, b) -> matrix(a) @
 matrix(b)`, so the sample-side update is `compose(orientation, Qᵀ)` — the argument order is
-pinned by `tests/test_frame_transform.py`.
+pinned by `tests/test_frame_transform.py`. It returns the **short-rotation** MRP set
+(`|p| <= 1`, via neml2 `shadow`; inputs may be either set), so a composition near 360° no
+longer blows up or NaNs. `FrameTransform.euler` / `matrix_to_euler` return canonical angles:
+phi1/phi2 in `[0, 360)` deg (`[0, 2π)` rad), and at gimbal lock `Phi` is snapped to 0/180 with
+the in-plane angle in phi1 and phi2 = 0. A quaternion `rotation` must be unit length (1e-6);
+it is refused, never renormalised.
 
 ### `.tess` signed indices: decode with `decode_signed_index`, never `abs()`
 `NeperTessToGraphNN.face_edges` and `.cell_to_faces` hold **signed 0-based** indices, where
@@ -1441,7 +1451,7 @@ microstructure (e.g. the shipped `cpfe_hex_fragmentation/mesh.e` is unrelated to
 ```
 graintrace/
   neper_env.py                 resolve_neper_env     : locate a user-installed NEPER (env var/tools.json/PATH); opt-in ~/.local build
-  frame_transform.py           FrameTransform        : one stated specimen-frame change applied to positions (Qx+t), orientations (g Q^T, sample side), MRP, Euler and 2nd-order tensors (Q e Q^T); inverse/compose/to_json; FF-CSV, point-cloud and voxel-grid adapters
+  frame_transform.py           FrameTransform        : one stated specimen-frame change applied to positions (Qx+t), orientations (g Q^T, sample side), MRP, Euler and 2nd-order tensors (Q e Q^T); inverse/compose/to_json; FF-CSV, 12-col ee CSV (apply_ee_csv), point-cloud and voxel-grid adapters; inside_voxel_solid (+ voxel_solid_from_grid) FF-in-NF overlap mask
   construct_voronoi_mesh.py    VoronoiMeshBuilder    : FF HEDM reconstruction (NEPER)
   construct_nf_mesh.py         NearFieldMeshBuilder  : NF HEDM reconstruction (SCULPT)
   construct_voxel_mesh.py      VoxelMeshBuilder      : EBSD/NF voxel meshing (SCULPT)

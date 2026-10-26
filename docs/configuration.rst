@@ -161,7 +161,9 @@ change; you supply the one the experiment geometry defines.
    frame.to_json(path); FrameTransform.from_json(path)
 
 ``rotation`` must be **proper** (``det = +1``); a matrix that is not orthogonal
-or not proper raises rather than being silently orthogonalised. Axis reversal
+or not proper raises rather than being silently orthogonalised, and a
+quaternion must be unit length within ``1e-6`` (it is refused, never
+renormalised). Axis reversal
 goes in ``axis_sign``, which applies to positions only, because a position index
 convention is not something the orientations ever had. Scale is deliberately not
 a parameter: a frame change is rigid, and a unit conversion belongs upstream.
@@ -174,6 +176,31 @@ Dataset adapters write the applied transform next to their output as
    frame.apply_ff_csv(src, dst)       # coords, Euler, eKen/eFab, O11..O33
    frame.apply_pointcloud(src, dst)   # x,y,z (+ Euler if present)
    frame.apply_voxel_grid(src, dst)
+   frame.apply_ee_csv(src, dst)       # headerless 12-col reconstruction_cpfe_ee.csv:
+                                      # x, y, z + 9 row-major strains
+
+``mrp`` returns the short-rotation MRP set (``|p| <= 1``) and ``euler`` returns
+canonical angles: the first and third in ``[0, 360)`` degrees (``[0, 2*pi)``
+radians), and at gimbal lock ``Phi`` exactly 0 or 180 with the third Bunge
+angle 0.
+
+To flag which points of one dataset fall inside the other's measured volume
+(the ``in_overlap_a`` / ``in_overlap_b`` masks of the size-aware split gate in
+``FragmentationAnalyzer.detect_splits``), test them against a voxel solid. The
+points are in the transform's **target** frame and the grid in its **source**
+frame:
+
+.. code-block:: python
+
+   from graintrace.frame_transform import voxel_solid_from_grid
+
+   solid, origin, spacing = voxel_solid_from_grid(
+       "out/NF/merged_segmented_fixed_grid.npy"   # phase > 0 is solid
+   )
+   in_nf = FrameTransform().inside_voxel_solid(  # FF already in the NF frame
+       ff_xyz_in_nf, solid, origin, spacing,
+       margin_vox=1,                             # optional surface erosion
+   )
 
 See :doc:`/pitfalls` for why the orientation side is the part that goes wrong.
 

@@ -19,8 +19,24 @@ External tools: **NEPER** (FF/synthetic), **CUBIT/SCULPT** (`sculpt_config`, NF 
 2. **NF mesh** (`/nf-reconstruction`): `NearFieldMeshBuilder(...).reconstruct(...)` + `.mesh(...)`
    → `nf_reconstruction/mesh.e` + `orientations.csv` (per-element MRP).
 3. **FF residual strain** (`/ff-reconstruction`): `VoronoiMeshBuilder(...).build_voronoi(
-   generate_mesh=False, ...)` → `ff_reconstruction/reconstruction_cpfe_ee.csv`. Spatially
-   shift its x,y,z to the NF frame if the two aren't co-registered.
+   generate_mesh=False, ...)` → `ff_reconstruction/reconstruction_cpfe_ee.csv`.
+   **Move it into the NF frame** (NF stays native) with one stated `FrameTransform`;
+   positions AND strains move together, plus a `<dst>.transform.json` record:
+```python
+from graintrace import FrameTransform
+ff_to_nf = FrameTransform(
+    rotation=[("z", 172.3), ("x", 180.0), ("x", 1.4), ("y", -0.9)],  # stage rot, flip, tilt
+    axis_sign=(1, 1, 1),          # ±1, positions only
+    translation=(dx, dy, dz))     # pure shift = FrameTransform(translation=...)
+ff_to_nf.apply_ee_csv(out + "/ff_reconstruction/reconstruction_cpfe_ee.csv",
+                      out + "/ff_reconstruction/reconstruction_cpfe_ee_in_nf.csv")
+ff_to_nf.apply_ff_csv(ff_csv, out + "/ff_reconstruction/ff_in_nf.csv")  # optional grain table
+```
+   FF grains inside the NF solid (for `detect_splits(in_overlap_b=...)` recall):
+   `solid, origin, h = frame_transform.voxel_solid_from_grid(nf_npy)`, then
+   `FrameTransform().inside_voxel_solid(ff_in_nf_xyz, solid, origin, h, margin_vox=1)`
+   (points in the TARGET frame, grid in the SOURCE frame; FF left native →
+   `ff_to_nf.inverse().inside_voxel_solid(...)`).
 4. **CPFE** with NF mesh + NF orientations + FF ee (`use_ff_initial_field=False`, since the ee
    comes from a different mesh):
 ```python
@@ -28,7 +44,7 @@ from graintrace.run_cpfe_simulation import CPFESimulation
 sim = CPFESimulation(
     mesh_file=out + "/nf_reconstruction/mesh.e",
     save_simulation_folder=out + "/simulation",
-    eeres_file=out + "/ff_reconstruction/reconstruction_cpfe_ee_shifted.csv",
+    eeres_file=out + "/ff_reconstruction/reconstruction_cpfe_ee_in_nf.csv",
     ori_file=out + "/nf_reconstruction/orientations.csv",
     dim=3, element_order="FIRST",           # NF meshes are typically FIRST order
     moose_run_file="external/puma/puma-opt",   # EDIT: your built puma-opt
@@ -45,8 +61,8 @@ sim.run(ncore=8)
 ## Key parameters
 - `use_ff_initial_field=False` when the ee file and mesh are different meshes (FF ee on NF mesh);
   `True` only when mesh + ee are co-registered FF.
-- FF→NF shift: add `(dx,dy,dz)` to the first 3 columns of `reconstruction_cpfe_ee.csv` to align
-  frames before passing as `eeres_file`.
+- FF→NF frame: `FrameTransform.apply_ee_csv` (not a hand shift of the first 3 columns — a
+  rotation/flip must reach the strain tensors too). Move one dataset, never both.
 - Derive `nf_bbox` from `merged_segmented_fixed_grid.npy` coords (CLAUDE.md §6).
 - `sculpt_config` for the NF hex mesh (CLAUDE.md §9).
 
