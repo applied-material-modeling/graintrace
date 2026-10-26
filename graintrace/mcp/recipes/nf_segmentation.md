@@ -48,36 +48,7 @@ Flood fill chains low-angle neighbors into one percolating grain (a single blob
 spanning the whole solid). The hard misorientation cutoff + Leiden + percolation-picked
 gamma + adjacency re-merge de-percolate while keeping distinct grains separate.
 
-## Mask the percolation path first (`min_confidence`)
-The knobs above de-percolate *after the fact*. The network they are fighting is built
-during gridding: every grid point inside a layer's Delaunay hull becomes crystal, so
-air inside the hull, the sample surface, failed-to-index regions and low-confidence
-grain-boundary voxels all reach the segmenter, and the boundary voxels connect grain to
-grain. Pass **`min_confidence`** to `nf_reconstruct` and they become void instead.
-
-| Knob | Value | Why |
-|---|---|---|
-| `min_confidence` | **~0.3-0.5** | NF confidence is bimodal (indexed points near 1.0, air/failed well below), so one threshold separates them. Removes the percolation network at the source. |
-| `max_point_distance` | **1.5 x `TriEdgeSize`** (µm) | replaces the hull test, which fills concave gaps and holes |
-| `voxel_size_um` | `[hx, hy]` (µm) | isotropic voxels; a fixed `nx`/`ny` over a rectangular footprint gives anisotropic ones. Give this *or* `nx`/`ny`. |
-
-All three default to `None` (today's behavior). `voxel_size_um` together with `nx`/`ny`
-is an error. Both segmenters already ignore
-`phase = 0`, so masked voxels never reach a grain. The per-voxel confidence is written
-to `fixed_grid_confidence.npy`, shape `(nx, ny, nz)`, beside the merged grid — the
-7-channel grid layout is unchanged.
-
-## Graph segmentation in `nf_reconstruct`
-Pass `segmentation={"method": "graph", ...}` to run this recipe inside
-`NearFieldMeshBuilder.reconstruct` (the flat flood dict stays the default). Keys
-(defaults): `misori_tol_deg` (5.0, degrees), `gamma` (None = percolation sweep; ~0.1
-fixed for few-grain data), `gamma_sweep` ([0.5,1,2,4,8]), `grain_threshold_final` (30),
-`remerge_miso_deg` (3.0), `n_jobs`/`n_threads` (1), `workdir` (None), `downsample`
-(None; `[2,2,1]` on large NF), plus optional `manhattan_radius`, `reduce_topk`,
-`rbf_sigma_deg`, `percolation_max_frac`, `seed`. Only solid voxels are segmented;
-void stays 0. Any voxel left unsegmented (an isolated island) is voided before meshing.
-
-## Layer layout
-MIDAS writes one subfolder per layer (`Layer1/...layer1.mic`): pass
-`init_params={"recursive": True}`. An input folder with no layer files directly in it
-falls back to its subfolders anyway.
+## In `nf_reconstruct`
+`segmentation={"method": "graph", "misori_tol_deg": 5.0, "gamma": None, "grain_threshold_final": 30}`
+runs this recipe on the solid voxels. Pass `min_confidence` (~0.3-0.5) to void the
+low-confidence boundary network at gridding time.

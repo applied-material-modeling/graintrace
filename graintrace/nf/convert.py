@@ -65,10 +65,9 @@ def layer_number(path: str, token: str = "layer") -> int:
 
 
 def _find_layer_files(folder, layer_token, recursive):
-    """Layer files under ``folder``: .mic preferred over .csv, flat or recursive.
+    """Layer files under ``folder`` (.mic preferred over .csv), flat or recursive.
 
-    A recursive search keeps only files whose name carries ``layer_token`` plus a
-    number, so unrelated CSVs elsewhere in the tree are not mistaken for layers.
+    A recursive search keeps only names that carry ``layer_token`` plus a number.
     """
     pattern = "**/*" if recursive else "*"
     for ext in ("mic", "csv"):
@@ -86,24 +85,19 @@ def _find_layer_files(folder, layer_token, recursive):
 
 
 def nf_to_pointcloud(folder, dz, layer_token="layer", recursive=False):
-    """Convert nearfield data (.mic/.csv layers) to a stacked point cloud.
+    """Stack nearfield .mic/.csv layers into one point cloud.
 
-    Layers are ordered by the number after ``layer_token`` in each file name and
-    must be contiguous. MIDAS writes one subfolder per layer
-    (``Layer1/...layer1.mic``, ``Layer2/...``); set ``recursive=True`` to search
-    subfolders. With ``recursive=False`` (default) the folder itself is searched,
-    and only if it holds no layer files does the search fall back to subfolders.
+    Layers sort by the number after ``layer_token`` and must be contiguous. With
+    ``recursive=False`` an empty folder still falls back to its subfolders.
 
     Args:
         folder (str): folder with nearfield data
         dz (float): spacing between layers in the z-direction
         layer_token (str): filename token that precedes the layer number
-        recursive (bool): search subfolders too
+        recursive (bool): search subfolders (MIDAS ``Layer1/...layer1.mic``)
 
     Returns:
-        pd.DataFrame: the stacked point cloud, one row per measured point, with the
-        layer's columns (Confidence, TriEdgeSize, OrientationRowNr when present)
-        plus Z and layer.
+        pd.DataFrame: every layer column (incl. Confidence) plus Z and layer.
 
     Raises:
         FileNotFoundError: if no layer files are found.
@@ -145,16 +139,13 @@ def nf_to_pointcloud(folder, dz, layer_token="layer", recursive=False):
 def nearest_simplex_vertex(tri, query_points, simplex_indices):
     """Index of the nearest vertex of each query point's containing simplex.
 
-    This is the legacy source-point rule, kept for the Delaunay hull path so that
-    an unmasked grid is bit-identical to the pre-confidence one. It is not the same
-    as the globally nearest measured point: the nearest site to a query point need
-    not be a vertex of the simplex containing it (measured on a 60-point random
-    layer, 5 of 102 in-hull grid points differ, by up to 0.16 um).
+    The legacy source-point rule, kept so an unmasked grid is unchanged; it can differ
+    from the globally nearest measured point.
 
     Args:
         tri (scipy.spatial.Delaunay): triangulation of the measured points
         query_points (np.ndarray): (m, 2) points, all inside the hull
-        simplex_indices (np.ndarray): (m,) index of each point's containing simplex
+        simplex_indices (np.ndarray): (m,) containing simplex of each point
 
     Returns:
         np.ndarray: (m,) indices into the triangulation's points
@@ -169,31 +160,19 @@ def process_layer_pointcloud(
 ):
     """Interpolate one point-cloud layer onto a fixed nx x ny grid.
 
-    Which grid points become solid is decided by ``max_point_distance`` (a radius
-    around the measured points) when it is given, otherwise by the Delaunay hull of
-    the layer. Grid points whose source point is below ``min_confidence`` become void.
-
-    The source point is the globally nearest measured point under
-    ``max_point_distance``, and the nearest vertex of the containing simplex under
-    the hull test. The hull path keeps the legacy rule rather than the (strictly
-    closer) global nearest so that an unmasked grid is unchanged; see
-    ``nearest_simplex_vertex``.
+    Solid points are those within ``max_point_distance`` of a measured point, else
+    inside the Delaunay hull; points whose source is below ``min_confidence`` are void.
 
     Args:
-        df_layer (pd.DataFrame): one layer of the point cloud, columns X, Y, Z,
-            Eul1, Eul2, Eul3 and optionally Confidence
+        df_layer (pd.DataFrame): one layer: X, Y, Z, Eul1..3 and optionally Confidence
         plane_points (np.ndarray): (nx*ny, 2) in-plane grid coordinates
         nx, ny (int): in-plane grid resolution
-        min_confidence (float, optional): grid points whose source point has a lower
-            ``Confidence`` become void (phase 0). None keeps every point that passes
-            the geometric test. Ignored when the layer has no ``Confidence`` column.
-        max_point_distance (float, optional): maximum distance in micrometers from a
-            grid point to the nearest measured point for it to be solid. None uses the
-            legacy Delaunay hull test, which fills concave gaps and holes.
+        min_confidence (float, optional): confidence threshold; None keeps all
+        max_point_distance (float, optional): solid radius (um); None uses the hull
 
     Returns:
-        tuple: (nx x ny x 7 array [phase, Eul1, Eul2, Eul3, X, Y, Z],
-        nx x ny array of the confidence each solid grid point took, 0 where void)
+        tuple: (nx x ny x 7 grid [phase, Eul1, Eul2, Eul3, X, Y, Z],
+        nx x ny confidence, 0 where void)
     """
     z = df_layer["Z"].iloc[0]
     points = df_layer[["X", "Y"]].to_numpy()
@@ -227,20 +206,18 @@ def process_layer_pointcloud(
 
 
 def grid_axis(lo, hi, n=None, spacing=None):
-    """Build one in-plane grid axis from either a point count or a spacing.
+    """Build one grid axis from a point count or a spacing.
 
     Args:
         lo, hi (float): axis extent of the data
-        n (int, optional): number of grid points, spread evenly over [lo, hi]
-        spacing (float, optional): grid spacing in micrometers; the axis starts at
-            ``lo`` and is extended until it covers ``hi``
+        n (int, optional): number of points spread over [lo, hi]
+        spacing (float, optional): spacing (um); starts at ``lo`` and covers ``hi``
 
     Returns:
-        np.ndarray: the 1D axis coordinates
+        np.ndarray: the axis coordinates
 
     Raises:
-        ValueError: if neither or both of ``n`` and ``spacing`` are given, or if they
-            are not positive.
+        ValueError: unless exactly one positive ``n`` or ``spacing`` is given.
     """
     if (n is None) == (spacing is None):
         raise ValueError("Give exactly one of a grid count or a voxel size, not both")
@@ -254,7 +231,6 @@ def grid_axis(lo, hi, n=None, spacing=None):
     if spacing <= 0:
         raise ValueError(f"Voxel sizes must be > 0, got {spacing}")
 
-    # Cover the footprint: round the span up to a whole number of voxels
     count = int(np.ceil((hi - lo) / spacing - 1e-9)) + 1
     return lo + np.arange(count) * spacing
 
@@ -270,26 +246,18 @@ def pointcloud_to_fixed_grid(
     """Convert a point cloud to an nx x ny x nz x 7 fixed grid.
 
     Args:
-        pointcloud (pd.DataFrame): columns [phase, Eul1, Eul2, Eul3, X, Y, Z, layer]
-            and optionally Confidence
-        nx, ny (int, optional): in-plane grid resolution; mutually exclusive with
-            voxel_size_um
-        voxel_size_um (tuple, optional): (hx, hy) in-plane voxel size in micrometers,
-            as an alternative to nx/ny. A fixed count over a rectangular footprint
-            gives anisotropic voxels; a spacing gives an isotropic grid independent of
-            the footprint.
-        min_confidence (float, optional): confidence threshold below which a grid point
-            becomes void; see process_layer_pointcloud
-        max_point_distance (float, optional): maximum distance in micrometers to the
-            nearest measured point; see process_layer_pointcloud
+        pointcloud (pd.DataFrame): stacked layers from :func:`nf_to_pointcloud`
+        nx, ny (int, optional): in-plane grid counts
+        voxel_size_um (tuple, optional): (hx, hy) spacing (um) instead of nx/ny
+        min_confidence (float, optional): see :func:`process_layer_pointcloud`
+        max_point_distance (float, optional): see :func:`process_layer_pointcloud`
 
     Returns:
-        tuple: (nx x ny x nz x 7 grid [phase, Eul1, Eul2, Eul3, X, Y, Z],
-        nx x ny x nz array of the confidence each solid voxel took, 0 where void)
+        tuple: (nx x ny x nz x 7 grid, nx x ny x nz confidence, 0 where void)
 
     Raises:
-        ValueError: if voxel_size_um is given together with nx or ny, if neither is
-            given, or if voxel_size_um is not a pair.
+        ValueError: if voxel_size_um is combined with nx/ny, neither is given, or it
+            is not a pair.
     """
     if voxel_size_um is not None:
         if nx is not None or ny is not None:

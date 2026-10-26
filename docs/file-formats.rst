@@ -322,22 +322,14 @@ Two behaviours of the writer matter downstream:
   meshing it or quietly folding it into void, and the message names the remedy.
   See the label domain in :doc:`algorithms/meshing`.
 * It **relabels** to a collision-proof contiguous set, so ``.spn`` material ids
-  are *not* the grid's grain ids. SCULPT then numbers the ``.spn`` values by
-  1-based rank (with void, grain ``g`` is block ``g + 1``; the void is material 1,
-  removed by the ``--void_mat 1`` that ``mesh_sculpt`` passes), so block-to-grain
-  mapping goes through each block's majority grid label, never the identity map.
+  are *not* the grid's grain ids. Block-to-grain mapping therefore goes through
+  each block's majority grid label, never by assuming the identity map.
 
 Exodus ``mesh.e`` and ``sim_output.e``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Binary Exodus II. On the SCULPT path the block ids are renumbered to a contiguous
-``1..N`` in file order after meshing (SCULPT may drop small grains and leave gaps),
-and ``<mesh stem>_block_map.csv`` maps each ``block_id`` back to SCULPT's
-``sculpt_block_id``, the ``.spn`` ``grain_id`` and the merged-grid
-``source_grain_id``. Row ``k`` of the orientations CSV belongs to block ``k + 1``.
-SCULPT's voxel-index coordinates are mapped exactly onto physical ones (first
-voxel edge plus index times spacing), so the mesh covers the sample's own
-voxel-edge box.
+Binary Exodus II. On the SCULPT path block ids are renumbered to ``1..N`` and
+``<mesh stem>_block_map.csv`` maps each block to its grain.
 Use ``element_order="FIRST"`` for a SCULPT or voxel hex mesh and ``"SECOND"``
 for a GMSH tet ``.msh``.
 

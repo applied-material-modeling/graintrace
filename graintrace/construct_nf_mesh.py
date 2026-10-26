@@ -56,10 +56,7 @@ class NearFieldMeshBuilder:
         "grain_threshold_final": 1000,
     }
 
-    #: Defaults for ``segmentation={"method": "graph", ...}``, the graph/Leiden
-    #: path (CLAUDE.md §4). Every key is forwarded to
-    #: :meth:`graintrace.fragmentation.FragmentationAnalyzer.segment` except
-    #: ``method`` and ``downsample``, which the builder consumes.
+    #: Graph/Leiden defaults; all but ``method``/``downsample`` go to ``FragmentationAnalyzer.segment``.
     DEFAULT_GRAPH_SEGMENTATION: Dict[str, Any] = {
         "method": "graph",
         "misori_tol_deg": 5.0,
@@ -82,7 +79,6 @@ class NearFieldMeshBuilder:
         "seed",
     )
 
-    #: In-plane grid counts used when neither nx/ny nor voxel_size_um is given.
     DEFAULT_NX = 300
     DEFAULT_NY = 900
 
@@ -96,7 +92,6 @@ class NearFieldMeshBuilder:
         "2",
         "-CS",
         "4",
-        # no --void_mat: mesh_sculpt owns it (--void_mat 1 when the grid has void)
     )
 
     REQUIRED_SCULPT_KEYS = ("psculpt", "epu", "nprocs")
@@ -131,8 +126,7 @@ class NearFieldMeshBuilder:
             write_vtk: If True, write .vtk renderings of the grids to save_dir.
             default_mesh_filename: Default output mesh filename in save_dir (e.g. "mesh.e").
             default_mapped_orientations_filename: Default basename for the per-element mapped orientation output (".csv" is appended by mesh()).
-            recursive: If True, search input_folder's subfolders for layer files (MIDAS writes one subfolder per layer, Layer1/...layer1.mic).
-                With False the search still falls back to subfolders when input_folder itself holds no layer files.
+            recursive: If True, search subfolders for layer files (MIDAS Layer1/...layer1.mic).
         """
 
         self.input_folder = Path(input_folder)
@@ -150,7 +144,6 @@ class NearFieldMeshBuilder:
         self.recursive = bool(recursive)
 
         self.merged_grid_npy = self.save_dir / "merged_segmented_fixed_grid.npy"
-        # Layer thickness from the last reconstruct(); mesh() uses it for 1-layer grids
         self.layer_spacing: Optional[float] = None
 
         self.spn_path = self.save_dir / f"{self.prefix}.spn"
@@ -166,7 +159,6 @@ class NearFieldMeshBuilder:
         cfg = dict(self.DEFAULT_SEGMENTATION)
         if segmentation:
             cfg.update(segmentation)
-        # The flat flood dict may name its method explicitly
         if cfg.pop("method", "flood") != "flood":
             raise ValueError("segmentation['method'] must be 'flood' or 'graph'")
 
@@ -211,11 +203,10 @@ class NearFieldMeshBuilder:
     def _normalize_graph_segmentation(
         self, segmentation: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """Validate a ``{"method": "graph", ...}`` segmentation dict.
+        """Validate a graph segmentation dict, filling defaults.
 
         Args:
-            segmentation: the caller's dict; missing keys take
-                :attr:`DEFAULT_GRAPH_SEGMENTATION`.
+            segmentation: the caller's ``{"method": "graph", ...}`` dict.
 
         Returns:
             dict: the completed config.
@@ -260,20 +251,16 @@ class NearFieldMeshBuilder:
     def _segment_graph(self, grid_t: torch.Tensor, cfg: Dict[str, Any]) -> torch.Tensor:
         """Graph/Leiden-segment the solid voxels of a fixed grid.
 
-        Only solid voxels (phase > 0) enter the graph; void keeps phase 0. Euler
-        angles are converted to neml2 MRP with the builder's convention and unit,
-        and :meth:`~graintrace.fragmentation.FragmentationAnalyzer.segment` runs in
-        ``graph_mode="grid"``. With ``downsample=(sx, sy, sz)`` only the solid voxels
-        on every ``s``-th grid index are segmented, and every solid voxel then takes
-        the label of its nearest kept voxel.
+        Uses :meth:`~graintrace.fragmentation.FragmentationAnalyzer.segment` on MRP
+        orientations; with ``downsample`` the unkept voxels take their nearest kept
+        voxel's label.
 
         Args:
-            grid_t: (nx, ny, nz, 7) fixed grid [phase, Eul1, Eul2, Eul3, X, Y, Z].
+            grid_t: (nx, ny, nz, 7) fixed grid.
             cfg: a config from :meth:`_normalize_graph_segmentation`.
 
         Returns:
-            torch.Tensor: the grid with channel 0 holding 1-based grain ids, void 0,
-            the convention the flood path produces.
+            torch.Tensor: the grid with 1-based grain ids in channel 0, void 0.
 
         Raises:
             ValueError: if no voxel is solid.
@@ -386,33 +373,20 @@ class NearFieldMeshBuilder:
     ) -> Path:
         """Reconstruct a segmented NF voxel grid from .mic/.csv layers.
 
-        Converts the layer files to a pointcloud, rasterizes it onto a fixed voxel grid, segments it into grains (flood fill
-        by default, or graph/Leiden), cleans up, and voids any voxel left unsegmented.
+        Grids the layers, segments them (flood fill, or graph/Leiden), cleans up and voids any voxel left unsegmented.
 
         Args:
             dz: Layer thickness in micrometers (z spacing between stacked layers).
-            nx: In-plane grid resolution along x. None uses DEFAULT_NX (300) unless voxel_size_um is given.
-            ny: In-plane grid resolution along y. None uses DEFAULT_NY (900) unless voxel_size_um is given.
-            voxel_size_um: (hx, hy) in-plane voxel size in micrometers, as an alternative to nx/ny; giving both raises
-                ValueError. A fixed count over a rectangular footprint gives anisotropic voxels; a spacing gives an
-                isotropic grid independent of the footprint.
-            min_confidence: Voxels whose source point has a lower .mic Confidence become void (phase 0) instead of crystal.
-                None (default) keeps today's behavior, where air inside the hull, the sample surface and failed-to-index
-                points all enter segmentation as crystal. A layer without a Confidence column is not masked (warns).
-            max_point_distance: Maximum distance in micrometers from a voxel to the nearest measured point for it to be solid;
-                an alternative to the Delaunay hull test, which fills concave gaps and holes. A natural value is 1.5x the
-                .mic TriEdgeSize. None (default) keeps the hull test.
-            segmentation: None or a flat flood dict (misorientation_tol in radians, connectivity, batch_norm,
-                grain_threshold, stop_count, grain_threshold_final; optional "method": "flood") uses flood fill, missing
-                keys taking DEFAULT_SEGMENTATION. {"method": "graph", ...} uses graph/Leiden segmentation of the solid
-                voxels via FragmentationAnalyzer.segment (keys and defaults in DEFAULT_GRAPH_SEGMENTATION, plus the
-                optional OPTIONAL_GRAPH_KEYS); "downsample": (2, 2, 1) segments every other in-plane voxel and gives
-                the rest the label of their nearest segmented voxel.
+            nx: In-plane grid resolution along x; None uses DEFAULT_NX.
+            ny: In-plane grid resolution along y; None uses DEFAULT_NY.
+            voxel_size_um: (hx, hy) in-plane voxel size in micrometers, instead of nx/ny.
+            min_confidence: Voxels whose source point has a lower .mic Confidence become void; None keeps all.
+            max_point_distance: Solid radius (um) around the measured points, replacing the Delaunay hull test.
+            segmentation: Flat flood dict (DEFAULT_SEGMENTATION keys, misorientation_tol in radians), or
+                {"method": "graph", ...} with DEFAULT_GRAPH_SEGMENTATION / OPTIONAL_GRAPH_KEYS; None uses flood defaults.
 
         Returns:
-            Path to the written merged_segmented_fixed_grid.npy. The per-voxel confidence is written beside it as
-            fixed_grid_confidence.npy, shape (nx, ny, nz), so downstream segmentation, QC and REI can use it without
-            changing the 7-channel grid layout.
+            Path to merged_segmented_fixed_grid.npy; the confidence is saved beside it as fixed_grid_confidence.npy.
 
         Raises:
             ValueError: if voxel_size_um is given together with nx or ny, or the segmentation dict is invalid.
@@ -461,7 +435,6 @@ class NearFieldMeshBuilder:
             max_point_distance=max_point_distance,
         )
 
-        # Sidecar, so the 7-channel grid layout consumers index stays unchanged
         np.save(confidence_npy, confidence)
 
         if self.write_intermediate:
@@ -494,10 +467,9 @@ class NearFieldMeshBuilder:
             convert.fixed_grid_to_vtk(grid_t.cpu().numpy(), str(segmented_grid_vtk))
 
         if method != "graph":
-            # The graph path labels every solid voxel and absorbs small fragments itself
+            # graph labels every solid voxel and absorbs small fragments itself
             grid_t = segment.infill_nearest_neighbor(grid_t)
             grid_t = segment.remove_small_segments(grid_t, seg["grain_threshold_final"])
-        # An isolated island with no grain to join would otherwise stay at -1
         grid_t = segment.void_unsegmented(grid_t)
 
         np.save(self.merged_grid_npy, grid_t.cpu().numpy())
@@ -522,9 +494,7 @@ class NearFieldMeshBuilder:
         """Generate an Exodus mesh via SCULPT from the merged voxel grid.
 
         Uses merged_grid if given, else save_dir/merged_segmented_fixed_grid.npy. Writes the SCULPT .spn/orientations inputs, runs SCULPT, and maps per-element MRP orientations.
-        The mesh is rescaled onto the grid's voxel-edge box, its block ids are renumbered to a contiguous 1..N in file order, and
-        <mesh stem>_block_map.csv records block_id, sculpt_block_id, grain_id (spn id), n_elem and source_grain_id (the id in the
-        merged grid). Row k of the orientations CSV belongs to block id k + 1.
+        Block ids come out as 1..N (row k of the orientations CSV is block k + 1) with <mesh stem>_block_map.csv.
 
         Args:
             sculpt_config: SCULPT configuration dict (required keys psculpt, epu, nprocs; optional launcher, environment).
@@ -534,7 +504,7 @@ class NearFieldMeshBuilder:
             orientations_path: Override for the SCULPT per-voxel orientations input path.
             mesh_path: Override for the output Exodus mesh path; None uses the configured default.
             mapped_orientations_path: Override for the mapped per-element orientation output basename (".csv" is appended).
-            layer_spacing: z voxel size for a single-layer grid; None uses the dz of the last reconstruct(), else the in-plane spacing.
+            layer_spacing: z voxel size of a single-layer grid; None uses the last reconstruct() dz.
 
         Returns:
             Path to the written Exodus mesh.
@@ -569,7 +539,7 @@ class NearFieldMeshBuilder:
         )
 
         data = self._load_grid(grid_path)
-        # write_spn renumbers the ids in place; keep the merged-grid ids for the block map
+        # write_spn renumbers ids in place
         source_labels = data[..., 0].clone()
         if layer_spacing is None:
             layer_spacing = self.layer_spacing

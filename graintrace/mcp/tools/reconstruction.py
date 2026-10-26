@@ -212,29 +212,19 @@ def nf_reconstruct(
     ----------
     input_folder : folder of .mic layer files.
     dz, nx, ny : layer thickness (um) and in-plane grid resolution (default
-        300 x 900). Give nx/ny or voxel_size_um, not both (both is an error).
-    voxel_size_um : [hx, hy] in-plane voxel size (um), instead of nx/ny. A fixed
-        count over a rectangular footprint gives anisotropic voxels; a spacing
-        gives an isotropic grid independent of the footprint.
-    min_confidence : void voxels whose source point has a lower .mic Confidence.
-        Recommended: NF confidence is bimodal, so one threshold (~0.3-0.5)
-        separates indexed sample points from air, surface and failed points.
-        Without it the low-confidence boundary network percolates between grains
-        and segmentation leaks across it.
-    max_point_distance : max distance (um) from a voxel to the nearest measured
-        point for it to be solid, instead of the Delaunay hull test, which fills
-        concave gaps and holes. A natural value is 1.5x the .mic TriEdgeSize.
+        300 x 900).
+    voxel_size_um : [hx, hy] in-plane voxel size (um), instead of nx/ny.
+    min_confidence : void voxels whose source .mic Confidence is lower
+        (recommended, ~0.3-0.5).
+    max_point_distance : solid radius (um) replacing the hull test
+        (~1.5x TriEdgeSize).
     save_dir : output folder (defaults under the MCP workdir).
     init_params : overrides for NearFieldMeshBuilder(...): exp_file_token,
         angle_convention, angle_type ('radians'|'degrees'), symmetry, prefix,
-        recursive (search per-layer subfolders, e.g. MIDAS Layer1/...layer1.mic;
-        an empty top folder falls back to subfolders anyway).
-    segmentation : None or the legacy flat flood dict (misorientation_tol in
-        radians, connectivity, grain_threshold, etc.), or the recommended
-        graph/Leiden path {"method": "graph", "misori_tol_deg": 5.0,
-        "gamma": None (percolation sweep; ~0.1 fixed for few-grain data),
-        "grain_threshold_final": 30, "remerge_miso_deg": 3.0, "n_jobs": 1,
-        "n_threads": 1, "downsample": [2, 2, 1] (large NF only)}.
+        recursive (MIDAS per-layer subfolders).
+    segmentation : the legacy flat flood dict (misorientation_tol in radians),
+        or {"method": "graph", "misori_tol_deg": 5.0, "gamma": None, ...}
+        (recommended; see the nf_segmentation recipe).
     sculpt_config : CUBIT/SCULPT config (psculpt, epu, nprocs, ...). If omitted,
         only segmentation runs (no mesh).
     sculpt_options : SCULPT CLI flags.

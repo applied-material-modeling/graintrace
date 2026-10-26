@@ -116,20 +116,7 @@ faithfully represents the target distribution**. Fewer grains → fewer elements
 tractable CPFE wall-clock. Add grains only when the distribution histogram or the
 CPFE quantity of interest doesn't converge.
 
-## SCULPT post-processing contract (both builders' `mesh(mesher="sculpt")`)
-- **`--void_mat` is owned by `mesh_sculpt`; do not pass it.** SCULPT numbers spn values by
-  1-based rank, so with void present the void (spn 0) is material 1 and grain g is block g+1.
-  The old `--void_mat 0` named no material and meshed the void as block 1. `mesh_sculpt` strips
-  any `--void_mat`/`-VM` and passes `--void_mat 1` when the grid has void (none otherwise), and
-  the block map raises if a block is still mostly void.
-- **SCULPT coordinates are voxel-index units**; they are mapped exactly
-  (`x = first edge + index * h`), so the mesh covers the sample, not the scan box.
-- **Block ids are renumbered to contiguous `1..N` in file order** after `epu` (SCULPT keeps
-  the spn ids as `eb_prop1` and can drop small grains, leaving gaps the CPFE decks reject:
-  "block id 5 does not exist"). `<mesh stem>_block_map.csv` maps `block_id` ->
-  `sculpt_block_id`, `grain_id` (spn id), `n_elem`, `source_grain_id` (merged-grid id).
-  Row `k` of the orientations CSV is block `k + 1`.
-- **The grid's voxel-EDGE box** `[min - h/2, max + h/2]` is the frame, not the voxel centres.
-  A single-layer grid takes its z thickness from `mesh(layer_spacing=...)` (NF: the
-  reconstruct `dz`), else the mean in-plane spacing -- the old centre rescale made it flat
-  (coordz == 0) and puma-opt aborted writing Exodus. `mesher="voxel"` uses the same extents.
+## SCULPT conventions
+Do not pass `--void_mat`: `mesh_sculpt` sets `--void_mat 1` when the grid has void (SCULPT is
+1-based). Block ids come back renumbered `1..N` with `<mesh>_block_map.csv`; the mesh spans the
+sample's voxel-edge box (single layer: `mesh(layer_spacing=...)`).

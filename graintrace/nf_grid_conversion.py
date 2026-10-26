@@ -40,10 +40,7 @@ PathLike = Union[str, Path]
 class NFGridConversion:
     """Read a folder of NF layers and emit a flat grid CSV for VoxelMeshBuilder.
 
-    The CSV columns are ``cell_id`` (1 solid, -1 void), ``Eul0..Eul2``, ``x, y, z``
-    and ``confidence``. ``VoxelMeshBuilder`` reads ``cell_id == -1`` as void
-    automatically. The per-voxel confidence is also saved as
-    ``fixed_grid_confidence.npy``, shape (nx, ny, nz).
+    Columns: ``cell_id`` (1 solid, -1 void), ``Eul0..2``, ``x, y, z``, ``confidence``.
     """
 
     def __init__(
@@ -64,12 +61,11 @@ class NFGridConversion:
             input_folder: Folder containing the per-layer NF files (.mic or .csv).
             save_dir: Output directory; created if missing.
             exp_file_token: Filename token that precedes the layer number.
-            prefix: Filename prefix kept for API symmetry with NearFieldMeshBuilder.
+            prefix: Filename prefix (kept for parity with NearFieldMeshBuilder).
             write_intermediate: If True, write the pointcloud CSV and fixed-grid .npy.
             write_vtk: If True, write a .vtk rendering of the fixed grid.
             output_csv_filename: Name of the output grid CSV in save_dir.
-            recursive: If True, search input_folder's subfolders for layer files (MIDAS per-layer subfolders); with False
-                the search still falls back to subfolders when input_folder itself holds no layer files.
+            recursive: If True, search subfolders for layer files.
         """
         self.input_folder = Path(input_folder)
         self.save_dir = Path(save_dir)
@@ -101,15 +97,14 @@ class NFGridConversion:
 
         Args:
             dz: Layer thickness in micrometers.
-            nx: In-plane grid count along x; None uses 300 unless voxel_size_um is given.
-            ny: In-plane grid count along y; None uses 900 unless voxel_size_um is given.
-            voxel_size_um: (hx, hy) in-plane voxel size in micrometers, instead of nx/ny; giving both raises ValueError.
-            min_confidence: Voxels whose source point has a lower .mic Confidence become void (cell_id -1).
-            max_point_distance: Maximum distance in micrometers to the nearest measured point for a voxel to be solid,
-                instead of the Delaunay hull test.
+            nx: In-plane grid count along x (default 300).
+            ny: In-plane grid count along y (default 900).
+            voxel_size_um: (hx, hy) in-plane spacing (um) instead of nx/ny.
+            min_confidence: Confidence below which a voxel becomes void.
+            max_point_distance: Solid radius (um) replacing the hull test.
 
         Returns:
-            Path to fixed_grid.csv.
+            Path to fixed_grid.csv; the confidence is also saved as fixed_grid_confidence.npy.
 
         Raises:
             ValueError: if voxel_size_um is given together with nx or ny.

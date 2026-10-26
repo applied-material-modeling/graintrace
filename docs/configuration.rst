@@ -43,17 +43,12 @@ A tuple of CLI flag strings passed to SCULPT:
        "-CS", "4",              # curve smoothing
    )
 
-Do not pass ``--void_mat``: ``mesh_sculpt`` owns it. SCULPT numbers the ``.spn``
-values by 1-based rank, so with void present the void (spn ``0``) is material 1
-and grain ``g`` is block ``g + 1``. ``--void_mat 0`` (the old recommendation)
-names no material, so the void was meshed as block 1. ``mesh_sculpt`` strips any
-``--void_mat``/``-VM`` pair and passes ``--void_mat 1`` when the grid has void
-(warning if you asked for another value), and no flag when it has none (where
-``--void_mat 1`` would delete grain 1). SCULPT writes voxel-index coordinates,
-which ``mesh_sculpt`` maps to physical ones exactly (first voxel edge + index x
-spacing), so the mesh covers the sample, not the scan box.
-
-For FF Voronoi meshes without adaptation, ``()`` (no extra flags) is enough.
+For FF Voronoi meshes without adaptation, pass ``()``. Do not pass
+``--void_mat``: :func:`graintrace.nf.mesh.mesh_sculpt` sets ``--void_mat 1`` when
+the grid has void (see :ref:`pitfall-sculpt`). After meshing, the block ids are
+renumbered to ``1..N`` and ``<mesh stem>_block_map.csv`` maps each ``block_id`` to
+``sculpt_block_id``, ``grain_id``, ``n_elem`` and ``source_grain_id``.
+``mesh(layer_spacing=...)`` sets the z thickness of a single-layer grid.
 
 Boundary conditions (bc)
 ------------------------
@@ -124,112 +119,43 @@ Graph-based (better for complex textures):
 
 For :meth:`~graintrace.NearFieldMeshBuilder.reconstruct`, the ``segmentation``
 argument is either the flat flood dict (no ``method``/``params`` nesting, with
-``misorientation_tol`` in radians; the default), or a graph/Leiden dict with
-``"method": "graph"`` — the recommended NF path:
+``misorientation_tol`` in radians), or the graph/Leiden dict below, which runs
+:meth:`~graintrace.fragmentation.FragmentationAnalyzer.segment` on the solid voxels
+(defaults in ``NearFieldMeshBuilder.DEFAULT_GRAPH_SEGMENTATION``):
 
 .. code-block:: python
 
-   merged_grid_path = builder_nf.reconstruct(
-       dz=5.0, nx=200, ny=300, min_confidence=0.4,
-       segmentation={
-           "method": "graph",            # graph/Leiden via FragmentationAnalyzer.segment (solid voxels only)
-           "misori_tol_deg": 5.0,        # hard edge cutoff, DEGREES (flood's misorientation_tol is radians)
-           "gamma": None,                # None = percolation sweep (large NF); ~0.1 fixed for few-grain data
-           "gamma_sweep": (0.5, 1.0, 2.0, 4.0, 8.0),
-           "grain_threshold_final": 30,  # absorb smaller fragments
-           "remerge_miso_deg": 3.0,      # adjacency-only re-merge
-           "n_jobs": 1, "n_threads": 1,
-           "workdir": None,              # graph scratch dir (temp if None)
-           "downsample": (2, 2, 1),      # optional, large NF only: segment every 2nd in-plane voxel,
-                                         # the rest take their nearest segmented voxel's label
-           # optional pass-through: manhattan_radius, reduce_topk, rbf_sigma_deg, percolation_max_frac, seed
-       },
-   )
-
-The graph path converts the solid voxels' Euler angles to neml2 MRP with the
-builder's ``angle_convention``/``angle_type`` and calls
-:meth:`graintrace.fragmentation.FragmentationAnalyzer.segment` with
-``graph_mode="grid"`` on the solid voxels only. It writes 1-based grain ids into
-channel 0 with void ``0``, the convention the flood path produces, so ``mesh()`` is
-unchanged. Missing keys take ``NearFieldMeshBuilder.DEFAULT_GRAPH_SEGMENTATION``;
-unknown keys raise ``ValueError``.
-
-Both paths end by voiding any voxel still unsegmented (``-1``) — an isolated solid
-island with no grain to join — so the grid always reaches the mesh writers clean.
-
-``VoxelMeshBuilder`` void rows
-    Void detection is explicit. ``void_marker_col`` (opt-in) names a column whose
-    values ``<= 0`` are void, e.g. a 1-based ``phase``. ``cell_id_col`` ids ``<= 0``
-    are void. Automatically, only a ``cell_id`` column equal to ``-1`` (the
-    sentinel :class:`~graintrace.NFGridConversion` writes) is void. A ``phase``
-    column is never read implicitly, because an EBSD ``.ang`` phase may be
-    0-based.
-
-Mesh post-processing (SCULPT)
-    ``mesh()`` rescales the SCULPT mesh onto the grid's voxel-**edge** box,
-    renumbers the block ids to a contiguous ``1..N`` in file order, and writes
-    ``<mesh stem>_block_map.csv`` with ``block_id``, ``sculpt_block_id``,
-    ``grain_id``, ``n_elem`` and ``source_grain_id``. Row ``k`` of the orientations
-    CSV belongs to block id ``k + 1``. ``mesh(layer_spacing=...)`` sets the z voxel
-    size of a single-layer grid (NF defaults to the ``dz`` of the last
-    ``reconstruct()``; otherwise the in-plane spacing is used).
+   segmentation = {
+       "method": "graph",
+       "misori_tol_deg": 5.0,        # degrees
+       "gamma": None,                # percolation sweep; ~0.1 for few-grain data
+       "grain_threshold_final": 30,
+       "remerge_miso_deg": 3.0,
+       "downsample": (2, 2, 1),      # optional; large NF only
+   }
 
 .. _config-nf-gridding:
 
-NF gridding: confidence, reach and voxel size
----------------------------------------------
+NF gridding options
+-------------------
 
-:meth:`~graintrace.NearFieldMeshBuilder.reconstruct` takes three optional
-arguments that control which voxels become crystal before segmentation ever runs.
-All default to ``None``, which reproduces the pre-confidence grid exactly.
-
-.. code-block:: python
-
-   merged_grid_path = builder_nf.reconstruct(
-       dz=5.0,
-       voxel_size_um=(2.0, 2.0),   # instead of nx/ny
-       min_confidence=0.4,
-       max_point_distance=1.5 * tri_edge_size,
-       segmentation=segmentation,
-   )
+:meth:`~graintrace.NearFieldMeshBuilder.reconstruct` and
+:meth:`~graintrace.NFGridConversion.convert` take:
 
 ``min_confidence``
-    Voxels whose source point has a lower ``.mic`` ``Confidence`` become void
-    (``phase = 0``). Without it every grid point inside a layer's Delaunay hull is
-    crystal, so air inside the hull, the sample surface, regions that failed to
-    index and low-confidence grain-boundary voxels all enter segmentation. Those
-    boundary voxels form a connected network between grains that orientation
-    segmentation leaks through — the percolation the graph path otherwise patches
-    with a size cap. NF confidence is typically bimodal (indexed sample points near
-    1.0, air and failed points well below), so a single threshold separates them.
-
+    Voxels whose source ``.mic`` point has a lower ``Confidence`` become void.
+    NF confidence is bimodal, so one threshold (~0.3-0.5) separates sample from
+    air and failed points. ``None`` (default) keeps every in-hull point.
 ``max_point_distance``
-    Maximum distance in micrometers from a voxel to the nearest measured point for
-    it to be solid, replacing the hull test. The hull fills concave gaps and holes;
-    a radius does not. A natural value is ``1.5 x TriEdgeSize``.
-
+    Maximum distance (µm) to the nearest measured point, replacing the Delaunay
+    hull test; ~1.5 x ``TriEdgeSize``.
 ``voxel_size_um``
-    ``(hx, hy)`` in-plane voxel size, as an alternative to ``nx``/``ny``; give one or
-    the other, not both. A fixed count over a rectangular footprint gives
-    anisotropic voxels, whereas a spacing gives an isotropic grid independent of the
-    footprint. The axis starts at the data minimum and is extended to cover the
-    maximum. Giving ``voxel_size_um`` together with ``nx`` or ``ny`` raises
-    ``ValueError``; with neither, ``nx``/``ny`` default to 300 x 900.
+    ``(hx, hy)`` in-plane spacing instead of ``nx``/``ny`` (giving both raises).
 
-``recursive`` (``NearFieldMeshBuilder`` / ``NFGridConversion`` constructor)
-    MIDAS writes one subfolder per layer (``Layer1/...layer1.mic``). ``True``
-    searches subfolders; the default ``False`` searches the folder flat and falls
-    back to subfolders only when it holds no layer files. Layers are ordered by the
-    number after ``exp_file_token`` and must be contiguous.
-
-A ``min_confidence`` on layers without a ``Confidence`` column warns and masks
-nothing there. :meth:`~graintrace.NFGridConversion.convert` takes the same three
-gridding options and adds a ``confidence`` column (and the sidecar) to its CSV.
-
-The per-voxel confidence is written to ``fixed_grid_confidence.npy`` of shape
-``(nx, ny, nz)`` beside the merged grid, so segmentation, QC and REI can use it
-without changing the 7-channel grid layout that consumers index
-(``data[..., 4:7]`` = coordinates). It is ``0`` wherever the grid is void.
+The per-voxel confidence is saved as ``fixed_grid_confidence.npy``. The builders
+take ``recursive=True`` for MIDAS per-layer subfolders. For ``VoxelMeshBuilder``,
+only ``cell_id == -1`` is void automatically; ``void_marker_col`` opts a column in
+(values ``<= 0`` void).
 
 **Graph/Leiden is the default and better pathway** for NF/EBSD; flood over-merges
 into percolating grains. The vetted recipe (validated on Fe-9Cr NF

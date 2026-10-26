@@ -230,21 +230,16 @@ def infill_nearest_neighbor(grid, connectivity=6):
 
 
 def void_unsegmented(grid):
-    """Turn every voxel still unsegmented (phase < 0) into void (phase 0).
+    """Set every voxel still unsegmented (phase < 0) to void.
 
-    ``infill_nearest_neighbor`` only fills a ``-1`` voxel that touches a real
-    segment, and ``remove_small_segments`` marks a small segment ``-1`` when it
-    has no real-segment neighbour. An isolated solid island inside void (a stray
-    high-confidence point in an air notch, say) can therefore survive both steps
-    at ``-1``, which ``mesh.write_spn`` rejects. Such an island has no grain to
-    join, so it is voided. Run this after the final cleanup step.
+    Run after the final cleanup: an island with no solid neighbour survives both
+    infill and small-segment removal at ``-1``, which ``write_spn`` rejects.
 
     Args:
         grid (nx,ny,nz,7) tensor: fixed grid, grid[...,0] is the phase index
 
     Returns:
-        (nx,ny,nz,7) tensor with no phase < 0 voxels; the orientation of a
-        voided voxel is zeroed, matching a voxel that was void from the start
+        (nx,ny,nz,7) tensor without negative phases; voided orientations are zeroed
     """
     grid = grid.clone()
     leftover = grid[..., 0] < 0

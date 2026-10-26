@@ -59,21 +59,8 @@ Expected `.mic` format (tab-delimited, with `%` header lines):
 %OrientationRowNr  OrientationID  RunTime  X  Y  TriEdgeSize  UpDown  Eul1  Eul2  Eul3  Confidence  PhaseNr
 ```
 `NearFieldMeshBuilder` reads a folder of `.mic` files. The `exp_file_token` parameter is the filename prefix token used to find files. **graintrace has no `.ang` reader** — no converter ships in the package and no code path recognises the extension, so `.ang` source data must be converted to `.mic` outside graintrace before `NearFieldMeshBuilder` sees it. (The `run_experiment_afrl.py` script this note used to cite is not in the repository.)
-
-`nf_to_pointcloud` keeps **every** column of the file, so `Confidence`,
-`TriEdgeSize` and `OrientationRowNr` survive into the point cloud. `Confidence` is
-the per-point indexing quality and is **bimodal** — indexed sample points near 1.0,
-air and failed points well below — so one threshold separates them. Pass
-`min_confidence` to `reconstruct` to use it (§4); `TriEdgeSize` sets a natural
-`max_point_distance` of `1.5 × TriEdgeSize`. A `min_confidence` on layers that have no
-`Confidence` column (or a layer whose values are all missing) warns and masks nothing there.
-
-**Layer layout.** Files are ordered by the number after `exp_file_token` and must be
-contiguous (missing or duplicate numbers raise). MIDAS writes **one subfolder per layer**
-(`Layer1/…layer1.mic`, `Layer2/…`): pass `recursive=True` to `NearFieldMeshBuilder` /
-`NFGridConversion` (or `nf_to_pointcloud`). With the default `recursive=False` a folder
-holding layer files is searched flat as before, and an empty top folder falls back to the
-subfolders automatically. A recursive search ignores files whose name lacks the token.
+`Confidence`/`TriEdgeSize` are kept in the point cloud (`min_confidence`, §4). MIDAS per-layer
+subfolders (`Layer1/…layer1.mic`): `recursive=True` (an empty top folder falls back to them).
 
 For the alternate path using `NFGridConversion` (pre-gridded NF data):
 ```python
@@ -83,14 +70,10 @@ nf_converter = NFGridConversion(
     save_dir="...",
     exp_file_token="layer_prefix",
     prefix="reconstructed",
-    recursive=False,                  # True for MIDAS per-layer subfolders
 )
-nf_grid_csv = nf_converter.convert(dz=nf_dz, nx=nx, ny=ny,   # or voxel_size_um=(hx, hy), not both
-                                   min_confidence=0.4, max_point_distance=None)
+nf_grid_csv = nf_converter.convert(dz=nf_dz, nx=nx, ny=ny, min_confidence=0.4)
+# CSV: cell_id (1 solid, -1 void), Eul0..2, x, y, z, confidence
 ```
-The CSV has `cell_id` (1 solid, **-1 void**), `Eul0..2`, `x, y, z` and `confidence`; the
-per-voxel confidence is also saved as `fixed_grid_confidence.npy`. `VoxelMeshBuilder`
-reads `cell_id == -1` as void automatically.
 
 ### EBSD data (CSV, merged from per-layer `.ang` files)
 After converting and merging from `.ang` files, the expected format is a flat CSV:
@@ -98,9 +81,7 @@ After converting and merging from `.ang` files, the expected format is a flat CS
 x, y, z, Eul0, Eul1, Eul2
 ```
 `z` is `file_index * zstep_ebsd`. Columns `Eul0/1/2` hold Bunge Euler angles in degrees or radians. The file is then fed to `VoxelMeshBuilder`.
-Void rows are explicit: only a `cell_id` column equal to `-1` is void automatically. A
-`phase` column is **never** read as a void marker unless you pass
-`VoxelMeshBuilder(void_marker_col="phase")` — `.ang` phases may be 0-based (§10).
+Only `cell_id == -1` is void automatically; a `phase` column needs `void_marker_col="phase"` (§10).
 
 ---
 
@@ -357,19 +338,11 @@ builder_nf = NearFieldMeshBuilder(
 
 merged_grid_path = builder_nf.reconstruct(
     dz=5.0,          # layer thickness in micrometers
-    nx=200,          # in-plane grid resolution x (None -> 300)
-    ny=300,          # in-plane grid resolution y (None -> 900)
-    # voxel_size_um=(2.0, 2.0),  # ALTERNATIVE to nx/ny: isotropic voxels, independent
-                                 # of the footprint. Giving both raises ValueError.
-    min_confidence=0.4,          # RECOMMENDED. Voxels whose source .mic point scores
-                                 # below this become void. Default None = today's
-                                 # behavior, where air inside the hull, the sample
-                                 # surface and failed-to-index points are all crystal
-                                 # and the low-confidence boundary voxels percolate
-                                 # between grains. See §10.
-    max_point_distance=None,     # um; replaces the Delaunay hull test, which fills
-                                 # concave gaps/holes. Natural: 1.5 * TriEdgeSize.
-    segmentation={   # flat dict for NearFieldMeshBuilder (no method/params nesting)
+    nx=200,          # in-plane grid resolution x (or voxel_size_um=(hx, hy); not both)
+    ny=300,          # in-plane grid resolution y
+    min_confidence=0.4,          # recommended: low-confidence (air/boundary) voxels -> void
+    max_point_distance=None,     # um; replaces the hull test (~1.5 * TriEdgeSize)
+    segmentation={   # flat flood dict (radians); graph/Leiden variant below
         "misorientation_tol": 5.0/180*np.pi,   # radians
         "connectivity": 6,
         "batch_norm": 200_000,
@@ -388,41 +361,18 @@ mesh_path = builder_nf.mesh(
 # Use output_nf + "/orientations.csv" for CPFESimulation ori_file
 ```
 
-**Graph (Leiden) segmentation** — the recommended NF path — is a `"method": "graph"` dict
-(the flat flood dict above stays the default):
-```python
-merged_grid_path = builder_nf.reconstruct(dz=5.0, nx=200, ny=300, min_confidence=0.4,
-    segmentation={
-        "method": "graph",            # graph/Leiden via FragmentationAnalyzer.segment (solid voxels only)
-        "misori_tol_deg": 5.0,        # hard edge cutoff, DEGREES (flood's misorientation_tol is radians)
-        "gamma": None,                # None = percolation sweep (large NF); ~0.1 fixed for few-grain data
-        "gamma_sweep": (0.5, 1.0, 2.0, 4.0, 8.0),
-        "grain_threshold_final": 30,  # absorb smaller fragments
-        "remerge_miso_deg": 3.0,      # adjacency-only re-merge
-        "n_jobs": 1, "n_threads": 1,
-        "workdir": None,              # graph scratch dir (temp if None)
-        "downsample": (2, 2, 1),      # optional, large NF only: segment every 2nd in-plane voxel,
-                                      # the rest take their nearest segmented voxel's label
-        # optional pass-through: manhattan_radius, reduce_topk, rbf_sigma_deg, percolation_max_frac, seed
-    })
-```
-It converts the solid voxels' Euler angles to neml2 MRP (builder's `angle_convention`/
-`angle_type`), runs `FragmentationAnalyzer.segment(..., graph_mode="grid")` on them only, and
-writes 1-based grain ids into channel 0 with void = 0, exactly as flood does, so `mesh()`
-is unchanged. Either path ends by **voiding any voxel still at `-1`** (an isolated solid
-island in void, e.g. a stray confident point in an air notch, that no grain can absorb), so
-the grid always reaches `write_spn` clean.
-
 Key outputs in `save_dir`:
 - `merged_segmented_fixed_grid.npy`: segmented voxel grid (restart checkpoint)
-- `fixed_grid_confidence.npy`: per-voxel `.mic` confidence, shape `(nx, ny, nz)`, `0`
-  where void. A **sidecar**, deliberately not an eighth channel, so the 7-channel
-  layout consumers index (`data[..., 4:7]` = coordinates) is unchanged
-- `mesh.e`: Exodus mesh file for CPFE (block ids contiguous `1..N`, voxel-edge extents)
-- `orientations.csv`: MRP orientations, one row per Exodus **block** (grain), not per element;
-  row `k` is block id `k + 1`
-- `mesh_block_map.csv`: `block_id` (1..N), `sculpt_block_id` (SCULPT's original id),
-  `grain_id` (spn id), `n_elem`, `source_grain_id` (id in `merged_segmented_fixed_grid.npy`)
+- `mesh.e`: Exodus mesh file for CPFE
+- `orientations.csv`: MRP orientations, one row per Exodus **block** (grain), not per element
+- `fixed_grid_confidence.npy` (per-voxel confidence), `mesh_block_map.csv` (block -> grain)
+
+Graph/Leiden (recommended) runs `FragmentationAnalyzer.segment` on the solid voxels:
+```python
+segmentation={"method": "graph", "misori_tol_deg": 5.0, "gamma": None,  # ~0.1 few-grain
+              "grain_threshold_final": 30, "remerge_miso_deg": 3.0,
+              "downsample": (2, 2, 1)}   # optional, large NF
+```
 
 ### Recommended graph (Leiden) segmentation settings (NF/EBSD) — the DEFAULT/better pathway
 
@@ -1002,13 +952,7 @@ sculpt_options = (
     "-CS", "4",              # curve smoothing
 )
 ```
-**Do not pass `--void_mat`; `mesh_sculpt` owns it.** SCULPT numbers spn values by 1-based
-rank: with void present spn `0` is material 1 and grain `g` is block `g + 1`, so the old
-`--void_mat 0` named no material and the void was meshed as block 1 (Fe-9Cr: 911k of 1.6M
-elements in a void block). `nf.mesh.sculpt_void_options` strips any `--void_mat`/`-VM` pair
-and appends `--void_mat 1` when the grid has void (warns on another value); with no void it
-passes none (`--void_mat 1` would delete grain 1). For FF Voronoi meshes without adaptation
-`()` is enough.
+Do not pass `--void_mat`: `mesh_sculpt` sets it (§10). FF Voronoi without adaptation: `()`.
 
 ### `segmentation_prop` dict (VoxelMeshBuilder / EBSD / NF-as-voxel)
 Two methods:
@@ -1060,16 +1004,7 @@ segmentation = {
 }
 ```
 
-Note: For `NearFieldMeshBuilder.reconstruct()`, the `segmentation` argument is EITHER the flat
-flood dict (no `method`/`params` nesting, `misorientation_tol` in radians; optional
-`"method": "flood"`) OR the graph dict `{"method": "graph", ...}` (keys in §4 /
-`NearFieldMeshBuilder.DEFAULT_GRAPH_SEGMENTATION`, `misori_tol_deg` in degrees). Unknown keys raise.
-
-`VoxelMeshBuilder(void_marker_col=None)`: opt-in column whose `<= 0` values are void (e.g. a
-1-based `phase`). Automatic: only `cell_id == -1`. `cell_id_col` ids `<= 0` are void.
-
-`mesh(layer_spacing=None)` (both builders): z voxel size for a single-layer grid; NF defaults
-to the last `reconstruct()`'s `dz`, else the in-plane spacing is used.
+Note: For `NearFieldMeshBuilder.reconstruct()`, `segmentation` is the flat flood dict (`misorientation_tol` in radians) or `{"method": "graph", ...}` (§4, `misori_tol_deg` in degrees).
 
 ### `bc` dict format
 ```python
@@ -1306,8 +1241,8 @@ if ori_units == "radians":
 ### `write_spn` raises on unsegmented (`phase < 0`) voxels
 Label domain of a segmented grid: `0` void, `>= 1` grain, `-1` material-but-unsegmented.
 `-1` is not only a `flood()` leftover — `segment.remove_small_segments` reassigns a
-sub-threshold segment to `-1` when it has no kept neighbour, so `NearFieldMeshBuilder`
-(infill **then** removal) can still hold orphans at mesh time. `nf.mesh.write_spn` now raises
+sub-threshold segment to `-1` when it has no kept neighbour; both builders now void what is
+left (`segment.void_unsegmented`), e.g. an isolated island in void. `nf.mesh.write_spn` now raises
 `ValueError` naming the remedy (`infill_nearest_neighbor` after `remove_small_segments`, or
 mask to void) instead of meshing them; it will not map them to void for you, because that
 silently deletes material. Its renumber is also out of place now, so it is collision-proof for
@@ -1315,69 +1250,6 @@ any label set, not just a contiguous `1..N` (one `-1` used to cascade
 `[0,-1,1,1,2,2,3,3]` into the `.spn` `[0,4,4,4,4,4,4,4]` — every grain collapsed into one
 SCULPT id, silently). `nf.mesh.write_voxel_exodus` skips `ids < 0` alongside `background_id`,
 so an orphan never takes a block and shifts every grain id.
-The builders now finish with `nf.segment.void_unsegmented`: whatever is still `-1` after the
-final cleanup (an island with no solid neighbour, which neither infill nor removal can place)
-becomes void. Both `NearFieldMeshBuilder` and `VoxelMeshBuilder` had the hole; a stray
-Confidence-0.99 point in an air notch with `max_point_distance` was enough to abort meshing.
-
-### `phase` is not a void marker unless you say so
-`VoxelMeshBuilder` used to treat any `phase <= 0` (and `cell_id <= 0`) as void, so an EBSD CSV
-carrying a 0-based `.ang` phase column became **all void**. Void detection is now explicit:
-`void_marker_col=` (opt-in, `<= 0` void), `cell_id_col` (ids `<= 0` void), and automatically
-only the `cell_id == -1` sentinel `NFGridConversion` writes (`-1` is never a grain id).
-
-### SCULPT block ids are sparse; the decks need 1..N
-SCULPT's `eb_prop1` is the 1-based rank of each spn value and it can drop small grains, so the ids come back
-sparse (e.g. 1..353 with gaps) and CPFE aborts at setup ("block id 5 does not exist").
-`nf.mesh.mesh_sculpt` now runs `renumber_blocks_contiguous` after `epu`: ids become `1..N` in
-FILE order (eb_names ending in the old id follow), each block's grain is its majority grid
-label (handed to `map_orientations(block_grains=...)`), and
-`<mesh>_block_map.csv` records `block_id, sculpt_block_id, grain_id, n_elem[, source_grain_id]`.
-Contract: orientations CSV row `k` belongs to block id `k + 1`.
-
-### SCULPT coordinates are voxel-INDEX units: map them, do not stretch them
-SCULPT writes coordinates in voxel-index units, `0` at the grid's first voxel edge. The old
-`rescale_exodus_mesh` stretched the mesh's min/max onto the grid's voxel-CENTRE extents: that
-shrank meshes one voxel per axis, collapsed a single-layer grid (nz=1) to `coordz == 0` (HEX8 in
-a 2D mesh; puma-opt aborts writing Exodus, `map_find() error: key 10 not found`), and — once the
-void is removed — inflated the sample onto the whole scan box. It is now the exact affine map
-`x = (c0 − h/2) + raw·h` per axis (`voxel_spacing`, `voxel_edge_bounds`), so the mesh covers
-the sample's own voxel-edge box (± SCULPT boundary smoothing, ~0.1 voxel). A single-voxel axis
-has no measurable step: z uses `layer_spacing` (NF: `dz`), else the mean in-plane spacing.
-`write_voxel_exodus` uses the same rule, so both meshers agree.
-
-### SCULPT `--void_mat` is 1-based; a meshed void is now an error
-See §9 `sculpt_options`: `mesh_sculpt` forces `--void_mat 1` on grids with void. As a backstop,
-`renumber_blocks_contiguous` looks every block's element centroids up against ALL voxels (void
-included) and raises if a block's majority label is void ("the void was meshed ... --void_mat 1"),
-rather than silently pairing it with the nearest solid grain. Block-to-grain association is that
-majority label; SCULPT's own ids (rank of spn value, `g + 1` with void) are only recorded as
-`sculpt_block_id`.
-
-### NF gridding is unmasked by default, and that is what percolates
-`reconstruct()` defaults `min_confidence=None`, which reproduces the historical grid:
-**every** grid point inside a layer's Delaunay hull becomes crystal and takes the
-nearest measured point's orientation. Air inside the hull, the sample surface,
-regions that failed to index and low-confidence grain-boundary voxels therefore all
-reach the segmenter, and the low-confidence voxels form a *connected network between
-grains* that orientation segmentation leaks through. That is the percolation the
-graph path patches after the fact with a 3%-of-solid size cap (§4). Masking by
-confidence removes it at the source, so set `min_confidence` on real NF data rather
-than relying on the cap alone. `max_point_distance` is the companion for concave
-outlines: the hull test fills notches and holes, a radius around the measured points
-does not.
-
-Two gridding details that look like bugs and are not:
-
-- **Hull mode and radius mode pick the source point differently.** Under the hull
-  test a grid point takes the nearest *vertex of its containing simplex*; under
-  `max_point_distance` it takes the globally nearest measured point via `cKDTree`.
-  These are **not** the same point — the nearest site need not be a vertex of the
-  containing simplex (measured: 5 of 102 in-hull points on a 60-point random layer,
-  by up to 0.16 µm). The legacy rule is kept in hull mode on purpose, so an unmasked
-  grid is bit-identical to the pre-confidence one.
-- **`pointcloud_to_fixed_grid` and `process_layer_pointcloud` return a tuple**,
-  `(grid, confidence)`, not a bare grid.
 
 ### NF grain orientation averages need the crystal symmetry
 `nf.metrics.average_rotations` takes `symmetry` (default `"1"` = plain quaternion mean,
@@ -1395,10 +1267,22 @@ the low-level `nf.mesh` writers directly? Pass the point group explicitly. The f
 void (`background_id`, default 0). A single tree over the whole grid let a surface or
 void-adjacent block take the identity from a void voxel (void Euler is `(0,0,0)`), or a
 neighbour's orientation across the boundary — silently, since nothing downstream checks.
-Blocks map to grains by the explicit `block_grains` argument (the SCULPT path: each block's
-majority grid label from `renumber_blocks_contiguous`), else by Exodus `eb_prop1` when those ids
-name grid grains (the voxel path), else positionally against the sorted non-void ids; none
-working is a `ValueError` instead of a wrong answer.
+Blocks map to grains by `block_grains` (SCULPT path: majority label), else `eb_prop1`, else
+positionally; none working is a `ValueError` instead of a wrong answer.
+
+### NF gridding is unmasked by default
+`min_confidence=None` keeps air, surface and low-confidence boundary voxels as crystal; they
+percolate between grains. Set it on real data. No `Confidence` column -> warning.
+
+### SCULPT: `--void_mat` is 1-based, coordinates are voxel indices, block ids are sparse
+SCULPT ranks spn values 1-based (void = material 1, grain g = block g+1), so `mesh_sculpt` forces
+`--void_mat 1` when the grid has void (`0` meshed the void as block 1). It maps index coordinates
+exactly (`x = c0 - h/2 + raw*h`; single layer: `layer_spacing`/`dz`), renumbers blocks `1..N`
+in file order (orientations row k = block k+1), writes `<mesh>_block_map.csv`, and raises if
+a block is mostly void.
+
+### `phase` is not a void marker unless opted in
+A 0-based `.ang` phase would void the whole map; use `VoxelMeshBuilder(void_marker_col="phase")`.
 
 ### FF output orientations are always in degrees
 `VoronoiMeshBuilder.build_voronoi()` always writes `orientations.dat` in degrees regardless of input units. When feeding to `VoxelMeshBuilder` afterward:
@@ -1544,7 +1428,7 @@ graintrace/
   construct_voronoi_mesh.py    VoronoiMeshBuilder    : FF HEDM reconstruction (NEPER)
   construct_nf_mesh.py         NearFieldMeshBuilder  : NF HEDM reconstruction (SCULPT)
   construct_voxel_mesh.py      VoxelMeshBuilder      : EBSD/NF voxel meshing (SCULPT)
-  nf_grid_conversion.py        NFGridConversion      : NF layers to a VoxelMeshBuilder grid CSV (confidence mask, cell_id -1 void, confidence column)
+  nf_grid_conversion.py        NFGridConversion      : Pre-gridded NF data to CSV
   run_cpfe_simulation.py       CPFESimulation        : MOOSE/PUMA CPFE runner
   grid_resampling.py           GridResampler         : offline resample of a CPFE Exodus -> grid CSV
   simulation_postprocessing.py SimulationResults     : Load/query CPFE output CSVs

@@ -118,25 +118,19 @@ VOID_MAT_FLAGS = ("--void_mat", "-VM")
 
 
 def sculpt_void_options(sculpt_options, has_void):
-    """Return ``sculpt_options`` with the void flag set for this grid.
+    """Return ``sculpt_options`` with the void flag this grid needs.
 
-    SCULPT numbers the ``.spn`` values by rank, 1-based: with void present the
-    spn ``0`` becomes material/block 1 and grain ``g`` becomes block ``g + 1``;
-    without void, grain ``g`` stays ``g``. So ``--void_mat 0`` (the old
-    recommendation) names no material and the void is meshed as block 1, while
-    ``--void_mat 1`` removes it. Without void, ``--void_mat 1`` would delete
-    grain 1.
-
-    Any ``--void_mat``/``-VM`` pair (or ``--void_mat=V``) is stripped. With void,
-    ``--void_mat 1`` is appended, warning if the caller asked for another value.
-    Without void no flag is passed, warning if the stripped value was not 0.
+    SCULPT ranks spn values 1-based, so with void present the void is material 1.
+    Any ``--void_mat``/``-VM`` is replaced by ``--void_mat 1`` when there is void, and
+    dropped when there is none (there, 1 would delete grain 1); both cases warn on
+    a conflicting value.
 
     Args:
-        sculpt_options (sequence of str): SCULPT CLI flags.
-        has_void (bool): whether the grid holds any void (phase 0) voxel.
+        sculpt_options (sequence of str): SCULPT CLI flags
+        has_void (bool): whether the grid has any phase-0 voxel
 
     Returns:
-        list of str: the options to pass to psculpt.
+        list of str: the options to pass to psculpt
     """
     opts = [str(o) for o in sculpt_options]
     out, given = [], []
@@ -188,19 +182,9 @@ def mesh_sculpt(
 ):
     """Call sculpt (+epu) to generate an Exodus mesh from an spn file.
 
-    The void flag is owned here (:func:`sculpt_void_options`): a grid with void
-    is meshed with ``--void_mat 1`` whatever ``sculpt_options`` says. After
-    ``epu`` the mesh is post-processed in three steps:
-
-    1. :func:`rescale_exodus_mesh` maps SCULPT's voxel-index coordinates onto
-       physical ones with an exact affine map.
-    2. :func:`renumber_blocks_contiguous` renumbers SCULPT's block ids
-       (``eb_prop1``: the rank of each spn value, so grain ``g`` is block
-       ``g + 1`` when void is present, and sparse once SCULPT drops a small
-       grain) to a contiguous ``1..N`` in file order, as the CPFE decks require,
-       and writes a block map CSV.
-    3. :func:`map_orientations` writes one orientation row per block in file
-       order, so row ``k`` of the orientations CSV belongs to block id ``k + 1``.
+    Sets ``--void_mat`` (:func:`sculpt_void_options`), maps SCULPT's index coordinates
+    to physical ones (:func:`rescale_exodus_mesh`), renumbers blocks to ``1..N``
+    (:func:`renumber_blocks_contiguous`) and writes one orientation row per block.
 
     Args:
         sculpt_config (dict): configuration for the sculpt call
@@ -213,14 +197,9 @@ def mesh_sculpt(
         angle_convention (str): 'kocks', 'bunge', or 'roe'
         angle_type (str): 'degrees' or 'radians'
         symmetry (str): crystal symmetry for the per-block orientation average
-            (see :func:`graintrace.nf.metrics.average_rotations`).
-        layer_spacing (float, optional): z voxel size, used when the grid has a
-            single layer (see :func:`voxel_spacing`).
-        source_labels (array, optional): (nx, ny, nz) grain ids of the caller's
-            grid before :func:`write_spn` renumbered them; adds a
-            ``source_grain_id`` column to the block map.
-        block_map_filename (str, optional): block map CSV path; defaults to
-            ``<mesh stem>_block_map.csv`` beside the mesh.
+        layer_spacing (float, optional): z voxel size of a single-layer grid
+        source_labels (array, optional): pre-``write_spn`` grain ids for the block map
+        block_map_filename (str, optional): defaults to ``<mesh stem>_block_map.csv``
 
     Returns:
         str: path to the block map CSV.
@@ -312,17 +291,14 @@ def mesh_sculpt(
 
 
 def voxel_spacing(data, layer_spacing=None):
-    """Per-axis voxel size of a fixed grid, from its voxel-centre coordinates.
+    """Per-axis voxel size of a fixed grid from its voxel-centre coordinates.
 
-    An axis with more than one voxel takes the median step of its centres. A
-    single-voxel axis has no step to measure: z takes ``layer_spacing`` when
-    given (``NearFieldMeshBuilder`` knows its ``dz``), and otherwise -- as does a
-    single-voxel x or y -- falls back to the mean in-plane spacing of the measured
-    axes (1.0 if none can be measured).
+    A single-voxel axis takes ``layer_spacing`` (z only), else the mean in-plane
+    spacing, else 1.0.
 
     Args:
-        data (np.ndarray): nx x ny x nz x 7 array [phase, Eul1, Eul2, Eul3, X, Y, Z]
-        layer_spacing (float, optional): known z voxel size.
+        data (np.ndarray): nx x ny x nz x 7 fixed grid
+        layer_spacing (float, optional): known z voxel size
 
     Returns:
         np.ndarray: (3,) spacing (hx, hy, hz).
@@ -344,14 +320,11 @@ def voxel_spacing(data, layer_spacing=None):
 
 
 def voxel_edge_bounds(data, layer_spacing=None):
-    """Voxel-edge bounding box of a fixed grid.
-
-    The grid stores voxel CENTRES; a hex mesh of it spans the voxel EDGES, half a
-    voxel further out on every side: ``[min - h/2, max + h/2]`` per axis.
+    """Voxel-edge bounding box ``[min - h/2, max + h/2]`` of a fixed grid.
 
     Args:
-        data (np.ndarray): nx x ny x nz x 7 array [phase, Eul1, Eul2, Eul3, X, Y, Z]
-        layer_spacing (float, optional): known z voxel size; see :func:`voxel_spacing`.
+        data (np.ndarray): nx x ny x nz x 7 fixed grid
+        layer_spacing (float, optional): see :func:`voxel_spacing`
 
     Returns:
         tuple: (lo, hi), each a (3,) array.
@@ -364,21 +337,15 @@ def voxel_edge_bounds(data, layer_spacing=None):
 
 
 def rescale_exodus_mesh(exo_file, data, layer_spacing=None):
-    """Map SCULPT's voxel-index coordinates onto the grid's physical coordinates.
+    """Map SCULPT's voxel-index coordinates onto physical coordinates.
 
-    SCULPT writes coordinates in voxel-INDEX units, ``0`` at the grid's first
-    voxel edge and ``n`` at its last, so the map is exact and affine per axis:
-    ``x = (c0 - h/2) + raw * h`` with ``c0`` the first voxel centre and ``h`` the
-    spacing (:func:`voxel_spacing`). It deliberately does not use the mesh's own
-    min/max: once the void is removed the mesh covers only the sample, and
-    stretching it onto the grid extents would inflate the sample to the whole
-    scan box.
+    SCULPT writes index units with 0 at the first voxel edge, so the map is the exact
+    affine ``x = (c0 - h/2) + raw * h``; the mesh min/max are not used.
 
     Args:
         exo_file (str): path to Exodus mesh file
-        data (np.ndarray): nx x ny x nz x 7 array [phase, Eul1, Eul2, Eul3, X, Y, Z]
-        layer_spacing (float, optional): z voxel size for a single-layer grid;
-            without it the in-plane spacing is used (see :func:`voxel_spacing`).
+        data (np.ndarray): nx x ny x nz x 7 fixed grid the mesh came from
+        layer_spacing (float, optional): see :func:`voxel_spacing`
     """
     h = voxel_spacing(data, layer_spacing=layer_spacing)
     lo, _ = voxel_edge_bounds(data, layer_spacing=layer_spacing)
@@ -396,43 +363,26 @@ def _decode_names(arr):
 def renumber_blocks_contiguous(
     exo_file, data, block_map_filename, source_labels=None, background_id=0
 ):
-    """Renumber Exodus block ids to a contiguous 1..N in file order + write a block map.
+    """Renumber Exodus block ids to 1..N in file order and write a block map.
 
-    SCULPT's block ids (``eb_prop1``) are the 1-based rank of each spn value; once
-    it drops a small grain they are sparse (e.g. 1..353 with gaps), and the CPFE decks, which
-    assume blocks ``1..N``, abort with "block id 5 does not exist". Renumbering in
-    FILE order is safe because :func:`map_orientations` writes one row per block in
-    that same order: after this call row ``k`` of the orientations CSV belongs to
-    block id ``k + 1``.
-
-    Each block's grain is its majority grid label: element centroids are looked up
-    in a KD-tree over ALL voxel centres, void included. SCULPT numbers spn values
-    by rank (void present: grain ``g`` is block ``g + 1``), so the original ids
-    are not grid ids and are only recorded. A block whose majority label is void
-    means the void was meshed (a wrong ``--void_mat``) and raises. Block names
-    (``eb_names``) whose trailing number is the old id get the new id; other names
-    are kept.
-
-    The block map CSV has one row per block: ``block_id`` (new, 1..N),
-    ``sculpt_block_id`` (original ``eb_prop1``), ``grain_id`` (majority grid label
-    of the block's element centroids, via a KD-tree over the solid voxel centres),
-    ``n_elem``, and ``source_grain_id`` when ``source_labels`` is given.
-
-    Raises:
-        ValueError: if the grid has no solid voxel, or a block is mostly void.
+    Each block's grain is the majority grid label (void included) under its element
+    centroids. The CSV has ``block_id``, ``sculpt_block_id``, ``grain_id``, ``n_elem``
+    and, given ``source_labels``, ``source_grain_id``. Names ending in the old id
+    follow it.
 
     Args:
-        exo_file (str): path to Exodus mesh file, modified in place.
-        data (np.ndarray): nx x ny x nz x 7 array [phase, Eul1, Eul2, Eul3, X, Y, Z]
-            the mesh was generated from.
-        block_map_filename (str): output block map CSV path.
-        source_labels (array, optional): (nx, ny, nz) grain ids to also report per
-            block, e.g. the grid's labels before :func:`write_spn` renumbered them.
-        background_id (int): grid id treated as void. Default 0.
+        exo_file (str): Exodus mesh, modified in place
+        data (np.ndarray): nx x ny x nz x 7 fixed grid the mesh came from
+        block_map_filename (str): output block map CSV
+        source_labels (array, optional): (nx, ny, nz) ids to report per block
+        background_id (int): grid id treated as void
 
     Returns:
-        dict: ``block_grains`` (grid grain id per block, file order, for
-        :func:`map_orientations`), ``renumbered`` (bool) and ``block_map`` (path).
+        dict: ``block_grains`` (grain per block), ``renumbered`` and ``block_map``.
+
+    Raises:
+        ValueError: if the grid has no solid voxel, or a block is mostly void
+            (the void was meshed).
     """
     # pylint: disable-next=import-outside-toplevel  # pandas only needed here
     import pandas as pd
@@ -549,22 +499,10 @@ def map_orientations(
 ):
     """Map orientations from fixed grid data onto an Exodus mesh's blocks.
 
-    One row is written per block in Exodus FILE order, so with contiguous block
-    ids (see :func:`renumber_blocks_contiguous`) row ``k`` belongs to block id
-    ``k + 1``.
-
-    Each Exodus element block is one grain, so a block's elements are looked up
-    against **that grain's own voxels only**: void voxels (``background_id``, which
-    carry a meaningless Euler (0, 0, 0)) are excluded from the search, and the
-    per-block KD-tree is restricted to voxels of the block's grain. A single tree
-    over every voxel lets a surface or void-adjacent element take the identity from
-    a void voxel, or a neighbouring grain's orientation across the boundary.
-
-    Block-to-grain association uses ``block_grains`` when given (the SCULPT path,
-    where :func:`renumber_blocks_contiguous` resolves each block's majority grain),
-    else the Exodus block ids (``eb_prop1``) when they all name grid grains (the
-    voxel path), else, when the block count matches the grain count, the sorted
-    non-void grain ids positionally.
+    Each block is one grain, looked up against that grain's own voxels only (void
+    and neighbouring grains excluded). One row per block in file order. Blocks map
+    to grains by ``block_grains``, else ``eb_prop1`` when those are grid ids, else
+    positionally when the counts match.
 
     Args:
         exo_file (str): path to Exodus mesh file
@@ -576,13 +514,11 @@ def map_orientations(
             (see :func:`graintrace.nf.metrics.average_rotations`).
         background_id (int): grid id treated as void and excluded from the lookup.
             Default 0.
-        block_grains (array, optional): grid grain id of each block in file order,
-            overriding the ``eb_prop1``/positional association -- needed once the
-            block ids have been renumbered away from the grid ids.
+        block_grains (array, optional): grid grain id of each block, in file order
 
     Raises:
         ValueError: if the grid has no non-void voxels, or the Exodus blocks cannot
-            be associated with the grid's grains by id or by position.
+            be associated with the grid's grains.
     """
     flat_data = np.asarray(data).reshape(-1, 7)
     solid = flat_data[:, 0] != background_id
@@ -688,10 +624,8 @@ def write_voxel_exodus(
             its own and shift every grain id.
         symmetry (str): crystal symmetry for the per-block orientation average
             (see :func:`graintrace.nf.metrics.average_rotations`).
-        layer_spacing (float, optional): z voxel size for a single-layer grid. The
-            mesh spans the voxel-edge box (:func:`voxel_edge_bounds`), the same
-            extents :func:`mesh_sculpt` rescales to; a single-voxel axis uses this
-            (z only) or else the in-plane spacing (:func:`voxel_spacing`).
+        layer_spacing (float, optional): z voxel size of a single-layer grid
+            (:func:`voxel_spacing`); the mesh spans the voxel-edge box.
 
     Returns:
         dict: {'nodes', 'elements', 'blocks'} counts.

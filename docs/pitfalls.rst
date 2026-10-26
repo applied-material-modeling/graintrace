@@ -110,35 +110,6 @@ scripts that call it must be under an ``if __name__ == "__main__":`` guard. The
 graph-clustering / REI pipeline does not require the guard, but keeping it is good
 practice.
 
-NF gridding is unmasked by default, and that is what percolates
----------------------------------------------------------------
-
-:meth:`~graintrace.construct_nf_mesh.NearFieldMeshBuilder.reconstruct` defaults
-``min_confidence=None``, which reproduces the historical grid: **every** grid point
-inside a layer's Delaunay hull becomes crystal and takes the nearest measured
-point's orientation. Air inside the hull, the sample surface, regions that failed to
-index and low-confidence grain-boundary voxels therefore all reach the segmenter,
-and the low-confidence voxels form a *connected network between grains* that
-orientation segmentation leaks through. That is the percolation the graph path
-patches after the fact with a size cap. Set ``min_confidence`` on real NF data
-rather than relying on the cap alone, and use ``max_point_distance`` for concave
-outlines, where the hull test fills notches and holes that a radius around the
-measured points does not. See :ref:`config-nf-gridding`.
-
-Two gridding details that look like bugs and are not:
-
-* **Hull mode and radius mode pick the source point differently.** Under the hull
-  test a grid point takes the nearest *vertex of its containing simplex*
-  (:func:`graintrace.nf.convert.nearest_simplex_vertex`); under
-  ``max_point_distance`` it takes the globally nearest measured point. These are not
-  the same point — the nearest site need not be a vertex of the containing simplex
-  (measured: 5 of 102 in-hull points on a 60-point random layer, by up to 0.16 µm).
-  The legacy rule is kept in hull mode deliberately, so that an unmasked grid is
-  identical to the pre-confidence one.
-* :func:`graintrace.nf.convert.pointcloud_to_fixed_grid` and
-  :func:`graintrace.nf.convert.process_layer_pointcloud` return a tuple,
-  ``(grid, confidence)``, not a bare grid.
-
 Unsegmented voxels must not reach the mesh writers
 --------------------------------------------------
 
@@ -156,63 +127,38 @@ Run :func:`graintrace.nf.segment.infill_nearest_neighbor` after
 ``write_spn`` will not do it for you, because dropping them silently removes
 material from the mesh. ``nf.mesh.write_voxel_exodus`` skips negative ids the same
 way it skips the background id, so an orphan never becomes a block of its own.
+Both builders end with :func:`graintrace.nf.segment.void_unsegmented`, which voids
+a ``-1`` island that has no grain to join (e.g. a stray point in an air notch).
 
-Both builders now end with :func:`graintrace.nf.segment.void_unsegmented`: a voxel
-still at ``-1`` after the final cleanup is an island with no solid neighbour (for
-example a stray high-confidence point in an air notch under ``max_point_distance``),
-which neither the infill nor the removal can place, so it becomes void. That is a
-decision about a voxel with no grain to join, not a silent deletion of material
-inside the sample.
+NF gridding is unmasked by default
+----------------------------------
+
+With ``min_confidence=None`` every grid point inside a layer's Delaunay hull is
+crystal: air, the sample surface and low-confidence boundary voxels included. The
+boundary voxels connect neighbouring grains, so segmentation leaks across them. Set
+``min_confidence`` on real data (see :ref:`config-nf-gridding`).
 
 A ``phase`` column is not a void marker
 ---------------------------------------
 
-``VoxelMeshBuilder`` once read any ``phase <= 0`` as void, so an EBSD CSV with a
-0-based ``.ang`` phase column became an all-void grid. Void detection is now
-explicit: pass ``void_marker_col="phase"`` when ``0`` really means void. Only the
-``cell_id == -1`` sentinel written by :class:`~graintrace.NFGridConversion` is read
-automatically, because ``-1`` is never a grain id.
+An EBSD ``.ang`` phase may be 0-based, so ``VoxelMeshBuilder`` no longer reads
+``phase <= 0`` as void. Pass ``void_marker_col="phase"`` when ``0`` means void.
 
-SCULPT block ids are sparse
----------------------------
+.. _pitfall-sculpt:
 
-SCULPT keeps the ``.spn`` material ids as Exodus block ids (``eb_prop1``) and may
-drop small grains, so the ids come back with gaps, and the CPFE decks, which assume
-blocks ``1..N``, abort at setup with "block id 5 does not exist".
-:func:`graintrace.nf.mesh.mesh_sculpt` now renumbers them to ``1..N`` in file order
-(:func:`graintrace.nf.mesh.renumber_blocks_contiguous`) after resolving each block's
-grain from its original id, and writes ``<mesh stem>_block_map.csv`` mapping
-``block_id`` back to ``sculpt_block_id``, ``grain_id`` and ``source_grain_id``. Row
-``k`` of the orientations CSV belongs to block id ``k + 1``.
+SCULPT conventions: 1-based void, index coordinates, sparse block ids
+---------------------------------------------------------------------
 
-SCULPT's void material is 1-based
----------------------------------
-
-SCULPT numbers the ``.spn`` values by 1-based rank: with void present the void
-(spn ``0``) is material 1 and grain ``g`` is block ``g + 1``. The once-recommended
-``--void_mat 0`` names no material, so the void was meshed as block 1 (on a Fe-9Cr
-NF mesh, 911k of 1.6M elements). :func:`graintrace.nf.mesh.mesh_sculpt` now owns
-the flag (:func:`graintrace.nf.mesh.sculpt_void_options`): it strips any
-``--void_mat``/``-VM`` from ``sculpt_options`` and passes ``--void_mat 1`` when the
-grid has void, and nothing when it has none (where ``--void_mat 1`` would delete
-grain 1). If a block is still mostly void, the block map raises instead of pairing
-it with the nearest solid grain.
-
-SCULPT coordinates are voxel-index units
-----------------------------------------
-
-SCULPT writes coordinates in voxel-index units, ``0`` at the grid's first voxel
-edge. Stretching the mesh's min/max onto the grid's voxel-centre extents shrank
-every mesh by one voxel per axis, collapsed a single-layer grid to zero thickness
-(puma-opt then fails with ``map_find() error: key 10 not found``), and, once the
-void is removed, inflated the sample onto the whole scan box. The map is now exact
-and affine, ``x = (c0 - h/2) + raw * h`` per axis, so the mesh covers the sample's
-own voxel-edge box (:func:`graintrace.nf.mesh.voxel_edge_bounds` of the solid, up
-to SCULPT's boundary smoothing).
-A single-voxel axis has no measurable spacing: z uses ``mesh(layer_spacing=...)``
-(``NearFieldMeshBuilder`` defaults to its ``dz``), and otherwise the mean in-plane
-spacing. :func:`graintrace.nf.mesh.write_voxel_exodus` uses the same rule, so both
-meshers agree.
+* SCULPT ranks ``.spn`` values 1-based: with void present the void is material 1
+  and grain ``g`` is block ``g + 1``. ``--void_mat 0`` meshed the void as block 1.
+  :func:`~graintrace.nf.mesh.mesh_sculpt` passes ``--void_mat 1`` when the grid
+  has void (none otherwise), and raises if a block is still mostly void.
+* SCULPT writes voxel-index coordinates. They are mapped exactly,
+  ``x = c0 - h/2 + raw * h``, so the mesh covers the sample, not the scan box, and
+  a single layer keeps a thickness (``layer_spacing``; NF uses ``dz``).
+* SCULPT may drop small grains, leaving gaps in the block ids that the CPFE decks
+  reject. Blocks are renumbered ``1..N`` in file order; orientations row ``k`` is
+  block ``k + 1``.
 
 Grain orientation averages need the crystal symmetry
 ----------------------------------------------------
