@@ -32,7 +32,7 @@ from importlib.metadata import PackageNotFoundError, version as _pkg_version
 try:
     __version__ = _pkg_version("graintrace")
 except PackageNotFoundError:  # running from a source tree without install metadata
-    __version__ = "0.1.0"
+    __version__ = "0.2.0"
 
 # Public name -> submodule that defines it. Imports are performed lazily (PEP 562)
 # so that `import graintrace` does NOT eagerly pull heavy/optional third-party
