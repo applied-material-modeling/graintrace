@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import tempfile
 import os.path
+import re
 import subprocess
 import shutil
 
@@ -122,8 +123,21 @@ def mesh_sculpt(
     angle_convention="bunge",
     angle_type="radians",
     symmetry="1",
+    layer_spacing=None,
+    source_labels=None,
+    block_map_filename=None,
 ):
     """Call sculpt (+epu) to generate an Exodus mesh from an spn file.
+
+    After ``epu`` the mesh is post-processed in three steps:
+
+    1. :func:`rescale_exodus_mesh` maps it onto the grid's voxel-EDGE box.
+    2. :func:`renumber_blocks_contiguous` renumbers SCULPT's block ids
+       (``eb_prop1``, the spn material ids, sparse once SCULPT drops a small
+       grain) to a contiguous ``1..N`` in file order, as the CPFE decks require,
+       and writes a block map CSV.
+    3. :func:`map_orientations` writes one orientation row per block in file
+       order, so row ``k`` of the orientations CSV belongs to block id ``k + 1``.
 
     Args:
         sculpt_config (dict): configuration for the sculpt call
@@ -137,6 +151,16 @@ def mesh_sculpt(
         angle_type (str): 'degrees' or 'radians'
         symmetry (str): crystal symmetry for the per-block orientation average
             (see :func:`graintrace.nf.metrics.average_rotations`).
+        layer_spacing (float, optional): z voxel size, used when the grid has a
+            single layer (see :func:`voxel_spacing`).
+        source_labels (array, optional): (nx, ny, nz) grain ids of the caller's
+            grid before :func:`write_spn` renumbered them; adds a
+            ``source_grain_id`` column to the block map.
+        block_map_filename (str, optional): block map CSV path; defaults to
+            ``<mesh stem>_block_map.csv`` beside the mesh.
+
+    Returns:
+        str: path to the block map CSV.
     """
     cwd = os.getcwd()
     nx, ny, nz = data.shape[:3]
@@ -196,40 +220,216 @@ def mesh_sculpt(
             )
             if os.path.exists(single):
                 shutil.move(single, combined)
-        rescale_exodus_mesh(combined, data.cpu().numpy())
+        grid = data.cpu().numpy() if hasattr(data, "cpu") else np.asarray(data)
+        rescale_exodus_mesh(combined, grid, layer_spacing=layer_spacing)
 
-        shutil.move(
-            os.path.join(tmpdir, split_output_prefix + ".e"),
-            os.path.join(cwd, output_mesh_filename),
-        )
+        mesh_out = os.path.join(cwd, output_mesh_filename)
+        shutil.move(os.path.join(tmpdir, split_output_prefix + ".e"), mesh_out)
 
-        map_orientations(
-            os.path.join(cwd, output_mesh_filename),
-            data.cpu().numpy(),
-            output_angle_filename,
-            angle_convention,
-            angle_type,
-            symmetry,
-        )
+    if block_map_filename is None:
+        block_map_filename = os.path.splitext(mesh_out)[0] + "_block_map.csv"
+    renumbered = renumber_blocks_contiguous(
+        mesh_out, grid, block_map_filename, source_labels=source_labels
+    )
+    print(f"Block map ({len(renumbered['block_grains'])} blocks): {block_map_filename}")
+
+    map_orientations(
+        mesh_out,
+        grid,
+        output_angle_filename,
+        angle_convention,
+        angle_type,
+        symmetry,
+        block_grains=renumbered["block_grains"],
+    )
+    return block_map_filename
 
 
-def rescale_exodus_mesh(exo_file, data):
-    """Rescale Exodus mesh coordinates to match those in a fixed grid.
+def voxel_spacing(data, layer_spacing=None):
+    """Per-axis voxel size of a fixed grid, from its voxel-centre coordinates.
+
+    An axis with more than one voxel takes the median step of its centres. A
+    single-voxel axis has no step to measure: z takes ``layer_spacing`` when
+    given (``NearFieldMeshBuilder`` knows its ``dz``), and otherwise -- as does a
+    single-voxel x or y -- falls back to the mean in-plane spacing of the measured
+    axes (1.0 if none can be measured).
+
+    Args:
+        data (np.ndarray): nx x ny x nz x 7 array [phase, Eul1, Eul2, Eul3, X, Y, Z]
+        layer_spacing (float, optional): known z voxel size.
+
+    Returns:
+        np.ndarray: (3,) spacing (hx, hy, hz).
+    """
+    grid = np.asarray(data)
+    centres = (grid[:, 0, 0, 4], grid[0, :, 0, 5], grid[0, 0, :, 6])
+    h = np.full(3, np.nan)
+    for i, c in enumerate(centres):
+        if c.size > 1:
+            h[i] = float(np.median(np.abs(np.diff(c))))
+    if np.isnan(h[2]) and layer_spacing is not None:
+        h[2] = float(layer_spacing)
+    measured = h[:2][~np.isnan(h[:2])]
+    if measured.size == 0:
+        measured = h[~np.isnan(h)]
+    fallback = float(measured.mean()) if measured.size else 1.0
+    h[np.isnan(h)] = fallback
+    return h
+
+
+def voxel_edge_bounds(data, layer_spacing=None):
+    """Voxel-edge bounding box of a fixed grid.
+
+    The grid stores voxel CENTRES; a hex mesh of it spans the voxel EDGES, half a
+    voxel further out on every side: ``[min - h/2, max + h/2]`` per axis.
+
+    Args:
+        data (np.ndarray): nx x ny x nz x 7 array [phase, Eul1, Eul2, Eul3, X, Y, Z]
+        layer_spacing (float, optional): known z voxel size; see :func:`voxel_spacing`.
+
+    Returns:
+        tuple: (lo, hi), each a (3,) array.
+    """
+    grid = np.asarray(data)
+    h = voxel_spacing(grid, layer_spacing=layer_spacing)
+    lo = np.array([grid[..., 4 + i].min() for i in range(3)]) - h / 2
+    hi = np.array([grid[..., 4 + i].max() for i in range(3)]) + h / 2
+    return lo, hi
+
+
+def rescale_exodus_mesh(exo_file, data, layer_spacing=None):
+    """Rescale Exodus mesh coordinates onto a fixed grid's voxel-edge box.
+
+    SCULPT's boundary faces lie on voxel edges, so the mesh is mapped onto
+    :func:`voxel_edge_bounds`, not onto the voxel-centre extents (which shrank the
+    mesh by one voxel per axis and collapsed a single-layer grid to zero
+    thickness -- a 2D mesh of HEX8 elements that puma-opt cannot write).
 
     Args:
         exo_file (str): path to Exodus mesh file
         data (np.ndarray): nx x ny x nz x 7 array [phase, Eul1, Eul2, Eul3, X, Y, Z]
+        layer_spacing (float, optional): z voxel size for a single-layer grid;
+            without it the in-plane spacing is used (see :func:`voxel_spacing`).
     """
+    lo, hi = voxel_edge_bounds(data, layer_spacing=layer_spacing)
     with sio.netcdf_file(exo_file, "a") as f:
         for i, coord in enumerate(["coordx", "coordy", "coordz"]):
             coords = f.variables[coord][:]
-            min_coord = data[..., 4 + i].min()
-            max_coord = data[..., 4 + i].max()
             coords_min = coords.min()
             coords_max = coords.max()
-            scaled_coords = (coords - coords_min) / (coords_max - coords_min)
-            new_coords = scaled_coords * (max_coord - min_coord) + min_coord
-            f.variables[coord][:] = new_coords
+            span = coords_max - coords_min
+            scaled_coords = (coords - coords_min) / span if span > 0 else coords * 0
+            f.variables[coord][:] = scaled_coords * (hi[i] - lo[i]) + lo[i]
+
+
+def _decode_names(arr):
+    """Decode an Exodus (n, len_name) S1 char array into a list of str."""
+    return [b"".join(row).decode(errors="replace").rstrip("\x00 ") for row in arr]
+
+
+def renumber_blocks_contiguous(
+    exo_file, data, block_map_filename, source_labels=None, background_id=0
+):
+    """Renumber Exodus block ids to a contiguous 1..N in file order + write a block map.
+
+    SCULPT keeps the spn material ids as block ids (``eb_prop1``); once it drops a
+    small grain they are sparse (e.g. 1..353 with gaps), and the CPFE decks, which
+    assume blocks ``1..N``, abort with "block id 5 does not exist". Renumbering in
+    FILE order is safe because :func:`map_orientations` writes one row per block in
+    that same order: after this call row ``k`` of the orientations CSV belongs to
+    block id ``k + 1``.
+
+    The block-to-grain association is resolved from the ORIGINAL ids first (see
+    :func:`_block_grain_ids`), falling back to each block's majority grain when the
+    original ids are not grid grain ids. Block names (``eb_names``) whose trailing
+    number is the old id get the new id; other names are kept.
+
+    The block map CSV has one row per block: ``block_id`` (new, 1..N),
+    ``sculpt_block_id`` (original ``eb_prop1``), ``grain_id`` (majority grid label
+    of the block's element centroids, via a KD-tree over the solid voxel centres),
+    ``n_elem``, and ``source_grain_id`` when ``source_labels`` is given.
+
+    Args:
+        exo_file (str): path to Exodus mesh file, modified in place.
+        data (np.ndarray): nx x ny x nz x 7 array [phase, Eul1, Eul2, Eul3, X, Y, Z]
+            the mesh was generated from.
+        block_map_filename (str): output block map CSV path.
+        source_labels (array, optional): (nx, ny, nz) grain ids to also report per
+            block, e.g. the grid's labels before :func:`write_spn` renumbered them.
+        background_id (int): grid id treated as void. Default 0.
+
+    Returns:
+        dict: ``block_grains`` (grid grain id per block, file order, for
+        :func:`map_orientations`), ``renumbered`` (bool) and ``block_map`` (path).
+    """
+    # pylint: disable-next=import-outside-toplevel  # pandas only needed here
+    import pandas as pd
+
+    flat = np.asarray(data).reshape(-1, 7)
+    solid = np.flatnonzero(flat[:, 0] != background_id)
+    if solid.size == 0:
+        raise ValueError("No non-void voxels in the grid.")
+    tree = sp.cKDTree(flat[solid, 4:7])
+    src = None if source_labels is None else np.asarray(source_labels).reshape(-1)
+
+    with sio.netcdf_file(exo_file, "a", mmap=False) as f:
+        n_blk = int(f.dimensions["num_el_blk"])
+        coords = np.stack(
+            [f.variables[c][:] for c in ("coordx", "coordy", "coordz")], axis=1
+        )
+        has_ids = "eb_prop1" in f.variables
+        old = (
+            np.asarray(f.variables["eb_prop1"][:]).astype(np.int64)
+            if has_ids
+            else np.arange(1, n_blk + 1)
+        )
+
+        rows = []
+        majority = np.zeros(n_blk)
+        for eb in range(n_blk):
+            connect = f.variables[f"connect{eb+1}"][:]
+            cent = coords[connect - 1, :].mean(axis=1)
+            _, idx = tree.query(cent)
+            vox = solid[idx]
+            labels, counts = np.unique(flat[vox, 0], return_counts=True)
+            majority[eb] = labels[np.argmax(counts)]
+            row = {
+                "block_id": eb + 1,
+                "sculpt_block_id": int(old[eb]),
+                "grain_id": int(majority[eb]),
+                "n_elem": int(connect.shape[0]),
+            }
+            if src is not None:
+                sl, sc = np.unique(src[vox], return_counts=True)
+                row["source_grain_id"] = int(sl[np.argmax(sc)])
+            rows.append(row)
+
+        try:
+            block_grains = _block_grain_ids(f, n_blk, np.unique(flat[solid, 0]))
+        except ValueError:
+            block_grains = majority
+
+        new = np.arange(1, n_blk + 1)
+        renumbered = has_ids and not np.array_equal(old, new)
+        if renumbered:
+            f.variables["eb_prop1"][:] = new.astype(f.variables["eb_prop1"][:].dtype)
+            if "eb_names" in f.variables:
+                names = _decode_names(f.variables["eb_names"][:])
+                width = f.variables["eb_names"].shape[1]
+                fixed = []
+                for o, n, name in zip(old, new, names):
+                    m = re.search(r"(\d+)$", name)
+                    if m and int(m.group(1)) == int(o):
+                        name = name[: m.start()] + str(int(n))
+                    fixed.append(name)
+                f.variables["eb_names"][:] = _exodus_char_array(fixed, width=width)
+
+    pd.DataFrame(rows).to_csv(block_map_filename, index=False)
+    return {
+        "block_grains": np.asarray(block_grains, dtype=np.float64),
+        "renumbered": bool(renumbered),
+        "block_map": block_map_filename,
+    }
 
 
 def _block_grain_ids(f, n_blk, present):
@@ -272,8 +472,13 @@ def map_orientations(
     angle_type="radians",
     symmetry="1",
     background_id=0,
+    block_grains=None,
 ):
     """Map orientations from fixed grid data onto an Exodus mesh's blocks.
+
+    One row is written per block in Exodus FILE order, so with contiguous block
+    ids (see :func:`renumber_blocks_contiguous`) row ``k`` belongs to block id
+    ``k + 1``.
 
     Each Exodus element block is one grain, so a block's elements are looked up
     against **that grain's own voxels only**: void voxels (``background_id``, which
@@ -298,6 +503,9 @@ def map_orientations(
             (see :func:`graintrace.nf.metrics.average_rotations`).
         background_id (int): grid id treated as void and excluded from the lookup.
             Default 0.
+        block_grains (array, optional): grid grain id of each block in file order,
+            overriding the ``eb_prop1``/positional association -- needed once the
+            block ids have been renumbered away from the grid ids.
 
     Raises:
         ValueError: if the grid has no non-void voxels, or the Exodus blocks cannot
@@ -322,7 +530,12 @@ def map_orientations(
             axis=1,
         )
         n_blk = int(f.dimensions["num_el_blk"])
-        block_grains = _block_grain_ids(f, n_blk, present)
+        if block_grains is None:
+            block_grains = _block_grain_ids(f, n_blk, present)
+        elif len(block_grains) != n_blk:
+            raise ValueError(
+                f"block_grains has {len(block_grains)} entries for {n_blk} blocks"
+            )
 
         # one KD-tree per grain, over that grain's voxels only
         trees = {}
@@ -375,6 +588,7 @@ def write_voxel_exodus(
     angle_type="radians",
     background_id=0,
     symmetry="1",
+    layer_spacing=None,
 ):
     """Dump a segmented voxel grid directly to an Exodus hex mesh (no SCULPT).
 
@@ -401,20 +615,22 @@ def write_voxel_exodus(
             its own and shift every grain id.
         symmetry (str): crystal symmetry for the per-block orientation average
             (see :func:`graintrace.nf.metrics.average_rotations`).
+        layer_spacing (float, optional): z voxel size for a single-layer grid. The
+            mesh spans the voxel-edge box (:func:`voxel_edge_bounds`), the same
+            extents :func:`mesh_sculpt` rescales to; a single-voxel axis uses this
+            (z only) or else the in-plane spacing (:func:`voxel_spacing`).
 
     Returns:
         dict: {'nodes', 'elements', 'blocks'} counts.
     """
     grid = data.cpu().numpy() if hasattr(data, "cpu") else np.asarray(data)
-    nx, ny, nz = grid.shape[:3]
+    nx, ny = grid.shape[:2]
     ids = grid[..., 0].astype(np.int64)
     euler = grid[..., 1:4].astype(np.float64)
 
     # voxel spacing / origin from the stored voxel-center coordinates
     xs, ys, zs = grid[:, 0, 0, 4], grid[0, :, 0, 5], grid[0, 0, :, 6]
-    dx = float(np.median(np.diff(xs))) if nx > 1 else 1.0
-    dy = float(np.median(np.diff(ys))) if ny > 1 else 1.0
-    dz = float(np.median(np.diff(zs))) if nz > 1 else 1.0
+    dx, dy, dz = (float(h) for h in voxel_spacing(grid, layer_spacing=layer_spacing))
     x0, y0, z0 = float(xs[0]) - dx / 2, float(ys[0]) - dy / 2, float(zs[0]) - dz / 2
 
     # a negative ("unsegmented") voxel is not a grain: meshing it would give it
