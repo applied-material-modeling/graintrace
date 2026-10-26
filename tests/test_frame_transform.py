@@ -854,6 +854,140 @@ class TestDatasetAdapters(unittest.TestCase):
                 FrameTransform().apply_voxel_grid(f"{tmp}/in.npy", f"{tmp}/o.npy")
 
 
+class TestElasticStrainAdapter(unittest.TestCase):
+    """``apply_ee_csv`` on the headerless 12-column ``reconstruction_cpfe_ee.csv``."""
+
+    def _ee(self, n=7, seed=5):
+        rng = np.random.default_rng(seed)
+        eps = rng.normal(scale=1e-3, size=(n, 3, 3))
+        eps = 0.5 * (eps + eps.transpose(0, 2, 1))
+        return np.hstack([rng.normal(scale=50.0, size=(n, 3)), eps.reshape(n, 9)])
+
+    def test_positions_and_tensors_are_transformed(self):
+        """Columns 0-2 get ``A x + t``, columns 3-11 get ``Q eps Q^T``."""
+        # pylint: disable-next=import-outside-toplevel  # test-only helper
+        import tempfile
+
+        data = self._ee()
+        T = _generic_transform()
+        with tempfile.TemporaryDirectory() as tmp:
+            np.savetxt(f"{tmp}/ee.csv", data, delimiter=",")
+            dst = T.apply_ee_csv(f"{tmp}/ee.csv", f"{tmp}/sub/ee_t.csv")
+            out = np.loadtxt(dst, delimiter=",")
+            with open(dst, encoding="utf-8") as fh:
+                first = fh.readline()
+            self.assertEqual(len(first.split(",")), 12)  # still headerless, 12 cols
+            rec = FrameTransform.from_json(dst + ".transform.json")
+        self.assertTrue(np.allclose(rec.A, T.A))
+        self.assertTrue(np.allclose(out[:, :3], T.positions(data[:, :3]), atol=1e-9))
+        eps = data[:, 3:].reshape(-1, 3, 3)
+        want = np.einsum("ij,njk,lk->nil", T.Q, eps, T.Q).reshape(-1, 9)
+        self.assertTrue(np.allclose(out[:, 3:], want, atol=1e-14))
+
+    def test_round_trip_and_whitespace_input(self):
+        """A whitespace-delimited file is read too, and the inverse recovers it."""
+        # pylint: disable-next=import-outside-toplevel  # test-only helper
+        import tempfile
+
+        data = self._ee()
+        T = _generic_transform()
+        with tempfile.TemporaryDirectory() as tmp:
+            np.savetxt(f"{tmp}/ee.ee", data, fmt="%.15g")
+            T.apply_ee_csv(f"{tmp}/ee.ee", f"{tmp}/a.csv")
+            T.inverse().apply_ee_csv(f"{tmp}/a.csv", f"{tmp}/b.csv")
+            back = np.loadtxt(f"{tmp}/b.csv", delimiter=",")
+        self.assertTrue(np.allclose(back, data, atol=1e-9))
+
+    def test_wrong_column_count_raises(self):
+        """Anything but 12 columns is refused."""
+        # pylint: disable-next=import-outside-toplevel  # test-only helper
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            np.savetxt(f"{tmp}/ee.csv", np.zeros((3, 9)), delimiter=",")
+            with self.assertRaises(ValueError):
+                FrameTransform().apply_ee_csv(f"{tmp}/ee.csv", f"{tmp}/o.csv")
+
+
+class TestInsideVoxelSolid(unittest.TestCase):
+    """``inside_voxel_solid`` maps target-frame points back onto a source grid."""
+
+    def setUp(self):
+        # A 10x8x6 grid, spacing (2, 3, 4), origin (-5, 1, 10); solid is a box
+        # [2..7] x [1..6] x [1..4] in index space.
+        self.origin = np.array([-5.0, 1.0, 10.0])
+        self.h = np.array([2.0, 3.0, 4.0])
+        self.solid = np.zeros((10, 8, 6), dtype=bool)
+        self.solid[2:8, 1:7, 1:5] = True
+
+    def _centre(self, ijk):
+        return self.origin + np.asarray(ijk, dtype=float) * self.h
+
+    def test_identity_transform(self):
+        """Voxel centres report the mask; out-of-grid points are False."""
+        pts = np.array(
+            [
+                self._centre((3, 3, 2)),  # solid
+                self._centre((0, 0, 0)),  # void, in grid
+                self._centre((3, 3, 2)) + 0.49 * self.h,  # still voxel (3,3,2)
+                self._centre((-1, 3, 2)),  # outside the grid
+                self._centre((3, 3, 9)),  # outside the grid
+            ]
+        )
+        got = FrameTransform().inside_voxel_solid(pts, self.solid, self.origin, self.h)
+        self.assertEqual(got.tolist(), [True, False, True, False, False])
+
+    def test_points_go_back_through_the_inverse(self):
+        """Points moved by T into the target frame land on the same voxels."""
+        T = _generic_transform()
+        rng = np.random.default_rng(1)
+        ijk = np.stack([rng.integers(0, n, size=200) for n in self.solid.shape], axis=1)
+        src = self._centre(ijk) + rng.uniform(-0.3, 0.3, size=(200, 3)) * self.h
+        got = T.inside_voxel_solid(T.positions(src), self.solid, self.origin, self.h)
+        want = self.solid[ijk[:, 0], ijk[:, 1], ijk[:, 2]]
+        self.assertTrue(np.array_equal(got, want))
+
+    def test_margin_erodes_the_surface(self):
+        """``margin_vox=1`` drops the outer voxel shell of the solid."""
+        f = FrameTransform()
+        edge = self._centre((2, 3, 2))  # on the solid's -x face
+        core = self._centre((4, 3, 2))
+        got = f.inside_voxel_solid(
+            np.stack([edge, core]), self.solid, self.origin, self.h, margin_vox=1
+        )
+        self.assertEqual(got.tolist(), [False, True])
+
+    def test_voxel_solid_from_grid(self):
+        """The NF ``[phase, Eul1..3, X, Y, Z]`` layout gives mask, origin, spacing."""
+        # pylint: disable-next=import-outside-toplevel  # module helper under test
+        from graintrace.frame_transform import voxel_solid_from_grid
+
+        idx = np.stack(np.meshgrid(*[np.arange(n) for n in (4, 3, 2)], indexing="ij"))
+        grid = np.zeros((4, 3, 2, 7))
+        grid[..., 4:7] = np.moveaxis(idx, 0, -1) * self.h + self.origin
+        grid[1:3, 1, :, 0] = 5
+        solid, origin, h = voxel_solid_from_grid(grid)
+        self.assertTrue(np.array_equal(solid, grid[..., 0] > 0))
+        self.assertTrue(np.allclose(origin, self.origin))
+        self.assertTrue(np.allclose(h, self.h))
+        pts = grid[..., 4:7].reshape(-1, 3)
+        got = FrameTransform().inside_voxel_solid(pts, solid, origin, h)
+        self.assertTrue(np.array_equal(got, solid.reshape(-1)))
+
+    def test_bad_inputs_raise(self):
+        """Mask rank, spacing sign, margin sign and point shape are validated."""
+        f = FrameTransform()
+        pts = np.zeros((1, 3))
+        with self.assertRaises(ValueError):
+            f.inside_voxel_solid(pts, np.zeros((2, 2)), self.origin, 1.0)
+        with self.assertRaises(ValueError):
+            f.inside_voxel_solid(pts, self.solid, self.origin, 0.0)
+        with self.assertRaises(ValueError):
+            f.inside_voxel_solid(pts, self.solid, self.origin, 1.0, margin_vox=-1)
+        with self.assertRaises(ValueError):
+            f.inside_voxel_solid(np.zeros(3), self.solid, self.origin, 1.0)
+
+
 def matrix_to_quat_scalar_first(Q):
     """Scalar-first ``(w, x, y, z)`` quaternion of a (3, 3) rotation matrix."""
     # pylint: disable-next=import-outside-toplevel  # scipy only needed here

@@ -860,6 +860,166 @@ class FrameTransform:
         self._write_record(npy_out)
         return npy_out
 
+    def apply_ee_csv(self, src: str, dst: str) -> str:
+        """Move a headerless 12-column elastic-strain file into the target frame.
+
+        This is the ``reconstruction_cpfe_ee.csv`` layout written by
+        :meth:`~graintrace.construct_voronoi_mesh.VoronoiMeshBuilder.build_voronoi`
+        and read by :class:`~graintrace.run_cpfe_simulation.CPFESimulation`
+        (``eeres_file``): one row per grain, ``x, y, z`` then the nine strain
+        components ``e11, e12, e13, e21, ..., e33`` in row-major order. Positions
+        get ``x' = Q (s * x) + t`` and strains ``eps' = Q eps Q^T``, so an FF strain
+        field can be moved into an NF mesh frame in one call (CLAUDE.md section 6).
+        A ``<dst>.transform.json`` record is written beside the output.
+
+        Args:
+            src: input file (comma- or whitespace-delimited, no header).
+            dst: output CSV path, written comma-delimited with no header.
+
+        Returns:
+            str: ``dst``.
+
+        Raises:
+            ValueError: if the file does not have exactly 12 columns.
+        """
+        # pylint: disable-next=import-outside-toplevel  # pandas at call time
+        import pandas as pd
+
+        data = pd.read_csv(src, sep=r"[,\s]+", engine="python", header=None).to_numpy(
+            dtype=float
+        )
+        if data.ndim != 2 or data.shape[1] != 12:
+            raise ValueError(
+                "an elastic-strain file must have 12 columns (x, y, z + 9 row-major "
+                f"strain components); got shape {data.shape}"
+            )
+        out = np.empty_like(data)
+        out[:, :3] = self.positions(data[:, :3])
+        out[:, 3:] = self.tensors(data[:, 3:])
+
+        _ensure_parent(dst)
+        pd.DataFrame(out).to_csv(dst, index=False, header=False, float_format="%.12g")
+        self._write_record(dst)
+        return dst
+
+    def inside_voxel_solid(
+        self,
+        points,
+        solid_mask,
+        origin: Sequence[float],
+        spacing,
+        margin_vox: int = 0,
+    ) -> np.ndarray:
+        """Flag target-frame points that land on solid voxels of a source-frame grid.
+
+        ``self`` maps the grid's (source) frame to the target frame. Each point is
+        mapped back with :meth:`inverse`, snapped to its nearest voxel centre, and
+        reported ``True`` when that voxel is solid. Points outside the grid are
+        ``False``. This is the "inside the volume both datasets see" mask that the
+        one-to-one recall of
+        :meth:`~graintrace.fragmentation.FragmentationAnalyzer.detect_splits`
+        consumes as ``in_overlap_a`` / ``in_overlap_b`` (the size-aware split
+        gate), e.g. FF grain centroids tested against the NF solid:
+
+        .. code-block:: python
+
+            solid, origin, spacing = voxel_solid_from_grid(
+                "out/NF/merged_segmented_fixed_grid.npy"
+            )
+            # FF table already moved into the NF frame -> the grid frame IS the
+            # target frame, so the identity transform is the right one.
+            ff = pd.read_csv("out/FF/stitched_in_nf_frame.csv")
+            ff["in_nf"] = FrameTransform().inside_voxel_solid(
+                ff[["X", "Y", "Z"]].to_numpy(), solid, origin, spacing, margin_vox=1
+            )
+            analyzer.detect_splits(nf_table, ff, ..., in_overlap_b="in_nf")
+
+        Args:
+            points: (N, 3) points in the target frame.
+            solid_mask: (nx, ny, nz) boolean array; axis ``k`` of the mask runs
+                along source-frame coordinate ``k``.
+            origin: source-frame coordinates of the centre of voxel ``(0, 0, 0)``.
+            spacing: voxel size, a scalar or ``(dx, dy, dz)``.
+            margin_vox: erode the solid by this many voxels (6-connected) first,
+                so points within ``margin_vox`` voxels of the free surface count as
+                outside. Default 0 (no erosion).
+
+        Returns:
+            numpy.ndarray: (N,) boolean mask.
+
+        Raises:
+            ValueError: on a non-3D mask, a non-positive spacing, a negative
+                ``margin_vox``, or points that are not (N, 3).
+        """
+        mask = np.asarray(solid_mask, dtype=bool)
+        if mask.ndim != 3:
+            raise ValueError(f"solid_mask must be 3D (nx, ny, nz), got {mask.shape}")
+        h = np.broadcast_to(np.asarray(spacing, dtype=float), (3,))
+        if np.any(h <= 0):
+            raise ValueError(f"spacing must be positive, got {spacing!r}")
+        if int(margin_vox) < 0:
+            raise ValueError(f"margin_vox must be >= 0, got {margin_vox!r}")
+        pts = np.asarray(points, dtype=float)
+        if pts.ndim != 2 or pts.shape[1] != 3:
+            raise ValueError(f"points must be (N, 3), got shape {pts.shape}")
+
+        if margin_vox:
+            # pylint: disable-next=import-outside-toplevel  # scipy imported lazily
+            from scipy.ndimage import binary_erosion
+
+            mask = binary_erosion(mask, iterations=int(margin_vox), border_value=0)
+
+        src = self.inverse().positions(pts)
+        idx = np.rint((src - np.asarray(origin, dtype=float)) / h).astype(np.int64)
+        inside = np.all((idx >= 0) & (idx < np.asarray(mask.shape)), axis=1)
+        out = np.zeros(len(pts), dtype=bool)
+        ii = idx[inside]
+        out[inside] = mask[ii[:, 0], ii[:, 1], ii[:, 2]]
+        return out
+
+
+def voxel_solid_from_grid(grid, spacing=None):
+    """Solid mask, origin and spacing of a ``[phase, Eul1..3, X, Y, Z]`` voxel grid.
+
+    Reads the NF reconstruction layout (``merged_segmented_fixed_grid.npy``):
+    phase ``> 0`` is solid, ``0`` is void, and the coordinates are axis aligned
+    with mask axis ``k`` along coordinate ``k``. The result feeds
+    :meth:`FrameTransform.inside_voxel_solid`.
+
+    Args:
+        grid: (nx, ny, nz, >=7) array, or the path of a ``.npy`` holding one.
+        spacing: voxel size (scalar or ``(dx, dy, dz)``); inferred from the
+            coordinates of neighbouring voxels when ``None``.
+
+    Returns:
+        tuple: ``(solid_mask, origin, spacing)`` -- a boolean (nx, ny, nz) array,
+        the (3,) centre of voxel ``(0, 0, 0)``, and the (3,) spacing.
+
+    Raises:
+        ValueError: if the grid is not 4D with at least 7 entries per voxel, or
+            the spacing cannot be inferred along a single-voxel axis.
+    """
+    arr = np.load(grid) if isinstance(grid, (str, os.PathLike)) else np.asarray(grid)
+    if arr.ndim != 4 or arr.shape[-1] < 7:
+        raise ValueError(
+            "voxel grid must be (nx, ny, nz, >=7) [phase, Eul1..3, X, Y, Z]; "
+            f"got {arr.shape}"
+        )
+    origin = np.asarray(arr[0, 0, 0, 4:7], dtype=float)
+    if spacing is None:
+        h = np.empty(3)
+        for k in range(3):
+            if arr.shape[k] < 2:
+                raise ValueError(
+                    f"cannot infer spacing along axis {k} (one voxel); pass spacing"
+                )
+            step = [0, 0, 0]
+            step[k] = 1
+            h[k] = abs(float(arr[tuple(step)][4 + k]) - origin[k])
+    else:
+        h = np.broadcast_to(np.asarray(spacing, dtype=float), (3,)).copy()
+    return arr[..., 0] > 0, origin, h
+
 
 def _shadow(p):
     """neml2's shadow MRP set ``-p / |p|^2`` (the same rotation), safe at ``p = 0``.
