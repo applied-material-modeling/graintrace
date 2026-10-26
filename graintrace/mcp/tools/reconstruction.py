@@ -5,6 +5,7 @@
 # OPEN SOURCE LICENSE (MIT)
 """Tools: 3D microstructure reconstruction from FF / NF / EBSD data.
 
+  * convert_ang     -> AngConverter (EDAX/TSL .ang -> .mic or merged EBSD CSV)
   * ff_reconstruct  -> VoronoiMeshBuilder (NEPER Voronoi/CVT)
   * nf_reconstruct  -> NearFieldMeshBuilder (voxel segmentation + optional SCULPT mesh)
   * voxel_mesh      -> VoxelMeshBuilder (EBSD / gridded NF -> segmentation + SCULPT mesh)
@@ -40,7 +41,6 @@ _FF_INIT_DEFAULTS: Dict[str, Any] = {
     "rotate_convention": "xyz",
     "angle_identifier": ["Eul0", "Eul1", "Eul2"],
     "orientation_descriptor": "euler-bunge",
-    "orientation_active_convention": True,
     "unit": "deg",
     "elastic_strain_identifier": _EKEN_9,
     "strain_unit": "microstrain",
@@ -185,6 +185,71 @@ def ff_reconstruct(
         notes="CVT relaxation can take a while; runs in the background.",
         missing_required=missing,
         suggestions=suggestions,
+    )
+
+
+@mcp.tool()
+def convert_ang(
+    input_path: str,
+    target: str,
+    zstep: float,
+    save_dir: Optional[str] = None,
+    angle_type: str = "radians",
+    output_angle_type: str = "degrees",
+    file_token: str = "layer",
+    confidence_min: Optional[float] = None,
+    confirm: bool = False,
+) -> dict:
+    """Convert EDAX/TSL `.ang` maps for `nf_reconstruct` or `voxel_mesh` (wraps `AngConverter`).
+
+    Parameters
+    ----------
+    input_path : one `.ang` file, or a folder holding one per layer.
+    target : 'mic' (per-layer .mic for `nf_reconstruct`) or 'ebsd_csv'
+        (merged x,y,z,Eul0,Eul1,Eul2 CSV for `voxel_mesh`).
+    zstep : layer spacing (um); z = (filename layer index - lowest) * zstep.
+    save_dir : output folder (defaults under the MCP workdir).
+    angle_type : unit of the input Euler angles; TSL OIM writes radians.
+    output_angle_type : unit written; pass the same to the builder's angle_type.
+    file_token : filename token the layer index follows.
+    confidence_min : drop points with CI below this (0.0 drops unindexed points).
+    """
+    # Lazy: heavy graintrace submodule, imported on run.
+    # pylint: disable=import-outside-toplevel
+    from graintrace.ang_conversion import AngConverter
+
+    if target not in ("mic", "ebsd_csv"):
+        raise ValueError(f"target must be 'mic' or 'ebsd_csv', got {target!r}")
+    if save_dir is None:
+        save_dir = str(workdir() / "ang_converted")
+    init = {
+        "input_path": input_path,
+        "save_dir": save_dir,
+        "file_token": file_token,
+        "angle_type": angle_type,
+        "output_angle_type": output_angle_type,
+        "confidence_min": confidence_min,
+    }
+
+    def _run():
+        converter = AngConverter(**init)
+        if target == "mic":
+            return {
+                "mic_files": [str(p) for p in converter.to_mic(zstep=zstep)],
+                "next_tool": "nf_reconstruct",
+            }
+        return {
+            "ebsd_csv": str(converter.to_ebsd_csv(zstep=zstep)),
+            "next_tool": "voxel_mesh",
+        }
+
+    return gate(
+        tool="convert_ang",
+        confirm=confirm,
+        resolved_params={**init, "target": target, "zstep": zstep},
+        needs=[],
+        will_write=[save_dir],
+        run=_run,
     )
 
 

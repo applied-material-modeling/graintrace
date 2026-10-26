@@ -31,7 +31,7 @@ update_experiments(
     rotate_angles=(0, 0, -3.6/180*np.pi),      # sample tilt; unit must match `unit`
     unit="rad",
     angle_identifier=["Eul0", "Eul1", "Eul2"],
-    orientation_descriptor="euler-bunge", orientation_active_convention=True,
+    orientation_descriptor="euler-bunge",
     elastic_strain_identifier=[f"eKen{i}{j}" for i in (1,2,3) for j in (1,2,3)],
 )
 ```

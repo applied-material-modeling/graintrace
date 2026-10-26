@@ -55,6 +55,7 @@ pp.plot_ipf_fragmentation_tracking(branches, angle_convention="mrp", arrow_color
 ```python
 res = analyzer.detect_splits(nodes_a, nodes_b, d_tol=20.0, theta_tol_deg=15.0, angle_type="degrees")
 # res["n_splits"], res["split_correspondences"] (parent_a, children_b, n_children) + merges/births/deaths
+# Mixed grain sizes: d_tol_mode="radius"; optional assignment="one_to_one", in_overlap_b, n_null
 ```
 FF grain tables feed it directly; NF/EBSD reach the same detector via `analyzer.segment` (graph/Leiden)
 + `analyzer.seg_to_grain_table`. Synthetic mixed-multiplicity series (1→1/1→2/1→3) with ground truth:
@@ -73,7 +74,8 @@ combined with nye/stress).
 ## Gotchas
 - `ori_rodrigues` is neml2 v3 MRP (misnamed), mapped via `mrp_to_matrix` — not classical Rodrigues.
 - Segmentation: graph/Leiden is the default (flood over-merges). For few-grain / sub-grain data pass a
-  fixed low `gamma` (~0.1); the gamma-by-percolation sweep is for large many-grain NF (CLAUDE §4).
+  fixed low `gamma` (~0.1; `grain_fragments` defaults to 0.25). No size cap; the sweep picks the
+  lowest gamma (CLAUDE §4).
 - `detect_splits`: `d_tol` at grain scale; `theta_tol_deg` generous (~15°) since children keep diverging.
 - Field-step indices are the CSV indices (non-contiguous with sync times) — index into
   `sorted(res.field_files.keys())`.

@@ -1,6 +1,19 @@
 Common pitfalls
 ===============
 
+Segmentation no longer caps grain size
+--------------------------------------
+
+**Behaviour change.** :meth:`~graintrace.fragmentation.FragmentationAnalyzer.segment`
+now runs with no size cap (``percolation_max_frac=None``) and ``gamma_pick="lowest"``.
+Its absorption is orientation-gated, and its re-merge is agglomerative and
+leak-checked. Scripts will therefore get more small grains and no cap-split large
+grains. Pass ``percolation_max_frac=0.03`` to reproduce the old labels exactly.
+
+Do not use the p95 orientation spread to detect leaks. It misses a small leak and
+flags a smooth intragranular gradient. Use
+:meth:`~graintrace.fragmentation.FragmentationAnalyzer.cluster_leak_check` instead.
+
 NEPER is bring-your-own
 -----------------------
 
@@ -21,6 +34,13 @@ seed gives different grains, the same seed is byte-identical. The FF *reconstruc
 :class:`~graintrace.VoronoiMeshBuilder` ``centroid``/``centroidsize`` is data-seeded via
 ``-morphooptiini``, so its seed is inert — grains come from the measured centroids.)
 
+detect_splits on mixed grain sizes
+----------------------------------
+
+No single ``d_tol`` works when grain sizes differ widely: use ``d_tol_mode="radius"``
+rather than inflating ``d_tol``, which chains unrelated neighbours. A NaN or negative
+radius counts as 0 (with a warning); negative tolerances raise ``ValueError``.
+
 Derive the cpfe_base path dynamically
 -------------------------------------
 
@@ -38,6 +58,15 @@ FF output orientations are always in degrees
 :meth:`~graintrace.VoronoiMeshBuilder.build_voronoi` always writes
 ``orientations.dat`` in degrees, regardless of input units. When feeding to
 :class:`~graintrace.VoxelMeshBuilder` afterward, set ``angle_type="degrees"``.
+
+A frame change rotates orientations on the sample side
+------------------------------------------------------
+
+A frame rotation ``Q`` sends orientations to ``g Q^T``, not ``Q g``. The
+crystal-side update is invisible modulo cubic symmetry, so test it on a crystal
+direction (``R c -> Q R c``), not a misorientation.
+:class:`~graintrace.FrameTransform` applies the sample-side rule;
+``VoronoiMeshBuilder``'s ``orientation_active_convention`` is deprecated and ignored.
 
 orientation_tolerance units must match ori_units
 ------------------------------------------------

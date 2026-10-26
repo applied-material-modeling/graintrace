@@ -12,7 +12,9 @@ top-level names (importable as ``graintrace.<Name>``) are defined by
    construct_voronoi_mesh
    construct_nf_mesh
    construct_voxel_mesh
+   ang_conversion
    nf_grid_conversion
+   frame_transform
    generate_random_crystal
    synthetic_hedm_generator
    neper_env

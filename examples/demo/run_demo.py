@@ -317,7 +317,6 @@ def reconstruct(meta, stitched_csv):
         bbox_tolerance=2.5,
         angle_identifier=["Eul0", "Eul1", "Eul2"],
         orientation_descriptor="euler-bunge",
-        orientation_active_convention=True,
         unit=unit,
         elastic_strain_identifier=EKEN_COLS,
         strain_unit="microstrain",

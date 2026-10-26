@@ -203,7 +203,6 @@ if initialize_data:
             auto_rotate=False,
             angle_identifier=["Eul0", "Eul1", "Eul2"],
             orientation_descriptor="euler-bunge",
-            orientation_active_convention=True,
             elastic_strain_identifier=elastic_strain_identifier,
             strain_unit="microstrain",
         )

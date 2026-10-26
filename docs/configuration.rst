@@ -158,18 +158,62 @@ only ``cell_id == -1`` is void automatically; ``void_marker_col`` opts a column 
 (values ``<= 0`` void).
 
 **Graph/Leiden is the default and better pathway** for NF/EBSD; flood over-merges
-into percolating grains. The vetted recipe (validated on Fe-9Cr NF
-reconstruction): hard 5° misorientation cutoff; ``manhattan_radius=2``;
-a **fixed broad RBF sigma ≈ half the cutoff** (``sigma_auto`` collapses to ~0.1° and
-shatters grains); ``reduce_edges_topweights_k=12``; optional ``downsample=(2,2,1)``;
-Leiden ``gamma`` chosen by **percolation** (smallest gamma whose biggest grain is
-below ~3% of solid) over a sweep ``[0.5, 1, 2, 4, 8]``; then absorb sub-30-voxel
-fragments and an adjacency-only re-merge (~3°). This recipe is promoted into the
-library as :meth:`graintrace.fragmentation.FragmentationAnalyzer.segment` and its
-staticmethods (``gamma_sweep_leiden``, ``pick_gamma_by_percolation``,
-``absorb_fragments``, ``adjacency_remerge``). The percolation gamma-pick is for large, many-grain data;
-for few-grain or intragranular sub-grain segmentation pass a fixed low ``gamma``
-(~0.1).
+into percolating grains. The recipe (validated on Fe-9Cr NF reconstruction): hard
+5° misorientation cutoff; ``manhattan_radius=2``; a **fixed broad RBF sigma ≈ half
+the cutoff** (``sigma_auto`` collapses to ~0.1° and shatters grains);
+``reduce_edges_topweights_k=12``; a Leiden ``gamma`` picked from a sweep
+``[0.5, 1, 2, 4, 8]``; then absorb sub-30-voxel fragments and an adjacency-only
+re-merge (~3°). It is implemented by
+:meth:`graintrace.fragmentation.FragmentationAnalyzer.segment`.
+
+* **No grain-size cap.** Mask low-confidence and void voxels instead.
+  ``percolation_max_frac=0.03`` restores the legacy pipeline exactly.
+* ``gamma_pick``: ``"lowest"`` (default) or ``"spread"``, which picks the lowest
+  gamma that
+  :meth:`~graintrace.fragmentation.FragmentationAnalyzer.cluster_leak_check` does
+  not flag at ``spread_tol_deg`` (default: the cutoff). Per-gamma diagnostics are
+  stored in ``last_gamma_diagnostics``.
+* ``absorb_max_miso_deg`` (default: the cutoff): a fragment joins only the
+  closest touching neighbour within this misorientation.
+* The re-merge is agglomerative, so it does not chain. ``remerge_spread_check``
+  (default on) rejects unions that fail the leak check.
+* ``downsample`` is optional; use it only when the graph does not fit.
+* ``seg_to_grain_table(trim_miso_deg=...)`` recomputes each grain mean without
+  outlier points.
+
+FrameTransform
+--------------
+
+A stated specimen-frame change: ``x' = Q (s * x) + t``, ``g' = g Q^T``,
+``e' = Q e Q^T``. graintrace never estimates it.
+
+.. code-block:: python
+
+   from graintrace import FrameTransform
+
+   frame = FrameTransform(
+       rotation=[("z", 172.3), ("x", 180.0), ("y", -0.9)],  # or 3x3 / unit quaternion / rotvec
+       axis_sign=(1, 1, -1),        # +-1 per axis, positions only
+       translation=(12.0, -3.5, 40.0),
+       angle_unit="degrees",        # "degrees" | "radians"
+       sequence="extrinsic",        # "extrinsic" | "intrinsic"
+   )
+   frame.positions(xyz); frame.euler(eul); frame.mrp(p); frame.tensors(eps)
+   frame.inverse(); frame_a @ frame_b; frame.to_json(path)
+
+   # adapters, each also writes <dst>.transform.json
+   frame.apply_ff_csv(src, dst)       # coords, Euler, eKen/eFab, O11..O33
+   frame.apply_ee_csv(src, dst)       # headerless x, y, z + 9 strains
+   frame.apply_pointcloud(src, dst)
+   frame.apply_voxel_grid(src, dst)
+
+   # points (target frame) on a source-frame voxel solid, e.g. for in_overlap masks
+   from graintrace.frame_transform import voxel_solid_from_grid
+   solid, origin, spacing = voxel_solid_from_grid("merged_segmented_fixed_grid.npy")
+   mask = frame.inside_voxel_solid(points, solid, origin, spacing, margin_vox=1)
+
+``rotation`` must be proper; non-orthogonal matrices and non-unit quaternions
+raise. There is no scale term.
 
 WeightConfig
 ------------
@@ -250,15 +294,16 @@ metric (exactly one feature column).
 (:meth:`graintrace.fragmentation.FragmentationAnalyzer.segment`): ``misori_tol_deg``
 (hard edge cutoff, default 5°), ``graph_mode`` (``"grid"`` for voxel grids,
 ``"knn"`` for scattered mesh elements), ``gamma`` (fixed Leiden resolution; when
-``None`` a percolation-picked sweep over ``gamma_sweep`` runs), ``rbf_sigma_deg``
-(fixed broad RBF sigma, default ≈ half the cutoff — **not** ``sigma_auto``, which
-shatters grains), ``manhattan_radius``, ``reduce_topk``, ``grain_threshold_final``
-(absorb threshold), ``remerge_miso_deg`` (adjacency re-merge), and
-``percolation_max_frac``. Graph/Leiden is the default/better pathway; flood
-over-merges into percolating grains. The gamma-by-percolation sweep is for large,
-many-grain NF/EBSD; for few-grain or intragranular sub-grain segmentation pass a
-fixed low ``gamma`` (~0.25 for the shipped CPFE data — ``gamma=0.1`` under-splits and
-leaves most grains whole; raise ``gamma`` to resolve finer sub-grains).
+``None`` a sweep over ``gamma_sweep`` runs and ``gamma_pick`` chooses),
+``rbf_sigma_deg`` (fixed broad RBF sigma, default ≈ half the cutoff — **not**
+``sigma_auto``, which shatters grains), ``manhattan_radius``, ``reduce_topk``,
+``grain_threshold_final`` (absorb threshold), ``remerge_miso_deg`` (adjacency
+re-merge), ``gamma_pick``, ``spread_tol_deg``, ``remerge_spread_check``,
+``absorb_max_miso_deg``, ``percolation_max_frac`` (legacy cap, ``None`` = off)
+and ``verbose``. For intragranular sub-grain segmentation use a fixed low
+``gamma`` (~0.25 for the shipped CPFE data; ``gamma=0.1`` under-splits).
+:meth:`~graintrace.fragmentation.FragmentationAnalyzer.grain_fragments` uses
+``gamma=0.25`` by default.
 
 For intragranular sub-grain segmentation,
 :meth:`~graintrace.fragmentation.FragmentationAnalyzer.grain_fragments` adds
@@ -283,6 +328,33 @@ no split to reject, so the best candidate is kept and the parent still matches.
 The same detector serves FF, NF, and EBSD; NF/EBSD
 reach it through ``segment`` +
 :meth:`graintrace.fragmentation.FragmentationAnalyzer.seg_to_grain_table`.
+
+``d_tol_mode`` sizes the distance gate; the radius modes read ``radius_col``
+(default ``GrainRadius``) from both tables:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 18 40 42
+
+   * - ``d_tol_mode``
+     - Link when
+     - Use it for
+   * - ``"absolute"``
+     - :math:`d \le d_{tol}`
+     - Default; comparable grain sizes.
+   * - ``"radius"``
+     - :math:`d \le \max(d_{tol},\ \alpha_a R_a,\ \alpha_b R_b)`
+     - Mixed sizes, e.g. sub-grains inside a coarse parent.
+   * - ``"radius_sum"``
+     - :math:`d \le \alpha (R_a + R_b)`
+     - "The two grains touch" (``alpha`` near 1).
+
+``top_k`` applies only to ``"absolute"``; the radius modes use a ball query that
+covers the gate. ``assignment="one_to_one"`` adds strict Hungarian pairs
+(``one_to_one``). ``recall`` gives each side's linked fraction, volume-weighted when
+``volume_col`` exists and limited to ``in_overlap_a``/``in_overlap_b``. ``n_null``
+(with ``seed``) counts links under random B orientations; compare
+``null["mean_links"]`` with ``null["observed_links"]``.
 
 **Annotated Exodus**
 (:meth:`~graintrace.ipf_postprocess.IPFProcessor.add_element_field_to_exodus` and

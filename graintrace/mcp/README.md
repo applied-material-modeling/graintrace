@@ -23,6 +23,7 @@ your chat client (brings the LLM + key)
 | `generate_synthetic_hedm` | synthetic FF+NF test data | NEPER |
 | `stitch_scans` | merge FF z-scan layers | (NEPER if `refine_extents`) |
 | `compare_stitching` | validate a stitch vs. truth | none |
+| `convert_ang` | EDAX/TSL `.ang` → `.mic` or merged EBSD CSV | none |
 | `ff_reconstruct` | FF Voronoi reconstruction | NEPER (GMSH if meshing) |
 | `nf_reconstruct` | NF voxel reconstruction + mesh | CUBIT/SCULPT (mesh only) |
 | `voxel_mesh` | EBSD/gridded segmentation + mesh | CUBIT/SCULPT (mesh only) |
@@ -33,7 +34,7 @@ your chat client (brings the LLM + key)
 | `reorientation_rei` | reorientation (misorientation-from-initial) as an REI criterion → VTK | none (neml2+networkit) |
 | `sim_fragmentation` | sim intragranular fragmentation: sub-grain counts + annotated hex Exodus | none (neml2+networkit) |
 | `track_grains` | grain matching across load steps | NEPER + torch-geometric |
-| `detect_fragmentation` | grain split/merge/birth/death across load steps (FF/NF/EBSD) | none (neml2) |
+| `detect_fragmentation` | grain split/merge/birth/death across load steps (FF/NF/EBSD), size-aware gate + optional 1-to-1 assignment | none (neml2) |
 | `dependency_status`, `list_recommended_recipes`, `get_recommended_parameters`, `job_status`, `list_jobs`, `job_log`, `list_outputs` | introspection / recipes / jobs | none |
 
 Two built-in safety behaviors:

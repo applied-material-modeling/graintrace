@@ -14,8 +14,9 @@ Uses `NearFieldMeshBuilder`. Env: `conda activate moose-src`. External tools:
 `if __name__ == "__main__"` guard**: NF `pointcloud_to_fixed_grid` uses `multiprocess.Pool`.
 
 ## Inputs
-A folder of per-layer `.mic` files (tab-delimited, `%`-headers; convert `.ang`→`.mic` first;
-see `run_experiment_afrl.py`). `exp_file_token` is the filename prefix used to find them. For
+A folder of per-layer `.mic` files (tab-delimited, `%`-headers). From EDAX/TSL `.ang`, convert
+first: `AngConverter(input_path=..., save_dir=...).to_mic(zstep=dz)` (CLAUDE.md §4); its
+`output_angle_type` must equal the builder's `angle_type`. `exp_file_token` is the filename prefix used to find them. For
 the synthetic path, `SyntheticHEDMGenerator` writes the NF folder (see `/cpfe-nf-ff`).
 
 ## Recipe
@@ -50,6 +51,7 @@ if __name__ == "__main__":
 - `dz` (layer thickness µm) must match the data; `nx,ny` in-plane grid resolution.
 - `segmentation`: **legacy flat dict** (no `method`/`params` nesting), `misorientation_tol`
   in radians. `connectivity` 6 or 26.
+- No grain-size cap on any path; mask low-confidence/void voxels instead (CLAUDE.md §4).
 - `sculpt_config` (required: `psculpt`,`epu`,`nprocs`; +`launcher`/`environment` for MPI) and
   `sculpt_options` tuple (e.g. `("--adapt","-S","2","-CS","4")`; no `--void_mat`, graintrace sets it); see CLAUDE.md §9.
 

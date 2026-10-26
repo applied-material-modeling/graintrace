@@ -19,8 +19,9 @@ External tools: **NEPER** (FF/synthetic), **CUBIT/SCULPT** (`sculpt_config`, NF 
 2. **NF mesh** (`/nf-reconstruction`): `NearFieldMeshBuilder(...).reconstruct(...)` + `.mesh(...)`
    → `nf_reconstruction/mesh.e` + `orientations.csv` (per-element MRP).
 3. **FF residual strain** (`/ff-reconstruction`): `VoronoiMeshBuilder(...).build_voronoi(
-   generate_mesh=False, ...)` → `ff_reconstruction/reconstruction_cpfe_ee.csv`. Spatially
-   shift its x,y,z to the NF frame if the two aren't co-registered.
+   generate_mesh=False, ...)` → `ff_reconstruction/reconstruction_cpfe_ee.csv`. Move it into
+   the NF frame: `FrameTransform(rotation=..., translation=...).apply_ee_csv(ee, ee_in_nf)`
+   (CLAUDE.md §6).
 4. **CPFE** with NF mesh + NF orientations + FF ee (`use_ff_initial_field=False`, since the ee
    comes from a different mesh):
 ```python
@@ -28,7 +29,7 @@ from graintrace.run_cpfe_simulation import CPFESimulation
 sim = CPFESimulation(
     mesh_file=out + "/nf_reconstruction/mesh.e",
     save_simulation_folder=out + "/simulation",
-    eeres_file=out + "/ff_reconstruction/reconstruction_cpfe_ee_shifted.csv",
+    eeres_file=out + "/ff_reconstruction/reconstruction_cpfe_ee_in_nf.csv",
     ori_file=out + "/nf_reconstruction/orientations.csv",
     dim=3, element_order="FIRST",           # NF meshes are typically FIRST order
     moose_run_file="external/puma/puma-opt",   # EDIT: your built puma-opt
@@ -45,8 +46,7 @@ sim.run(ncore=8)
 ## Key parameters
 - `use_ff_initial_field=False` when the ee file and mesh are different meshes (FF ee on NF mesh);
   `True` only when mesh + ee are co-registered FF.
-- FF→NF shift: add `(dx,dy,dz)` to the first 3 columns of `reconstruction_cpfe_ee.csv` to align
-  frames before passing as `eeres_file`.
+- FF→NF frame: `FrameTransform.apply_ee_csv`, not a hand shift (a rotation must reach the strains).
 - Derive `nf_bbox` from `merged_segmented_fixed_grid.npy` coords (CLAUDE.md §6).
 - `sculpt_config` for the NF hex mesh (CLAUDE.md §9).
 

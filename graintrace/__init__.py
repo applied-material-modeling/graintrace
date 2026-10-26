@@ -40,6 +40,8 @@ except PackageNotFoundError:  # running from a source tree without install metad
 # first accessed, which keeps the top-level import cheap and lets consumers that
 # don't need the compiled stack still `import graintrace`.
 _LAZY_EXPORTS = {
+    "AngConverter": "ang_conversion",
+    "read_ang": "ang_conversion",
     "BaseMaterialApproximationModel": "base_material_approximation",
     "ClusterAnalysisIndicator": "cluster_indicator",
     "NearFieldMeshBuilder": "construct_nf_mesh",
@@ -47,6 +49,7 @@ _LAZY_EXPORTS = {
     "VoxelMeshBuilder": "construct_voxel_mesh",
     "ExperimentResults": "experiment_postprocessing",
     "FieldFileNaming": "experiment_postprocessing",
+    "FrameTransform": "frame_transform",
     "CrystalGenerator": "generate_random_crystal",
     "GraphGrainMatcher": "grain_graph_matching",
     "GraphSpatialCluster": "graph_spatial_cluster",

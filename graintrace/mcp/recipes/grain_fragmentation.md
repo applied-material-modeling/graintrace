@@ -39,7 +39,11 @@ match / split / merge / birth / death. Pure NumPy+SciPy (+neml2 for orientation 
 - `theta_tol_deg`: GENEROUS (~15°) — children keep diverging across steps, so a tight
   cutoff misses the split. Different base grains stay separate via this filter, so real
   grains must be well-separated in orientation.
-- `top_k`: nearest B centroids probed per A grain.
+- `top_k`: nearest B centroids probed per A grain (`d_tol_mode="absolute"` only).
+- Mixed grain sizes: `d_tol_mode="radius"` (`d <= max(d_tol, alpha_a*R_a, alpha_b*R_b)`)
+  or `"radius_sum"` (`d <= alpha*(R_a+R_b)`), reading `GrainRadius`.
+- Optional: `assignment="one_to_one"` (Hungarian pairs), `in_overlap_a/b` (boolean column
+  names limiting `recall`), `n_null`/`seed` (compare `null.mean_links` to `null.observed_links`).
 
 ## Synthetic test data
 Shipped `mwe_data/synthetic_split_{ff,nf,ebsd}/` carry a known 1→2 split

@@ -58,7 +58,7 @@ Expected `.mic` format (tab-delimited, with `%` header lines):
 ```
 %OrientationRowNr  OrientationID  RunTime  X  Y  TriEdgeSize  UpDown  Eul1  Eul2  Eul3  Confidence  PhaseNr
 ```
-`NearFieldMeshBuilder` reads a folder of `.mic` files. The `exp_file_token` parameter is the filename prefix token used to find files. **graintrace has no `.ang` reader** — no converter ships in the package and no code path recognises the extension, so `.ang` source data must be converted to `.mic` outside graintrace before `NearFieldMeshBuilder` sees it. (The `run_experiment_afrl.py` script this note used to cite is not in the repository.)
+`NearFieldMeshBuilder` reads a folder of `.mic` files. The `exp_file_token` parameter is the filename prefix token used to find files. **No builder reads `.ang` directly** — convert it first with `AngConverter` (§4).
 `Confidence`/`TriEdgeSize` are kept in the point cloud (`min_confidence`, §4). MIDAS per-layer
 subfolders (`Layer1/…layer1.mic`): `recursive=True` (an empty top folder falls back to them).
 
@@ -156,12 +156,11 @@ builder_ff = VoronoiMeshBuilder(
     auto_fix_bbox=True,
     bbox_fix_mode="remove_points",   # "remove_points" for production; "extend_bounding_box" for debug
     bbox_tolerance=2.5,
-    auto_rotate=False,
+    auto_rotate=False,               # True = align to PCA axes; ignores rotate_angles
     rotate_angles=[0, 0, 8.1],       # sample tilt correction, must match ori_units
     rotate_convention="xyz",
     angle_identifier=["Eul0", "Eul1", "Eul2"],
     orientation_descriptor="euler-bunge",
-    orientation_active_convention=True,
     elastic_strain_identifier=["eKen11","eKen12","eKen13",
                                "eKen21","eKen22","eKen23",
                                "eKen31","eKen32","eKen33"],
@@ -179,6 +178,9 @@ builder_ff.build_voronoi(
     tesr_size=[100, 100, 100],       # voxel grid resolution [nx, ny, nz]
 )
 ```
+
+`rotate()` records its frame change on `builder.frame_transform`; positions, orientations and
+strains all use it. `orientation_active_convention` is deprecated and ignored (warns on `True`).
 
 Key outputs in `output_dir`:
 - `reconstruction_reformatted.csv`: per-voxel grain IDs and orientations (input to the default hex mesher)
@@ -320,6 +322,19 @@ avoids the LU fill-in blow-up; the distributed mesh avoids holding the full mesh
 
 ## 4. NF-Only Workflow
 
+### From EDAX/TSL `.ang` (`AngConverter`)
+Convert `.ang` layers with the library, not a hand-rolled loop (a lexicographic sort
+stacks `layer10` after `layer1`):
+```python
+from graintrace import AngConverter
+conv = AngConverter(input_path="NF/ang", save_dir="out/NF/mic", file_token="layer",
+                    angle_type="radians",          # TSL default; >4π raises (degrees file)
+                    output_angle_type="degrees")   # = the builder's angle_type
+conv.to_mic(zstep=dz)       # per-layer .mic: Confidence=CI, PhaseNr=1, TriEdgeSize=XSTEP
+conv.to_ebsd_csv(zstep=dz)  # or the merged x,y,z,Eul0..2 CSV for VoxelMeshBuilder (§5)
+```
+z = (filename layer index − lowest) × zstep (gaps kept). `to_ebsd_csv` refuses `GRID: HexGrid`.
+
 ### Using NearFieldMeshBuilder (`.mic` files)
 ```python
 from graintrace.construct_nf_mesh import NearFieldMeshBuilder
@@ -379,7 +394,7 @@ segmentation={"method": "graph", "misori_tol_deg": 5.0, "gamma": None,  # ~0.1 f
 Graph/Leiden is the default and better segmentation for NF/EBSD; **flood over-merges into
 percolating grains**. Use `method="graph"` (§9 `segmentation_prop`). Vetted recipe (validated
 on Fe-9Cr NF reconstruction), in `FragmentationAnalyzer.segment` + its staticmethods
-`gamma_sweep_leiden`, `pick_gamma_by_percolation`, `absorb_fragments`, `adjacency_remerge`:
+`gamma_sweep_leiden`, `pick_gamma`, `absorb_fragments`, `adjacency_remerge`, `cluster_leak_check`:
 
 | Knob | Value | Why |
 |---|---|---|
@@ -388,23 +403,22 @@ on Fe-9Cr NF reconstruction), in `FragmentationAnalyzer.segment` + its staticmet
 | RBF sigma (`weight_cfg`) | **fixed ≈ ½ cutoff (~2.5°)**, `sigma_auto=None` | `sigma_auto` collapses to ~0.1° and shatters grains into noise |
 | `weight_cfg` | `mode="rbf", power=2.0` | bounded 0..1 weights (not `inverse`'s 1e8 dynamic range) |
 | `reduce_edges_topweights_k` | **12** | sparser graph, faster Leiden |
-| in-plane `downsample` | `(2,2,1)` (large NF only) | NF grid is finer than needed for ~40µm grains |
-| Leiden `gamma` | **sweep `[0.5,1,2,4,8]`, pick by PERCOLATION** | smallest gamma whose biggest grain < 3% of solid (`pick_gamma_by_percolation`) |
-| absorb (`grain_threshold_final`) | **30 vox** | merge sub-threshold fragments into largest-contact neighbor |
-| adjacency re-merge (`REMERGE_MISO_DEG`) | **~3°**, adjacency-ONLY, size-capped | coalesce Leiden-split fragments without re-percolating (global merge collapsed 596→90) |
+| in-plane `downsample` | off; opt in only if the graph is too big | coarsens boundaries |
+| Leiden `gamma` | **sweep `[0.5,1,2,4,8]`, `gamma_pick="lowest"`** (`"spread"` = lowest unflagged by `cluster_leak_check`) | **no size cap** (`percolation_max_frac=None`); mask conf/void first |
+| absorb (`grain_threshold_final`) | **30 vox**, gated by `absorb_max_miso_deg` (= cutoff) | joins only the closest neighbor within tol; small real grains survive |
+| adjacency re-merge (`remerge_miso_deg`) | **~3°**, agglomerative + `remerge_spread_check` | means recomputed per merge → no chaining |
+| grain-table mean | `seg_to_grain_table(trim_miso_deg=5.0)` | drops outlier voxels from the mean |
 
-**Scale caveat:** gamma-by-percolation (3%-of-solid cap) is for **large, many-grain** NF/EBSD.
-For **small / few-grain** data (a legit grain is a large fraction of solid) or **intragranular
-sub-grain** segmentation (§7 sim fragmentation), the percolation pick misfires (falls back to the
-highest gamma → shatters) — pass a **fixed low `gamma`** instead (~0.1 for few-grain data;
-for **intragranular sub-grains** ~0.25 — 0.1 under-splits/leaves grains whole, higher resolves
-finer sub-grains; calibrate against the per-element spread).
+`percolation_max_frac=0.03` restores the legacy pipeline exactly. Intragranular sub-grains: fixed
+`gamma≈0.25` (`grain_fragments` default; 0.1 under-splits). Options: docs/configuration.rst.
 
 ---
 
 ## 5. EBSD Workflow
 
-Use `VoxelMeshBuilder` with a merged CSV (columns: `x, y, z, Eul0, Eul1, Eul2`):
+Use `VoxelMeshBuilder` with a merged CSV (columns: `x, y, z, Eul0, Eul1, Eul2`). From
+`.ang` layers, write it with `AngConverter(...).to_ebsd_csv(zstep=...)` (§4) and pass its
+`output_angle_type` as the builder's `angle_type`:
 
 ```python
 from graintrace.construct_voxel_mesh import VoxelMeshBuilder
@@ -475,20 +489,17 @@ builder_ff = VoronoiMeshBuilder(...)
 builder_ff.build_voronoi(generate_mesh=False, ...)
 # produces: out/FF/reconstruction_cpfe_ee.csv
 
-# 3. Spatially shift FF ee data to align with NF coordinate frame
-ff_translation = (dx, dy, dz)   # determined by experiment geometry
-ee_data = pd.read_csv("out/FF/reconstruction_cpfe_ee.csv", header=None, index_col=False)
-ee_data.iloc[:, 0] += ff_translation[0]
-ee_data.iloc[:, 1] += ff_translation[1]
-ee_data.iloc[:, 2] += ff_translation[2]
-ee_data.to_csv("out/FF/reconstruction_cpfe_ee_shifted.csv", index=False, header=False)
+# 3. Move FF into the NF frame (NF stays native); positions and strains move together
+from graintrace import FrameTransform
+ff_to_nf = FrameTransform(rotation=[("z", 172.3), ("x", 180.0)], translation=(dx, dy, dz))
+ff_to_nf.apply_ee_csv("out/FF/reconstruction_cpfe_ee.csv", "out/FF/reconstruction_cpfe_ee_in_nf.csv")
 
 # 4. Run CPFE using NF mesh, NF orientations, FF initial strain
 sim = CPFESimulation(
     mesh_file="out/NF/mesh.e",
     save_simulation_folder="out/simulation",
     element_order="FIRST",           # NF mesh typically uses FIRST order
-    eeres_file="out/FF/reconstruction_cpfe_ee_shifted.csv",
+    eeres_file="out/FF/reconstruction_cpfe_ee_in_nf.csv",
     ori_file="out/NF/orientations.csv",
     dim=3,
     moose_run_file="/path/to/puma-opt",
@@ -496,6 +507,10 @@ sim = CPFESimulation(
 )
 # ... set_parameters and run as normal
 ```
+
+Move one dataset, never both. Other adapters: `apply_ff_csv`, `apply_pointcloud`, `apply_voxel_grid`.
+FF-in-NF overlap mask for `detect_splits(in_overlap_b=...)`:
+`FrameTransform().inside_voxel_solid(ff_xyz_in_nf, *voxel_solid_from_grid(nf_npy), margin_vox=1)`.
 
 Derive NF bounding box from the saved voxel grid:
 ```python
@@ -815,7 +830,10 @@ strictly 1-to-1 `GraphGrainMatcher`). See `/reorientation-fragmentation`.
 from graintrace.fragmentation import FragmentationAnalyzer
 res = FragmentationAnalyzer(symmetry="432").detect_splits(
     nodes_a, nodes_b, d_tol=20.0, theta_tol_deg=15.0,
-    angle_convention="bunge", angle_type="degrees", adjacency_b=None)
+    angle_convention="bunge", angle_type="degrees", adjacency_b=None,
+    d_tol_mode="radius",      # "absolute" (default) | "radius" | "radius_sum" (uses GrainRadius)
+    assignment="one_to_one",  # + res["one_to_one"]: Hungarian a_id,b_id,miso_deg,dist,cost
+    in_overlap_b=None, n_null=20, seed=0)  # res["recall"] per side; res["null"] chance links
 # res["n_splits"], res["split_correspondences"] (parent_a, children_b, n_children), + merges/births/deaths
 ```
 `nodes_*` are per-grain tables (`grain_id,X,Y,Z,GrainRadius,Eul0/1/2`). FF supplies them
@@ -916,7 +934,6 @@ update_experiments(
     unit="rad",
     angle_identifier=["Eul0", "Eul1", "Eul2"],
     orientation_descriptor="euler-bunge",
-    orientation_active_convention=True,
     elastic_strain_identifier=["eKen11", ..., "eKen33"],
 )
 ```
@@ -1034,12 +1051,14 @@ weight_cfg = WeightConfig(
 All on `FragmentationAnalyzer(symmetry="432", ori_cols=…, coord_cols=…)`:
 - `.segment(coords, mrp, misori_tol_deg=5.0, graph_mode="grid"|"knn", gamma=None|<float>,
   gamma_sweep=(0.5,1,2,4,8), rbf_sigma_deg=None, manhattan_radius=2, reduce_topk=12,
-  grain_threshold_final=30, remerge_miso_deg=3.0, percolation_max_frac=0.03)` —
+  grain_threshold_final=30, remerge_miso_deg=3.0, gamma_pick="lowest", spread_tol_deg=None,
+  remerge_spread_check="auto", absorb_max_miso_deg="auto", percolation_max_frac=None)` —
   `graph_mode="grid"` for voxel grids (NF/EBSD), `"knn"` for scattered mesh elements.
-  `gamma=None` runs the percolation sweep (large NF); pass a fixed low gamma for
-  few-grain (~0.1) or intragranular sub-grain (~0.25; 0.1 under-splits) data.
+  Pass a fixed low gamma for few-grain (~0.1) or intragranular sub-grain (~0.25) data.
+- `.cluster_leak_check(mrp, labels, tol_deg, ...)` / `.absorb_fragments(..., mrp=, max_miso_deg=)`
+  / `.adjacency_remerge(...)`: labels `< 0` and `background_label` are left untouched.
 - `.grain_fragments(res, step, tol_deg=5.0, block_id_col="block_id", min_fragment_elems=5,
-  min_subgrain_miso_deg=1.0, seg_kwargs={...})` — `seg_kwargs` forwards to `.segment` (e.g.
+  min_subgrain_miso_deg=1.0, seg_kwargs={...})` — `seg_kwargs` forwards to `.segment` (default
   `{"gamma": 0.25}`). Sub-grain segmentation runs with the segmenter's `remerge_miso_deg=0` (OFF:
   the adjacency re-merge's percolation size-cap is meaningless on one grain's ~100 elements — inert
   or chaining), and instead applies **`min_subgrain_miso_deg`** — the minimum misorientation
@@ -1055,11 +1074,14 @@ All on `FragmentationAnalyzer(symmetry="432", ori_cols=…, coord_cols=…)`:
   correctly (default `"1"` = plain mean; no-op on coherent data, but a footgun if left off on data
   that crosses a symmetry boundary).
 - `.detect_splits(nodes_a, nodes_b, d_tol, theta_tol_deg, angle_convention="bunge",
-  angle_type="degrees", top_k=8, adjacency_b=None)` — `d_tol` at grain scale,
+  angle_type="degrees", top_k=8, adjacency_b=None, d_tol_mode="absolute", alpha_a=1.0,
+  alpha_b=1.0, alpha=1.0, radius_col="GrainRadius", assignment=None, volume_col="volume",
+  in_overlap_a=None, in_overlap_b=None, n_null=0, seed=None)` — `d_tol` at grain scale,
   `theta_tol_deg` generous (~15°); uses the instance's `symmetry`. `adjacency_b`
   prunes only when a parent's candidates contain a mutually adjacent pair; with no
   adjacent pair the best candidate (lowest misorientation, then distance) is kept so
-  the parent matches instead of becoming a death plus N births.
+  the parent matches instead of becoming a death plus N births. Gate options: see
+  `docs/configuration.rst` (fragmentation).
 - Synthetic splits: `tests/synthetic_fragmentation.generate_{ff,nf,ebsd}_split(out_dir,
   n_steps=5, theta_max_deg=12.0, misorientation_tol_deg=5.0, ...)` — the shipped
   `mwe_data/synthetic_split_*` + `ground_truth.json` (test helper, not a package module).
@@ -1076,6 +1098,9 @@ use `orientation_type/angle_convention="mrp"` → `mrp_to_matrix`; `simulation_*
 as MRP). Do NOT feed these columns to a tool expecting true Rodrigues. A rename to
 `ori_mrp_*` (aux vars + `initial_conditions*.i` `rodrigues_*` functions + all consumers) is a
 **deferred follow-up** — the blast radius is wide, so it is documented rather than done.
+
+### A frame change rotates orientations on the SAMPLE side (`g' = g Qᵀ`, not `Q g`)
+The wrong side is invisible modulo cubic symmetry; test on a crystal direction (`R c -> Q R c`).
 
 ### `.tess` signed indices: decode with `decode_signed_index`, never `abs()`
 `NeperTessToGraphNN.face_edges` and `.cell_to_faces` hold **signed 0-based** indices, where
@@ -1387,11 +1412,8 @@ rather than fail.
   the default/better pathway (§4). Everything runs in moose-src (has networkit).
 - **Fixed broad RBF sigma, not `sigma_auto`.** On near-identical intra-grain edges `sigma_auto`
   collapses to ~0.1° and shatters grains into noise; use `sigma ≈ ½` the misorientation cutoff.
-- **gamma-by-percolation is for large, many-grain data.** Its 3%-of-solid cap misfires on
-  few-grain / small grids and on intragranular sub-grain segmentation (a legit grain is a large
-  fraction of solid) → it falls back to the highest gamma and shatters. Pass a **fixed low gamma**
-  there (~0.1 few-grain; ~0.25 intragranular sub-grains — 0.1 under-splits, calibrate against the
-  per-element spread); keep the percolation sweep for NF/EBSD reconstructions (§4).
+- **Never cap grain size; never trust the p95 spread as a leak test.** The cap splits real large
+  grains; p95 misses small leaks and flags gradients. Mask first, use `cluster_leak_check`.
 
 ### Fragmentation detector: `d_tol` scale and cross-step `theta_tol`
 `FragmentationAnalyzer.detect_splits` links a grain to its next-step lineage by centroid distance AND
@@ -1399,6 +1421,8 @@ misorientation. Set `d_tol` to grain scale — too large chains distinct neighbo
 one "complex" component. Set `theta_tol_deg` GENEROUS (e.g. 15°): children keep diverging across
 steps, so a tight cutoff misses the split. Different base grains stay separate only because they
 are far in orientation (the misorientation filter), so ensure real grains are well-separated.
+On mixed grain sizes use `d_tol_mode="radius"` instead of inflating `d_tol`; `top_k` only applies
+in `"absolute"`. NaN/negative radii count as 0 (warns); negative tolerances raise.
 
 ### Reorientation REI: reference step + `ori_rodrigues` is MRP
 `FragmentationAnalyzer.reorientation_from_reference`/`.write_reorientation_field` default
@@ -1425,9 +1449,11 @@ microstructure (e.g. the shipped `cpfe_hex_fragmentation/mesh.e` is unrelated to
 ```
 graintrace/
   neper_env.py                 resolve_neper_env     : locate a user-installed NEPER (env var/tools.json/PATH); opt-in ~/.local build
+  frame_transform.py           FrameTransform        : stated frame change for positions/orientations/tensors; FF/ee/point-cloud/voxel adapters; inside_voxel_solid
   construct_voronoi_mesh.py    VoronoiMeshBuilder    : FF HEDM reconstruction (NEPER)
   construct_nf_mesh.py         NearFieldMeshBuilder  : NF HEDM reconstruction (SCULPT)
   construct_voxel_mesh.py      VoxelMeshBuilder      : EBSD/NF voxel meshing (SCULPT)
+  ang_conversion.py            AngConverter          : EDAX/TSL .ang -> per-layer .mic / merged EBSD CSV (read_ang)
   nf_grid_conversion.py        NFGridConversion      : Pre-gridded NF data to CSV
   run_cpfe_simulation.py       CPFESimulation        : MOOSE/PUMA CPFE runner
   grid_resampling.py           GridResampler         : offline resample of a CPFE Exodus -> grid CSV
@@ -1436,7 +1462,7 @@ graintrace/
   plot_postprocessing.py       plot_*                : Distribution/stress-strain/pole figures/IPF reorientation
   ipf_postprocess.py           IPFProcessor          : IPF coloring on mesh; get_ipf_points/get_ipf_color; add_element_field_to_exodus (per-elem scalar) / add_element_rgb_to_exodus (per-elem RGB)
   ipf_orientation_tracking.py  OrientationTracker : per-entity orientation tracks for IPF reorientation plots (simulation_grain_tracks/simulation_element_tracks/experiment_grain_tracks[_by_id]/compose_tracks)
-  fragmentation.py             FragmentationAnalyzer : reorientation REI criterion (reorientation_from_reference/write_reorientation_field), orientation segmentation + grain-table bridge (segment/seg_to_grain_table), sim intragranular fragments (grain_fragments, with min_subgrain_miso_deg merge via merge_fragments_by_misorientation), FF/NF/EBSD cross-step split detection (detect_splits), symmetry-aware mean_orientation_mrp
+  fragmentation.py             FragmentationAnalyzer : reorientation REI criterion (reorientation_from_reference/write_reorientation_field), orientation segmentation + grain-table bridge (segment/seg_to_grain_table, cluster_leak_check), sim intragranular fragments (grain_fragments, with min_subgrain_miso_deg merge via merge_fragments_by_misorientation), FF/NF/EBSD cross-step split detection (detect_splits), symmetry-aware mean_orientation_mrp
     (synthetic split datasets are generated by the test helper tests/synthetic_fragmentation.py, not a graintrace module)
   rare_cluster_indicator.py    IdentifyRareClusters  : REI full pipeline
   graph_spatial_cluster.py     GraphSpatialCluster   : Graph segmentation of field data

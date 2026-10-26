@@ -154,17 +154,36 @@ The reader adds ``Z = layer_index * dz`` and a ``layer`` column. Layer numbers
 must be **contiguous**; a gap raises ``ValueError``. The reader accepts ``.csv``
 files in the input folder as well as ``.mic``, with the same schema.
 
-``.ang``
-~~~~~~~~
+EDAX/TSL ``.ang``
+~~~~~~~~~~~~~~~~~
 
-.. warning::
+No builder reads ``.ang`` directly; :class:`~graintrace.AngConverter` writes
+either the ``.mic`` schema above or the merged EBSD CSV below. It reads the
+8-column headerless layout (``phi1 PHI phi2 x y IQ CI phase``) and ``#``-headed
+exports with 10 or more columns (only the first eight are used).
 
-   **graintrace has no** ``.ang`` **reader.** There is no converter in the
-   package and no code path that recognises the extension. Convert ``.ang``
-   data to the NF ``.mic`` schema above, or to the merged EBSD CSV below, with
-   your own tooling before it enters graintrace. A built-in converter is
-   tracked as `issue #53
-   <https://github.com/applied-material-modeling/graintrace/issues/53>`_.
+.. code-block:: python
+
+   from graintrace import AngConverter
+
+   conv = AngConverter(
+       input_path="ebsd/ang",        # one .ang file, or a folder of layers
+       save_dir="out/ebsd",
+       file_token="layer",           # layer index follows this in the filename
+       angle_type="radians",         # TSL default (Bunge radians)
+       output_angle_type="degrees",  # must match the builder's angle_type
+       confidence_min=0.0,           # optional: drop negative-CI points
+   )
+   merged = conv.to_ebsd_csv(zstep=2.0)   # -> VoxelMeshBuilder
+   layers = conv.to_mic(zstep=2.0)        # -> NearFieldMeshBuilder
+
+Layers are ordered numerically by their filename index and placed at
+``z = (index - lowest index) * zstep``, so a missing layer leaves a gap (and the
+NF reader's contiguity check still catches it). ``.mic`` output carries the CI
+as ``Confidence``, the header ``XSTEP`` as ``TriEdgeSize`` and ``PhaseNr = 1``.
+Angles larger than 4π are rejected when ``angle_type="radians"``.
+``GRID: HexGrid`` scans are refused by ``to_ebsd_csv``, since they are not a
+voxel grid. Shipped example: ``mwe_data/ang_ebsd/``.
 
 EBSD merged CSV
 ~~~~~~~~~~~~~~~
@@ -176,8 +195,7 @@ A single flat CSV covering all layers, with a header row:
    x,y,z,Eul0,Eul1,Eul2
 
 ``z`` is the layer index times the EBSD z-step. The Euler columns are Bunge
-angles in degrees or radians, selected by the builder's ``angle_type``. Merging
-per-layer source files into this one CSV is the user's job. Shipped example:
+angles in degrees or radians, selected by the builder's ``angle_type``. Shipped example:
 ``mwe_data/synthetic_split_ebsd/``.
 
 Grain table

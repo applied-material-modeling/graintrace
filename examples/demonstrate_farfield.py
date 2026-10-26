@@ -155,7 +155,6 @@ if build_voronoi:
         unit=rotate_unit,
         angle_identifier=["Eul0", "Eul1", "Eul2"],
         orientation_descriptor="euler-bunge",
-        orientation_active_convention=True,
         elastic_strain_identifier=elastic_strain_identifier,
         strain_unit="microstrain",
     )
@@ -198,7 +197,6 @@ if update_experiments_data:
         unit=rotate_unit,
         angle_identifier=["Eul0", "Eul1", "Eul2"],
         orientation_descriptor="euler-bunge",
-        orientation_active_convention=True,
         elastic_strain_identifier=[
             "eKen11",
             "eKen12",

@@ -15,7 +15,9 @@ Wrap driver in `if __name__ == "__main__": main()`.
 
 ## Inputs
 A merged CSV with `x,y,z,Eul0,Eul1,Eul2` (EBSD), or an FF `reconstruction_reformatted.csv`
-(pass `cell_id_col` + `angle_type="degrees"`). See CLAUDE.md §5.
+(pass `cell_id_col` + `angle_type="degrees"`). See CLAUDE.md §5. From EDAX/TSL `.ang`,
+`AngConverter(...).to_ebsd_csv(zstep=...)` writes this CSV (CLAUDE.md §4); its
+`output_angle_type` must equal the builder's `angle_type`.
 
 ## Recipe
 ```python
@@ -52,6 +54,8 @@ mesh_path = builder.mesh(sculpt_config=sculpt_config, sculpt_options=sculpt_opti
   (simpler/faster; adds `batch_norm`/`grain_threshold`/`stop_count`). See CLAUDE.md §9.
 - `misorientation_tol` units follow `angle_type`; `connectivity` 6 or 26.
 - Graph tuning: `networkit_kwargs["gamma"]` (lower → fewer/larger grains), `weight_cfg` RBF.
+- `FragmentationAnalyzer.segment` has no grain-size cap and an orientation-gated absorb
+  (`absorb_max_miso_deg`); `percolation_max_frac=0.03` = legacy. See CLAUDE.md §4.
 - `sculpt_config`/`sculpt_options`: CUBIT hex meshing (CLAUDE.md §9).
 
 ## Outputs (`save_dir`)
