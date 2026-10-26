@@ -103,3 +103,14 @@ builder.mesh(mesher="voxel", merged_grid=merged_grid_path)
 target distribution; fewer grains ⇒ fewer elements ⇒ tractable CPFE wall-clock.
 Add grains only when the distribution histogram or the CPFE quantity of interest
 doesn't converge.
+
+## SCULPT post-processing contract (both builders' `mesh(mesher="sculpt")`)
+- **Block ids are renumbered to contiguous `1..N` in file order** after `epu` (SCULPT keeps
+  the spn ids as `eb_prop1` and can drop small grains, leaving gaps the CPFE decks reject:
+  "block id 5 does not exist"). `<mesh stem>_block_map.csv` maps `block_id` ->
+  `sculpt_block_id`, `grain_id` (spn id), `n_elem`, `source_grain_id` (merged-grid id).
+  Row `k` of the orientations CSV is block `k + 1`.
+- **The mesh spans the voxel-EDGE box** `[min - h/2, max + h/2]`, not the voxel centres.
+  A single-layer grid takes its z thickness from `mesh(layer_spacing=...)` (NF: the
+  reconstruct `dz`), else the mean in-plane spacing -- the old centre rescale made it flat
+  (coordz == 0) and puma-opt aborted writing Exodus. `mesher="voxel"` uses the same extents.

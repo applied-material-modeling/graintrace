@@ -61,7 +61,23 @@ grain. Pass **`min_confidence`** to `nf_reconstruct` and they become void instea
 | `max_point_distance` | **1.5 x `TriEdgeSize`** (µm) | replaces the hull test, which fills concave gaps and holes |
 | `voxel_size_um` | `[hx, hy]` (µm) | isotropic voxels; a fixed `nx`/`ny` over a rectangular footprint gives anisotropic ones. Give this *or* `nx`/`ny`. |
 
-All three default to `None` (today's behavior). Both segmenters already ignore
+All three default to `None` (today's behavior). `voxel_size_um` together with `nx`/`ny`
+is an error. Both segmenters already ignore
 `phase = 0`, so masked voxels never reach a grain. The per-voxel confidence is written
 to `fixed_grid_confidence.npy`, shape `(nx, ny, nz)`, beside the merged grid — the
 7-channel grid layout is unchanged.
+
+## Graph segmentation in `nf_reconstruct`
+Pass `segmentation={"method": "graph", ...}` to run this recipe inside
+`NearFieldMeshBuilder.reconstruct` (the flat flood dict stays the default). Keys
+(defaults): `misori_tol_deg` (5.0, degrees), `gamma` (None = percolation sweep; ~0.1
+fixed for few-grain data), `gamma_sweep` ([0.5,1,2,4,8]), `grain_threshold_final` (30),
+`remerge_miso_deg` (3.0), `n_jobs`/`n_threads` (1), `workdir` (None), `downsample`
+(None; `[2,2,1]` on large NF), plus optional `manhattan_radius`, `reduce_topk`,
+`rbf_sigma_deg`, `percolation_max_frac`, `seed`. Only solid voxels are segmented;
+void stays 0. Any voxel left unsegmented (an isolated island) is voided before meshing.
+
+## Layer layout
+MIDAS writes one subfolder per layer (`Layer1/...layer1.mic`): pass
+`init_params={"recursive": True}`. An input folder with no layer files directly in it
+falls back to its subfolders anyway.

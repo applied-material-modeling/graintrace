@@ -114,8 +114,56 @@ Graph-based (better for complex textures):
    }
 
 For :meth:`~graintrace.NearFieldMeshBuilder.reconstruct`, the ``segmentation``
-argument is a flat dict (no ``method``/``params`` nesting), with
-``misorientation_tol`` in radians.
+argument is either the flat flood dict (no ``method``/``params`` nesting, with
+``misorientation_tol`` in radians; the default), or a graph/Leiden dict with
+``"method": "graph"`` — the recommended NF path:
+
+.. code-block:: python
+
+   merged_grid_path = builder_nf.reconstruct(
+       dz=5.0, nx=200, ny=300, min_confidence=0.4,
+       segmentation={
+           "method": "graph",            # graph/Leiden via FragmentationAnalyzer.segment (solid voxels only)
+           "misori_tol_deg": 5.0,        # hard edge cutoff, DEGREES (flood's misorientation_tol is radians)
+           "gamma": None,                # None = percolation sweep (large NF); ~0.1 fixed for few-grain data
+           "gamma_sweep": (0.5, 1.0, 2.0, 4.0, 8.0),
+           "grain_threshold_final": 30,  # absorb smaller fragments
+           "remerge_miso_deg": 3.0,      # adjacency-only re-merge
+           "n_jobs": 1, "n_threads": 1,
+           "workdir": None,              # graph scratch dir (temp if None)
+           "downsample": (2, 2, 1),      # optional, large NF only: segment every 2nd in-plane voxel,
+                                         # the rest take their nearest segmented voxel's label
+           # optional pass-through: manhattan_radius, reduce_topk, rbf_sigma_deg, percolation_max_frac, seed
+       },
+   )
+
+The graph path converts the solid voxels' Euler angles to neml2 MRP with the
+builder's ``angle_convention``/``angle_type`` and calls
+:meth:`graintrace.fragmentation.FragmentationAnalyzer.segment` with
+``graph_mode="grid"`` on the solid voxels only. It writes 1-based grain ids into
+channel 0 with void ``0``, the convention the flood path produces, so ``mesh()`` is
+unchanged. Missing keys take ``NearFieldMeshBuilder.DEFAULT_GRAPH_SEGMENTATION``;
+unknown keys raise ``ValueError``.
+
+Both paths end by voiding any voxel still unsegmented (``-1``) — an isolated solid
+island with no grain to join — so the grid always reaches the mesh writers clean.
+
+``VoxelMeshBuilder`` void rows
+    Void detection is explicit. ``void_marker_col`` (opt-in) names a column whose
+    values ``<= 0`` are void, e.g. a 1-based ``phase``. ``cell_id_col`` ids ``<= 0``
+    are void. Automatically, only a ``cell_id`` column equal to ``-1`` (the
+    sentinel :class:`~graintrace.NFGridConversion` writes) is void. A ``phase``
+    column is never read implicitly, because an EBSD ``.ang`` phase may be
+    0-based.
+
+Mesh post-processing (SCULPT)
+    ``mesh()`` rescales the SCULPT mesh onto the grid's voxel-**edge** box,
+    renumbers the block ids to a contiguous ``1..N`` in file order, and writes
+    ``<mesh stem>_block_map.csv`` with ``block_id``, ``sculpt_block_id``,
+    ``grain_id``, ``n_elem`` and ``source_grain_id``. Row ``k`` of the orientations
+    CSV belongs to block id ``k + 1``. ``mesh(layer_spacing=...)`` sets the z voxel
+    size of a single-layer grid (NF defaults to the ``dz`` of the last
+    ``reconstruct()``; otherwise the in-plane spacing is used).
 
 .. _config-nf-gridding:
 
@@ -156,7 +204,18 @@ All default to ``None``, which reproduces the pre-confidence grid exactly.
     the other, not both. A fixed count over a rectangular footprint gives
     anisotropic voxels, whereas a spacing gives an isotropic grid independent of the
     footprint. The axis starts at the data minimum and is extended to cover the
-    maximum.
+    maximum. Giving ``voxel_size_um`` together with ``nx`` or ``ny`` raises
+    ``ValueError``; with neither, ``nx``/``ny`` default to 300 x 900.
+
+``recursive`` (``NearFieldMeshBuilder`` / ``NFGridConversion`` constructor)
+    MIDAS writes one subfolder per layer (``Layer1/...layer1.mic``). ``True``
+    searches subfolders; the default ``False`` searches the folder flat and falls
+    back to subfolders only when it holds no layer files. Layers are ordered by the
+    number after ``exp_file_token`` and must be contiguous.
+
+A ``min_confidence`` on layers without a ``Confidence`` column warns and masks
+nothing there. :meth:`~graintrace.NFGridConversion.convert` takes the same three
+gridding options and adds a ``confidence`` column (and the sidecar) to its CSV.
 
 The per-voxel confidence is written to ``fixed_grid_confidence.npy`` of shape
 ``(nx, ny, nz)`` beside the merged grid, so segmentation, QC and REI can use it

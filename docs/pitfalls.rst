@@ -157,6 +157,47 @@ Run :func:`graintrace.nf.segment.infill_nearest_neighbor` after
 material from the mesh. ``nf.mesh.write_voxel_exodus`` skips negative ids the same
 way it skips the background id, so an orphan never becomes a block of its own.
 
+Both builders now end with :func:`graintrace.nf.segment.void_unsegmented`: a voxel
+still at ``-1`` after the final cleanup is an island with no solid neighbour (for
+example a stray high-confidence point in an air notch under ``max_point_distance``),
+which neither the infill nor the removal can place, so it becomes void. That is a
+decision about a voxel with no grain to join, not a silent deletion of material
+inside the sample.
+
+A ``phase`` column is not a void marker
+---------------------------------------
+
+``VoxelMeshBuilder`` once read any ``phase <= 0`` as void, so an EBSD CSV with a
+0-based ``.ang`` phase column became an all-void grid. Void detection is now
+explicit: pass ``void_marker_col="phase"`` when ``0`` really means void. Only the
+``cell_id == -1`` sentinel written by :class:`~graintrace.NFGridConversion` is read
+automatically, because ``-1`` is never a grain id.
+
+SCULPT block ids are sparse
+---------------------------
+
+SCULPT keeps the ``.spn`` material ids as Exodus block ids (``eb_prop1``) and may
+drop small grains, so the ids come back with gaps, and the CPFE decks, which assume
+blocks ``1..N``, abort at setup with "block id 5 does not exist".
+:func:`graintrace.nf.mesh.mesh_sculpt` now renumbers them to ``1..N`` in file order
+(:func:`graintrace.nf.mesh.renumber_blocks_contiguous`) after resolving each block's
+grain from its original id, and writes ``<mesh stem>_block_map.csv`` mapping
+``block_id`` back to ``sculpt_block_id``, ``grain_id`` and ``source_grain_id``. Row
+``k`` of the orientations CSV belongs to block id ``k + 1``.
+
+SCULPT meshes span voxel edges
+------------------------------
+
+The grid stores voxel *centres*; SCULPT's boundary faces lie on voxel *edges*.
+Rescaling onto the centre extents shrank every mesh by one voxel per axis and
+collapsed a single-layer grid to zero thickness, which puma-opt then fails to write
+(``map_find() error: key 10 not found``). The mesh now spans
+:func:`graintrace.nf.mesh.voxel_edge_bounds`, ``[min - h/2, max + h/2]`` per axis.
+A single-voxel axis has no measurable spacing: z uses ``mesh(layer_spacing=...)``
+(``NearFieldMeshBuilder`` defaults to its ``dz``), and otherwise the mean in-plane
+spacing. :func:`graintrace.nf.mesh.write_voxel_exodus` uses the same rule, so both
+meshers agree.
+
 Grain orientation averages need the crystal symmetry
 ----------------------------------------------------
 

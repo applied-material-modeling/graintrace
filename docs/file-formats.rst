@@ -328,7 +328,12 @@ Two behaviours of the writer matter downstream:
 Exodus ``mesh.e`` and ``sim_output.e``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Binary Exodus II. On the SCULPT path the element **block id is the grain id**.
+Binary Exodus II. On the SCULPT path the block ids are renumbered to a contiguous
+``1..N`` in file order after meshing (SCULPT may drop small grains and leave gaps),
+and ``<mesh stem>_block_map.csv`` maps each ``block_id`` back to SCULPT's
+``sculpt_block_id``, the ``.spn`` ``grain_id`` and the merged-grid
+``source_grain_id``. Row ``k`` of the orientations CSV belongs to block ``k + 1``.
+The mesh spans the grid's voxel-edge box.
 Use ``element_order="FIRST"`` for a SCULPT or voxel hex mesh and ``"SECOND"``
 for a GMSH tet ``.msh``.
 
