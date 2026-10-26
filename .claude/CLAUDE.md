@@ -58,7 +58,7 @@ Expected `.mic` format (tab-delimited, with `%` header lines):
 ```
 %OrientationRowNr  OrientationID  RunTime  X  Y  TriEdgeSize  UpDown  Eul1  Eul2  Eul3  Confidence  PhaseNr
 ```
-`NearFieldMeshBuilder` reads a folder of `.mic` files. The `exp_file_token` parameter is the filename prefix token used to find files. **graintrace has no `.ang` reader** — no converter ships in the package and no code path recognises the extension, so `.ang` source data must be converted to `.mic` outside graintrace before `NearFieldMeshBuilder` sees it. (The `run_experiment_afrl.py` script this note used to cite is not in the repository.)
+`NearFieldMeshBuilder` reads a folder of `.mic` files. The `exp_file_token` parameter is the filename prefix token used to find files. **No builder reads `.ang` directly** — convert it first with `AngConverter` (§4).
 
 For the alternate path using `NFGridConversion` (pre-gridded NF data):
 ```python
@@ -316,6 +316,19 @@ avoids the LU fill-in blow-up; the distributed mesh avoids holding the full mesh
 
 ## 4. NF-Only Workflow
 
+### From EDAX/TSL `.ang` (`AngConverter`)
+Convert `.ang` layers with the library, not a hand-rolled loop (a lexicographic sort
+stacks `layer10` after `layer1`):
+```python
+from graintrace import AngConverter
+conv = AngConverter(input_path="NF/ang", save_dir="out/NF/mic", file_token="layer",
+                    angle_type="radians",          # TSL default; >4π raises (degrees file)
+                    output_angle_type="degrees")   # = the builder's angle_type
+conv.to_mic(zstep=dz)       # per-layer .mic: Confidence=CI, PhaseNr=1, TriEdgeSize=XSTEP
+conv.to_ebsd_csv(zstep=dz)  # or the merged x,y,z,Eul0..2 CSV for VoxelMeshBuilder (§5)
+```
+z = (filename layer index − lowest) × zstep (gaps kept). `to_ebsd_csv` refuses `GRID: HexGrid`.
+
 ### Using NearFieldMeshBuilder (`.mic` files)
 ```python
 from graintrace.construct_nf_mesh import NearFieldMeshBuilder
@@ -390,7 +403,9 @@ finer sub-grains; calibrate against the per-element spread).
 
 ## 5. EBSD Workflow
 
-Use `VoxelMeshBuilder` with a merged CSV (columns: `x, y, z, Eul0, Eul1, Eul2`):
+Use `VoxelMeshBuilder` with a merged CSV (columns: `x, y, z, Eul0, Eul1, Eul2`). From
+`.ang` layers, write it with `AngConverter(...).to_ebsd_csv(zstep=...)` (§4) and pass its
+`output_angle_type` as the builder's `angle_type`:
 
 ```python
 from graintrace.construct_voxel_mesh import VoxelMeshBuilder
@@ -1402,6 +1417,7 @@ graintrace/
   construct_voronoi_mesh.py    VoronoiMeshBuilder    : FF HEDM reconstruction (NEPER)
   construct_nf_mesh.py         NearFieldMeshBuilder  : NF HEDM reconstruction (SCULPT)
   construct_voxel_mesh.py      VoxelMeshBuilder      : EBSD/NF voxel meshing (SCULPT)
+  ang_conversion.py            AngConverter          : EDAX/TSL .ang -> per-layer .mic / merged EBSD CSV (read_ang)
   nf_grid_conversion.py        NFGridConversion      : Pre-gridded NF data to CSV
   run_cpfe_simulation.py       CPFESimulation        : MOOSE/PUMA CPFE runner
   grid_resampling.py           GridResampler         : offline resample of a CPFE Exodus -> grid CSV

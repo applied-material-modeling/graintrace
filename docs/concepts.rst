@@ -68,17 +68,15 @@ schema, including the metadata lines and the ``.csv`` fallback, is in
 
 .. note::
 
-   graintrace has **no** ``.ang`` reader. EBSD/NF data in ``.ang`` form must be
-   converted to the merged-CSV or ``.mic`` schema above with your own tooling
-   before it enters the package. See :doc:`file-formats` for both target schemas.
+   EDAX/TSL ``.ang`` data is converted to the ``.mic`` or merged-CSV schema by
+   :class:`~graintrace.AngConverter`; see :doc:`file-formats`.
 
 EBSD data
 ~~~~~~~~~
 
 A flat CSV with columns ``x, y, z, Eul0, Eul1, Eul2``, where ``z`` is the layer
 index times the EBSD z-step and the Euler columns are Bunge angles. This feeds
-:class:`~graintrace.VoxelMeshBuilder`. Merging per-layer source files into this
-single CSV is the user's responsibility; graintrace reads only the merged form.
+:class:`~graintrace.VoxelMeshBuilder`, which reads only the merged form.
 
 Orientations
 ------------

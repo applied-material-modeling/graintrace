@@ -15,7 +15,9 @@ Wrap driver in `if __name__ == "__main__": main()`.
 
 ## Inputs
 A merged CSV with `x,y,z,Eul0,Eul1,Eul2` (EBSD), or an FF `reconstruction_reformatted.csv`
-(pass `cell_id_col` + `angle_type="degrees"`). See CLAUDE.md §5.
+(pass `cell_id_col` + `angle_type="degrees"`). See CLAUDE.md §5. From EDAX/TSL `.ang`,
+`AngConverter(...).to_ebsd_csv(zstep=...)` writes this CSV (CLAUDE.md §4); its
+`output_angle_type` must equal the builder's `angle_type`.
 
 ## Recipe
 ```python
