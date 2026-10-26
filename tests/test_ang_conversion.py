@@ -115,6 +115,16 @@ class TestToEbsdCsv:
         with pytest.raises(ValueError, match="no points left"):
             _converter(path, tmp_path, confidence_min=0.99).to_ebsd_csv(zstep=1.0)
 
+    def test_hex_grid_raises(self, tmp_path):
+        path = _write_ang(
+            tmp_path / "in", ROWS, header="# GRID: HexGrid\n# XSTEP: 0.5\n"
+        )
+        with pytest.raises(ValueError, match="HexGrid"):
+            _converter(path, tmp_path).to_ebsd_csv(zstep=1.0)
+        assert (
+            len(_converter(path, tmp_path).to_mic(zstep=1.0)) == 1
+        )  # scattered points are fine for NF
+
     def test_voxel_mesh_builder_recovers_the_planted_grains(self, tmp_path):
         pytest.importorskip("neml2")
         pytest.importorskip("networkit")

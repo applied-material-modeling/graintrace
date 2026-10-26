@@ -185,10 +185,17 @@ class AngConverter:
 
         Returns:
             Path to the written CSV.
+
+        Raises:
+            ValueError: for a ``GRID: HexGrid`` layer, which is not a regular voxel grid.
         """
         frames = []
         for offset, path in self.layer_offsets():
-            layer, _ = self._read_layer(path)
+            layer, header = self._read_layer(path)
+            if header.get("GRID", "").lower().startswith("hex"):
+                raise ValueError(
+                    f"{path}: HexGrid scans are not a voxel grid; resample to SqrGrid first (e.g. in OIM)"
+                )
             layer.insert(2, "z", offset * float(zstep))
             frames.append(layer[["x", "y", "z", "Eul0", "Eul1", "Eul2"]])
         out_path = self.save_dir / output_name
