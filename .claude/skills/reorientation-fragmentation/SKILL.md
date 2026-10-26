@@ -73,11 +73,8 @@ combined with nye/stress).
 ## Gotchas
 - `ori_rodrigues` is neml2 v3 MRP (misnamed), mapped via `mrp_to_matrix` — not classical Rodrigues.
 - Segmentation: graph/Leiden is the default (flood over-merges). For few-grain / sub-grain data pass a
-  fixed low `gamma` (~0.1 few-grain; `grain_fragments` defaults to 0.25 when `seg_kwargs` has no
-  `gamma`). There is no grain-size cap: a sweep picks the lowest gamma (`gamma_pick="lowest"`), or
-  the lowest one `cluster_leak_check` does not flag (`"spread"`). Small fragments are absorbed only
-  into an orientation-compatible neighbour (`absorb_max_miso_deg`). `percolation_max_frac=0.03` is
-  the legacy opt-in (CLAUDE §4).
+  fixed low `gamma` (~0.1; `grain_fragments` defaults to 0.25). No size cap; the sweep picks the
+  lowest gamma (CLAUDE §4).
 - `detect_splits`: `d_tol` at grain scale; `theta_tol_deg` generous (~15°) since children keep diverging.
 - Field-step indices are the CSV indices (non-contiguous with sync times) — index into
   `sorted(res.field_files.keys())`.

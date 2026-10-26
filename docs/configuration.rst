@@ -121,69 +121,25 @@ argument is a flat dict (no ``method``/``params`` nesting), with
 into percolating grains. The recipe (validated on Fe-9Cr NF reconstruction): hard
 5° misorientation cutoff; ``manhattan_radius=2``; a **fixed broad RBF sigma ≈ half
 the cutoff** (``sigma_auto`` collapses to ~0.1° and shatters grains);
-``reduce_edges_topweights_k=12``; optional ``downsample=(2,2,1)``; a Leiden
-``gamma`` picked from a sweep ``[0.5, 1, 2, 4, 8]``; then absorb sub-30-voxel
-fragments into an orientation-compatible neighbour and an adjacency-only re-merge
-(~3°). This recipe is promoted into the library as
-:meth:`graintrace.fragmentation.FragmentationAnalyzer.segment` and its
-staticmethods (``gamma_sweep_leiden``, ``pick_gamma``, ``absorb_fragments``,
-``adjacency_remerge``, ``cluster_orientation_spread``, ``cluster_leak_check``).
+``reduce_edges_topweights_k=12``; a Leiden ``gamma`` picked from a sweep
+``[0.5, 1, 2, 4, 8]``; then absorb sub-30-voxel fragments and an adjacency-only
+re-merge (~3°). It is implemented by
+:meth:`graintrace.fragmentation.FragmentationAnalyzer.segment`.
 
-**Mask first, then do not cap grain size.** Grain size is not a percolation
-signal, so nothing limits a cluster's size by default. The old 3%-of-solid
-percolation cap is a symptom fix: it forces any legitimately large grain below
-3% and cuts it into arbitrary pieces, which is wrong whenever a real grain is a
-sizeable fraction of the field of view (few-grain data, a small FOV, or
-intragranular sub-grain segmentation). Remove the bridge instead — mask
-low-confidence and void voxels — and leave the cap off. ``downsample`` is
-likewise optional, not recommended by default: it coarsens boundaries and drops
-grains thinner than the coarsened step, and its only benefit is graph size
-(an in-plane ``(2, 2, 1)`` keeps a quarter of the voxels). Turn it on when the
-graph does not fit, not as a matter of course.
-
-Two cap-free gamma picks, via ``gamma_pick``:
-
-* ``"lowest"`` (the default) — the lowest swept gamma, the least over-resolved.
-* ``"spread"`` — the lowest gamma for which no cluster fails the **physical**
-  percolation check,
-  :meth:`~graintrace.fragmentation.FragmentationAnalyzer.cluster_leak_check` at
-  ``spread_tol_deg`` (defaulting to the segmentation cutoff).
-
-**The percolation check.** A cluster is flagged when a sizeable orientation
-population (at least ``min_leak_frac`` = 2 % of its points and
-``min_leak_points`` = 10) is split off from the dominant one by an orientation
-*gap* and sits more than ``spread_tol_deg`` from it, or, as a backstop, when its
-95th-percentile spread exceeds twice ``spread_tol_deg``. A plain percentile of
-the misorientation to the mean
-(:meth:`~graintrace.fragmentation.FragmentationAnalyzer.cluster_orientation_spread`,
-still available as a descriptive statistic) cannot tell a leak from a gradient:
-a 4 % leak of a grain 30° away has a p95 of ~2°, while one real grain with a
-smooth 12° gradient has ~5.7°. The check works on the rotation vectors from the
-cluster mean, where a gradient is one continuous population and a leak is a
-second dense blob behind a gap; isolated noisy voxels do not bridge the two.
-
-Per-gamma diagnostics — cluster count, largest fraction, number flagged, largest
-spread — are computed for every swept gamma in every pick mode (including the
-legacy cap), printed, and left on
-``FragmentationAnalyzer.last_gamma_diagnostics``, so the choice is visible.
-
-**Clean-up stages.** ``absorb_max_miso_deg`` (default: the cutoff) gates the
-fragment absorption: a sub-``grain_threshold_final`` fragment joins only a
-touching neighbour within that misorientation, the closest one, and otherwise
-stays its own small grain. The orientation-blind rule absorbed every small,
-differently oriented grain on Fe-9Cr NF and biased the grain means. The
-re-merge is agglomerative — closest pair first, union mean recomputed — so it
-cannot chain a gradual orientation change into one grain, and with
-``remerge_spread_check`` (on by default) it rejects a union that fails the
-percolation check. ``percolation_max_frac`` is retained as an explicit opt-in
-that reproduces the legacy pipeline exactly (size-capped pick, orientation-blind
-absorb, fixed-mean union-find re-merge, no spread check).
-
-**Robust grain means.**
-:meth:`~graintrace.fragmentation.FragmentationAnalyzer.seg_to_grain_table` takes
-``trim_miso_deg`` (default ``None``): each grain's mean is recomputed after
-dropping the points farther than that from it (``trim_iters`` = 2 passes), so a
-few absorbed foreign voxels do not drag the grain-table orientation.
+* **No grain-size cap.** Mask low-confidence and void voxels instead.
+  ``percolation_max_frac=0.03`` restores the legacy pipeline exactly.
+* ``gamma_pick``: ``"lowest"`` (default) or ``"spread"``, which picks the lowest
+  gamma that
+  :meth:`~graintrace.fragmentation.FragmentationAnalyzer.cluster_leak_check` does
+  not flag at ``spread_tol_deg`` (default: the cutoff). Per-gamma diagnostics are
+  stored in ``last_gamma_diagnostics``.
+* ``absorb_max_miso_deg`` (default: the cutoff): a fragment joins only the
+  closest touching neighbour within this misorientation.
+* The re-merge is agglomerative, so it does not chain. ``remerge_spread_check``
+  (default on) rejects unions that fail the leak check.
+* ``downsample`` is optional; use it only when the graph does not fit.
+* ``seg_to_grain_table(trim_miso_deg=...)`` recomputes each grain mean without
+  outlier points.
 
 WeightConfig
 ------------
@@ -268,19 +224,12 @@ metric (exactly one feature column).
 ``rbf_sigma_deg`` (fixed broad RBF sigma, default ≈ half the cutoff — **not**
 ``sigma_auto``, which shatters grains), ``manhattan_radius``, ``reduce_topk``,
 ``grain_threshold_final`` (absorb threshold), ``remerge_miso_deg`` (adjacency
-re-merge), ``gamma_pick`` (``"lowest"`` or ``"spread"``), ``spread_tol_deg``,
-``remerge_spread_check`` (``"auto"`` = on unless the legacy cap is set),
-``absorb_max_miso_deg`` (``"auto"`` = ``misori_tol_deg`` unless the legacy cap is
-set; ``None`` = orientation-blind absorb), ``percolation_max_frac`` (legacy size
-cap and legacy clean-up, ``None`` = no cap) and ``verbose``. Graph/Leiden is the default/better pathway; flood
-over-merges into percolating grains. For intragranular sub-grain segmentation
-pass a fixed low ``gamma`` (~0.25 for the shipped CPFE data — ``gamma=0.1``
-under-splits and leaves most grains whole; raise ``gamma`` to resolve finer
-sub-grains).
+re-merge), ``gamma_pick``, ``spread_tol_deg``, ``remerge_spread_check``,
+``absorb_max_miso_deg``, ``percolation_max_frac`` (legacy cap, ``None`` = off)
+and ``verbose``. For intragranular sub-grain segmentation use a fixed low
+``gamma`` (~0.25 for the shipped CPFE data; ``gamma=0.1`` under-splits).
 :meth:`~graintrace.fragmentation.FragmentationAnalyzer.grain_fragments` uses
-``gamma=0.25`` when ``seg_kwargs`` has no ``"gamma"`` key (pass
-``{"gamma": None}`` to sweep instead), and keeps its absorption
-orientation-blind (``absorb_max_miso_deg=None``).
+``gamma=0.25`` by default.
 
 For intragranular sub-grain segmentation,
 :meth:`~graintrace.fragmentation.FragmentationAnalyzer.grain_fragments` adds

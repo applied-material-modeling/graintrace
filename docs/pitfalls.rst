@@ -1,57 +1,18 @@
 Common pitfalls
 ===============
 
-The percolation size cap is no longer on by default
----------------------------------------------------
+Segmentation no longer caps grain size
+--------------------------------------
 
-**Behaviour change.** ``percolation_max_frac`` used to default to ``0.03`` in
-:meth:`~graintrace.fragmentation.FragmentationAnalyzer.segment`,
-:meth:`~graintrace.fragmentation.FragmentationAnalyzer.pick_gamma_by_percolation`
-and :meth:`~graintrace.fragmentation.FragmentationAnalyzer.adjacency_remerge`. It
-now defaults to ``None``, i.e. no cap, and the gamma pick is
-``gamma_pick="lowest"`` rather than the percolation sweep. Grain size is not a
-percolation signal: the cap forced any legitimately large grain below 3 % of the
-solid and cut it into arbitrary pieces, which is wrong for few-grain data, a
-small field of view, and intragranular sub-grain segmentation.
+**Behaviour change.** :meth:`~graintrace.fragmentation.FragmentationAnalyzer.segment`
+now runs with no size cap (``percolation_max_frac=None``) and ``gamma_pick="lowest"``.
+Its absorption is orientation-gated, and its re-merge is agglomerative and
+leak-checked. Scripts will therefore get more small grains and no cap-split large
+grains. Pass ``percolation_max_frac=0.03`` to reproduce the old labels exactly.
 
-An existing script that relied on the old pick will segment differently. Pass
-``percolation_max_frac=0.03`` explicitly to reproduce the previous behaviour
-exactly; it is kept as an opt-in for unmasked data. The recommended replacement
-is to mask low-confidence and void voxels so there is no bridge to percolate
-along, and to use ``gamma_pick="spread"`` when a leak is still suspected --
-see :doc:`configuration`.
-
-The same opt-in also restores the legacy clean-up. On the default (no-cap) path
-two further stages changed:
-
-* **Absorption is orientation-gated.** ``absorb_max_miso_deg`` defaults to the
-  segmentation cutoff: a small fragment joins only a touching neighbour within
-  that misorientation (the closest), otherwise it stays a small grain. The old
-  orientation-blind rule merged every small, differently oriented grain into its
-  largest-contact neighbour; on Fe-9Cr NF the median grain then had 3.9 % of its
-  voxels more than 5° from its mean. Expect more small grains than before; pass
-  ``absorb_max_miso_deg=None`` for the old rule.
-* **The re-merge is agglomerative and spread-checked.** The fixed-mean union-find
-  chained a gradual orientation change (eight blocks 2.5° apart, 17.5° end to
-  end) into one grain at ``remerge_miso_deg=3``. The default now merges the
-  closest pair first, recomputes the union mean, and rejects a union that fails
-  :meth:`~graintrace.fragmentation.FragmentationAnalyzer.cluster_leak_check`.
-
-Labels below zero (``-1`` = material-but-unsegmented) are never clusters:
-``absorb_fragments``, ``adjacency_remerge``, ``cluster_orientation_spread`` and
-``cluster_leak_check`` leave them unchanged, and all take ``background_label``
-(e.g. ``(0, -1)`` on a raw grid whose void is ``0``).
-
-The orientation-spread percentile is not a leak detector
---------------------------------------------------------
-
-:meth:`~graintrace.fragmentation.FragmentationAnalyzer.cluster_orientation_spread`
-(the p95 misorientation to the mean) misses a leak of a few percent of the
-points (1000 voxels of a grain plus 45 of one 30° away: p95 ≈ 1.9°) and flags a
-real grain with a smooth 12° gradient (p95 ≈ 5.7° > 5°). Use
-:meth:`~graintrace.fragmentation.FragmentationAnalyzer.cluster_leak_check`, which
-looks for a separated orientation population instead; it is what ``pick_gamma``
-and the re-merge guard use.
+Do not use the p95 orientation spread to detect leaks. It misses a small leak and
+flags a smooth intragranular gradient. Use
+:meth:`~graintrace.fragmentation.FragmentationAnalyzer.cluster_leak_check` instead.
 
 NEPER is bring-your-own
 -----------------------

@@ -49,10 +49,7 @@ if __name__ == "__main__":
 - `dz` (layer thickness µm) must match the data; `nx,ny` in-plane grid resolution.
 - `segmentation`: **legacy flat dict** (no `method`/`params` nesting), `misorientation_tol`
   in radians. `connectivity` 6 or 26.
-- **Nothing caps grain size.** Flood's `grain_threshold`/`stop_count` are a *minimum* size and
-  an iteration budget, never a maximum. On the graph path `percolation_max_frac` is `None`
-  (off) by default: a real grain can be 10–30% of the solid. Mask low-confidence/void voxels
-  rather than capping; `gamma_pick="spread"` is the physical leak check. See CLAUDE.md §4.
+- No grain-size cap on any path; mask low-confidence/void voxels instead (CLAUDE.md §4).
 - `sculpt_config` (required: `psculpt`,`epu`,`nprocs`; +`launcher`/`environment` for MPI) and
   `sculpt_options` tuple (e.g. `("--adapt","-S","2","-CS","4","--void_mat","0")`); see CLAUDE.md §9.
 

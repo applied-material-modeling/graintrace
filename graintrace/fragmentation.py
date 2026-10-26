@@ -34,15 +34,6 @@ capabilities that share the same crystal symmetry and column conventions:
   (:meth:`FragmentationAnalyzer.grain_fragments`) and experiment grain splits
   across load steps (:meth:`FragmentationAnalyzer.detect_splits`).
 
-The segmenter uses a fixed broad RBF sigma (``sigma_auto`` collapses on
-near-identical intra-grain edges and shatters grains), a hard misorientation edge
-cutoff and a cap-free gamma pick (the lowest swept gamma, or the lowest one the
-physical percolation check -- :meth:`FragmentationAnalyzer.cluster_leak_check` --
-does not flag). It then absorbs small fragments into an orientation-compatible
-neighbour and runs an agglomerative adjacency-only re-merge that rejects unions
-failing the percolation check. No step caps grain size by default; the legacy
-3 % size cap (``percolation_max_frac``) is an explicit opt-in.
-
 Heavy dependencies (torch, neml2, scipy, networkit via ``GraphSpatialCluster``)
 are imported lazily inside the methods.
 """
@@ -113,11 +104,8 @@ def _contact_pairs(
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Touching label pairs ``(P, 2)`` (``a < b``) and their contact counts.
 
-    Pairs are returned in order of first appearance in a row-major scan of
-    ``nbr_idx`` (point ``i``, then its neighbours in order), which is the order
-    the original per-point loop inserted them in. Downstream tie-breaks depend on
-    that order, so keeping it keeps the legacy labels bit-identical. Points whose
-    ``ignore`` flag is set (unsegmented / background) never form a contact.
+    Pairs keep the first-appearance order of a per-point scan, which legacy
+    tie-breaks depend on. ``ignore``-flagged points never form a contact.
     """
     li = labels[:, None]
     lj = labels[nbr_idx[:, 1:]]
@@ -146,12 +134,10 @@ def _knn_cluster_adjacency(
     ignore: Optional[np.ndarray] = None,
     nbr_idx: Optional[np.ndarray] = None,
 ) -> Dict[Tuple[int, int], int]:
-    """Adjacent (touching) cluster-label pairs and their contact counts, via kNN.
+    """Adjacent cluster-label pairs and their kNN contact counts.
 
     Two clusters are adjacent when a point of one is among the ``k_neighbors``
-    nearest neighbours of a point of the other. Works for both voxel grids and
-    scattered mesh element centroids (no regular-grid assumption). Vectorised;
-    the dict preserves the first-appearance order of a per-point scan.
+    nearest neighbours of a point of the other; works for grids and scattered points.
     """
     if nbr_idx is None:
         nbr_idx = _knn_indices(coords, k_neighbors)
@@ -173,9 +159,7 @@ def _ignored_mask(
 
 
 def _relabel_contiguous(labels: np.ndarray, ignore: np.ndarray) -> np.ndarray:
-    """Relabel the non-ignored clusters contiguously from 0; ignored points keep
-    their label. Ids equal to an ignored non-negative label (raw-grid void ``0``)
-    are skipped so a background value never collides with a cluster id."""
+    """Relabel non-ignored clusters contiguously from 0, skipping ignored values."""
     out = labels.astype(np.int64).copy()
     if not ignore.any():
         return np.unique(out, return_inverse=True)[1].astype(np.int64).reshape(-1)
@@ -187,7 +171,6 @@ def _relabel_contiguous(labels: np.ndarray, ignore: np.ndarray) -> np.ndarray:
     return out
 
 
-# --- vectorised symmetry-aware orientation statistics ---------------------- #
 _FOLD_CHUNK = 50_000
 
 
@@ -242,9 +225,7 @@ def _quat_to_matrix_np(q: np.ndarray) -> np.ndarray:
 def _left_quat_matrix(q: np.ndarray) -> np.ndarray:
     """``L(q)`` with ``q (x) p == L(q) @ p`` (Hamilton product, scalar first).
 
-    ``matrix_to_quat(S @ R) == +-(q_S (x) q_R)``, so folding a cluster's
-    quaternions by a symmetry operator ``S`` maps its moment matrix
-    ``M = sum q q^T`` to ``L(q_S) M L(q_S)^T``.
+    Folding a cluster by symmetry operator ``S`` maps its moments to ``L M L^T``.
     """
     w, x, y, z = q
     return np.array(
@@ -255,11 +236,7 @@ def _left_quat_matrix(q: np.ndarray) -> np.ndarray:
 def _fold_to_reference(
     rmat: np.ndarray, ref: np.ndarray, ops: np.ndarray
 ) -> np.ndarray:
-    """Fold each ``rmat[i]`` to the variant ``ops[k] @ rmat[i]`` closest to ``ref[i]``.
-
-    Same rule as :meth:`FragmentationAnalyzer.mean_orientation_mrp` (maximise
-    ``sum(ref * cand)``, i.e. the trace of ``ref^T cand``), chunked for memory.
-    """
+    """Fold each ``rmat[i]`` to the variant ``ops[k] @ rmat[i]`` closest to ``ref[i]``."""
     # sum_ij ref_ij (O_k r)_ij == sum_il O_kil (r ref^T)_li: one (n,9)x(9,k) GEMM
     ops_flat = np.ascontiguousarray(np.swapaxes(ops, 1, 2)).reshape(len(ops), 9).T
     out = np.empty_like(rmat)
@@ -274,11 +251,10 @@ def _fold_to_reference(
 def _cluster_moments(
     rmat: np.ndarray, inv: np.ndarray, n_clusters: int, ops: np.ndarray
 ) -> np.ndarray:
-    """Per-cluster quaternion moment matrices ``(K, 4, 4)``, ``M_k = sum q q^T``.
+    """Per-cluster quaternion moments ``M_k = sum q q^T`` ``(K, 4, 4)``.
 
-    Every point is first folded to the symmetry variant closest to its cluster's
-    first point (the :meth:`FragmentationAnalyzer.mean_orientation_mrp` rule), so
-    the top eigenvector of ``M_k`` is that method's mean, for all clusters at once.
+    Points are folded to their cluster's first point, as in
+    :meth:`FragmentationAnalyzer.mean_orientation_mrp`.
     """
     _, first = np.unique(inv, return_index=True)
     folded = _fold_to_reference(rmat, rmat[first][inv], ops)
@@ -299,12 +275,7 @@ def _moments_mean_matrix(mom: np.ndarray) -> np.ndarray:
 
 
 def _sym_miso_deg(ra: np.ndarray, rb: np.ndarray, ops: np.ndarray) -> np.ndarray:
-    """Symmetry-reduced misorientation (deg) between row-aligned matrix stacks.
-
-    Equals :func:`~graintrace.orientation_helper.misorientation_matrix`: the
-    two-sided ``S dR S'^T`` minimum reduces to one-sided ``T dR`` by trace
-    invariance under conjugation.
-    """
+    """Symmetry-reduced misorientation (deg) between row-aligned matrix stacks."""
     dr = np.matmul(ra, np.swapaxes(rb, -1, -2))
     tr = np.einsum("kij,nji->nk", ops, dr).max(axis=1)
     return np.rad2deg(np.arccos(np.clip((tr - 1.0) / 2.0, -1.0, 1.0)))
@@ -330,13 +301,7 @@ def _rotation_vector_deg(rmat: np.ndarray) -> np.ndarray:
 def _cluster_tangent(
     mrp: np.ndarray, inv: np.ndarray, n_clusters: int, ops: np.ndarray
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """Cluster mean matrices ``(K, 3, 3)`` and each point's tangent vector.
-
-    The tangent vector of a point is the rotation vector (degrees) taking its
-    cluster mean to the point's closest symmetry variant, so its norm is the
-    symmetry-aware misorientation to the mean and distances between tangent
-    vectors approximate point-to-point misorientations within a cluster.
-    """
+    """Cluster mean matrices ``(K, 3, 3)`` and per-point rotation vectors (deg) from them."""
     rmat = _mrp_to_matrix_np(mrp)
     mean_r = _moments_mean_matrix(_cluster_moments(rmat, inv, n_clusters, ops))
     ref = mean_r[inv]
@@ -386,19 +351,15 @@ def _subsample_per_cluster(
 def _separated_populations(
     vecs: np.ndarray, tol_deg: float, min_size: int, min_cell_points: int = 2
 ) -> Tuple[int, float]:
-    """Points in, and separation of, orientation populations split off by a gap.
+    """Points in, and separation of, gap-separated orientation populations.
 
-    ``vecs`` are one cluster's tangent vectors (degrees). They are binned on a
-    grid of ``tol_deg / 4`` cells; a cell with at least ``min_cell_points`` points
-    is dense, and dense cells that touch (26-connectivity) form one population.
-    A population of at least ``min_size`` points whose centroid sits more than
-    ``tol_deg`` from the largest population's is a leak. A continuous gradient
-    fills a connected run of cells (one population); a leaked grain is a second
-    dense blob behind an empty gap; a speckled bridge of isolated noisy points
-    fills no dense cell, so it does not join the two.
+    Tangent vectors are binned on a ``tol_deg / 4`` grid; touching cells with at
+    least ``min_cell_points`` points form a population. A population of
+    ``min_size`` or more points whose centroid is over ``tol_deg`` from the largest
+    one is a leak.
 
     Returns:
-        ``(n_leaked_points, max_separation_deg)``; ``(0, 0.0)`` when no leak.
+        ``(n_leaked_points, max_separation_deg)``.
     """
     # pylint: disable=import-outside-toplevel
     from scipy import ndimage
@@ -684,33 +645,21 @@ class FragmentationAnalyzer:
         seed: int = 0,
         background_label: Union[int, Iterable[int], None] = -1,
     ) -> Dict[int, float]:
-        """Per-cluster intragranular orientation spread, in degrees.
+        """Per-cluster ``q``-th percentile misorientation (deg) of points to the mean.
 
-        The spread of a cluster is the ``q``-th percentile (symmetry-aware)
-        misorientation of its points to the cluster's mean orientation. It is a
-        descriptive statistic; the percolation *flag* used by :meth:`pick_gamma`
-        and :meth:`adjacency_remerge` is :meth:`cluster_leak_check`, which uses
-        this spread only as a coarse backstop (a high percentile misses a leak of
-        a few percent of the points, and flags a real grain with a smooth
-        intragranular gradient). Vectorised over all clusters at once.
+        Descriptive only; use :meth:`cluster_leak_check` to flag percolation.
 
         Args:
             mrp: ``(N, 3)`` neml2 MRP orientations.
-            labels: ``(N,)`` integer cluster labels aligned to ``mrp``.
+            labels: ``(N,)`` integer cluster labels.
             symmetry: crystal symmetry (orbifold notation).
-            q: percentile of the within-cluster misorientation distribution.
-            max_points: clusters larger than this are randomly subsampled (the mean
-                and the percentile use the subsample); ``0`` disables subsampling.
-            seed: RNG seed for that subsampling.
-            background_label: label, or iterable of labels, that is not a cluster
-                (e.g. raw-grid void ``0``), on top of every negative label.
+            q: percentile.
+            max_points: per-cluster random subsample size; ``0`` uses all points.
+            seed: RNG seed for the subsampling.
+            background_label: label(s) to skip in addition to all negative labels.
 
         Returns:
-            ``{label: spread_deg}`` for every cluster label present. Negative
-            labels are never clusters: ``-1`` marks material-but-unsegmented points
-            (see :meth:`~graintrace.nf.segment.remove_small_segments`), scattered
-            orphans with no shared orientation whose "spread" would be large by
-            construction and flag every :meth:`pick_gamma` ``"spread"`` candidate.
+            ``{label: spread_deg}`` per cluster.
         """
         stats = _cluster_stats(
             mrp, labels, symmetry, q, max_points, seed, background_label
@@ -737,56 +686,30 @@ class FragmentationAnalyzer:
         seed: int = 0,
         background_label: Union[int, Iterable[int], None] = -1,
     ) -> Dict[int, Dict[str, Any]]:
-        """Flag clusters that leaked across a grain boundary (physical percolation).
+        """Flag clusters that leaked across a grain boundary.
 
-        A cluster is **flagged** when either:
-
-        * **a separated orientation population** -- at least ``min_leak_frac`` of
-          its points (and at least ``min_leak_points``) form a population that is
-          split off from the dominant one by an orientation *gap* and sits more
-          than ``tol_deg`` from it; or
-        * **the backstop** -- its ``q``-th percentile spread
-          (:meth:`cluster_orientation_spread`) exceeds ``backstop_factor *
-          tol_deg``, i.e. the cluster is too wide to be one grain at this cutoff
-          whatever its internal structure.
-
-        *Why not the spread percentile alone.* A percentile to the mean is blind
-        to the shape of the distribution. 1000 points of grain A plus 45 points
-        of a grain 30 deg away (a 4 % leak) give a p95 of only ~2 deg, while one
-        real grain with a smooth 12 deg orientation gradient gives ~5.7 deg, so a
-        percentile threshold either misses the leak or splits the grain. What
-        separates them is *continuity*: a gradient has small orientation steps
-        between neighbouring points, a leak has a jump. The check therefore
-        embeds each point as its rotation vector from the cluster mean (the
-        tangent space, where distance approximates misorientation), bins it on a
-        ``tol_deg / 4`` grid, and connects dense, touching cells into
-        populations. A gradient fills one connected run of cells; a leaked grain
-        is a second dense blob behind an empty gap; isolated noisy voxels (a
-        speckled low-confidence bridge) fill no dense cell, so they cannot join
-        two grains. Only a population that is both sizeable (``min_leak_frac`` /
-        ``min_leak_points``, so a few outlier voxels never flag) and farther than
-        ``tol_deg`` from the dominant one counts. Orientation-only, so it needs
-        no coordinates and is identical for voxel grids and mesh centroids.
+        A cluster is flagged when a population of at least ``min_leak_frac`` and
+        ``min_leak_points`` of its points is separated from the dominant one by an
+        orientation gap and lies more than ``tol_deg`` away, or when its ``q``-th
+        percentile spread exceeds ``backstop_factor * tol_deg``. Gap separation, unlike
+        a spread percentile, catches a small leak without flagging a smooth
+        intragranular gradient.
 
         Args:
             mrp: ``(N, 3)`` neml2 MRP orientations.
-            labels: ``(N,)`` integer cluster labels aligned to ``mrp``.
-            tol_deg: the segmentation misorientation cutoff (degrees).
+            labels: ``(N,)`` integer cluster labels.
+            tol_deg: segmentation misorientation cutoff (degrees).
             symmetry: crystal symmetry (orbifold notation).
-            min_leak_frac: minimum fraction of the cluster a separated population
-                must hold to count as a leak.
-            min_leak_points: minimum number of points it must hold.
+            min_leak_frac: minimum fraction of the cluster in a leaked population.
+            min_leak_points: minimum number of points in a leaked population.
             q: percentile for the reported spread and the backstop.
-            backstop_factor: the backstop flags a spread above
-                ``backstop_factor * tol_deg``; ``None`` or ``inf`` disables it.
-            max_points: per-cluster random subsample size (``0`` = all points).
-            seed: RNG seed for that subsampling.
-            background_label: label(s) that are not clusters, on top of every
-                negative label (unsegmented points are never checked).
+            backstop_factor: spread backstop as a multiple of ``tol_deg``; ``None`` disables it.
+            max_points: per-cluster random subsample size; ``0`` uses all points.
+            seed: RNG seed for the subsampling.
+            background_label: label(s) to skip in addition to all negative labels.
 
         Returns:
-            ``{label: {"flagged", "spread_deg", "leak_frac", "leak_sep_deg"}}``
-            for every cluster label present.
+            ``{label: {"flagged", "spread_deg", "leak_frac", "leak_sep_deg"}}``.
         """
         stats = _cluster_stats(
             mrp, labels, symmetry, q, max_points, seed, background_label
@@ -810,8 +733,7 @@ class FragmentationAnalyzer:
             sp = float(spread[c]) if n_c >= 2 else 0.0
             n_leak, sep = 0, 0.0
             min_size = max(int(min_leak_points), int(np.ceil(min_leak_frac * n_c)))
-            # a sizeable second population needs >= 2 * min_size points, and two
-            # centroids farther than tol apart need a point beyond tol / 2
+            # cheap reject: a leak needs >= 2*min_size points and a point beyond tol/2
             if n_c >= 2 * min_size and max_dist[c] > tol_deg / 2.0:
                 sel = order[starts[c] : starts[c] + n_c]
                 n_leak, sep = _separated_populations(vecs[sel], tol_deg, min_size)
@@ -904,41 +826,24 @@ class FragmentationAnalyzer:
     ) -> np.ndarray:
         """Absorb sub-``min_size`` clusters into a touching neighbour.
 
-        Uses kNN contact counts for adjacency, so it works for any point set (voxel
-        grids or scattered mesh centroids). Iterates until no sub-``min_size``
-        cluster can be absorbed (or ``max_passes``), then relabels contiguously
-        from 0. Vectorised over points (the per-pass work is a kNN contact count,
-        not a Python loop over voxels).
-
-        **Orientation gate.** Without ``mrp``/``max_miso_deg`` (the legacy rule) a
-        small cluster goes to its *largest-contact* neighbour whatever their
-        misorientation, which on real NF data swallows every small, differently
-        oriented grain into its neighbours and drags their mean orientations. With
-        both given, a small cluster is absorbed only into a touching neighbour
-        whose (symmetry-aware) mean orientation is within ``max_miso_deg``,
-        choosing the **closest misorientation** among the touching neighbours
-        (ties go to the larger contact); with no such neighbour it stays its own
-        small grain. Cluster means are recomputed each pass, and a small cluster
-        whose target is itself being absorbed waits for the next pass, so gated
-        absorption never chains past ``max_miso_deg``.
+        Without the gate, a small cluster joins its largest-contact neighbour (legacy).
+        With ``mrp`` and ``max_miso_deg``, it joins the closest-misorientation
+        neighbour within ``max_miso_deg``, or stays as it is.
 
         Args:
             coords: ``(N, 3)`` point coordinates.
             labels: ``(N,)`` integer cluster labels.
             min_size: clusters with fewer points are absorbed.
-            k_neighbors: neighbours per point used to measure cluster contact.
-            max_passes: safety cap on absorption passes.
-            mrp: ``(N, 3)`` neml2 MRP orientations, enabling the orientation gate.
+            k_neighbors: neighbours per point used to measure contact.
+            max_passes: maximum number of absorption passes.
+            mrp: ``(N, 3)`` neml2 MRP orientations; enables the gate.
             max_miso_deg: gate tolerance (degrees); ``None`` disables the gate.
-            symmetry: crystal symmetry (orbifold notation) for the gate.
-            background_label: label(s) that are not clusters, on top of every
-                negative label. Such points are never absorbed, never absorb
-                anything, and keep their label (e.g. pass ``(0, -1)`` on a raw
-                voxel grid with void ``0``; the clusters are then numbered from 1).
+            symmetry: crystal symmetry (orbifold notation).
+            background_label: label(s) left untouched in addition to all negative
+                labels; use ``(0, -1)`` for a raw voxel grid.
 
         Returns:
-            ``(N,)`` labels: clusters contiguous from 0 (skipping any background
-            value), unsegmented/background points unchanged.
+            ``(N,)`` labels, with clusters contiguous from 0 and ignored labels unchanged.
         """
         labels = np.asarray(labels, dtype=np.int64).reshape(-1).copy()
         ignore = _ignored_mask(labels, background_label)
@@ -1043,56 +948,27 @@ class FragmentationAnalyzer:
         spread_tol_deg: Optional[float] = None,
         background_label: Union[int, Iterable[int], None] = -1,
     ) -> np.ndarray:
-        """Merge spatially adjacent clusters within ``tol_deg`` misorientation.
+        """Merge spatially adjacent clusters within ``tol_deg`` mean misorientation.
 
-        Adjacency is kNN contact, so it works for both voxel grids and scattered
-        mesh element centroids. Bounded by **misorientation only** by default:
-        grain size is not a percolation signal, so no merge is rejected for being
-        large.
-
-        **Agglomerative (default, no size cap).** The closest adjacent pair (by
-        mean misorientation) merges first, the union's mean is recomputed, and its
-        misorientation to every neighbour is re-evaluated before the next merge
-        (as :meth:`merge_fragments_by_misorientation` does). A fixed-mean
-        union-find links every pair inside ``tol_deg`` and so *chains*: eight
-        adjacent blocks 2.5 deg apart (17.5 deg end to end) collapse into one at
-        ``tol_deg=3``. Recomputing the mean stops that: once two blocks merge,
-        their mean is 3.75 deg from the next block, so the chain cannot propagate.
-        The union mean comes from summed quaternion moments (folded by the
-        symmetry operator that brings the two means together), so each merge is
-        O(1), not O(cluster size).
-
-        Optional guards:
-
-        * ``spread_tol_deg`` -- the physical check: reject a merge whose union
-          would be flagged by :meth:`cluster_leak_check` at this tolerance (a
-          separated orientation population, or a spread far beyond it). Costs one
-          check per candidate merge. :meth:`segment` turns it on by default.
-        * ``percolation_max_frac`` -- the legacy size cap, kept as an explicit
-          opt-in for unmasked data. It also selects the **legacy** fixed-mean
-          union-find (tightest pairs first), so the opt-in reproduces the old
-          labels exactly. Any union above this fraction of the point count is
-          skipped, which makes the method inert on small point sets (one grain's
-          ~100 elements in :meth:`grain_fragments`).
+        Merges are agglomerative: the closest pair merges first and the union mean is
+        recomputed, so a gradual orientation change does not chain. The size cap applies
+        only when ``percolation_max_frac`` is set, which also restores the legacy
+        fixed-mean union-find.
 
         Args:
             coords: ``(N, 3)`` point coordinates.
             mrp: ``(N, 3)`` neml2 MRP orientations.
             labels: ``(N,)`` integer cluster labels.
-            tol_deg: merge adjacent clusters whose mean orientations are within this.
+            tol_deg: merge threshold on mean misorientation (degrees).
             symmetry: crystal symmetry (orbifold notation).
-            k_neighbors: neighbours per point used to measure cluster contact.
-            percolation_max_frac: legacy size cap (and legacy union-find); ``None``
-                (the default) applies no size cap and merges agglomeratively.
-            spread_tol_deg: reject a merge whose union fails
-                :meth:`cluster_leak_check` at this tolerance (degrees); ``None``
-                (the default) skips the check.
-            background_label: label(s) that are not clusters, on top of every
-                negative label; such points never merge and keep their label.
+            k_neighbors: neighbours per point used to measure contact.
+            percolation_max_frac: legacy size cap, as a fraction of points; ``None`` means no cap.
+            spread_tol_deg: reject a union that :meth:`cluster_leak_check` flags at this
+                tolerance; ``None`` skips the check.
+            background_label: label(s) left untouched in addition to all negative labels.
 
         Returns:
-            ``(N,)`` labels: clusters contiguous from 0 (skipping any background
-            value), unsegmented/background points unchanged.
+            ``(N,)`` labels, with clusters contiguous from 0 and ignored labels unchanged.
         """
         labels = np.asarray(labels, dtype=np.int64).reshape(-1).copy()
         mrp = np.asarray(mrp, dtype=float).reshape(-1, 3)
@@ -1356,24 +1232,15 @@ class FragmentationAnalyzer:
     def pick_gamma_by_percolation(
         sweep: Sequence[dict], percolation_max_frac: Optional[float] = None
     ) -> dict:
-        """Pick the smallest gamma whose biggest cluster is below a size cap.
+        """Legacy pick: the smallest gamma whose biggest cluster is below a size cap.
 
-        **Legacy size-cap pick.** Grain size is not a valid percolation signal: a
-        legitimately large grain is forced below the cap and cut into arbitrary
-        pieces, so the chosen gamma reflects the cap rather than the data. Prefer
-        :meth:`pick_gamma`, which selects on the physical orientation-spread check.
-        This remains available as an explicit opt-in for legacy, unmasked data.
-
-        The raw Leiden count is near gamma-invariant here (all gammas over-segment);
-        gamma controls only the biggest ("percolating") cluster, and the final grain
-        count is set by absorption. So choose the least over-resolved, still
-        de-percolated gamma; if none qualifies, the overall minimum ``max_frac``.
+        If no gamma is below the cap, returns the one with the smallest ``max_frac``.
+        Prefer :meth:`pick_gamma`.
 
         Args:
             sweep: per-gamma results from :meth:`gamma_sweep_leiden`.
-            percolation_max_frac: size cap as a fraction of the point count;
-                ``None`` (the default) applies no cap, so the lowest swept gamma
-                wins.
+            percolation_max_frac: size cap as a fraction of points; ``None`` returns
+                the lowest gamma.
 
         Returns:
             The selected sweep entry.
@@ -1397,49 +1264,30 @@ class FragmentationAnalyzer:
     ) -> dict:
         """Choose a Leiden resolution from a gamma sweep, without a size cap.
 
-        Two cap-free modes:
-
-        * ``"lowest"`` (the default) -- the lowest swept gamma, i.e. the least
-          over-resolved segmentation. Correct when the data has already been masked
-          (confidence/void), so there is no bridge for a cluster to percolate along.
-        * ``"spread"`` -- the lowest gamma for which **no** cluster is flagged by
-          the percolation check (:meth:`cluster_leak_check` at
-          ``spread_tol_deg``). If every gamma flags something, the one with the
-          fewest flagged clusters wins (lowest gamma on a tie).
-
-        Passing ``percolation_max_frac`` restores the legacy size-cap pick
-        (:meth:`pick_gamma_by_percolation`) and ignores ``mode``.
-
-        **Diagnostics.** Whenever ``mrp`` and ``spread_tol_deg`` are given, every
-        entry in ``sweep`` -- in every mode, including the legacy cap -- is
-        annotated in place with ``n_flagged`` (clusters flagged by the check) and
-        ``max_spread_deg`` (largest ``spread_q`` percentile spread), so the
-        choice is inspectable. The annotation never changes the ``"lowest"`` or
-        legacy pick.
+        ``"lowest"`` returns the lowest swept gamma. ``"spread"`` returns the lowest
+        gamma that :meth:`cluster_leak_check` does not flag, or else the one with the
+        fewest flagged clusters. When ``mrp`` and ``spread_tol_deg`` are given, every
+        row is annotated in place with ``n_flagged`` and ``max_spread_deg``.
 
         Args:
             sweep: per-gamma results from :meth:`gamma_sweep_leiden`.
             mode: ``"lowest"`` or ``"spread"``.
             mrp: ``(N, 3)`` neml2 MRP orientations; required for ``"spread"``.
-            spread_tol_deg: the percolation-check tolerance (degrees); required for
-                ``"spread"``. Set it to the segmentation misorientation cutoff.
+            spread_tol_deg: leak-check tolerance (degrees); required for ``"spread"``.
             symmetry: crystal symmetry (orbifold notation).
-            percolation_max_frac: legacy size cap opt-in; ``None`` means no cap.
-            spread_q: percentile for the reported spread and the check's backstop.
+            percolation_max_frac: if set, use the legacy :meth:`pick_gamma_by_percolation`.
+            spread_q: percentile for the spread diagnostics.
 
         Returns:
             The selected sweep entry.
 
         Raises:
-            ValueError: on an unknown ``mode``, an empty ``sweep``, or ``"spread"``
-                without ``mrp`` and ``spread_tol_deg``.
+            ValueError: for an unknown ``mode`` or an empty ``sweep``, or for
+                ``"spread"`` without ``mrp`` and ``spread_tol_deg``.
         """
         if not sweep:
             raise ValueError("pick_gamma got an empty sweep.")
-        # Validated before the legacy short-circuit below, not after it: the cap
-        # path ignores mode, so a typo'd mode combined with percolation_max_frac
-        # would otherwise be accepted silently and the caller would believe a
-        # pick they never asked for was the one they configured.
+        # validate first: the legacy path ignores mode and would hide a typo
         if mode not in ("lowest", "spread"):
             raise ValueError(
                 f"Unknown gamma pick mode '{mode}'; expected 'lowest' or 'spread'."
@@ -1498,78 +1346,44 @@ class FragmentationAnalyzer:
     ) -> np.ndarray:
         """Segment a point set by crystal orientation (graph / Leiden).
 
-        Preferred over flood fill, which over-merges into percolating grains. Wraps
-        :class:`~graintrace.graph_spatial_cluster.GraphSpatialCluster` with the
-        symmetry-aware misorientation metric on neml2 MRP orientations and the tuned
-        recipe: fixed broad RBF sigma, hard misorientation cutoff, a gamma pick,
-        then a misorientation-gated absorb + an agglomerative adjacency re-merge.
-
-        **No grain-size cap by default.** Grain size is not a percolation signal, so
-        nothing here forces a cluster below a fraction of the point set; a real
-        grain that occupies 10-30% of a small field of view survives whole. Mask the
-        data first (confidence/void) so there is no bridge to percolate along, then
-        leave the cap off. ``percolation_max_frac`` restores the legacy cap for
-        unmasked data, and ``gamma_pick="spread"`` is the physical alternative: it
-        flags a cluster whose intragranular orientation spread exceeds the
-        segmentation cutoff (:meth:`cluster_leak_check`). Per-gamma diagnostics
-        (``n_grains``, ``max_frac``, ``n_flagged``, ``max_spread_deg`` for every
-        swept gamma) land in :attr:`last_gamma_diagnostics`.
-
-        **Clean-up stages (no-cap defaults).** Sub-``grain_threshold_final``
-        fragments are absorbed only into a touching neighbour within
-        ``absorb_max_miso_deg`` (default ``misori_tol_deg``) -- otherwise a small,
-        differently oriented grain is swallowed and drags its neighbour's mean.
-        The re-merge is agglomerative (closest pair first, means recomputed, so it
-        cannot chain) and rejects a union that fails the percolation check.
-        Passing ``percolation_max_frac`` restores the legacy pipeline exactly:
-        size-capped pick, orientation-blind absorb, fixed-mean union-find re-merge
-        with no spread check (unless ``remerge_spread_check=True`` or a numeric
-        ``absorb_max_miso_deg`` is passed explicitly).
+        Wraps :class:`~graintrace.graph_spatial_cluster.GraphSpatialCluster` with a
+        symmetry-aware misorientation metric. It picks a gamma, absorbs small fragments
+        under a misorientation gate, then runs an agglomerative adjacency re-merge.
+        There is no grain-size cap by default. Per-gamma diagnostics are stored in
+        :attr:`last_gamma_diagnostics`.
 
         Args:
             coords: ``(N, 3)`` point coordinates (voxel centres or element centroids).
             mrp: ``(N, 3)`` neml2 MRP orientations.
             misori_tol_deg: hard misorientation edge cutoff (degrees).
-            graph_mode: ``"grid"`` for regular voxel grids (NF/EBSD), ``"knn"`` for
-                scattered mesh element centroids.
-            gamma: fixed Leiden resolution; if ``None``, a swept-and-picked gamma.
+            graph_mode: ``"grid"`` for voxel grids, ``"knn"`` for scattered centroids.
+            gamma: fixed Leiden resolution; ``None`` sweeps ``gamma_sweep``.
             gamma_sweep: resolutions to sweep when ``gamma`` is ``None``.
             rbf_sigma_deg: fixed RBF sigma (degrees); defaults to half ``misori_tol_deg``.
             manhattan_radius: grid connectivity radius (``graph_mode="grid"``).
             k: neighbours per node (``graph_mode="knn"``).
-            reduce_topk: keep top-k edges per node by weight before clustering.
-            grain_threshold_final: minimum cluster size; smaller ones are absorbed
-                (into an orientation-compatible neighbour, see
-                ``absorb_max_miso_deg``).
-            remerge_miso_deg: adjacency re-merge misorientation threshold (degrees).
-            gamma_pick: ``"lowest"`` (least over-resolved swept gamma) or
-                ``"spread"`` (lowest gamma flagging no cluster by orientation
-                spread). Ignored when ``percolation_max_frac`` is set.
-            spread_tol_deg: tolerance of the percolation check
-                (:meth:`cluster_leak_check`) used by the ``"spread"`` pick, the
-                diagnostics and the re-merge guard; defaults to
-                ``misori_tol_deg``, the segmentation cutoff.
-            remerge_spread_check: reject an adjacency re-merge whose union fails
-                :meth:`cluster_leak_check` at ``spread_tol_deg``. ``"auto"`` (the
-                default) means on, except on the legacy ``percolation_max_frac``
-                path where it is off.
-            percolation_max_frac: legacy size cap for the gamma pick and the
-                re-merge; ``None`` (the default) applies no cap. Setting it also
-                restores the legacy absorb and re-merge (see above).
-            absorb_max_miso_deg: orientation gate for the fragment absorption
-                (degrees; see :meth:`absorb_fragments`). ``"auto"`` (the default)
-                means ``misori_tol_deg``, except on the legacy
-                ``percolation_max_frac`` path where it is off; ``None`` disables
-                the gate (orientation-blind largest-contact absorption).
-            n_jobs: parallel workers for edge-distance build.
+            reduce_topk: keep the top-k edges per node by weight.
+            grain_threshold_final: clusters smaller than this are absorbed.
+            remerge_miso_deg: adjacency re-merge threshold (degrees).
+            gamma_pick: ``"lowest"`` or ``"spread"`` (see :meth:`pick_gamma`).
+            spread_tol_deg: leak-check tolerance (degrees); defaults to ``misori_tol_deg``.
+            remerge_spread_check: reject re-merges that the leak check flags; ``"auto"``
+                means on, except on the legacy path.
+            percolation_max_frac: legacy size cap; setting it restores the legacy
+                pipeline exactly. ``None`` means no cap.
+            absorb_max_miso_deg: absorption gate (degrees); ``"auto"`` means
+                ``misori_tol_deg`` (off on the legacy path), ``None`` disables the gate.
+            n_jobs: parallel workers for the edge-distance build.
             n_threads: threads for Leiden.
             seed: RNG seed.
-            workdir: scratch directory for the graph input CSV + checkpoint (a temp
-                directory is used and cleaned up if ``None``).
-            verbose: print the per-gamma diagnostics table.
+            workdir: scratch directory; a temporary directory is used if ``None``.
+            verbose: print the per-gamma diagnostics.
 
         Returns:
             ``(N,)`` contiguous 0-based cluster labels aligned to ``coords`` rows.
+
+        Raises:
+            ValueError: for an invalid ``"auto"``-style string option.
         """
         # pylint: disable=import-outside-toplevel
         import pandas as pd
@@ -1719,14 +1533,6 @@ class FragmentationAnalyzer:
         Euler angles). Provide orientations as either ``mrp`` (neml2 MRP) or
         ``euler`` (with ``angle_convention``/``angle_type``).
 
-        **Robust mean.** With ``trim_miso_deg`` set, each grain's mean is
-        recomputed after dropping the points more than ``trim_miso_deg``
-        (symmetry-aware) from it, ``trim_iters`` times. A segmentation that
-        absorbed a few differently oriented voxels otherwise biases the mean (on
-        Fe-9Cr NF the median grain mean was off by ~0.9 deg; trimming at 5 deg
-        restored ~0.04 deg). Only the orientation is trimmed; the centroid and
-        ``GrainRadius`` still use every point of the grain.
-
         Args:
             labels: ``(N,)`` integer grain labels.
             coords: ``(N, 3)`` point coordinates.
@@ -1738,10 +1544,9 @@ class FragmentationAnalyzer:
             background_label: label, or iterable of labels, treated as
                 non-grain and skipped. Defaults to ``-1``. See the note on
                 label domains below before changing it.
-            trim_miso_deg: if set, trim points farther than this (degrees) from
-                the grain mean and recompute it (see "Robust mean"); ``None``
-                (the default) keeps the plain mean of every point.
-            trim_iters: number of trim-and-recompute iterations.
+            trim_miso_deg: if set, drop points farther than this (degrees) from
+                the grain mean and recompute it (orientation only).
+            trim_iters: number of trim-and-recompute passes.
 
         .. note::
 
@@ -1899,14 +1704,8 @@ class FragmentationAnalyzer:
                 a smooth intragranular gradient chopped into near-identical Leiden
                 communities collapses back to one fragment while genuine sub-grains
                 (a real low-angle sub-boundary) survive. ``0`` disables the merge.
-            seg_kwargs: extra keyword overrides forwarded to :meth:`segment`.
-                Without a ``"gamma"`` key the documented sub-grain resolution
-                ``gamma=0.25`` is used (not a sweep: the sweep's lowest-gamma pick
-                would under-split, and ``0.1`` leaves grains whole); pass
-                ``{"gamma": None}`` explicitly to sweep. Absorption here is
-                orientation-blind (``absorb_max_miso_deg=None``): every fragment
-                belongs to one parent grain and ``min_subgrain_miso_deg`` sets the
-                physical threshold.
+            seg_kwargs: overrides forwarded to :meth:`segment`; ``gamma`` defaults
+                to 0.25 (``{"gamma": None}`` sweeps) and absorption is ungated.
 
         Returns:
             ``(fragments_df, per_element_labels)`` where ``fragments_df`` has one row
@@ -1943,11 +1742,7 @@ class FragmentationAnalyzer:
                 # too small to split meaningfully -> one fragment
                 labels = np.zeros(n_elem, dtype=np.int64)
             else:
-                # remerge_miso_deg=0 (OFF): the adjacency re-merge is an NF-grid tool
-                # that on a single grain's ~100 elements over-merges by single-linkage
-                # chaining (its means are computed once). gamma is the lever for
-                # sub-grain resolution here, with min_subgrain_miso_deg below as the
-                # physical threshold. verbose=False: one sweep table per grain is noise.
+                # re-merge off: min_subgrain_miso_deg is the sub-grain threshold here
                 seg_call = {
                     "misori_tol_deg": tol_deg,
                     "graph_mode": "knn",
