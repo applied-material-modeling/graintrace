@@ -281,7 +281,10 @@ largest is too loose for the small ones. The size-aware modes read the per-grain
    limit on how many children a split may have. Passing a non-default ``top_k``
    in a radius mode warns, so the cap is not ignored silently. A radius mode with
    ``radius_col`` missing from either table raises, rather than silently gating at
-   zero.
+   zero. A NaN or negative radius is treated as 0, with one ``UserWarning`` giving
+   the count, so that grain's gate falls back to ``d_tol`` instead of one bad row
+   silently removing every link. A negative (or NaN) ``d_tol``, ``theta_tol_deg``,
+   ``alpha``, ``alpha_a`` or ``alpha_b`` raises ``ValueError``.
 
 Three reporting options sit alongside the lineage view.
 ``assignment="one_to_one"`` additionally runs a Hungarian assignment over the gated

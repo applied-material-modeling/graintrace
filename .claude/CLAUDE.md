@@ -816,7 +816,8 @@ small B grains sit inside one large A grain (FF duplicates across scan layers, N
 coarse parent's fragments): the children sit anywhere up to ~the parent's radius from its
 centroid, so a median-sized gate misses them and a largest-sized gate is too loose for the rest.
 `d_tol_mode="radius"`/`"radius_sum"` read `radius_col` (default `GrainRadius`) from BOTH tables
-(missing → raises, not a silent zero gate) and **replace the `top_k` query with a ball query
+(missing → raises, not a silent zero gate; a NaN/negative value counts as 0 with one
+`UserWarning`, so that grain falls back to `d_tol`) and **replace the `top_k` query with a ball query
 covering the gate**, so `top_k` is an `"absolute"`-mode knob only and can no longer cap a split's
 child count below the gate.
 `nodes_*` are per-grain tables (`grain_id,X,Y,Z,GrainRadius,Eul0/1/2`). FF supplies them
@@ -1067,7 +1068,10 @@ All on `FragmentationAnalyzer(symmetry="432", ori_cols=…, coord_cols=…)`:
   `d_tol_mode` picks the gate: `"absolute"` (default, one `d_tol`), `"radius"`
   (`max(d_tol, alpha_a*R_a, alpha_b*R_b)`; `d_tol` is a floor for tiny grains) or
   `"radius_sum"` (`alpha*(R_a+R_b)`; `alpha`≈1 is the tangent-sphere criterion). Both
-  radius modes ignore `top_k` and search a ball covering the gate.
+  radius modes ignore `top_k` and search a ball covering the gate. A NaN/negative
+  radius counts as 0 (one `UserWarning` with the count) so that grain's gate falls back
+  to `d_tol`; a negative/NaN `d_tol`, `theta_tol_deg`, `alpha`, `alpha_a` or `alpha_b`
+  raises `ValueError`.
   `assignment="one_to_one"` adds a Hungarian assignment over the gated candidates
   (cost `miso/theta_tol_deg + d/gate`, solved per connected component, components
   unchanged) in `res["one_to_one"]`. `res["recall"]` is always present: per-side linked
@@ -1406,12 +1410,15 @@ are far in orientation (the misorientation filter), so ensure real grains are we
 radius from the parent centroid, so with an R=50 parent and sub-grains at 0.8R, `d_tol=10`
 reports 3 births + 1 death where `d_tol_mode="radius"` reports the 1 split with 3 children.
 Switch modes instead of inflating `d_tol`, which chains unrelated neighbours. Two traps: the
-radius modes need `radius_col` in BOTH tables (they raise if it is missing), and `top_k` does
+radius modes need `radius_col` in BOTH tables (they raise if it is missing; a NaN or negative
+radius is treated as 0 with a `UserWarning`, so that grain falls back to the `d_tol` floor
+rather than one bad row silently dropping every link), and `top_k` does
 nothing in them (a non-default value warns) — in `"absolute"` mode `top_k`, not `d_tol`, is
 still the binding cap on a split's child count. Validate a gate with `n_null=...`: if
 `null["mean_links"]` is close to `null["observed_links"]`, the gate is admitting chance
 matches, not lineage. Both counts are taken before the `adjacency_b` prune, which the null
-never sees; `null["observed_links_after_adjacency"]` is the post-prune count.
+never sees; `null["observed_links_after_adjacency"]` is the post-prune count. Negative (or
+NaN) `d_tol`/`theta_tol_deg`/`alpha*` raise `ValueError` instead of returning no links.
 
 ### Reorientation REI: reference step + `ori_rodrigues` is MRP
 `FragmentationAnalyzer.reorientation_from_reference`/`.write_reorientation_field` default

@@ -59,7 +59,9 @@ median grain misses them and one sized for the largest is too loose for the rest
   mean "the two grains touch"; `alpha` near 1 is the tangent-sphere criterion.
 
 Both read `radius_col` (default `GrainRadius`) from **both** tables and raise if it is
-missing, rather than silently gating at zero.
+missing, rather than silently gating at zero. A NaN or negative radius counts as 0 (one
+warning with the count), so that grain falls back to `d_tol`. Negative `d_tol`,
+`theta_tol_deg`, `alpha`, `alpha_a` or `alpha_b` raise an error.
 
 ### One-to-one assignment, recall, and the chance null
 - `assignment="one_to_one"`: adds a Hungarian assignment over the gated candidates as
@@ -68,7 +70,9 @@ missing, rather than silently gating at zero.
   error without `GraphGrainMatcher` and its tessellation graphs.
 - `recall` is always reported: the linked fraction of each side, volume-weighted when a
   `volume_col` column exists. Pass `in_overlap_a`/`in_overlap_b` (boolean array or
-  column name) so grains outside the shared volume do not count as misses.
+  column name; through the MCP tool, a boolean column name) so grains outside the
+  shared volume do not count as misses. A side with nothing to count reports a `null`
+  fraction.
 - `n_null` (with `seed`): reruns the misorientation filter over the same distance-gated
   pairs with uniformly random B orientations. Compare `null.mean_links` against
   `null.observed_links` to check a gate setting is finding more than chance. A loose
