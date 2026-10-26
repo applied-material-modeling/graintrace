@@ -107,8 +107,12 @@ class VoxelMeshBuilder:
 
     REQUIRED_SCULPT_KEYS = ("psculpt", "epu", "nprocs")
 
-    #: Columns that, when present, mark a row void with a non-positive value.
-    VOID_MARKER_COLS = ("phase", "cell_id")
+    #: Column auto-read as a void marker: ``NFGridConversion`` writes ``cell_id``
+    #: with ``-1`` for void, and ``-1`` is never a valid grain id, so only that
+    #: exact sentinel is void. Any other column (e.g. an EBSD ``phase``, which may
+    #: be 0-based) marks void only when named via ``void_marker_col``.
+    AUTO_VOID_MARKER_COL = "cell_id"
+    AUTO_VOID_SENTINEL = -1
 
     def __init__(
         self,
@@ -117,6 +121,7 @@ class VoxelMeshBuilder:
         save_dir: PathLike,
         euler_cols: Sequence[str],
         cell_id_col: Optional[str] = None,
+        void_marker_col: Optional[str] = None,
         angle_convention: str = "bunge",
         angle_type: str = "radians",
         symmetry: str = "432",
@@ -132,7 +137,11 @@ class VoxelMeshBuilder:
             file_path: Path to the gridded Euler-angle CSV (columns x, y[, z] and the three Euler columns; optionally a pre-existing grain-id column).
             save_dir: Output directory for intermediate grids, segmentation results, the mesh, and mapped orientations; created if missing.
             euler_cols: The three column names holding the per-voxel Euler angles.
-            cell_id_col: Optional column holding pre-existing grain ids; if present, segmentation is skipped and these ids are used directly.
+            cell_id_col: Optional column holding pre-existing grain ids; if present, segmentation is skipped and these ids are used directly
+                (ids <= 0 are void).
+            void_marker_col: Optional column whose values <= 0 mark a row void (e.g. a 1-based "phase" column where 0 is void). Opt-in
+                only: an EBSD .ang phase column may be 0-based, where 0 is a real phase. Without it, only a "cell_id" column equal to -1
+                (the NFGridConversion void sentinel) marks void; any other row is solid.
             angle_convention: Euler angle convention, e.g. "bunge".
             angle_type: Euler angle unit, "radians" or "degrees".
             symmetry: Crystal symmetry group used for misorientation, e.g. "432".
@@ -151,6 +160,7 @@ class VoxelMeshBuilder:
             raise ValueError("euler_cols must contain exactly 3 column names")
 
         self.cell_id_col = cell_id_col
+        self.void_marker_col = void_marker_col
 
         self.angle_convention = str(angle_convention)
         self.angle_type = str(angle_type)
@@ -379,28 +389,47 @@ class VoxelMeshBuilder:
     def _solid_mask(self, df: pd.DataFrame) -> np.ndarray:
         """Boolean mask of the rows that carry material.
 
-        A grid CSV marks void two ways in this codebase: a ``phase`` column,
-        where ``> 0`` is solid, and the ``cell_id`` convention written by
-        :class:`~graintrace.nf_grid_conversion.NFGridConversion`, where ``<= 0``
-        (normalised to ``-1``) is void. A confidence-masked NF voxel reaches
-        this class as the latter, as a row with real coordinates and a zero
-        orientation triple. Left unmarked those rows join the graph as a
-        connected network of identical orientations spanning the sample -- the
-        percolation bridge the mask exists to remove.
+        Void detection is explicit, so an unmarked table is never emptied:
 
-        With no marker column every row is solid, which is the historical
-        behaviour for a plain EBSD ``x, y, z, Eul0, Eul1, Eul2`` table.
+        * ``void_marker_col`` (opt-in): rows with a value ``<= 0`` are void.
+        * ``cell_id_col``: rows with an id ``<= 0`` are void, as in
+          :meth:`_assign_existing_ids`.
+        * ``cell_id`` (automatic): only the exact ``-1`` sentinel that
+          :class:`~graintrace.nf_grid_conversion.NFGridConversion` writes for a
+          confidence-masked voxel is void. ``-1`` is never a grain id, so this is
+          unambiguous; ``0`` is not treated as void here because a 0-based id
+          column would lose a real grain.
+
+        A ``phase`` column is never read implicitly: an EBSD ``.ang`` phase may be
+        0-based, and reading ``phase <= 0`` as void would void the whole sample.
+        Pass ``void_marker_col="phase"`` when its ``0`` really is void.
+
+        Masked rows matter because they carry a zero orientation triple; left
+        solid they join the graph as a connected network of identical
+        orientations spanning the sample -- the percolation bridge the confidence
+        mask exists to remove.
 
         Args:
             df: the loaded grid dataframe.
 
         Returns:
             numpy.ndarray: (n,) bool, True where the row carries material.
+
+        Raises:
+            ValueError: if ``void_marker_col`` is set but missing from ``df``.
         """
         solid = np.ones(len(df), dtype=bool)
-        for col in (self.cell_id_col, *self.VOID_MARKER_COLS):
-            if col and col in df.columns:
-                solid &= df[col].to_numpy() > 0
+        if self.void_marker_col is not None:
+            if self.void_marker_col not in df.columns:
+                raise ValueError(
+                    f"void_marker_col {self.void_marker_col!r} not found in dataframe"
+                )
+            solid &= df[self.void_marker_col].to_numpy() > 0
+        if self.cell_id_col and self.cell_id_col in df.columns:
+            solid &= df[self.cell_id_col].to_numpy() > 0
+        auto = self.AUTO_VOID_MARKER_COL
+        if auto in df.columns and auto not in (self.cell_id_col, self.void_marker_col):
+            solid &= df[auto].to_numpy() != self.AUTO_VOID_SENTINEL
         return solid
 
     def _assign_existing_ids(self, grid_t: torch.Tensor) -> torch.Tensor:
@@ -521,7 +550,8 @@ class VoxelMeshBuilder:
         if df_solid.empty:
             raise ValueError(
                 "every voxel is marked void; nothing to segment "
-                f"(checked columns {self.VOID_MARKER_COLS})"
+                f"(void_marker_col={self.void_marker_col!r}, "
+                f"cell_id_col={self.cell_id_col!r}, auto {self.AUTO_VOID_MARKER_COL!r} == -1)"
             )
 
         df_graph = df_solid[["x", "y", "z", *self.euler_cols]].copy()
@@ -605,8 +635,9 @@ class VoxelMeshBuilder:
     ) -> Path:
         """Segment the grid CSV and write grid .npy/.vtk outputs to save_dir.
 
-        Loads the CSV onto a dense voxel grid, optionally smooths it, segments it into grains (flood-fill or graph/Leiden), removes small segments, infills, and
-        relabels grain ids to be contiguous. If cell_id_col was set, the provided ids are used and segmentation is skipped.
+        Loads the CSV onto a dense voxel grid, optionally smooths it, segments it into grains (flood-fill or graph/Leiden), removes small segments, infills,
+        voids any isolated voxel still unsegmented (a small island with no solid neighbour), and relabels grain ids to be contiguous.
+        Void rows (see _solid_mask) keep phase 0 throughout. If cell_id_col was set, the provided ids are used and segmentation is skipped.
 
         Args:
             segmentation: Segmentation config dict with "method" ("flood" or "graph"), "params", and optional "graph_params"; None uses the class defaults.
@@ -731,6 +762,8 @@ class VoxelMeshBuilder:
         grid_t = segment.infill_nearest_neighbor(
             grid_t, connectivity=params["connectivity"]
         )
+        # A small island with no solid neighbour is still -1 here; void it
+        grid_t = segment.void_unsegmented(grid_t)
 
         print("Relabeling phase IDs to be contiguous...")
         grid_t = self._relabel_phase_ids_contiguous(grid_t)
@@ -769,6 +802,7 @@ class VoxelMeshBuilder:
         mapped_orientations_path: Optional[PathLike] = None,
         mesher: str = "sculpt",
         background_id: int = 0,
+        layer_spacing: Optional[float] = None,
     ) -> Path:
         """Mesh the segmented grid and map orientations to the mesh.
 
@@ -790,6 +824,9 @@ class VoxelMeshBuilder:
             mapped_orientations_path: Override for the mapped per-element orientation output basename (".csv" is appended).
             mesher: Meshing backend, "sculpt" (CUBIT/SCULPT conformal hex) or "voxel" (one cube hex per voxel, no external tools).
             background_id: Grain/phase id treated as background/void in the voxel dump (mesher="voxel").
+            layer_spacing: z voxel size for a single-layer grid (e.g. a 2D EBSD map); None falls back to the in-plane spacing.
+                Both meshers span the voxel-edge box. The SCULPT path also renumbers block ids to a contiguous 1..N in file order
+                and writes <mesh stem>_block_map.csv (block_id, sculpt_block_id, grain_id, n_elem, source_grain_id).
 
         Returns:
             Path to the written Exodus mesh.
@@ -826,6 +863,7 @@ class VoxelMeshBuilder:
                 angle_type=self.angle_type,
                 background_id=background_id,
                 symmetry=self.symmetry,
+                layer_spacing=layer_spacing,
             )
             print(
                 f"Voxel mesh: {info['elements']} hexes, {info['nodes']} nodes, "
@@ -850,6 +888,8 @@ class VoxelMeshBuilder:
             else self.orientations_path
         )
 
+        # write_spn renumbers the ids in place; keep the merged-grid ids for the block map
+        source_labels = data[..., 0].clone()
         print("Writing SPN and orientations...")
         mesh.write_spn(
             data,
@@ -871,6 +911,8 @@ class VoxelMeshBuilder:
             angle_convention=self.angle_convention,
             angle_type=self.angle_type,
             symmetry=self.symmetry,
+            layer_spacing=layer_spacing,
+            source_labels=source_labels.cpu().numpy(),
         )
 
         return mesh_out

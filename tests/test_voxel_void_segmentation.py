@@ -107,7 +107,7 @@ def _builder(tmp_path, df, name="grid.csv", **kwargs):
 
 
 class TestSolidMask:
-    """``_solid_mask`` reads the two void conventions this repo writes."""
+    """``_solid_mask``: explicit void markers plus the unambiguous ``-1`` sentinel."""
 
     def test_plain_table_is_all_solid(self, tmp_path):
         """An EBSD ``x, y, z, Eul*`` table has no marker, so nothing is void."""
@@ -123,19 +123,41 @@ class TestSolidMask:
         assert mask.sum() == 12
         assert not mask[df["cell_id"].to_numpy() == -1].any()
 
-    @pytest.mark.parametrize("void_value", [-1, 0])
-    def test_zero_and_minus_one_both_read_as_void(self, tmp_path, void_value):
-        """Both halves of the ``<= 0`` convention are honoured."""
-        df = _slab_table(void_value=void_value)
+    def test_cell_id_zero_is_not_auto_void(self, tmp_path):
+        """Only the ``-1`` sentinel is automatic; 0 could be a 0-based grain id."""
+        df = _slab_table(void_value=0)
         builder = _builder(tmp_path, df)
+        assert builder._solid_mask(df).all()
+
+    def test_cell_id_col_zero_is_void(self, tmp_path):
+        """A named grain-id column uses the ``<= 0`` rule of _assign_existing_ids."""
+        df = _slab_table(void_value=0)
+        builder = _builder(tmp_path, df, cell_id_col="cell_id")
         assert builder._solid_mask(df).sum() == 12
 
-    def test_phase_column_is_honoured(self, tmp_path):
-        """A ``phase`` column marks void with ``0``, the name issue #58 uses."""
+    def test_zero_based_ang_phase_is_not_void(self, tmp_path):
+        """An EBSD .ang phase is 0-based: phase 0 is a real phase, not void.
+
+        Reading ``phase <= 0`` as void, as the implicit ``phase`` marker did,
+        turned a single-phase EBSD map into an all-void grid.
+        """
+        df = _slab_table(void_slab=False).drop(columns=["cell_id"])
+        df["phase"] = 0
+        builder = _builder(tmp_path, df)
+        assert builder._solid_mask(df).all()
+
+    def test_phase_column_is_honoured_when_opted_in(self, tmp_path):
+        """``void_marker_col="phase"`` reads a 1-based phase where 0 is void."""
         df = _slab_table().rename(columns={"cell_id": "phase"})
         df["phase"] = (df["phase"] > 0).astype(int)
-        builder = _builder(tmp_path, df)
+        builder = _builder(tmp_path, df, void_marker_col="phase")
         assert builder._solid_mask(df).sum() == 12
+
+    def test_missing_void_marker_col_is_an_error(self, tmp_path):
+        df = _slab_table()
+        builder = _builder(tmp_path, df, void_marker_col="phase")
+        with pytest.raises(ValueError, match="void_marker_col"):
+            builder._solid_mask(df)
 
 
 class TestVoidExclusion:
@@ -243,3 +265,55 @@ class TestUnmarkedInputIsUnchanged:
             }
         )
         assert (np.load(grid)[..., 0] > 0).all()
+
+
+class TestIsolatedIsland:
+    """A small island with no solid neighbour must end up void, not -1."""
+
+    @requires_neml2
+    def test_island_is_voided_and_meshable(self, tmp_path):
+        """remove_small_segments marks the island -1 and infill cannot reach it."""
+        from graintrace.nf import mesh  # pylint: disable=import-outside-toplevel
+
+        rows = []
+        for i in range(9):
+            for j in range(3):
+                if i < 5:
+                    cid, eul = 1, GRAIN_A
+                elif i == 7 and j == 1:
+                    cid, eul = 1, GRAIN_B  # one-voxel island, all-void neighbours
+                else:
+                    cid, eul = -1, (0.0, 0.0, 0.0)
+                rows.append(
+                    {
+                        "x": float(i),
+                        "y": float(j),
+                        "z": 0.0,
+                        "Eul0": eul[0],
+                        "Eul1": eul[1],
+                        "Eul2": eul[2],
+                        "cell_id": cid,
+                    }
+                )
+        builder = _builder(tmp_path, pd.DataFrame(rows))
+        path = builder.reconstruct(
+            segmentation={
+                "method": "flood",
+                "params": {
+                    "misorientation_tol": np.deg2rad(5.0),
+                    "connectivity": 6,
+                    "grain_threshold": 1,
+                    "grain_threshold_final": 3,
+                    "batch_norm": 1000,
+                    "stop_count": 10,
+                },
+            }
+        )
+        grid = np.load(path)
+        ids = grid[..., 0].reshape(9, 3)
+        assert (ids >= 0).all()
+        assert ids[7, 1] == 0
+        assert (ids[:5] == 1).all()
+        mesh.write_spn(
+            torch.from_numpy(grid), str(tmp_path / "v.spn"), str(tmp_path / "v.ori")
+        )
