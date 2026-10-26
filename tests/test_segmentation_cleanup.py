@@ -467,6 +467,48 @@ class TestPickGammaDiagnostics:
         )
 
 
+class TestSegToGrainTableTrim:
+    def test_trim_recovers_the_core_orientation(self):
+        pytest.importorskip("neml2")
+        import torch
+
+        from graintrace.fragmentation import FragmentationAnalyzer
+        from graintrace.orientation_helper import euler_to_matrix, misorientation_matrix
+
+        rng = np.random.default_rng(5)
+        core = [10.0, 20.0, 30.0]
+        eul = np.vstack([np.tile(core, (90, 1)), np.tile([10.0, 45.0, 30.0], (10, 1))])
+        eul += rng.normal(0, 0.1, eul.shape)
+        coords = rng.normal(size=(100, 3))
+        labels = np.zeros(100, dtype=np.int64)
+        fa = FragmentationAnalyzer()
+
+        def err(df):
+            got = euler_to_matrix(
+                torch.tensor(df[["Eul0", "Eul1", "Eul2"]].to_numpy()),
+                "bunge",
+                "degrees",
+            )
+            ref = euler_to_matrix(torch.tensor([core]), "bunge", "degrees")
+            return float(misorientation_matrix(got, ref, "432").item())
+
+        plain = fa.seg_to_grain_table(labels, coords, euler=eul, angle_type="degrees")
+        same = fa.seg_to_grain_table(
+            labels, coords, euler=eul, angle_type="degrees", trim_miso_deg=None
+        )
+        pd.testing.assert_frame_equal(plain, same)
+        trimmed = fa.seg_to_grain_table(
+            labels, coords, euler=eul, angle_type="degrees", trim_miso_deg=5.0
+        )
+        assert err(plain) > 1.0
+        assert err(trimmed) < 0.1
+        # orientation-only: centroid and radius still use every point
+        np.testing.assert_allclose(
+            trimmed[["X", "Y", "Z", "GrainRadius"]].to_numpy(),
+            plain[["X", "Y", "Z", "GrainRadius"]].to_numpy(),
+        )
+
+
 class TestGrainFragmentsGammaDefault:
     def test_default_gamma_is_the_documented_sub_grain_value(
         self, tmp_path, monkeypatch

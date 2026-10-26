@@ -1705,6 +1705,8 @@ class FragmentationAnalyzer:
         angle_type: str = "radians",
         out_csv: Optional[str] = None,
         background_label: Union[int, Iterable[int]] = -1,
+        trim_miso_deg: Optional[float] = None,
+        trim_iters: int = 2,
     ) -> "object":
         """Reduce a labelled point set to a per-grain table (FF/NF/EBSD connector).
 
@@ -1717,6 +1719,14 @@ class FragmentationAnalyzer:
         Euler angles). Provide orientations as either ``mrp`` (neml2 MRP) or
         ``euler`` (with ``angle_convention``/``angle_type``).
 
+        **Robust mean.** With ``trim_miso_deg`` set, each grain's mean is
+        recomputed after dropping the points more than ``trim_miso_deg``
+        (symmetry-aware) from it, ``trim_iters`` times. A segmentation that
+        absorbed a few differently oriented voxels otherwise biases the mean (on
+        Fe-9Cr NF the median grain mean was off by ~0.9 deg; trimming at 5 deg
+        restored ~0.04 deg). Only the orientation is trimmed; the centroid and
+        ``GrainRadius`` still use every point of the grain.
+
         Args:
             labels: ``(N,)`` integer grain labels.
             coords: ``(N, 3)`` point coordinates.
@@ -1728,6 +1738,10 @@ class FragmentationAnalyzer:
             background_label: label, or iterable of labels, treated as
                 non-grain and skipped. Defaults to ``-1``. See the note on
                 label domains below before changing it.
+            trim_miso_deg: if set, trim points farther than this (degrees) from
+                the grain mean and recompute it (see "Robust mean"); ``None``
+                (the default) keeps the plain mean of every point.
+            trim_iters: number of trim-and-recompute iterations.
 
         .. note::
 
@@ -1757,7 +1771,12 @@ class FragmentationAnalyzer:
         import pandas as pd
         import torch
 
-        from .orientation_helper import euler_to_mrp, matrix_to_euler, mrp_to_matrix
+        from .orientation_helper import (
+            euler_to_mrp,
+            matrix_to_euler,
+            misorientation_matrix,
+            mrp_to_matrix,
+        )
 
         labels = np.asarray(labels, dtype=np.int64)
         coords = np.asarray(coords, dtype=float)
@@ -1787,6 +1806,26 @@ class FragmentationAnalyzer:
             cnt = int(mask.sum())
             cen = coords[mask].mean(axis=0)
             mean_mrp = self.mean_orientation_mrp(mrp[mask], self.symmetry)
+            if trim_miso_deg is not None and cnt > 1:
+                grain_mrp = mrp[mask]
+                grain_r = mrp_to_matrix(torch.as_tensor(grain_mrp, dtype=torch.float64))
+                for _ in range(int(trim_iters)):
+                    ref = mrp_to_matrix(
+                        torch.as_tensor(
+                            np.tile(mean_mrp, (cnt, 1)), dtype=torch.float64
+                        )
+                    )
+                    dev = (
+                        misorientation_matrix(grain_r, ref, self.symmetry, "degrees")
+                        .cpu()
+                        .numpy()
+                    )
+                    inlier = dev <= float(trim_miso_deg)
+                    if inlier.all() or not inlier.any():
+                        break
+                    mean_mrp = self.mean_orientation_mrp(
+                        grain_mrp[inlier], self.symmetry
+                    )
             eul = (
                 matrix_to_euler(
                     mrp_to_matrix(
