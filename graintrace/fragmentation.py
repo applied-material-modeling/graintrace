@@ -1019,37 +1019,46 @@ class FragmentationAnalyzer:
 
         labels = np.asarray(labels, dtype=np.int64).copy()
         mrp = np.asarray(mrp, dtype=float)
-        while True:
-            uniq = np.unique(labels)
-            if len(uniq) < 2:
+        uniq, inv = np.unique(labels, return_inverse=True)
+        n = len(uniq)
+        if n < 2:
+            return inv.astype(np.int64)
+        order = np.argsort(inv, kind="stable")
+        members = np.split(order, np.cumsum(np.bincount(inv, minlength=n))[:-1])
+
+        def mean_mat(k):
+            mean = FragmentationAnalyzer.mean_orientation_mrp(mrp[members[k]], symmetry)
+            return mrp_to_matrix(torch.as_tensor(mean[None, :], dtype=torch.float64))[0]
+
+        def miso(first, second):
+            return misorientation_matrix(first, second, symmetry=symmetry).numpy()
+
+        rmat = torch.stack([mean_mat(k) for k in range(n)])
+        # dist[i, j] (i < j) = mean misorientation; inf elsewhere. Row-major argmin
+        # keeps the lowest (i, j) on ties, i.e. the old pairwise-scan order.
+        dist = np.full((n, n), np.inf)
+        for k in range(n - 1):
+            dist[k, k + 1 :] = miso(rmat[k].expand(n - k - 1, 3, 3), rmat[k + 1 :])
+        alive = np.ones(n, dtype=bool)
+        while alive.sum() > 1:
+            a, b = divmod(int(np.argmin(dist)), n)
+            if dist[a, b] >= tol_deg:
                 break
-            means = {
-                int(u): FragmentationAnalyzer.mean_orientation_mrp(
-                    mrp[labels == u], symmetry
-                )
-                for u in uniq
-            }
-            best_pair, best_deg = None, float("inf")
-            for i, ui in enumerate(uniq):
-                for j in range(i + 1, len(uniq)):
-                    a, b = int(ui), int(uniq[j])
-                    deg = float(
-                        misorientation_matrix(
-                            mrp_to_matrix(
-                                torch.as_tensor(means[a][None, :], dtype=torch.float64)
-                            ),
-                            mrp_to_matrix(
-                                torch.as_tensor(means[b][None, :], dtype=torch.float64)
-                            ),
-                            symmetry=symmetry,
-                        ).item()
-                    )
-                    if deg < best_deg:
-                        best_deg, best_pair = deg, (a, b)
-            if best_pair is None or best_deg >= tol_deg:
-                break
-            labels[labels == best_pair[1]] = best_pair[0]
-        return np.unique(labels, return_inverse=True)[1].astype(np.int64)
+            members[a] = np.sort(np.concatenate([members[a], members[b]]))
+            members[b] = members[b][:0]
+            alive[b] = False
+            dist[b, :] = np.inf
+            dist[:, b] = np.inf
+            rmat[a] = mean_mat(a)
+            lo = np.flatnonzero(alive[:a])
+            hi = a + 1 + np.flatnonzero(alive[a + 1 :])
+            if len(lo):
+                dist[lo, a] = miso(rmat[lo], rmat[a].expand(len(lo), 3, 3))
+            if len(hi):
+                dist[a, hi] = miso(rmat[a].expand(len(hi), 3, 3), rmat[hi])
+        for k in np.flatnonzero(alive):
+            inv[members[k]] = k
+        return np.unique(inv, return_inverse=True)[1].astype(np.int64)
 
     @staticmethod
     def absorb_fragments(
