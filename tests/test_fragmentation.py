@@ -709,6 +709,51 @@ class TestMeanOrientationAndMerge:
         )
         assert len(np.unique(merged)) == 2
 
+    def test_merge_fragments_matches_pairwise_scan(self):
+        pytest.importorskip("neml2")
+        import numpy as np
+        import torch
+
+        from graintrace.fragmentation import FragmentationAnalyzer
+        from graintrace.orientation_helper import misorientation_matrix, mrp_to_matrix
+
+        def reference(mrp, labels, tol):
+            # closest pair first, all means recomputed every step
+            labels = labels.copy()
+            while len(np.unique(labels)) > 1:
+                uniq = np.unique(labels)
+                rm = mrp_to_matrix(
+                    torch.as_tensor(
+                        np.array(
+                            [
+                                FragmentationAnalyzer.mean_orientation_mrp(
+                                    mrp[labels == u], "432"
+                                )
+                                for u in uniq
+                            ]
+                        )
+                    )
+                )
+                i, j = np.triu_indices(len(uniq), 1)
+                deg = misorientation_matrix(rm[i], rm[j], symmetry="432").numpy()
+                k = int(np.argmin(deg))
+                if deg[k] >= tol:
+                    break
+                labels[labels == uniq[j[k]]] = uniq[i[k]]
+            return np.unique(labels, return_inverse=True)[1]
+
+        rng = np.random.default_rng(1)
+        for _ in range(3):
+            n_frag = int(rng.integers(5, 30))
+            labels = rng.integers(0, n_frag, 600)
+            centers = rng.normal(size=(n_frag, 3)) * 0.02 + rng.normal(size=3) * 0.3
+            mrp = np.tanh(centers[labels] + rng.normal(size=(600, 3)) * 0.002)
+            for tol in (1.0, 3.0):
+                got = FragmentationAnalyzer.merge_fragments_by_misorientation(
+                    mrp, labels, tol, "432"
+                )
+                np.testing.assert_array_equal(got, reference(mrp, labels, tol))
+
 
 class TestSegmentGrainFragments:
     def test_counts_two_fragments_in_one_grain(self, tmp_path):
