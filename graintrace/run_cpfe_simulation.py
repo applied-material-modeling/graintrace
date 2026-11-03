@@ -103,6 +103,10 @@ class CPFESimulation:
             #     scalable memory (no global factorization) for large HPC meshes; the
             #     natural partner of distributed_mesh=True. Looser/more linear iterations.
             "solver_route": "timestep_optimized",
+            # IterationAdaptiveDT growth_factor: dt multiplier after an easy step.
+            #   2.0 (default, legacy). Lower (e.g. 1.5) -> fewer overshoot/cutback
+            #   cycles around yield at the cost of more steps. Must be >= 1.
+            "growth_factor": 2.0,
         },
         "material": {
             "slip_constant_strength": 130.0,
@@ -217,6 +221,8 @@ class CPFESimulation:
         solver_route ("timestep_optimized" (default) = direct LU/superlu_dist with preconditioner reuse, robust
         and iteration-cheap but memory-bound on large meshes; "hpc_memory" = iterative fgmres + GAMG algebraic
         multigrid, low/scalable memory for large HPC meshes and the recommended partner of distributed_mesh=True),
+        growth_factor (IterationAdaptiveDT dt multiplier after an easy step, >= 1; default 2.0, lower e.g. 1.5 for
+        fewer overshoot/cutback cycles at yield),
         recompile, compile_devices, neml2_load_files, extra_ld_library_paths, base_folder, strain_unit_conversion.
 
         "boundary": bounding_box ([xlo,xhi,ylo,yhi,zlo,zhi]), bc (per-axis dict of "negative"/"positive" values, each "stress_free" or a numeric displacement), fix_tolerance, bounding_box_buffer.
@@ -278,8 +284,39 @@ class CPFESimulation:
                         "Must be either 'stress_free' or a numeric value."
                     )
 
+    def _resolve_growth_factor(self):
+        """Return the validated IterationAdaptiveDT ``growth_factor`` as a float.
+
+        Reads ``simulation_parameters['growth_factor']`` (default 2.0, the legacy
+        value hard-coded in both Executioner decks).
+
+        Raises:
+            ValueError: If the value is not a finite number >= 1.
+        """
+        raw = self.params["simulation_parameters"].get("growth_factor", 2.0)
+        try:
+            value = float(raw)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"Invalid growth_factor {raw!r}. Must be a number >= 1."
+            ) from exc
+        if not np.isfinite(value) or value < 1.0:
+            raise ValueError(f"Invalid growth_factor {raw!r}. Must be a number >= 1.")
+        return value
+
     def write_bc_file(self):
-        """Write boundary_conditions.i and return the fix/roll node coordinates."""
+        """Write boundary_conditions.i and return the fix/roll node coordinates.
+
+        Every face with a nonzero prescribed displacement gets a ramped
+        ``CoupledDirichletBC`` plus an ``EqualValueBoundaryConstraint`` named
+        ``<face>_flat`` on that face's own displacement component (e.g. ``right_flat``
+        on ``disp_x`` for an x-load), so the loaded face stays flat whatever the
+        loading axis. Zero-valued faces are plain fixed ``DirichletBC`` and get no
+        constraint; with no loaded face the ``[Constraints]`` block is empty.
+
+        Returns:
+            tuple: ``(fixnode_x, fixnode_y, fixnode_z, yroll_x, yroll_y, yroll_z)``.
+        """
         self.validate_geometry_and_bcs()
         b = self.params["boundary"]
         sim = self.params["simulation_parameters"]
@@ -400,15 +437,17 @@ class CPFESimulation:
                 f.write("    []\n")
             f.write("[]\n\n")
 
-            # Front face flat constraint
+            # Flat constraint on each loaded face, on its own displacement component,
+            # so it follows the loading axis (from the bc dict) rather than assuming z.
             f.write("[Constraints]\n")
-            f.write("    [zface_flat]\n")
-            f.write("        type = EqualValueBoundaryConstraint\n")
-            f.write("        secondary = 'front'\n")
-            f.write("        variable = disp_z\n")
-            f.write("        penalty = 1e6\n")
-            f.write("        enable = true\n")
-            f.write("    []\n")
+            for axis, boundary_name, _val in coupled_bcs:
+                f.write(f"    [{boundary_name}_flat]\n")
+                f.write("        type = EqualValueBoundaryConstraint\n")
+                f.write(f"        secondary = '{boundary_name}'\n")
+                f.write(f"        variable = disp_{axis}\n")
+                f.write("        penalty = 1e6\n")
+                f.write("        enable = true\n")
+                f.write("    []\n")
             f.write("[]\n\n")
 
             f.write("[Controls]\n")
@@ -827,6 +866,8 @@ class CPFESimulation:
                 f"{sorted(self.SOLVER_ROUTE_DECKS)}."
             )
 
+        growth_factor = self._resolve_growth_factor()
+
         # shared base files
         if self.use_ff_initial_field:
             base_files = [
@@ -942,6 +983,7 @@ class CPFESimulation:
             f"residual_strain_file={self.eeres_file.name}",
             f"base_folder={self.params['simulation_parameters']['base_folder']}",
             f"dt={self.params['simulation_parameters']['dt']:.12g}",
+            f"growth_factor={growth_factor:.12g}",
             f"total_time={self.params['simulation_parameters']['total_time']:.12g}",
             f"strain_unit_conversion={self.params['simulation_parameters']['strain_unit_conversion']:.12g}",
             # burger_scale is the only material param still passed at runtime.

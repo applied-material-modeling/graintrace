@@ -54,6 +54,9 @@ if __name__ == "__main__":
 - No grain-size cap on any path; mask low-confidence/void voxels instead (CLAUDE.md §4).
 - `sculpt_config` (required: `psculpt`,`epu`,`nprocs`; +`launcher`/`environment` for MPI) and
   `sculpt_options` tuple (e.g. `("--adapt","-S","2","-CS","4")`; no `--void_mat`, graintrace sets it); see CLAUDE.md §9.
+  **`nprocs` MUST be >= 2**: at `nprocs=1` `epu` skips concatenation and the raw single
+  nemesis PART file is kept, which MOOSE rejects at run time (`NetCDF: Unknown file format`);
+  `nprocs>=2` concatenates a plain, readable Exodus. Verify with `puma-opt --mesh-only`.
 
 ## Outputs (`save_dir`)
 - `merged_segmented_fixed_grid.npy` (segmented voxel grid / restart checkpoint)

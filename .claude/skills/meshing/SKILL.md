@@ -41,12 +41,25 @@ builder.mesh(
     sculpt_config={
         "psculpt": "/path/to/cubit/bin/psculpt",
         "epu":     "/path/to/cubit/bin/epu",
-        "nprocs":  4,                              # <= physical cores
+        "nprocs":  4,                              # MUST be >= 2 (and <= physical cores)
     },
     sculpt_options=SCULPT_OPTS,                    # one of the two configs below
     merged_grid=merged_grid_path,
 )
 ```
+
+**`nprocs` MUST be >= 2 for a MOOSE-readable mesh.** At `nprocs=1`, `epu -p 1`
+prints "no concatenation needed" and writes no plain `<prefix>.e`, so the builder
+falls back to the raw single-rank **nemesis PART file** — which MOOSE's Exodus
+reader rejects at run time with `NetCDF: Unknown file format` (the file still looks
+like valid netCDF to `scipy`/`file`, so the failure only shows up when puma-opt
+opens it). With `nprocs>=2`, `epu` concatenates the parts into a plain Exodus that
+MOOSE reads. (Serial SCULPT was historically used for tiny/localized grains that
+trip parallel SCULPT with "material id ... does not exist"; large grains mesh fine
+in parallel. If you truly must use `nprocs=1`, run `epu` explicitly to concatenate.)
+Always verify before a long run: `puma-opt -i mesh_check.i --mesh-only /tmp/o.e`
+(a trivial `[Mesh] type=FileMesh` deck, `[Problem] solve=false`). The
+`mesher="voxel"` dump writes a plain readable Exodus directly and never hits this.
 
 **Only two configs are worth using, both keep `-df 1` (defeaturing) safe:**
 

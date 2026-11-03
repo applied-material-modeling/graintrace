@@ -262,6 +262,8 @@ sim.set_parameters("simulation_parameters",
                                      # (default, direct LU/superlu_dist + preconditioner reuse;
                                      # robust, memory-heavy) | "hpc_memory" (iterative fgmres+GAMG;
                                      # low/scalable memory for large HPC meshes; pair w/ distributed_mesh)
+    growth_factor=2.0,               # IterationAdaptiveDT dt multiplier after an easy step (>= 1,
+                                     # both decks; default 2 = legacy). 1.5 -> fewer cutbacks at yield
     # AOTI (v3): material params are BAKED into the model .i and neml2-compile'd on run().
     # recompile=True (default) rebuilds the .pt2 when params change; compile_devices/
     # neml2_load_files/extra_ld_library_paths auto-derive from moose_run_file's repo layout.
@@ -959,6 +961,15 @@ sculpt_config = {
 
 Required keys: `psculpt`, `epu`, `nprocs`. `launcher` and `environment` are needed for MPI-based execution.
 
+**`nprocs` MUST be `>= 2`.** At `nprocs=1`, `epu -p 1` writes no concatenated `<prefix>.e` and
+the builder keeps the raw single-rank **nemesis PART file**, which MOOSE/puma-opt aborts on at
+run time (`NetCDF: Unknown file format`) even though `scipy`/`file` still parse it as netCDF — so
+the failure only surfaces when the solve opens the mesh. `nprocs>=2` makes `epu` concatenate a
+plain, MOOSE-readable Exodus. Large grains mesh fine in parallel; only tiny/localized fragments
+may trip parallel SCULPT (`material id ... does not exist`) — then run `epu` explicitly rather
+than shipping the part. Verify any SCULPT `.e` with `puma-opt -i <FileMesh deck> --mesh-only`
+before a long run. The `mesher="voxel"` dump avoids this (writes a plain readable Exodus directly).
+
 ### `sculpt_options` tuple
 Passed as a tuple of CLI flag strings. Common options:
 ```python
@@ -1032,6 +1043,9 @@ bc = {
 }
 ```
 `"stress_free"` means traction-free (no constraint). Integer/float means prescribed displacement.
+Each nonzero (loaded) face gets an `EqualValueBoundaryConstraint` `<face>_flat` on its OWN component
+(`front_flat`/`disp_z` for z tension, `right_flat`/`disp_x` for an x-load; one per loaded face), so any
+loading axis works. Before 2026-11 it was always `zface_flat` on `front`/`disp_z`, wrong for x/y loads.
 
 ### `WeightConfig` dataclass
 ```python

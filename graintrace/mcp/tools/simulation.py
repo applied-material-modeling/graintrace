@@ -34,6 +34,7 @@ def run_cpfe(
     ncore: int = 4,
     distributed_mesh: bool = False,
     solver_route: str = "timestep_optimized",
+    growth_factor: float = 2.0,
     confirm: bool = False,
 ) -> dict:
     """Run a crystal-plasticity FE simulation with NEML2 v3 + MOOSE/PUMA
@@ -71,6 +72,9 @@ def run_cpfe(
         but memory-bound on large meshes. "hpc_memory" = iterative fgmres + GAMG algebraic
         multigrid; low, scalable memory for large HPC meshes and the recommended partner of
         distributed_mesh=True, at the cost of more/looser linear iterations.
+    growth_factor : IterationAdaptiveDT dt multiplier after an easy step (>= 1;
+        default 2.0, the legacy value). Lower (e.g. 1.5) gives fewer overshoot /
+        cutback cycles around yield at the cost of more time steps.
 
     Needs `puma-opt` (MOOSE/PUMA) and a working NEML2 v3 build.
     """
@@ -148,6 +152,11 @@ def run_cpfe(
         "solver_route", solver_route
     )
 
+    # Time-step growth (IterationAdaptiveDT growth_factor); legacy default 2.
+    sections.setdefault("simulation_parameters", {}).setdefault(
+        "growth_factor", growth_factor
+    )
+
     suggestions = {}
     if missing:
         suggestions = {
@@ -169,6 +178,7 @@ def run_cpfe(
         "ncore": ncore,
         "distributed_mesh": distributed_mesh,
         "solver_route": solver_route,
+        "growth_factor": growth_factor,
     }
 
     def _run():
