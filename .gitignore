@@ -105,3 +105,9 @@ reorientation_rei_out/
 sim_fragmentation_out/
 frag_review_out/
 reorientation_fragmentation_out/
+
+# local issue drafts (filed manually on GitHub)
+issues/
+
+# poster/showcase figure workspace (large renders + data; README copies live in docs/_static/readme/)
+poster_figures/
