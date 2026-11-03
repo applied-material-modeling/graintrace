@@ -64,6 +64,12 @@ Boundary conditions (bc)
 ``"stress_free"`` means traction-free (no constraint). An integer/float is a
 prescribed displacement (``0`` = fixed).
 
+Every face with a nonzero displacement is ramped from ``initialize_time`` to
+``total_time`` and held flat by an ``EqualValueBoundaryConstraint`` named
+``<face>_flat`` on that face's own displacement component: ``front_flat`` on
+``disp_z`` for the default z tension, ``right_flat`` on ``disp_x`` for an x-load,
+one constraint per loaded face. Fixed (``0``) and traction-free faces get none.
+
 Segmentation
 ------------
 
@@ -264,6 +270,10 @@ knobs:
        ``--use-split`` (distributed mesh; low per-rank memory for large meshes; requires ``ncore >= 2``)
    * - ``solver_route``
      - ``"timestep_optimized"`` (default) | ``"hpc_memory"`` — swaps the linear solver / Executioner deck
+   * - ``growth_factor``
+     - ``2.0`` (default, legacy) — ``IterationAdaptiveDT`` dt multiplier after an easy step, ``>= 1``
+       in both decks. Lower (e.g. ``1.5``) gives fewer overshoot/cutback cycles around yield, at the
+       cost of more time steps
 
 The defaults are the cheap settings; the per-step grid transfer dominates wall
 time. Three sources of REI field data are described in

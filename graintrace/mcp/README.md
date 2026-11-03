@@ -28,7 +28,7 @@ your chat client (brings the LLM + key)
 | `nf_reconstruct` | NF voxel reconstruction + mesh | CUBIT/SCULPT (mesh only) |
 | `voxel_mesh` | EBSD/gridded segmentation + mesh | CUBIT/SCULPT (mesh only) |
 | `calibrate_material` | Taylor-model parameter fit | NEML2 v3 + pyzag |
-| `run_cpfe` | MOOSE/PUMA CPFE run | `puma-opt` + NEML2 AOTI |
+| `run_cpfe` | MOOSE/PUMA CPFE run (`solver_route`, `distributed_mesh`, `growth_factor`; any `loaded_axis`) | `puma-opt` + NEML2 AOTI |
 | `postprocess` | distributions / stress-strain / pole figure / IPF reorientation tracking | (NEML2 for pole figure & ipf_tracking) |
 | `identify_rare_events` | REI graph clustering → VTK | none |
 | `reorientation_rei` | reorientation (misorientation-from-initial) as an REI criterion → VTK | none (neml2+networkit) |

@@ -5,7 +5,7 @@ applies_to: SCULPT hex meshing of a voxel/tessellation grain grid
 defaults:
   sculpt_options_adapt4: -A 4 -df 1 -S 2 -CS 4
   sculpt_options_df1: -df 1 -mvs 2 -S 2 -CS 5
-  nprocs: <= physical cores
+  nprocs: ">= 2 (required for a MOOSE-readable mesh) and <= physical cores"
 ---
 
 # Meshing (SCULPT): recommended parameters
@@ -39,12 +39,23 @@ builder.mesh(
     sculpt_config={
         "psculpt": "/path/to/cubit/bin/psculpt",
         "epu":     "/path/to/cubit/bin/epu",
-        "nprocs":  4,                       # <= physical cores
+        "nprocs":  4,                       # MUST be >= 2 (see below); <= physical cores
     },
     sculpt_options=SCULPT_OPTS,             # one of the two configs below
     merged_grid=merged_grid_path,
 )
 ```
+
+**`nprocs` MUST be >= 2 or the mesh is unusable in CPFE.** At `nprocs=1`, `epu -p 1`
+writes no concatenated `<prefix>.e` and the builder keeps the raw single-rank
+**nemesis PART file**; MOOSE/puma-opt then aborts opening it with
+`NetCDF: Unknown file format` (yet `scipy`/`file` still parse it as netCDF, so it
+looks fine until the run). `nprocs>=2` makes `epu` concatenate a plain Exodus MOOSE
+reads. Large grains mesh fine in parallel; only tiny/localized grains may trip
+parallel SCULPT ("material id ... does not exist") — then run `epu` explicitly
+rather than shipping the part. Verify any SCULPT mesh with
+`puma-opt -i <FileMesh deck> --mesh-only /tmp/o.e` before a long run. The
+`mesher="voxel"` dump avoids this entirely (writes a plain readable Exodus).
 
 ## Only two configs are worth using: both keep `-df 1` (defeaturing) safe
 

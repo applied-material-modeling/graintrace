@@ -26,7 +26,7 @@
         iteration_window = 2
         cutback_factor = 0.2
         cutback_factor_at_failure = 0.1
-        growth_factor = 2
+        growth_factor = ${growth_factor} # dt growth on easy steps (CPFESimulation default 2)
         linear_iteration_ratio = 1000
     []
 

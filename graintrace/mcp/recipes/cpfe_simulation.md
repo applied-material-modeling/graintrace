@@ -13,6 +13,7 @@ defaults:
   ncore: 8
   distributed_mesh: false
   solver_route: timestep_optimized
+  growth_factor: 2.0
   use_ff_initial_field: true
 ---
 
@@ -46,9 +47,9 @@ returns `needs_input` (otherwise CPFE would silently use a unit-cube domain).
 **simulation_parameters**: `dt`, `total_time`, `initialize_time` (load ramps
 from `initialize_time`→`total_time`), `device` (`"cpu"`, `"cuda:0"`, or a
 space-separated list for multi-GPU = MPI ranks), `device_batch`, `sync_times`,
-`grid_transfer`, `exodus_output`, `mesh_csv`, `distributed_mesh`, `solver_route`. Pass any of
-these via `parameters={"simulation_parameters": {...}}` (or `distributed_mesh` / `solver_route`
-via their dedicated args).
+`grid_transfer`, `exodus_output`, `mesh_csv`, `distributed_mesh`, `solver_route`, `growth_factor`.
+Pass any of these via `parameters={"simulation_parameters": {...}}` (or `distributed_mesh` /
+`solver_route` / `growth_factor` via their dedicated args).
 
 > **Output-frequency knobs (default to cheap).** `mesh_csv` — CPFE-mesh
 > element-centroid CSV → `mesh_out/`: `"sync"` (default) | `"per_step"` | `"off"`.
@@ -80,6 +81,11 @@ via their dedicated args).
 > linear iterations. Both keep `residual_and_jacobian_together = false` (required by the
 > nodal-constraint loading BC; MOOSE issue 33531).
 
+> **Time-step growth (`growth_factor`, default `2.0`).** `IterationAdaptiveDT` multiplies `dt`
+> by this after an easy step (both solver decks; must be `>= 1`). Keep `2.0` unless the run keeps
+> overshooting and cutting back around yield; then `1.5` gives fewer cutback cycles at the cost
+> of more time steps.
+
 > **Running on HPC (combined settings).** For a cluster run set `launcher="srun"` (Slurm/Cray;
 > default `mpiexec` elsewhere) and `solver_route="hpc_memory"` (memory-lean GAMG). Add
 > `distributed_mesh=true` only once the replicated mesh OOMs (~1M+ elements; needs `ncore>=2` and
@@ -95,7 +101,9 @@ via their dedicated args).
 > `dependency_status` → `gpu`.
 
 **boundary**: `bounding_box` + `bc` dict. `displace_amount = total_strain *
-(zhi - zlo)`. Each face is `"stress_free"`, `0` (fixed), or a float displacement.
+(zhi - zlo)`. Each face is `"stress_free"`, `0` (fixed), or a float displacement. Each loaded
+(nonzero) face is held flat by an `EqualValueBoundaryConstraint` on its own component, so
+`loaded_axis` `x`/`y`/`z` all work (`right_flat`/`disp_x`, `top_flat`/`disp_y`, `front_flat`/`disp_z`).
 
 **grid_properties**: `number_of_elements=[nx,ny,nz]`, `bounding_box=grid_bb`
 where `grid_bb` is the BC box inset by `0.0001` on every face.

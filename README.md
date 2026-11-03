@@ -6,6 +6,11 @@ grains across load steps, and identify rare events for targeted measurement.
 
 graintrace works with far-field and near-field high-energy diffraction microscopy (HEDM) and EBSD, closing the loop from raw grain-scale measurements to a calibrated crystal-plasticity prediction — and back to which grains and regions are worth measuring in more detail.
 
+![graintrace workflow: FF HEDM → NF HEDM → calibration, CPFE and rare-event identification](https://raw.githubusercontent.com/applied-material-modeling/graintrace/main/docs/_static/readme/graintrace_workflow.jpg)
+
+*End-to-end on Fe-9Cr: far-field scans are stitched and tessellated, near-field voxels are segmented,
+matched to FF grains and meshed to conformal hex; the calibrated CPFE run feeds rare-event identification.*
+
 **Architecture.** graintrace is the Python orchestration layer over a compiled scientific stack:
 
 - **MOOSE / PUMA**: finite element framework and solver.
@@ -24,7 +29,18 @@ The pipeline runs reconstruct, calibrate, simulate (CPFE), then analyze and iden
 - **Reorientation & fragmentation**: track how grains reorient in the IPF across load steps, re-segment each grain into orientation sub-grains (intragranular fragmentation, with a minimum sub-grain misorientation), detect grains that split across steps (FF/NF/EBSD), and flag the grains that fragment/reorient the most as rare events — reorientation-from-initial doubles as a standalone or combined REI criterion. *See `examples/demonstrate_reorientation_fragmentation.py`.*
 - **Rare event identification (REI)**: locate spatially coherent rare regions in CPFE fields via graph spatial clustering (Leiden) with hierarchical merging, flagging grains and locations for targeted measurement; scales to tens of millions of query points in under an hour. Runs on the crisp true-mesh element fields (`mesh_out/`) or a regular grid (`grid_out/`, online or resampled offline via `GridResampler`). *See `examples/demonstrate_rei_pipeline.py`.*
 
+![Synthetic microstructures generated with NEPER morphology control](https://raw.githubusercontent.com/applied-material-modeling/graintrace/main/docs/_static/readme/synthetic_generation.jpg)
+
+*Virtual microstructures (equiaxed, bimodal, elongated, columnar, lamellar); each grain-size histogram
+matches its target distribution (black curve).*
+
 Analysis (field distributions, macroscopic stress vs strain, pole figures, IPF coloring) rounds out the pipeline. *See `examples/demonstrate_postprocess.py`.*
+
+**AI-ready.** `graintrace-mcp` exposes the pipeline as 29 MCP tools, so Claude or any MCP client can
+run it from a plain-language request: the agent reads the vetted recipes, previews each step with
+`confirm=False`, and runs it on your approval.
+
+![graintrace-mcp: an AI agent drives the pipeline through MCP tools](https://raw.githubusercontent.com/applied-material-modeling/graintrace/main/docs/_static/readme/ai_ready.png)
 
 ## Documentation
 
