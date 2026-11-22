@@ -93,9 +93,8 @@ class TestRowCountMismatchRaises:
         out = _run(monkeypatch, tmp_path, n_grains=6, n_orientations=6)
         written = pd.read_csv(out)
         assert len(written) == 6
-        assert list(written.columns[:9]) == [
-            f"O{i}{j}" for i in (1, 2, 3) for j in (1, 2, 3)
-        ]
+        # Euler (rotated by the builder) is the orientation output; no O columns
+        assert list(written.columns) == ["GrainID", "X", "Y", "Z"]
 
     @pytest.mark.parametrize(
         "n_grains,n_orientations", [(6, 4), (4, 6), (100, 99), (1, 2)]
@@ -114,3 +113,28 @@ class TestRowCountMismatchRaises:
         with pytest.raises(ValueError):
             _run(monkeypatch, tmp_path, n_grains=6, n_orientations=4)
         assert not (tmp_path / "rotated" / "scan_0.csv").exists()
+
+
+class TestRotatedEulerOutput:
+    """The output carries the builder's rotated Euler and drops every O column."""
+
+    def test_stale_o_columns_are_dropped_and_euler_kept(self, monkeypatch, tmp_path):
+        erh = _install_fake_builder(monkeypatch, n_grains=3, n_orientations=3)
+        original_init = erh.VoronoiMeshBuilder.__init__
+
+        def init(self, input_csv, output_dir, **kwargs):
+            original_init(self, input_csv, output_dir, **kwargs)
+            self.data["Eul0"] = [10.0, 20.0, 30.0]
+            self.data["O11"] = 1.0  # a stale raw-file matrix column
+
+        monkeypatch.setattr(erh.VoronoiMeshBuilder, "__init__", init)
+        src = tmp_path / "scan_0.csv"
+        src.write_text("X,Y,Z\n0,0,0\n")
+        erh.update_experiments(
+            input_files=[str(src)],
+            output_root=str(tmp_path / "rotated"),
+            bounding_box=[-1.0, 1.0, -1.0, 1.0, -1.0, 1.0],
+        )
+        written = pd.read_csv(tmp_path / "rotated" / "scan_0.csv")
+        assert "O11" not in written.columns
+        assert written["Eul0"].tolist() == [10.0, 20.0, 30.0]

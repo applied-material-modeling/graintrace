@@ -183,6 +183,25 @@ class UniaxialTaylorModel(nn.Module):
         return macro_stress, elastic_strain
 
 
+def _texture_mrp(df, angle_cols, angle_convention, angle_type):
+    """neml2 MRP (n, 3) of the active R from a grain table (Euler first, else O)."""
+    if all(c in df.columns for c in angle_cols):
+        eul = df[angle_cols].to_numpy(dtype=float)
+        if angle_type == "auto":
+            angle_type = (
+                "degrees" if np.nanmax(np.abs(eul)) > 2.0 * np.pi else "radians"
+            )
+        return orientation_helper.euler_to_mrp(
+            torch.as_tensor(eul), angle_convention, angle_type
+        )
+    if all(f"O{i}{j}" in df.columns for i in (1, 2, 3) for j in (1, 2, 3)):
+        return orientation_helper.load_orientations_mrp(df)
+    raise ValueError(
+        f"grain table has neither Euler columns {angle_cols} nor O11..O33; "
+        "cannot load orientations"
+    )
+
+
 class TaylorModel(BaseMaterialApproximationModel):
     """Taylor calibration model backed by the NEML2 v3 + pyzag adjoint engine.
 
@@ -279,7 +298,41 @@ class TaylorModel(BaseMaterialApproximationModel):
         max_stress: float | None = None,
         n_grains: int | None = None,
         seed: int = 0,
+        angle_identifier=("Eul0", "Eul1", "Eul2"),
+        angle_convention: str = "bunge",
+        angle_type: str = "auto",
     ):
+        """Load the per-stress-level FF grain tables and the macro stress-strain curve.
+
+        Grain orientations come from the Euler columns (``angle_identifier``) via
+        :func:`~graintrace.orientation_helper.euler_to_mrp`, i.e. the neml2 MRP of
+        the active ``R`` the Taylor model expects. Only when a table has no Euler
+        columns are the ``O11..O33`` columns used, and they must hold the active
+        ``R`` (MIDAS Grains.csv ``O``; see
+        :func:`~graintrace.orientation_helper.load_orientation_matrices`).
+
+        Args:
+            data_dir: folder of per-stress-level CSVs named ``<stress>.csv``.
+            strain_stress_file: macro ``strain,stress`` CSV.
+            full_field_strain_units: ``None`` or ``"microstrain"`` (grain strains).
+            strain_stress_file_units: ``None`` or ``"microstrain"`` (macro strain).
+            straintype: full-field strain column prefix (``"eKen"`` or ``"eFab"``).
+            npoints: resampled macro-curve points (defaults to the model's).
+            max_strain: cap the macro curve at this strain.
+            max_stress: cap the macro curve at this stress (if no ``max_strain``).
+            n_grains: subsample this many grains per file (``None`` = all).
+            seed: RNG seed for the subsampling.
+            angle_identifier: the three Euler columns (standard Bunge triplet).
+            angle_convention: ``"bunge"``, ``"kocks"`` or ``"roe"``.
+            angle_type: ``"degrees"``, ``"radians"`` or ``"auto"`` (any
+                ``|value| > 2*pi`` means degrees, MIDAS style), per file.
+
+        Returns:
+            dict with ``files``, ``stress_levels``, ``strain_stress``,
+            ``exp_strain``, ``exp_texture`` (neml2 MRP per file), ``exp_weights``,
+            ``avg_exp_strain``, ``avg_axial_strain``, ``use_weights`` and
+            ``cutoff_strain``.
+        """
         if npoints is None:
             npoints = self.npoints
 
@@ -364,7 +417,10 @@ class TaylorModel(BaseMaterialApproximationModel):
             orientation_helper.load_strains(d, factor=factor, field=straintype)
             for d in data
         ]
-        exp_texture = [orientation_helper.load_orientations_mrp(d) for d in data]
+        exp_texture = [
+            _texture_mrp(d, list(angle_identifier), angle_convention, angle_type)
+            for d in data
+        ]
         exp_weights = [orientation_helper.load_weights(d) for d in data]
 
         avg_exp_strain = [torch.mean(ds, dim=0) for ds in exp_strain]

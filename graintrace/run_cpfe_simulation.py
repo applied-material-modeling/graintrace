@@ -167,7 +167,7 @@ class CPFESimulation:
             moose_run_file: Path to the built PUMA binary (puma-opt) used to launch the simulation. Must exist.
             element_order: FE shape-function order, "FIRST" or "SECOND". Use "FIRST" for SCULPT/voxel hex meshes and "SECOND" for a GMSH tet .msh. Default "SECOND".
             eeres_file: Optional per-grain initial elastic-strain CSV (residual strain). If None, a zero 12-column strain file is written (no residual strain).
-            ori_file: Path to per-grain orientations, either 3-column neml2 MRP or 9-column rotation matrix. Required for a real run.
+            ori_file: Path to per-grain orientations, either 3-column neml2 MRP of the active R (``orientation_helper.euler_to_mrp``) or 9-column row-major ACTIVE rotation matrix R (crystal -> sample: NEPER ``rotmat:active``, MIDAS Grains.csv ``O``; a NEPER-default passive ``rotmat`` must be transposed first). Required for a real run.
             use_ff_initial_field: True when the mesh and eeres_file are co-registered FF data (uses initial_conditions_ff.i); False when eeres_file comes from a different mesh.
             dim: Spatial dimension, 2 or 3. Only dim=3 is currently supported by run(). Default 3.
         """
@@ -574,10 +574,15 @@ class CPFESimulation:
             f.write("[]\n")
 
     def write_orientation_file(self):
-        """Write mrps_orientation.csv from the orientation file; return grain count."""
+        """Write mrps_orientation.csv from the orientation file; return grain count.
+
+        A 9-column file is read as the row-major active ``R`` (crystal -> sample)
+        and converted with :func:`~graintrace.orientation_helper.load_orientations`;
+        a 3-column file must already be neml2 MRP and is copied as-is.
+        """
         df = pd.read_csv(self.ori_file, sep=r"[,\s]+", engine="python", header=None)
 
-        # 9 columns = rotation matrix
+        # 9 columns = active rotation matrix R (row-major)
         if df.shape[1] == 9:
 
             mrps = load_orientations(df, field=None)
