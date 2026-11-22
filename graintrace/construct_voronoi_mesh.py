@@ -39,6 +39,21 @@ from . import neper_env
 from .frame_transform import FrameTransform
 
 
+def _raise_on_neper_failure(proc, cmd, morphoalgo, log_path):
+    """Raise a clear error for a failed NEPER tessellation run (no-op on success)."""
+    if proc.returncode == 0:
+        return
+    out = proc.stdout or ""
+    if "Unknown optimization algorithm" in out:
+        raise ValueError(
+            f"NEPER rejected morphoalgo={morphoalgo!r} (-morphooptialgo). Use "
+            "'subplex' (graintrace's default) or 'lloyd', which every NEPER "
+            "accepts; NEPER 7 removed 'praxis' and the other NLopt algorithms. "
+            f"NEPER log: {log_path}"
+        )
+    raise subprocess.CalledProcessError(proc.returncode, cmd, output=out)
+
+
 class VoronoiMeshBuilder:
     """Reconstruct a 3D microstructure from far-field (FF) HEDM grain centroids.
 
@@ -728,7 +743,7 @@ class VoronoiMeshBuilder:
         option: str = "voronoi",
         generate_mesh: bool = False,
         relative_el_size: float = None,
-        morphoalgo: str = "praxis",
+        morphoalgo: str = "subplex",
         mesh_quality_min: float = 0.9,
         tesr_size: list = None,
         CVT_iter: int = 1000,
@@ -745,7 +760,8 @@ class VoronoiMeshBuilder:
                 Note "centroid" and "centroidal" are distinct NEPER morphologies, not aliases.
             generate_mesh: If True, also generate a NEPER/GMSH tet (or tri) .msh mesh; this is a fallback only, the default CPFE mesh is SCULPT hex.
             relative_el_size: Mesh element size relative to grain size, passed to generate_mesh; defaults to 1.0 when None.
-            morphoalgo: NEPER morphology optimization algorithm, e.g. "praxis", "subplex", or "lloyd".
+            morphoalgo: NEPER morphology optimization algorithm (``-morphooptialgo``). Default "subplex"; "subplex" and "lloyd" work on NEPER 4.x and 7.x.
+                NEPER 7.0.0 rejects "praxis" (the previous default) and the other NLopt names; a rejected algorithm raises ValueError.
             mesh_quality_min: Minimum acceptable mesh element quality, passed to generate_mesh.
             tesr_size: Voxel raster resolution [nx, ny, nz] for the .tesr output; defaults to [20, 20, 20] when None.
             CVT_iter: Number of CVT/morphology optimization iterations.
@@ -921,12 +937,17 @@ class VoronoiMeshBuilder:
             print("> " + " ".join(neper_cmd), file=logf)
             logf.flush()
 
-            subprocess.run(
+            proc = subprocess.run(
                 neper_cmd,
-                check=True,
+                check=False,
                 env=self.env,
+                stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
+                text=True,
             )
+            logf.write(proc.stdout or "")
+        print(proc.stdout or "")
+        _raise_on_neper_failure(proc, neper_cmd, morphoalgo, log_path)
 
         print(f"Voronoi tessellation completed: {tess_name}.tess\n")
 
@@ -966,7 +987,7 @@ class VoronoiMeshBuilder:
         device: str = "cpu",
         option: str = "centroid",
         CVT_iter: int = 100,
-        morphoalgo: str = "praxis",
+        morphoalgo: str = "subplex",
         visualize2D: bool = False,
         visualize3D: bool = False,
     ):
@@ -1041,7 +1062,7 @@ class VoronoiMeshBuilder:
         orientations.dat consumers use, so no NEPER matrix-convention dependency
         enters. ``self.data`` Euler are degrees after ``read_input``.
         """
-        convention = self.ori_descriptor.split(":")[0].replace("euler-", "")
+        convention = self.ori_descriptor.split(":", maxsplit=1)[0].replace("euler-", "")
         euler = self.data[self.angle_id].to_numpy(dtype=float)
         new_euler = self._frame().euler(euler, convention, "degrees")
         self.data[self.angle_id] = new_euler

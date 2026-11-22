@@ -91,14 +91,19 @@ def _check_neper() -> DepStatus:
         "neper", "neper/build/neper", "neper/src/neper"
     )
     if p:
-        return DepStatus("neper", True, f"found: {p}", "")
+        ver = neper_env.neper_version(p)
+        return DepStatus(
+            "neper", True, f"found: {p}" + (f" (NEPER {ver})" if ver else ""), ""
+        )
     return DepStatus(
         "neper",
         False,
         "not found via NEPER env var, tools.json, PATH, or external/neper",
-        "Install NEPER (https://neper.info/doc/introduction.html#installing-neper) "
-        "and point graintrace at it via the NEPER env var, a graintrace_tools.json "
-        "`neper` key, or `neper` on PATH.",
+        "Install NEPER 4.x or 7.x "
+        "(https://neper.info/doc/introduction.html#installing-neper; NEPER 7 needs "
+        "the Gmsh SDK) and point graintrace at it via the NEPER env var, a "
+        "graintrace_tools.json `neper` key, or `neper` on PATH; or build NEPER 7 "
+        "into ~/.local with VoronoiMeshBuilder(..., auto_install=True).",
     )
 
 

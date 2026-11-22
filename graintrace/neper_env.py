@@ -37,10 +37,12 @@ find it, in this order:
 gmsh, by contrast, *is* a pip package (declared in ``pyproject.toml`` and
 installed with graintrace), so it needs no discovery here.
 
-For the legacy convenience of a from-source build on Linux, pass
-``auto_install=True`` (opt-in): it builds GSL, OpenBLAS and NEPER into
-``~/.local`` exactly as older graintrace did. The default path never downloads or
-compiles anything.
+For the convenience of a from-source build on Linux, pass ``auto_install=True``
+(opt-in): it builds NEPER 7.0.0 into ``~/.local`` against the Gmsh 4.15.2 SDK
+(unpacked into ``~/.local/opt``, linked via RPATH) with NEPER's builtin GSL and
+the system gcc (see :func:`_neper7_build_plan`). The default path never downloads
+or compiles anything. graintrace supports NEPER 4.x and 7.x; with NEPER 7 the
+``-morphooptialgo`` choices are ``subplex`` (graintrace's default) and ``lloyd``.
 """
 
 from __future__ import annotations
@@ -159,6 +161,30 @@ def build_env(neper_bin: Optional[str] = None) -> dict:
     return env
 
 
+def neper_version(neper_bin: Optional[str] = None) -> Optional[str]:
+    """The ``neper --version`` string (e.g. ``"7.0.0"``), or ``None`` if it cannot run.
+
+    Args:
+        neper_bin: the binary; resolved with :func:`find_neper` when ``None``.
+    """
+    neper_bin = neper_bin or find_neper()
+    if neper_bin is None:
+        return None
+    try:
+        proc = subprocess.run(
+            [neper_bin, "--version"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            env=build_env(neper_bin),
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    lines = (proc.stdout or proc.stderr or "").strip().splitlines()
+    return lines[0].strip() if proc.returncode == 0 and lines else None
+
+
 def resolve_neper_env(
     neper_path: Optional[str] = None,
     auto_install: bool = False,
@@ -189,117 +215,151 @@ def resolve_neper_env(
     return neper_bin, build_env(neper_bin)
 
 
-def _auto_install_neper() -> str:
-    """Opt-in Linux from-source build of GSL + OpenBLAS + NEPER into ``~/.local``.
+#: NEPER version built by ``auto_install=True`` and the Gmsh SDK it links against.
+NEPER_AUTO_VERSION = "7.0.0"
+GMSH_SDK_VERSION = "4.15.2"
 
-    Returns the installed ``neper`` path. This is the legacy behavior, retained
-    only behind ``auto_install=True``; the default resolution never calls it.
+
+def _neper7_build_plan(home: str) -> dict:
+    """The NEPER 7 from-source build recipe (pure data, so it can be tested unrun).
+
+    Mirrors a known-good manual build: the Gmsh SDK unpacked into
+    ``~/.local/opt`` and found through ``CMAKE_PREFIX_PATH``, linked via RPATH
+    (no ``LD_LIBRARY_PATH`` needed at run time), NEPER's builtin GSL
+    (``-DFORCE_BUILTIN_GSL=ON``), and the SYSTEM gcc/g++ (a conda compiler in the
+    environment breaks the link), with the compiler variables cleared.
+
+    Returns:
+        dict with ``prefix``, ``gmsh_dir``, ``gmsh_url``, ``neper_urls``,
+        ``src_dir``, ``build_env`` (overrides; ``None`` = unset) and ``cmake``
+        (the configure command).
+    """
+    prefix = os.path.join(home, ".local")
+    progs = os.path.join(home, "Progs")
+    gmsh_name = f"gmsh-{GMSH_SDK_VERSION}-Linux64-sdk"
+    gmsh_dir = os.path.join(prefix, "opt", gmsh_name)
+    rpath = f"{prefix}/lib;{gmsh_dir}/lib"
+    return {
+        "prefix": prefix,
+        "progs": progs,
+        "gmsh_dir": gmsh_dir,
+        "gmsh_url": f"https://gmsh.info/bin/Linux/{gmsh_name}.tgz",
+        "neper_urls": [
+            f"https://neper.info/download/neper-{NEPER_AUTO_VERSION}.tar.gz",
+            "https://github.com/neperfepx/neper/archive/refs/tags/"
+            f"v{NEPER_AUTO_VERSION}.tar.gz",
+        ],
+        "src_dir": os.path.join(progs, f"neper-{NEPER_AUTO_VERSION}", "src"),
+        "build_env": {
+            "CC": None,
+            "CXX": None,
+            "CFLAGS": None,
+            "CXXFLAGS": None,
+            "LDFLAGS": None,
+            "CPPFLAGS": None,
+            "CMAKE_PREFIX_PATH": None,
+            "PATH": f"{prefix}/bin:/usr/bin:/bin",
+            "LD_LIBRARY_PATH": f"{prefix}/lib:{gmsh_dir}/lib",
+        },
+        "cmake": [
+            "cmake",
+            "-DCMAKE_C_COMPILER=/usr/bin/gcc",
+            "-DCMAKE_CXX_COMPILER=/usr/bin/g++",
+            f"-DCMAKE_INSTALL_PREFIX={prefix}",
+            f"-DCMAKE_PREFIX_PATH={prefix};{gmsh_dir}",
+            f"-DCMAKE_INSTALL_RPATH={rpath}",
+            "-DCMAKE_BUILD_WITH_INSTALL_RPATH=ON",
+            "-DNEPER_INSTALL_BASH_COMPLETION=OFF",  # no sudo path
+            "-DFORCE_BUILTIN_GSL=ON",
+            "..",
+        ],
+    }
+
+
+def _auto_install_neper() -> str:
+    """Opt-in Linux from-source build of NEPER 7 (+ Gmsh SDK, OpenBLAS) into ``~/.local``.
+
+    Returns the installed ``neper`` path. Retained only behind
+    ``auto_install=True``; the default resolution never calls it. The recipe is
+    :func:`_neper7_build_plan`; it needs ``wget``, ``tar``, ``cmake``, ``make``
+    and the system ``gcc``/``g++``.
     """
     home = os.path.expanduser("~")
-    prefix = os.path.join(home, ".local")
+    plan = _neper7_build_plan(home)
+    prefix, progs = plan["prefix"], plan["progs"]
     env = os.environ.copy()
     env["PATH"] = f"{prefix}/bin:" + env.get("PATH", "")
     env["LD_LIBRARY_PATH"] = f"{prefix}/lib:" + env.get("LD_LIBRARY_PATH", "")
 
+    tool_env = env.copy()
+    for key, val in plan["build_env"].items():
+        if val is None:
+            tool_env.pop(key, None)
+        else:
+            tool_env[key] = val
+
     def is_installed(cmd):
         return shutil.which(cmd, path=env["PATH"]) is not None
 
-    def run(cmd, cwd=None):
+    def run(cmd, cwd=None, run_env=None):
         print(">", " ".join(cmd))
-        subprocess.run(cmd, check=True, cwd=cwd, env=env)
+        subprocess.run(cmd, check=True, cwd=cwd, env=run_env or env)
 
     os.makedirs(prefix, exist_ok=True)
+    os.makedirs(progs, exist_ok=True)
 
-    # GSL
-    if not os.path.exists(os.path.join(prefix, "lib", "libgsl.so")):
-        print("Installing GSL locally...")
-        run(
-            [
-                "wget",
-                "https://ftp.gnu.org/gnu/gsl/gsl-latest.tar.gz",
-                "-O",
-                os.path.join(home, "gsl.tar.gz"),
-            ]
-        )
-        run(["tar", "-xzf", "gsl.tar.gz"], cwd=home)
-        gsl_src = next(
-            (os.path.join(home, d) for d in os.listdir(home) if d.startswith("gsl-")),
-            None,
-        )
-        if not gsl_src:
-            raise RuntimeError("GSL extraction failed.")
-        run(["./configure", f"--prefix={prefix}"], cwd=gsl_src)
-        run(["make", "-j", str(os.cpu_count())], cwd=gsl_src)
-        run(["make", "install"], cwd=gsl_src)
+    if is_installed("neper"):
+        print("Neper already available in PATH.")
+        return shutil.which("neper", path=env["PATH"])
 
-    # OpenBLAS
+    # OpenBLAS (NEPER's linear algebra)
     if not os.path.exists(os.path.join(prefix, "lib", "libopenblas.so.0")):
         print("Installing OpenBLAS locally...")
-        progs_dir = os.path.expanduser("~/Progs")
-        os.makedirs(progs_dir, exist_ok=True)
-        run(["git", "clone", "https://github.com/xianyi/OpenBLAS.git"], cwd=progs_dir)
-        openblas_src = os.path.join(progs_dir, "OpenBLAS")
-        conda_prefix = os.environ.get("CONDA_PREFIX", "")
+        run(["git", "clone", "https://github.com/xianyi/OpenBLAS.git"], cwd=progs)
+        openblas_src = os.path.join(progs, "OpenBLAS")
         run(
-            [
-                "make",
-                f"PREFIX={prefix}",
-                f"FC={conda_prefix}/bin/x86_64-conda-linux-gnu-gfortran",
-                "-j",
-                str(os.cpu_count()),
-            ],
+            ["make", f"PREFIX={prefix}", "-j", str(os.cpu_count())],
             cwd=openblas_src,
+            run_env=tool_env,
         )
         run(["make", "install", f"PREFIX={prefix}"], cwd=openblas_src)
 
-    # NEPER
-    if not is_installed("neper"):
-        print("Installing Neper locally...")
-        stable_version = "4.10.1"
-        stable_url = f"https://neper.info/download/neper-{stable_version}.tar.gz"
-        progs_dir = os.path.expanduser("~/Progs")
-        os.makedirs(progs_dir, exist_ok=True)
-        try:
-            print(f"Attempting official stable release v{stable_version}...")
-            run(
-                [
-                    "wget",
-                    stable_url,
-                    "-O",
-                    os.path.join(progs_dir, f"neper-{stable_version}.tar.gz"),
-                ]
-            )
-            run(["tar", "-zxf", f"neper-{stable_version}.tar.gz"], cwd=progs_dir)
-            neper_src_dir = os.path.join(progs_dir, f"neper-{stable_version}", "src")
-        except subprocess.CalledProcessError:
-            print("Stable release unavailable, cloning GitHub master instead...")
-            repo_url = "https://github.com/rquey/neper.git"
-            neper_src_dir = os.path.join(progs_dir, "neper", "src")
-            if not os.path.exists(os.path.join(progs_dir, "neper")):
-                run(["git", "clone", repo_url, os.path.join(progs_dir, "neper")])
-            else:
-                run(["git", "-C", os.path.join(progs_dir, "neper"), "pull"])
+    # Gmsh SDK (NEPER 7 links libgmsh for meshing)
+    if not os.path.isdir(plan["gmsh_dir"]):
+        print(f"Installing the Gmsh {GMSH_SDK_VERSION} SDK...")
+        os.makedirs(os.path.dirname(plan["gmsh_dir"]), exist_ok=True)
+        tgz = os.path.join(progs, os.path.basename(plan["gmsh_url"]))
+        run(["wget", plan["gmsh_url"], "-O", tgz])
+        run(["tar", "-xzf", tgz, "-C", os.path.dirname(plan["gmsh_dir"])])
 
-        build_dir = os.path.join(neper_src_dir, "build")
-        os.makedirs(build_dir, exist_ok=True)
-        run(
-            [
-                "cmake",
-                f"-DCMAKE_INSTALL_PREFIX={prefix}",
-                "-DNEPER_INSTALL_BASH_COMPLETION=OFF",  # disable sudo path
-                "..",
-            ],
-            cwd=build_dir,
-        )
-        run(["make", "-j", str(os.cpu_count())], cwd=build_dir)
-        run(["make", "install"], cwd=build_dir)
+    # NEPER source
+    if not os.path.isdir(plan["src_dir"]):
+        tarball = os.path.join(progs, f"neper-{NEPER_AUTO_VERSION}.tar.gz")
+        for url in plan["neper_urls"]:
+            try:
+                print(f"Downloading NEPER {NEPER_AUTO_VERSION} from {url} ...")
+                run(["wget", url, "-O", tarball])
+                break
+            except subprocess.CalledProcessError:
+                continue
+        else:
+            raise RuntimeError(f"Could not download NEPER {NEPER_AUTO_VERSION}.")
+        run(["tar", "-zxf", tarball], cwd=progs)
+        if not os.path.isdir(plan["src_dir"]):  # GitHub archive layout
+            alt = os.path.join(progs, f"neper-{NEPER_AUTO_VERSION}")
+            raise RuntimeError(f"NEPER sources not found under {alt}/src")
 
-        if not is_installed("neper"):
-            raise RuntimeError("Neper installation failed.")
-        print("Neper installed successfully (stable or GitHub build).")
-    else:
-        print("Neper already available in PATH.")
+    build_dir = os.path.join(plan["src_dir"], "build")
+    shutil.rmtree(build_dir, ignore_errors=True)
+    os.makedirs(build_dir)
+    run(plan["cmake"], cwd=build_dir, run_env=tool_env)
+    run(["make", "-j", str(os.cpu_count())], cwd=build_dir, run_env=tool_env)
+    run(["make", "install"], cwd=build_dir, run_env=tool_env)
 
-    return shutil.which("neper", path=env["PATH"]) or os.path.join(
-        prefix, "bin", "neper"
-    )
+    neper_bin = os.path.join(prefix, "bin", "neper")
+    if not os.path.exists(neper_bin):
+        raise RuntimeError("Neper installation failed.")
+    clean = {k: v for k, v in env.items() if k != "LD_LIBRARY_PATH"}
+    run([neper_bin, "--version"], run_env=clean)  # RPATH: runs without LD_LIBRARY_PATH
+    print(f"Neper {NEPER_AUTO_VERSION} installed successfully.")
+    return neper_bin

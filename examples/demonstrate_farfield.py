@@ -165,7 +165,7 @@ if build_voronoi:
         relative_el_size=5.0,  # 1 roughly 100 elements per cell
         option="centroid",  # voronoi, centroid, centroidsize
         CVT_iter=100,
-        morphoalgo="subplex",  # subplex, lloyd, praxis
+        morphoalgo="subplex",  # subplex | lloyd (NEPER 7 dropped praxis)
     )
 
 if build_graph:
