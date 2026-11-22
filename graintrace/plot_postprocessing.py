@@ -563,7 +563,8 @@ def _project_ipf_track(ipf, track, angle_convention, angle_type, direction_t):
         if angle_convention == "mrp"
         else euler_to_matrix(t, angle_convention, angle_type)
     )
-    pts = np.asarray(ipf.get_ipf_points(rmat, direction_t), dtype=float)
+    # variant-consistent: one sector op for the whole track (no edge jumps)
+    pts = np.asarray(ipf.get_ipf_track_points(rmat, direction_t), dtype=float)
     rgb0 = np.asarray(ipf.get_ipf_color(rmat[:1], direction_t), dtype=float)[0]
     rgb_final = np.asarray(ipf.get_ipf_color(rmat[-1:], direction_t), dtype=float)[0]
     return pts, rgb0, rgb_final

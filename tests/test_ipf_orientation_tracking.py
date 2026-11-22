@@ -99,6 +99,71 @@ class TestGetIpfPoints:
         assert pts.shape[0] == rgb.shape[0] == 2
 
 
+class TestIpfTrackPoints:
+    """``get_ipf_track_points``: one sector operator for the whole track."""
+
+    @staticmethod
+    def _track(crossing_deg=6.0, steps=13):
+        """Crystal direction R^T z sweeping across the [001]-[101] edge (y = 0)."""
+        import torch
+
+        from graintrace.orientation_helper import euler_to_matrix
+
+        # R^T z = (sinP sin p2, sinP cos p2, cosP): p2 = 90 +/- a puts the
+        # direction at (sinP cos a, -/+ sinP sin a, cosP), crossing y = 0.
+        a = np.linspace(-crossing_deg, crossing_deg, steps)
+        eul = np.stack([np.full(steps, 23.0), np.full(steps, 30.0), 90.0 + a], 1)
+        return euler_to_matrix(torch.as_tensor(eul), "bunge", "degrees")
+
+    def test_track_crosses_the_edge_continuously(self):
+        pytest.importorskip("neml2")
+        from graintrace.ipf_postprocess import IPFProcessor
+
+        ipf = IPFProcessor(crystal_symmetry="432", sample_symmetry="1")
+        r = self._track()
+        indep = np.asarray(ipf.get_ipf_points(r, [0.0, 0.0, 1.0]))
+        track = np.asarray(ipf.get_ipf_track_points(r, [0.0, 0.0, 1.0]))
+        assert track.shape == indep.shape == (13, 2)
+        # step 0 is exactly where the per-orientation reduction puts it
+        assert np.allclose(track[0], indep[0], atol=1e-12)
+        # independent reduction bounces off the edge (y >= 0 everywhere) ...
+        assert np.all(indep[:, 1] >= -1e-9)
+        # ... the track keeps going: y is monotonic and changes sign
+        dy = np.diff(track[:, 1])
+        assert np.all(dy > 0) or np.all(dy < 0)
+        assert track[0, 1] * track[-1, 1] < 0
+        # step size stays uniform (no jump)
+        step = np.linalg.norm(np.diff(track, axis=0), axis=1)
+        assert step.max() < 1.5 * step.min()
+
+    def test_variant_reported_steps_do_not_jump(self):
+        """Steps reported in other symmetry variants land on the same track."""
+        pytest.importorskip("neml2")
+        import torch
+
+        from graintrace.ipf_postprocess import IPFProcessor
+        from graintrace.orientation_helper import symmetry_operators
+
+        ipf = IPFProcessor(crystal_symmetry="432", sample_symmetry="1")
+        r = self._track()
+        ops = symmetry_operators("432")
+        mixed = r.clone()
+        mixed[1::2] = torch.matmul(mixed[1::2], ops[5])  # R S: same orientation
+        a = np.asarray(ipf.get_ipf_track_points(r, [0.0, 0.0, 1.0]))
+        b = np.asarray(ipf.get_ipf_track_points(mixed, [0.0, 0.0, 1.0]))
+        assert np.allclose(a, b, atol=1e-9)
+
+    def test_empty_track(self):
+        pytest.importorskip("neml2")
+        import torch
+
+        from graintrace.ipf_postprocess import IPFProcessor
+
+        ipf = IPFProcessor(crystal_symmetry="432", sample_symmetry="1")
+        pts = ipf.get_ipf_track_points(torch.zeros(0, 3, 3), [0.0, 0.0, 1.0])
+        assert tuple(pts.shape) == (0, 2)
+
+
 @pytest.fixture
 def sim_results():
     if not (MWE / "out.csv").exists():
