@@ -51,7 +51,7 @@ builder.build_voronoi(
   `.msh` (`generate_mesh=True`, `relative_el_size` ~ elements per grain) is a fallback only.
 
 ## Outputs (in `output_dir`)
-- `reconstruction.tess` / `reconstruction.ori` (9-col rotmat) / `reconstruction.msh` (GMSH tet, fallback; only if `generate_mesh=True`)
+- `reconstruction.tess` / `reconstruction.ori` (9-col `rotmat:active` = active R, crystal -> sample) / `reconstruction.msh` (GMSH tet, fallback; only if `generate_mesh=True`)
 - `orientations.dat`: per-grain Euler, **always degrees after FF build** (convert with
   `orientation_helper.euler_to_mrp` before CPFE)
 - `reconstruction_cpfe_ee.csv`: per-grain initial elastic strain (12 cols: x,y,z + 9)

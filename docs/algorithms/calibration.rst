@@ -159,7 +159,12 @@ See :doc:`/configuration` for the full list.
   bidiagonal-in-time solve), ``device`` (``cuda`` recommended; the whole system is moved to the
   device).
 - ``data_args``: ``data_dir`` / ``strain_stress_file``, ``straintype`` (``eKen``/``eFab``),
-  ``full_field_strain_units``, ``max_strain``, ``n_grains``, ``seed``.
+  ``full_field_strain_units``, ``max_strain``, ``n_grains``, ``seed``, and the orientation
+  source ``angle_identifier`` (default ``Eul0..Eul2``) / ``angle_convention`` (``bunge``) /
+  ``angle_type`` (``auto``: any value beyond :math:`2\pi` means degrees). The texture is
+  ``euler_to_mrp`` of the Euler columns -- the NEML2 MRP of the active :math:`R` the
+  Taylor model's ``orientation`` expects; ``O11..O33`` (which must then be the active
+  :math:`R`, MIDAS ``O``) are used only when a table has no Euler columns.
 - ``calibrate`` knobs: ``maxiter``, ``lr``, ``max_iter_per_step``, ``line_search_fn``,
   ``plateau_rtol`` / ``plateau_window``, and ``full_field_weight`` / ``full_field_components``.
 - ``apply_elastic_correction`` + ``strain_window``.

@@ -167,7 +167,10 @@ take :math:`Q` off :math:`SO(3)` and accumulate a spurious stretch over a long l
 .. note::
 
    The orientation state is stored and output as **NEML2 v3 MRP**,
-   :math:`\tan(\theta/4)\,\hat{\mathbf{e}}`. The output columns are named
+   :math:`\tan(\theta/4)\,\hat{\mathbf{e}}`, of the active (crystal :math:`\to`
+   sample) matrix :math:`R` -- the same orientation graintrace's
+   ``euler_to_mrp`` produces, so ``ori_file`` and the outputs share one convention
+   (see :ref:`notation-rotation-convention`). The output columns are named
    ``ori_rodrigues_{x,y,z}``, which is a misnomer: they do **not** hold classical Rodrigues
    (Gibbs) vectors, :math:`\tan(\theta/2)\,\hat{\mathbf{e}}`. Every in-repository consumer
    treats them correctly as MRP; a third-party tool expecting Rodrigues will silently

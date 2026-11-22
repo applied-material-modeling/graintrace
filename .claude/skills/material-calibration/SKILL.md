@@ -13,7 +13,9 @@ Uses `MaterialCalibration` + `TaylorModel`. Env: `conda activate moose-src`.
 External tool: **NEML2 v3** only (no MOOSE). CUDA optional.
 
 ## Inputs
-A folder of per-stress-level CSVs with orientation matrix `O11..O33` + `eKen11..33` +
+A folder of per-stress-level CSVs with Euler angles `Eul0..Eul2` (standard Bunge,
+rad/deg auto-detected; the texture is `euler_to_mrp`, the MRP of the active R;
+`O11..O33` = active R / MIDAS O only as a fallback) + `eKen11..33` +
 `GrainRadius`, plus a `strain-stress.csv` (2 cols: strain, stress). Self-contained:
 `mwe_data/ff_calibration/` (9 load steps × 500 grains). For a physically registered fit, first
 run `/experiment-rotation`.

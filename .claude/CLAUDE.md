@@ -172,7 +172,7 @@ builder_ff.build_voronoi(
     generate_mesh=False,             # keep False (default). True = NEPER/GMSH tet .msh — a FALLBACK only, see note below
     option="centroid",               # "voronoi" | "centroid" | "centroidsize"
     CVT_iter=1000,                   # CVT optimization iterations
-    morphoalgo="subplex",            # "subplex" | "lloyd" | "praxis"
+    morphoalgo="subplex",            # default; "subplex" | "lloyd" (NEPER 7 removed "praxis")
     mesh_quality_min=0.7,
     relative_el_size=2.0,            # mesh element size relative to grain size
     tesr_size=[100, 100, 100],       # voxel grid resolution [nx, ny, nz]
@@ -180,7 +180,9 @@ builder_ff.build_voronoi(
 ```
 
 `rotate()` records its frame change on `builder.frame_transform`; positions, orientations and
-strains all use it. `orientation_active_convention` is deprecated and ignored (warns on `True`).
+strains all use it (`R' = Q R`). `orientation_active_convention` is deprecated and ignored (warns on `True`).
+NEPER gets the Euler as `euler-bunge:passive` and writes `rotmat:active`, so `builder.data`
+`O11..O33`, the rewritten `.tess` and `reconstruction.ori` all hold the active R'.
 
 Key outputs in `output_dir`:
 - `reconstruction_reformatted.csv`: per-voxel grain IDs and orientations (input to the default hex mesher)
@@ -212,8 +214,11 @@ euler = np.loadtxt("out/FF/orientations.dat")            # Euler-Bunge, degrees
 mrp = oh.euler_to_mrp(torch.tensor(euler, dtype=torch.float64), "bunge", "degrees")
 np.savetxt("out/FF/orientations_MRP.dat", mrp.numpy(), fmt="%.12g")
 ```
-graintrace "mrp" is Gibbs/Rodrigues (`tan θ/2`) ≠ neml2 v3 MRP; `euler_to_mrp` returns true
-neml2 MRP, which is what the CPFE model's `orientation` IC and `ori_rodrigues` output expect.
+`euler_to_mrp` returns the neml2 MRP of the **active** R = Rz(φ1) Rx(Φ) Rz(φ2) (crystal ->
+sample, = MIDAS `O`), which is exactly the CPFE model's `orientation` IC and `ori_rodrigues`
+output (neml2 `ResolvedShear`: τ = σ : sym(R M Rᵀ)). A 9-column `ori_file` must be the
+row-major active R (NEPER `rotmat:active` / MIDAS `O`). MRP written by graintrace <= 0.2 is
+the inverse (`oh.legacy_mrp_to_mrp(p) == -p`); rerun CPFE driven by it, do not negate results.
 
 ```python
 from graintrace.run_cpfe_simulation import CPFESimulation
@@ -381,7 +386,7 @@ mesh_path = builder_nf.mesh(
 Key outputs in `save_dir`:
 - `merged_segmented_fixed_grid.npy`: segmented voxel grid (restart checkpoint)
 - `mesh.e`: Exodus mesh file for CPFE
-- `orientations.csv`: MRP orientations, one row per Exodus **block** (grain), not per element
+- `orientations.csv`: MRP (of the active R) orientations, one row per Exodus **block** (grain), not per element
 - `fixed_grid_confidence.npy` (per-voxel confidence), `mesh_block_map.csv` (block -> grain)
 
 Graph/Leiden (recommended) runs `FragmentationAnalyzer.segment` on the solid voxels:
@@ -648,8 +653,10 @@ IPF-colored start dot, a black line through its per-step orientations (small ste
 and an arrowhead at the final step. Build tracks with
 `graintrace.ipf_orientation_tracking`, plot with
 `plot_postprocessing.plot_ipf_orientation_tracking`. Dot color = the fixed standard IPF color
-key (`IPFProcessor.get_ipf_color`); positions = `IPFProcessor.get_ipf_points` (order-preserving,
-one representative per orientation — unlike neml2's ragged `inverse_pole_figure_points`).
+key (`IPFProcessor.get_ipf_color`); positions = `IPFProcessor.get_ipf_track_points` (order-preserving,
+one point per step, variant-consistent: one sector operator per track, so a track crossing a
+sector edge continues instead of bouncing — unlike neml2's ragged `inverse_pole_figure_points`;
+`get_ipf_points` is the per-orientation reduction).
 ```python
 from graintrace.ipf_orientation_tracking import OrientationTracker
 from graintrace import plot_postprocessing as pp
@@ -869,7 +876,10 @@ per-child `child_colors`, AND a shared `{grain}.{k}` → line-style map; black s
 Fits 6 crystal-plasticity parameters to a macroscopic stress-strain curve (+ full-field
 elastic strains) with a **neml2 v3 + pyzag analytic-adjoint** Taylor model driven by LBFGS.
 Self-contained data ships in `mwe_data/ff_calibration/` (9 load steps × 500 grains, columns
-`O11..O33`, coords, `Eul0/1/2`, `eKen11..33`, + `strain-stress.csv`).
+`O11..O33`, coords, `Eul0/1/2`, `eKen11..33`, + `strain-stress.csv`). The texture is loaded
+from the **Euler** columns (`data_args` `angle_identifier=["Eul0","Eul1","Eul2"]`,
+`angle_convention="bunge"`, `angle_type="auto"`: any |value| > 2π ⇒ degrees) via
+`euler_to_mrp`; `O11..O33` (= active R / MIDAS O; true for this dataset) is only a fallback.
 
 ```python
 import graintrace as _gt
@@ -920,8 +930,8 @@ The 6 opt vars (`TaylorModel.opt_vars`) map to CPFE material names via:
 `voce_hardening_saturated_hardening→voce_hardening_saturation`.
 
 For a physically registered fit, first rotate the raw FF CSVs into the simulation frame with
-`experiment_rotation_helper` (reads `Eul*`, (re)writes the rotated `O11..O33` as
-`reconstruction.ori`, dropping any pre-existing `O`):
+`experiment_rotation_helper` (reads `Eul*`, writes the ROTATED Euler (degrees, R' = Q R) and
+drops every `O` column; the `reconstruction.ori` row-count guard stays):
 ```python
 from graintrace.experiment_rotation_helper import update_experiments, collect_experiment_files
 
@@ -1113,7 +1123,52 @@ as MRP). Do NOT feed these columns to a tool expecting true Rodrigues. A rename 
 `ori_mrp_*` (aux vars + `initial_conditions*.i` `rodrigues_*` functions + all consumers) is a
 **deferred follow-up** — the blast radius is wide, so it is documented rather than done.
 
-### A frame change rotates orientations on the SAMPLE side (`g' = g Qᵀ`, not `Q g`)
+### Orientation convention: the matrix is the ACTIVE R (MIDAS / neml2), symmetry on the RIGHT
+`euler_to_matrix` returns R = Rz(φ1) Rx(Φ) Rz(φ2) (crystal -> sample; MIDAS `Euler2OrientMat`,
+Grains.csv `O`, NEPER `rotmat:active`); the classical passive Bunge g = Rᵀ is NOT graintrace's
+matrix. Euler is the standard Bunge triplet (`matrix_to_euler` transposes first). MRP = neml2 MRP
+of R (`matrix_to_mrp`/`mrp_to_matrix`, no transpose) = the neml2 `orientation`.
+`oh.ROTATION_CONVENTION == "active"`. Crystal symmetry acts on the RIGHT (`R S`; misorientation
+`R1ᵀ R2`), a sample-frame change on the LEFT (`R' = Q R`, `FrameTransform`, MRP `compose(Q, p)`).
+Before the flip (graintrace <= 0.2, 0544c83) the matrix was g with symmetry on the left: old
+graintrace MRP/O files are the inverse rotation (`legacy_mrp_to_mrp`: `-p`; transpose an old O);
+Euler files are unaffected; old CPFE runs must be rerun. The wrong side is invisible on a random
+texture and modulo cubic symmetry; test on a crystal direction (`R c -> Q R c`) or an IPF corner.
+Invariance vs the old code is pinned by `tests/test_convention_invariance.py` (verbatim legacy
+copies in `tests/_orientation_legacy.py` + the 0544c83 pipeline baseline
+`tests/data/orientation_convention_baseline.npz`); ground truth (MIDAS formula, neml2
+`ResolvedShear` BCC Schmid, IPF corners, neml2 `inverse_pole_figure_points`) in
+`tests/test_orientation_ground_truth.py`.
+
+### NEPER descriptors are explicit; a bare `rotmat` is passive
+NEPER's default convention is passive (`rotmat` = g = Rᵀ). graintrace passes Euler as
+`euler-bunge:passive` (`neper_env.euler_descriptor`; `:active` Euler raises) and requests
+`rotmat:active` (`neper_env.ROTMAT_DESCRIPTOR`). Readers honour any suffix:
+`NeperTessToGraphNN` maps all of `rotmat|quaternion|rodrigues|axis-angle|euler-*` × `:active|:passive`
+to R (NEPER parameterises quaternion/Rodrigues/axis-angle relative to its PASSIVE matrix, so
+their textbook matrix is R for `:passive`, Rᵀ for `:active`; pinned by NEPER 7.0.0 + 4.10.2 files
+in `tests/data/neper_descriptors/`); `apply_rotation_to_properties` writes the `.tess` back in its
+own descriptor. Both NEPER versions accept every suffix (no version gate).
+
+### NEPER 7: `morphoalgo="subplex"`; 4.x truncates `-o` at the first `.`
+NEPER 7.0.0 rejects `-morphooptialgo praxis` (and neldermead/cobyla/newuoa/bobyqa); only
+`subplex` (the default now) and `lloyd` work on both 4.x and 7.x. A rejection is raised as a
+`ValueError` (`_raise_on_neper_failure`). The tet-mesh fallback (`generate_mesh=True`) works on
+both. NEPER 4.x truncates `-o` paths at the first `.` (dotted dirs like `~/.claude_tmp` break it;
+v7 does not). `neper_env.neper_version()`; the doctor reports `found: … (NEPER 7.0.0)`.
+
+### Weighted (Laguerre) FF tessellation is effectively unweighted (documented, not fixed)
+`weighted=True` writes `(4/3)πr³` weights normalised to sum 1 while seeds are in µm; a Laguerre
+weight enters as a squared length (NEPER 7: w = r²), so the weights are negligible. Open item;
+use `option="centroidsize"` for size-aware cells.
+
+### IPF tracks are variant-consistent
+`plot_ipf_orientation_tracking` / `plot_ipf_fragmentation_tracking` project each track with
+`IPFProcessor.get_ipf_track_points`: every step folded to the variant `R_t S` closest to step 0,
+then step 0's sector operator applied to all steps (no bounce at sector edges; may leave the
+sector slightly). `get_ipf_points` still reduces each orientation independently.
+
+### A frame change rotates orientations on the SAMPLE side (`R' = Q R`, not `R Qᵀ`)
 The wrong side is invisible modulo cubic symmetry; test on a crystal direction (`R c -> Q R c`).
 
 ### `.tess` signed indices: decode with `decode_signed_index`, never `abs()`
@@ -1149,8 +1204,9 @@ to `_COMPILED_TIER_DEPENDENCIES`.
 `graintrace/neper_env.py` (`resolve_neper_env`): precedence is explicit
 `neper_path=`/`env=` → `NEPER` env var → `graintrace_tools.json` `"neper"` key →
 `neper` on PATH. If none resolve, the builder raises a clear `RuntimeError` linking
-neper.info. An opt-in `auto_install=True` performs a Linux `~/.local` source build
-(GSL + OpenBLAS + NEPER). gmsh is a pip dependency (auto-installed with graintrace),
+neper.info. An opt-in `auto_install=True` performs a Linux `~/.local` source build of
+NEPER 7.0.0 (`neper_env._neper7_build_plan`: Gmsh 4.15.2 SDK in `~/.local/opt` via RPATH,
+`-DFORCE_BUILTIN_GSL=ON`, system gcc/g++, OpenBLAS if absent). gmsh is a pip dependency (auto-installed with graintrace),
 so the builders take no gmsh arguments. `scan_tessellation.default_neper_env()`
 delegates to the same resolver.
 
@@ -1462,7 +1518,8 @@ microstructure (e.g. the shipped `cpfe_hex_fragmentation/mesh.e` is unrelated to
 
 ```
 graintrace/
-  neper_env.py                 resolve_neper_env     : locate a user-installed NEPER (env var/tools.json/PATH); opt-in ~/.local build
+  neper_env.py                 resolve_neper_env     : locate a user-installed NEPER (env var/tools.json/PATH); neper_version; explicit descriptors (euler_descriptor, ROTMAT_DESCRIPTOR, split_descriptor); opt-in ~/.local NEPER 7 build
+  orientation_helper.py        euler_to_matrix (active R), euler_to_mrp, matrix_to_euler, misorientation(_matrix), move_to_fundamental_zone, average_orientation, legacy_mrp_to_mrp, ROTATION_CONVENTION
   frame_transform.py           FrameTransform        : stated frame change for positions/orientations/tensors; FF/ee/point-cloud/voxel adapters; inside_voxel_solid
   construct_voronoi_mesh.py    VoronoiMeshBuilder    : FF HEDM reconstruction (NEPER)
   construct_nf_mesh.py         NearFieldMeshBuilder  : NF HEDM reconstruction (SCULPT)
@@ -1474,7 +1531,7 @@ graintrace/
   simulation_postprocessing.py SimulationResults     : Load/query CPFE output CSVs
   experiment_postprocessing.py ExperimentResults     : Load experimental data
   plot_postprocessing.py       plot_*                : Distribution/stress-strain/pole figures/IPF reorientation
-  ipf_postprocess.py           IPFProcessor          : IPF coloring on mesh; get_ipf_points/get_ipf_color; add_element_field_to_exodus (per-elem scalar) / add_element_rgb_to_exodus (per-elem RGB)
+  ipf_postprocess.py           IPFProcessor          : IPF coloring on mesh; get_ipf_points/get_ipf_color; get_ipf_track_points (variant-consistent tracks); add_element_field_to_exodus (per-elem scalar) / add_element_rgb_to_exodus (per-elem RGB)
   ipf_orientation_tracking.py  OrientationTracker : per-entity orientation tracks for IPF reorientation plots (simulation_grain_tracks/simulation_element_tracks/experiment_grain_tracks[_by_id]/compose_tracks)
   fragmentation.py             FragmentationAnalyzer : reorientation REI criterion (reorientation_from_reference/write_reorientation_field), orientation segmentation + grain-table bridge (segment/seg_to_grain_table, cluster_leak_check), sim intragranular fragments (grain_fragments, with min_subgrain_miso_deg merge via merge_fragments_by_misorientation), FF/NF/EBSD cross-step split detection (detect_splits), symmetry-aware mean_orientation_mrp
     (synthetic split datasets are generated by the test helper tests/synthetic_fragmentation.py, not a graintrace module)

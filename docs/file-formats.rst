@@ -76,14 +76,18 @@ preamble**:
 
 .. code-block:: text
 
-   O11,O12,O13,O21,O22,O23,O31,O32,O33,X,Y,Z,GrainRadius,Eul0,Eul1,Eul2,eKen11,…,eKen33
+   X,Y,Z,GrainRadius,Eul0,Eul1,Eul2,eKen11,…,eKen33[,O11,…,O33]
 
-The ``O11``–``O33`` block is the row-major rotation matrix. It is written by
-:func:`~graintrace.experiment_rotation_helper.update_experiments`, which drops
-any pre-existing ``O*`` columns and re-derives them from the ``Eul*`` columns in
-the simulation frame. This is the format
-:meth:`~graintrace.taylor.TaylorModel.load_experiment_data` reads. Shipped
-example: ``mwe_data/ff_calibration/``.
+Grain orientations are read from the ``Eul0..Eul2`` columns (standard Bunge
+triplet; radians or degrees, auto-detected: any value beyond 2π means degrees)
+by :meth:`~graintrace.taylor.TaylorModel.load_experiment_data`
+(``angle_identifier`` / ``angle_convention`` / ``angle_type``). An optional
+``O11``–``O33`` block is the row-major **active** rotation matrix ``R``
+(MIDAS Grains.csv ``O``) and is used only when the Euler columns are absent.
+:func:`~graintrace.experiment_rotation_helper.update_experiments` writes this
+format in the simulation frame: rotated Euler (degrees) and no ``O`` columns.
+Shipped example: ``mwe_data/ff_calibration/`` (whose ``O`` is the MIDAS ``R`` of
+its Euler columns).
 
 ``strain-stress.csv``
 ~~~~~~~~~~~~~~~~~~~~~
@@ -289,7 +293,9 @@ Convert to NEML2 MRP before handing it to
 ``orientations.csv`` (NF / voxel)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Comma-delimited, three columns of **NEML2 MRP**, **one row per Exodus block —
+Comma-delimited, three columns of **NEML2 MRP** (of the active ``R``; files
+written by graintrace 0.2 and earlier hold the inverse, see
+:func:`~graintrace.orientation_helper.legacy_mrp_to_mrp`), **one row per Exodus block —
 that is, one row per grain**, not per element.
 
 The writer emits a sibling file alongside it, ``<name>_sameconv.csv``, holding
@@ -302,7 +308,9 @@ comparison against the source data.
 
 The normalised orientation file the CPFE run actually consumes.
 :class:`~graintrace.CPFESimulation` accepts **either** 9 columns (a flattened
-row-major rotation matrix) **or** 3 columns (NEML2 MRP) and rewrites whichever
+row-major **active** rotation matrix ``R``: NEPER ``rotmat:active`` / MIDAS
+``O``; a bare NEPER ``rotmat`` is the passive ``R^T`` and must be transposed) **or**
+3 columns (NEML2 MRP) and rewrites whichever
 it got into this 3-column MRP file.
 
 .. tip::

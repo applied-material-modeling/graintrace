@@ -28,8 +28,12 @@ background job.
 - `mesh_file`: a SCULPT/voxel hex `.e` (the default for FF and NF) or a GMSH tet `.msh`
   (FF fallback). CPFE runs on either; hex is the recommended path (see the `meshing` recipe).
 - `save_simulation_folder`: output dir.
-- `ori_file`: per-grain/element orientations, **NEML2 v3 MRP** (convert FF
-  `orientations.dat` with `orientation_helper.euler_to_mrp` first).
+- `ori_file`: per-grain/element orientations, **NEML2 v3 MRP of the active R**
+  (crystal -> sample; convert FF `orientations.dat` with
+  `orientation_helper.euler_to_mrp` first), or 9 columns of the row-major active R
+  (NEPER `rotmat:active` / MIDAS `O`; a bare NEPER `rotmat` is passive = R^T).
+  MRP files written by graintrace <= 0.2 are inverted: convert with
+  `orientation_helper.legacy_mrp_to_mrp` (and rerun old CPFE, do not negate results).
 - `moose_run_file`: path to your built `puma-opt`.
 
 **Must-ask (loading + sample dimensions are NOT in the mesh):** provide

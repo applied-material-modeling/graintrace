@@ -112,7 +112,8 @@ symmetric about it.
 NEPER carries out the tessellation and the optimisation; graintrace assembles the seeds,
 weights, orientations and bounding box, invokes ``neper -T``, and parses the results.
 ``CVT_iter`` sets the optimiser's iteration budget (``-morphooptistop iter=``) and
-``morphoalgo`` its algorithm (``-morphooptialgo``); ``iter=0`` disables relaxation entirely,
+``morphoalgo`` its algorithm (``-morphooptialgo``; default ``"subplex"``, which NEPER 4.x and
+7.x both accept, as does ``"lloyd"`` -- NEPER 7 removed ``"praxis"``); ``iter=0`` disables relaxation entirely,
 which is what the stitching extent helper uses when it wants cells exactly at the measured
 seeds.
 
@@ -126,6 +127,9 @@ Algorithm
    ``extend_bounding_box``).
 4. Write the NEPER seed/weight inputs and invoke NEPER (``neper -T``) with the chosen
    ``option`` and CVT settings (``CVT_iter``, ``morphoalgo``).
+   Orientations go in as ``euler-bunge:passive`` and come out as ``rotmat:active``; the
+   sample rotation is applied as :math:`R' = Q R` to the ``.tess`` matrices, the ``O11..O33``
+   columns (active :math:`R'`) and ``orientations.dat``.
 5. Collect outputs: ``reconstruction_reformatted.csv`` (per-voxel grain IDs and orientations),
    ``reconstruction_cpfe_ee.csv`` (per-grain initial elastic strain), ``orientations.dat``
    (per-grain Euler angles, always degrees), and the ``.tess`` file. A GMSH tet ``.msh`` is
@@ -137,7 +141,9 @@ See :doc:`/configuration` for the full list.
 
 - ``bounding_box`` and ``auto_fix_bbox`` / ``bbox_fix_mode``: reconstruction domain and how
   out-of-box points are handled.
-- ``weighted``: Voronoi vs. Laguerre (size-weighted) tessellation.
+- ``weighted``: Voronoi vs. Laguerre (size-weighted) tessellation. The weights are
+  normalised to sum to 1 against micrometre coordinates, so in practice they have no visible
+  effect (see :doc:`/pitfalls`); use ``option="centroidsize"`` for size-aware cells.
 - ``option`` (``voronoi`` | ``centroid`` | ``centroidsize``) and ``CVT_iter`` / ``morphoalgo``:
   how seeds are relaxed to match measured centroids/sizes.
 - ``tesr_size``: voxel grid resolution of the reconstruction.

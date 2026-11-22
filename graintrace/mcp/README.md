@@ -27,7 +27,7 @@ your chat client (brings the LLM + key)
 | `ff_reconstruct` | FF Voronoi reconstruction | NEPER (GMSH if meshing) |
 | `nf_reconstruct` | NF voxel reconstruction + mesh | CUBIT/SCULPT (mesh only) |
 | `voxel_mesh` | EBSD/gridded segmentation + mesh | CUBIT/SCULPT (mesh only) |
-| `calibrate_material` | Taylor-model parameter fit | NEML2 v3 + pyzag |
+| `calibrate_material` | Taylor-model parameter fit (texture from Euler `Eul0..2`: `data_args` `angle_identifier` / `angle_convention` / `angle_type`) | NEML2 v3 + pyzag |
 | `run_cpfe` | MOOSE/PUMA CPFE run (`solver_route`, `distributed_mesh`, `growth_factor`; any `loaded_axis`) | `puma-opt` + NEML2 AOTI |
 | `postprocess` | distributions / stress-strain / pole figure / IPF reorientation tracking | (NEML2 for pole figure & ipf_tracking) |
 | `identify_rare_events` | REI graph clustering → VTK | none |
@@ -49,6 +49,14 @@ Two built-in safety behaviors:
 
 Heavy runs (CPFE, reconstruction, meshing, calibration) execute as **background
 jobs**: the tool returns a `job_id`; poll `job_status(job_id)` for progress.
+
+**Orientation convention (every tool).** Euler = standard Bunge triplet; every
+matrix is the active R = Rz(phi1) Rx(Phi) Rz(phi2) (crystal -> sample, = MIDAS `O`,
+NEPER `rotmat:active`); every MRP is the neml2 MRP of R (the CPFE `orientation`).
+Crystal symmetry acts on the right (R S), sample rotations on the left (Q R). MRP/O
+files written by graintrace <= 0.2 are inverted (`legacy_mrp_to_mrp`). NEPER 4.x and
+7.x are supported; `ff_reconstruct` uses `morphoalgo="subplex"` (NEPER 7 removed
+`praxis`).
 
 ## Recommendation recipes
 

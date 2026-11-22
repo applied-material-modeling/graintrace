@@ -6,8 +6,8 @@ Requirements
 
 - Python **>= 3.10**, with pip (conda recommended for the native stack).
 - gmsh and pyzag 2.0.0: installed automatically with graintrace via pip.
-- NEPER: bring your own. Install from https://neper.info and point graintrace
-  at it (see :ref:`neper-gmsh`).
+- NEPER (4.x or 7.x): bring your own. Install from https://neper.info and point
+  graintrace at it (see :ref:`neper-gmsh`).
 - CUBIT/SCULPT: for hex meshing; Coreform license required.
 - NEML2 v3 (Python): for calibration and pole figures; built by PUMA.
 - MOOSE + PUMA (``puma-opt``): for CPFE; linked with NEML2 v3 + libtorch.
@@ -144,9 +144,10 @@ machine:
      MISSING  torch_geometric  python package `torch_geometric` not importable
 
    How to get the missing pieces:
-     neper: Install NEPER (https://neper.info/doc/introduction.html#installing-neper) and
-     point graintrace at it via the NEPER env var, a graintrace_tools.json `neper` key, or
-     `neper` on PATH.
+     neper: Install NEPER 4.x or 7.x (https://neper.info/doc/introduction.html#installing-neper;
+     NEPER 7 needs the Gmsh SDK) and point graintrace at it via the NEPER env var, a
+     graintrace_tools.json `neper` key, or `neper` on PATH; or build NEPER 7 into ~/.local
+     with VoronoiMeshBuilder(..., auto_install=True).
      ...
 
 A ``MISSING`` line is not an error on its own -- most of the stack is optional
@@ -214,6 +215,17 @@ it yourself, then let graintrace find it, in this precedence order:
 4. or pass ``neper_path=/abs/path/to/neper`` (or a prepared ``env=``) to
    :class:`~graintrace.VoronoiMeshBuilder` / :class:`~graintrace.CrystalGenerator`.
 
+graintrace supports **NEPER 4.x and 7.x** (verified with 4.10.2 and 7.0.0); the
+doctor reports the version it found (``found: /path/neper (NEPER 7.0.0)``). Two
+NEPER-7 differences matter: ``-morphooptialgo`` accepts only ``subplex``
+(graintrace's default) and ``lloyd`` (``praxis`` was removed), and NEPER 7 links the
+**Gmsh SDK** (a C/C++ SDK tarball from https://gmsh.info, separate from the ``gmsh``
+pip wheel). NEPER 4.x truncates an ``-o`` path at its first ``.``, so keep NEPER
+output directories dot-free with it.
+
 If NEPER cannot be found, the builders raise a clear error with these
-instructions. On Linux you can pass ``auto_install=True`` to build GSL +
-OpenBLAS + NEPER into ``~/.local``.
+instructions. On Linux you can pass ``auto_install=True`` to build NEPER 7.0.0
+into ``~/.local``: it downloads the Gmsh 4.15.2 SDK into ``~/.local/opt``, builds
+OpenBLAS if absent, and configures NEPER with the system ``gcc``/``g++``,
+``-DFORCE_BUILTIN_GSL=ON`` and an RPATH to the Gmsh SDK (so the binary runs
+without ``LD_LIBRARY_PATH``). It needs ``wget``, ``tar``, ``cmake`` and ``make``.

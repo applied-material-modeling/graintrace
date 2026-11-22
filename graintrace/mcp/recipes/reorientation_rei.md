@@ -48,5 +48,6 @@ Per element, `reorientation_deg` = symmetry-aware misorientation between its
 - `k`: number of rare clusters to keep.
 
 ## Gotchas
-- `ori_rodrigues` is neml2 MRP (misnamed), mapped via `mrp_to_matrix` — not Gibbs.
+- `ori_rodrigues` is neml2 MRP (misnamed) of the active R, mapped via `mrp_to_matrix`
+  — not Rodrigues/Gibbs. Symmetry is applied on the crystal side (R S).
 - `abs_scalar_diff` requires exactly one feature column.

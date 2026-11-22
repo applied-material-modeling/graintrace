@@ -82,11 +82,14 @@ Orientations
 ------------
 
 Orientations are interchanged as NEML2 v3 MRP (``tan(θ/4)·axis``), the canonical
-on-disk format. FF ``orientations.dat`` is Euler-Bunge in degrees; convert it
-with ``graintrace.orientation_helper`` (which delegates to NEML2). graintrace's
-``"mrp"`` label elsewhere means Gibbs/Rodrigues (``tan θ/2``), which is not the
-same as NEML2 v3 MRP. Use ``euler_to_mrp`` to get the NEML2 form the CPFE model
-expects.
+on-disk format, of the **active** orientation matrix ``R = Rz(φ1) Rx(Φ) Rz(φ2)``
+(crystal → sample; the MIDAS / NEML2 matrix). FF ``orientations.dat`` is
+Euler-Bunge in degrees; convert it with ``graintrace.orientation_helper.euler_to_mrp``
+(which delegates to NEML2) to get exactly the ``orientation`` the CPFE model
+expects. Crystal symmetry acts on the right (``R S``), a sample-frame rotation on
+the left (``Q R``); see :ref:`notation-rotation-convention`. Matrices and MRP
+written by graintrace 0.2 and earlier are the inverse rotation (convert MRP with
+``legacy_mrp_to_mrp``).
 
 Meshing
 -------

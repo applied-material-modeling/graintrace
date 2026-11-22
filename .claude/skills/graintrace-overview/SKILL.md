@@ -51,7 +51,10 @@ Full API reference: `.claude/CLAUDE.md`.
   fragmentation / NF-EBSD segmentation need neml2+networkit; annotated Exodus needs a mesh .e).
 
 ## Orientation convention (important)
-All orientations communicate as **neml2 v3 MRP** (`tan(θ/4)·axis`). Convert via
+All orientations communicate as **neml2 v3 MRP** (`tan(θ/4)·axis`) of the **active**
+matrix R = Rz(φ1) Rx(Φ) Rz(φ2) (crystal -> sample; = MIDAS `O`, NEPER `rotmat:active`,
+the neml2 `orientation`). Euler is the standard Bunge triplet. Crystal symmetry acts on
+the right (R S), a sample rotation on the left (Q R). Convert via
 `graintrace.orientation_helper` (`euler_to_mrp`, `load_orientations_mrp`); it delegates to
-neml2; do not hand-roll. graintrace "mrp" historically meant Gibbs/Rodrigues (`tan θ/2`),
-not the same thing; use the helpers.
+neml2; do not hand-roll. graintrace <= 0.2 wrote the passive g = R^T (inverted MRP/O
+files): `legacy_mrp_to_mrp` converts old MRP. NEPER 4.x or 7.x; `morphoalgo="subplex"`.

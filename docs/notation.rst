@@ -29,14 +29,14 @@ Symbols
      - scalars
      - rad
      - Kocks / Roe Euler triple, remapped to Bunge on entry
-   * - :math:`g`
-     - :math:`3\times3`, :math:`g \in SO(3)`
+   * - :math:`R`
+     - :math:`3\times3`, :math:`R \in SO(3)`
      - –
-     - orientation matrix, **passive**, sample :math:`\to` crystal
-   * - :math:`A`
+     - orientation matrix, **active**, crystal :math:`\to` sample (graintrace, MIDAS, NEML2)
+   * - :math:`g`
      - :math:`3\times3`, :math:`SO(3)`
      - –
-     - the corresponding *active* rotation; :math:`g = A^{\mathsf T}`
+     - the classical Bunge *passive* matrix, sample :math:`\to` crystal; :math:`g = R^{\mathsf T}`
    * - :math:`R_z(a),\ R_x(a)`
      - :math:`3\times3`
      - –
@@ -69,15 +69,15 @@ Symbols
      - :math:`3\times3` skew
      - –
      - cross-product matrix, :math:`[\mathbf a]_\times \mathbf b = \mathbf a \times \mathbf b`
-   * - :math:`\Delta g`
+   * - :math:`\Delta R`
      - :math:`3\times3`, :math:`SO(3)`
      - –
-     - misorientation matrix between two orientations
-   * - :math:`O_i`
+     - misorientation matrix between two orientations (crystal frame)
+   * - :math:`S_i`
      - :math:`3\times3`, :math:`SO(3)`
      - –
      - :math:`i`-th crystal symmetry operator (proper rotation)
-   * - :math:`S_c,\ S_s`
+   * - :math:`n_c,\ n_s`
      - integers
      - –
      - number of crystal / sample symmetry operators
@@ -97,10 +97,10 @@ Symbols
      - scalar
      - units of the edge metric
      - kernel width; see :ref:`notation-sigma`
-   * - :math:`R_r`
+   * - :math:`Q`
      - :math:`3\times3`, :math:`SO(3)`
      - –
-     - sample-tilt correction rotation
+     - sample-frame rotation (tilt correction / registration)
    * - :math:`\boldsymbol\varepsilon`
      - :math:`3\times3` symmetric
      - strain or microstrain
@@ -123,18 +123,20 @@ Symbols
 The rotation convention
 -----------------------
 
-graintrace uses **Bunge Z–X–Z Euler angles** and the **passive**
-(sample :math:`\to` crystal) orientation matrix. Stated once, as settled fact:
+graintrace uses **Bunge Z–X–Z Euler angles** (the standard triplet) and the
+**active** (crystal :math:`\to` sample) orientation matrix, the same matrix as
+MIDAS (``Euler2OrientMat``, Grains.csv ``O11..O33``) and NEML2. Stated once, as
+settled fact:
 
 .. math::
    :label: bunge-matrix
 
-   g(\varphi_1, \Phi, \varphi_2)
-   \;=\; \bigl[\, R_z(\varphi_1)\, R_x(\Phi)\, R_z(\varphi_2) \,\bigr]^{\mathsf T}
+   R(\varphi_1, \Phi, \varphi_2)
+   \;=\; R_z(\varphi_1)\, R_x(\Phi)\, R_z(\varphi_2)
 
-The bracketed product is the active rotation :math:`A`; the orientation matrix
-is its transpose, so that :math:`\mathbf c = g\,\mathbf s` takes a direction
-from sample coordinates to crystal coordinates. Written out, with
+so that :math:`\mathbf s = R\,\mathbf c` takes a direction from crystal
+coordinates to sample coordinates. The classical Bunge *passive* matrix is its
+transpose, :math:`g = R^{\mathsf T}`. Written out, with
 :math:`c_1 = \cos\varphi_1`, :math:`s_1 = \sin\varphi_1`,
 :math:`c_2 = \cos\varphi_2`, :math:`s_2 = \sin\varphi_2`,
 :math:`c_\Phi = \cos\Phi`, :math:`s_\Phi = \sin\Phi`:
@@ -142,30 +144,65 @@ from sample coordinates to crystal coordinates. Written out, with
 .. math::
    :label: bunge-matrix-explicit
 
-   g =
+   R =
    \begin{bmatrix}
-   c_1 c_2 - s_1 c_\Phi s_2 & s_1 c_2 + c_1 c_\Phi s_2 & s_\Phi s_2 \\
-   -c_1 s_2 - s_1 c_\Phi c_2 & -s_1 s_2 + c_1 c_\Phi c_2 & s_\Phi c_2 \\
-   s_1 s_\Phi & -c_1 s_\Phi & c_\Phi
+   c_1 c_2 - s_1 c_\Phi s_2 & -c_1 s_2 - s_1 c_\Phi c_2 & s_1 s_\Phi \\
+   s_1 c_2 + c_1 c_\Phi s_2 & -s_1 s_2 + c_1 c_\Phi c_2 & -c_1 s_\Phi \\
+   s_\Phi s_2 & s_\Phi c_2 & c_\Phi
    \end{bmatrix}
 
 :func:`~graintrace.orientation_helper.euler_to_matrix` implements
-:eq:`bunge-matrix`. The inverse,
-:func:`~graintrace.orientation_helper.matrix_to_euler`, reads
-:eq:`bunge-matrix-explicit` back off the entries it predicts:
+:eq:`bunge-matrix` (tested against the MIDAS formula). The inverse,
+:func:`~graintrace.orientation_helper.matrix_to_euler`, transposes to
+:math:`g = R^{\mathsf T}` and reads the angles back off it:
 
 .. math::
 
-   \Phi = \arccos\bigl(\mathrm{clamp}(g_{33}, -1, 1)\bigr), \quad
-   \varphi_1 = \operatorname{atan2}(g_{31},\, -g_{32}), \quad
-   \varphi_2 = \operatorname{atan2}(g_{13},\, g_{23})
+   \Phi = \arccos\bigl(\mathrm{clamp}(R_{33}, -1, 1)\bigr), \quad
+   \varphi_1 = \operatorname{atan2}(R_{13},\, -R_{23}), \quad
+   \varphi_2 = \operatorname{atan2}(R_{31},\, R_{32})
 
 When :math:`|\sin\Phi| < 10^{-8}` the triple is degenerate (gimbal lock). The
 code then returns :math:`\varphi_2 = 0` and
-:math:`\varphi_1 = \operatorname{atan2}(g_{12}, g_{11})`, which recovers
+:math:`\varphi_1 = \operatorname{atan2}(R_{21}, R_{11})`, which recovers
 :math:`\varphi_1 + \varphi_2` at :math:`\Phi = 0` and
 :math:`\varphi_1 - \varphi_2` at :math:`\Phi = \pi`. The matrix round-trip is
 exact there; the individual angles are not unique.
+
+The rule, everywhere in the package:
+
+* **crystal symmetry acts on the right**: the equivalents of :math:`R` are
+  :math:`R\,S_i`;
+* **a sample-frame rotation acts on the left**: :math:`R' = Q\,R`
+  (:class:`~graintrace.FrameTransform`, the FF tilt correction);
+* the **MRP** is the NEML2 MRP of :math:`R`
+  (:func:`~graintrace.orientation_helper.euler_to_mrp`), which is exactly a
+  NEML2 crystal model's ``orientation`` (its ``ResolvedShear`` computes
+  :math:`\tau_i = \boldsymbol\sigma : \mathrm{sym}(R\, \mathbf d_i \otimes \mathbf n_i\, R^{\mathsf T})`).
+
+``orientation_helper.ROTATION_CONVENTION == "active"`` records this in code.
+
+**At the NEPER interface** graintrace always states the convention: Euler angles
+go in as ``euler-bunge:passive`` (the standard triplet) and matrices come out as
+``rotmat:active`` (:math:`R`). NEPER's own default, a bare ``rotmat``, is the
+passive :math:`g`. :class:`~graintrace.tess_to_gnn.NeperTessToGraphNN` reads every
+NEPER descriptor (``rotmat``, ``quaternion``, ``rodrigues``, ``axis-angle``,
+``euler-*``, each ``:active``/``:passive``) back to :math:`R`; NEPER
+parameterises its quaternion, Rodrigues and axis-angle relative to its passive
+matrix, so their standard matrix is :math:`R` for ``:passive`` and
+:math:`R^{\mathsf T}` for ``:active`` (pinned against NEPER-written files).
+
+.. admonition:: Migrating from graintrace 0.2
+
+   graintrace 0.2 and earlier used the passive :math:`g` as its matrix, so every
+   **matrix or MRP it wrote** is the inverse rotation of today's (``O11..O33``
+   from ``VoronoiMeshBuilder`` / the rotation helper, ``orientations_MRP.dat``,
+   NF ``orientations.csv``, ``tess_to_gnn`` features). Euler files are
+   unaffected. Convert an old MRP with
+   :func:`~graintrace.orientation_helper.legacy_mrp_to_mrp`
+   (:math:`\mathbf p \mapsto -\mathbf p`) and an old matrix by transposing it.
+   CPFE runs driven by the old MRP loaded every grain in its inverse
+   orientation; rerun them rather than negating their outputs.
 
 Other conventions are accepted at the boundary and remapped to Bunge before
 anything else happens:
@@ -243,8 +280,10 @@ and the two vector forms are related by
    \mathbf p = \frac{\mathbf r}{1 + \sqrt{1 + \lVert \mathbf r \rVert^2}}
 
 **Rotation matrix as a storage format.** Nine columns named ``O11``–``O33`` are
-read **row-major**, so ``O11..O33`` map to :math:`g_{11}..g_{33}`. A producer
-that writes column-major silently yields the transpose; nothing checks.
+read **row-major** as the active :math:`R`, so ``O11..O33`` map to
+:math:`R_{11}..R_{33}` (the MIDAS Grains.csv layout). A producer that writes
+column-major, or the passive :math:`g`, silently yields the transpose; nothing
+checks.
 
 **Conversions as implemented.** Every entry below lives in
 :mod:`graintrace.orientation_helper` unless noted:
@@ -282,7 +321,7 @@ that writes column-major silently yields the transpose; nothing checks.
      - NEML2 ``to_quaternion``
    * - dataframe :math:`\to` matrix
      - :func:`~graintrace.orientation_helper.load_orientation_matrices`
-     - row-major read of ``O11..O33``
+     - row-major read of ``O11..O33`` as :math:`R`
    * - dataframe :math:`\to` MRP
      - :func:`~graintrace.orientation_helper.load_orientations`
      - the above, then ``matrix_to_mrp``
@@ -425,21 +464,22 @@ path uses the full 48-element point group. Without that, a deformed orientation
 can have no representative in the fundamental sector at all.
 
 **One-sided versus two-sided.** Misorientation applies operators on both sides,
-:math:`O_i\,\Delta g\,O_j^{\mathsf T}`. Fundamental-zone reduction, variant
-folding and mean-orientation alignment apply them on the **left only**,
-:math:`O_i g`, which is the correct side given that :math:`g` maps sample to
-crystal and the crystal index is the row index.
+:math:`S_i\,\Delta R\,S_j^{\mathsf T}` (the one-sided
+:math:`\min_k \angle(\Delta R\,S_k)` gives the same angle). Fundamental-zone
+reduction, variant folding and mean-orientation alignment apply them on the
+**right only**, :math:`R\,S_i`, which is the crystal side of the active
+:math:`R` (its column index is the crystal index).
 
 Misorientation
 --------------
 
-For two orientation matrices :math:`g_A` and :math:`g_B`, the misorientation
-matrix is
+For two orientation matrices :math:`R_A` and :math:`R_B`, the misorientation
+matrix (in the crystal frame of A) is
 
 .. math::
    :label: misorientation-matrix
 
-   \Delta g = g_A\, g_B^{\mathsf T}
+   \Delta R = R_A^{\mathsf T}\, R_B
 
 and the symmetry-reduced (disorientation) angle minimises over **both** crystals'
 symmetry orbits:
@@ -447,10 +487,10 @@ symmetry orbits:
 .. math::
    :label: disorientation
 
-   \theta_{\min} = \min_{i,j \in \{1 \dots S_c\}}
+   \theta_{\min} = \min_{i,j \in \{1 \dots n_c\}}
    \arccos\!\left(
      \mathrm{clamp}\!\left(
-       \frac{\operatorname{tr}\bigl(O_i\, \Delta g\, O_j^{\mathsf T}\bigr) - 1}{2},
+       \frac{\operatorname{tr}\bigl(S_i\, \Delta R\, S_j^{\mathsf T}\bigr) - 1}{2},
        \,-1,\, 1
      \right)
    \right)
@@ -458,7 +498,7 @@ symmetry orbits:
 For ``"432"`` that is :math:`24^2 = 576` candidates per pair. The clamp is what
 makes numerically identical orientations return exactly zero instead of ``NaN``.
 
-The angle of :math:`\Delta g` equals the angle of :math:`\Delta g^{-1}`, so the
+The angle of :math:`\Delta R` equals the angle of :math:`\Delta R^{-1}`, so the
 returned *angle* does not depend on which orientation is passed first — but the
 matrix in :eq:`misorientation-matrix` does, so an axis would.
 
@@ -467,8 +507,8 @@ closest to the identity:
 
 .. math::
 
-   g_{\mathrm{FZ}} = O_{i^\star} g, \qquad
-   i^\star = \arg\max_i \operatorname{tr}(O_i g)
+   R_{\mathrm{FZ}} = R\, S_{i^\star}, \qquad
+   i^\star = \arg\max_i \operatorname{tr}(R\, S_i)
 
 Maximising the trace minimises the angle, since
 :math:`\theta = \arccos\bigl((\operatorname{tr} - 1)/2\bigr)` decreases in the
@@ -509,14 +549,14 @@ orthogonal factor of the weighted arithmetic mean:
 .. math::
    :label: polar-mean
 
-   \bar M = \frac{\sum_n w_n\, \tilde g_n}{\sum_n w_n},
+   \bar M = \frac{\sum_n w_n\, \tilde R_n}{\sum_n w_n},
    \qquad
    \bar M = U \Sigma V^{\mathsf T},
    \qquad
-   \bar g = U V^{\mathsf T}
+   \bar R = U V^{\mathsf T}
 
 with a reflection guard that flips the last column of :math:`U` when
-:math:`\det \bar g < 0`. This one accepts weights.
+:math:`\det \bar R < 0`. This one accepts weights.
 
 .. note::
 

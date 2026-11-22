@@ -84,7 +84,7 @@ axis-aligned cube hex per voxel** -- no CUBIT/SCULPT, no `sculpt_config` needed:
 
 ```python
 builder.mesh(mesher="voxel", merged_grid=merged_grid_path)
-# -> mesh.e (HEX8, one block per grain, ids 1..N) + <mapped_orientations>.csv (MRP)
+# -> mesh.e (HEX8, one block per grain, ids 1..N) + <mapped_orientations>.csv (MRP of R)
 ```
 
 - **Scaled Jacobian = 1 everywhere, zero inverted/sliver elements, 100% grain
