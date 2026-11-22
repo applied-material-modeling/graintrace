@@ -929,6 +929,17 @@ The 6 opt vars (`TaylorModel.opt_vars`) map to CPFE material names via:
 `slip_strength_constant_strength→slip_constant_strength`, `voce_hardening_initial_slope`,
 `voce_hardening_saturated_hardening→voce_hardening_saturation`.
 
+**Per-grain orientation history (opt-in).** `TaylorModel.simulate(..., return_orientation=True)`
+(and `UniaxialTaylorModel.forward`) also returns each grain's evolving orientation, taken from the
+per-grain state block `[6:9]`, as `(ntime, n_grains, 3)` **neml2 v3 MRP** in the same convention
+as the input `exp_texture` (no conversion; step 0 == input). Order is fixed:
+`stress[, elastic_strain (return_state)][, orientation (return_orientation)]`, a tuple whenever
+more than one item; defaults and `return_state=True` alone are unchanged.
+```python
+stress, ee_hist, ori_hist = calib.model.simulate(
+    None, experiment_data=calib.experiment_data, return_state=True, return_orientation=True)
+```
+
 For a physically registered fit, first rotate the raw FF CSVs into the simulation frame with
 `experiment_rotation_helper` (reads `Eul*`, writes the ROTATED Euler (degrees, R' = Q R) and
 drops every `O` column; the `reconstruction.ori` row-count guard stays):
@@ -1541,7 +1552,7 @@ graintrace/
   similarity_metric_library.py SimilarityMetricLibrary  : Built-in feature metrics (von_mises_stress/misorientation/nye_tensor_norm/abs_scalar_diff)
   rare_criteria_selection_library.py                 : select_highest_scalar, etc.
   material_calibration.py      MaterialCalibration   : Taylor model parameter fitting
-  taylor.py                    TaylorModel           : NEML2 Taylor model wrapper
+  taylor.py                    TaylorModel           : NEML2 Taylor model wrapper (simulate/forward: optional per-grain elastic-strain + MRP orientation histories)
   experiment_rotation_helper.py                      : Rotate experiment CSVs
   hedm_stitching_techniques/
     region_base_stitching.py   RegionBaseStitching   : Multi-scan Z-stitching

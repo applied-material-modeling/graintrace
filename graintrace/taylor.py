@@ -55,6 +55,7 @@ from . import orientation_helper
 _PER_GRAIN_BASE = 10
 _DENSE_BASE = 12
 _N_ELASTIC_STRAIN = 6
+_N_ORIENTATION = 3
 
 
 class UniaxialTaylorModel(nn.Module):
@@ -103,19 +104,31 @@ class UniaxialTaylorModel(nn.Module):
         rate: float,
         initial_strains: torch.Tensor | None = None,
         return_state: bool = False,
+        return_orientation: bool = False,
     ):
         """Integrate the uniaxial history and return the macro stress trajectory.
 
         Args:
-            orientations: (n_grains, 3) NEML2 MRP orientations.
+            orientations: (n_grains, 3) NEML2 v3 MRP orientations (``tan(theta/4)*axis``).
             strain: (ntime,) axial strain grid (mm/mm), typically starting at 0.
             rate: assumed strain rate (1/s); ``t = strain / rate``.
             initial_strains: optional (n_grains, 6) initial elastic strain.
             return_state: also return per-grain elastic strain history.
+            return_orientation: also return the per-grain crystal orientation
+                history (the model's ``orientation`` state, which evolves with
+                plastic spin).
 
         Returns:
-            macro cauchy stress ``(ntime, 6)`` (SR2 Voigt: xx, yy, zz, yz, xz, xy);
-            if ``return_state``, also ``(ntime, n_grains, 6)`` elastic strain.
+            ``macro_stress`` alone when neither flag is set, otherwise a tuple in
+            the fixed order ``(macro_stress[, elastic_strain][, orientation])``:
+
+            - ``macro_stress``: ``(ntime, 6)`` macro Cauchy stress (SR2 Voigt:
+              xx, yy, zz, yz, xz, xy).
+            - ``elastic_strain`` (if ``return_state``): ``(ntime, n_grains, 6)``.
+            - ``orientation`` (if ``return_orientation``): ``(ntime, n_grains, 3)``
+              neml2 v3 MRP, in the same convention and frame as the input
+              ``orientations`` (no conversion is applied); step 0 equals the
+              input.
         """
         orientations = torch.as_tensor(orientations, dtype=torch.float64)
         device = orientations.device
@@ -170,17 +183,25 @@ class UniaxialTaylorModel(nn.Module):
         # target_cauchy_stress = last 6 (the macro/aggregate stress).
         macro_stress = result[..., -_DENSE_BASE + 6 :].squeeze(1)  # (ntime, 6)
 
-        if not return_state:
+        if not (return_state or return_orientation):
             return macro_stress
 
-        # per-grain elastic strain = first 6 of each 10-wide grain block.
+        # per-grain block: elastic_strain [0:6], orientation MRP [6:9], slip_hardening [9].
         block = result[..., : n_grains * _PER_GRAIN_BASE].reshape(
             ntime, nbatch, n_grains, _PER_GRAIN_BASE
         )
-        elastic_strain = block[..., :_N_ELASTIC_STRAIN].squeeze(
-            1
-        )  # (ntime, n_grains, 6)
-        return macro_stress, elastic_strain
+        outputs = [macro_stress]
+        if return_state:
+            # (ntime, n_grains, 6)
+            outputs.append(block[..., :_N_ELASTIC_STRAIN].squeeze(1))
+        if return_orientation:
+            # (ntime, n_grains, 3)
+            outputs.append(
+                block[
+                    ..., _N_ELASTIC_STRAIN : _N_ELASTIC_STRAIN + _N_ORIENTATION
+                ].squeeze(1)
+            )
+        return tuple(outputs)
 
 
 def _texture_mrp(df, angle_cols, angle_convention, angle_type):
@@ -451,6 +472,7 @@ class TaylorModel(BaseMaterialApproximationModel):
         experiment_data=None,
         return_state: bool = False,
         initial_strains=None,
+        return_orientation: bool = False,
     ):
         """Run a differentiable uniaxial stress-strain simulation.
 
@@ -466,10 +488,16 @@ class TaylorModel(BaseMaterialApproximationModel):
             experiment_data: dict from :meth:`load_experiment_data`.
             return_state: also return the per-grain elastic strain history.
             initial_strains: optional (n_grains, 6) initial elastic strain.
+            return_orientation: also return the per-grain orientation history.
 
         Returns:
-            ``stress_hist`` (npoints, 6), or ``(stress_hist, state_hist)`` where
-            ``state_hist`` is (npoints, n_grains, 6) elastic strain.
+            ``stress_hist`` (npoints, 6) alone when neither flag is set, otherwise
+            a tuple in the fixed order ``(stress_hist[, state_hist][, ori_hist])``:
+            ``state_hist`` is (npoints, n_grains, 6) elastic strain (if
+            ``return_state``); ``ori_hist`` is (npoints, n_grains, 3) neml2 v3
+            MRP orientations (if ``return_orientation``), in the same convention
+            as ``experiment_data["exp_texture"][0]`` (no conversion), with
+            ``ori_hist[0]`` equal to the input texture.
         """
         if assumed_rate is None:
             assumed_rate = self.assumed_rate
@@ -493,4 +521,5 @@ class TaylorModel(BaseMaterialApproximationModel):
             assumed_rate,
             initial_strains=initial_strains,
             return_state=return_state,
+            return_orientation=return_orientation,
         )
