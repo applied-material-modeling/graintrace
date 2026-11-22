@@ -280,9 +280,9 @@ def _variant_mixed_grain(n=200, seed=0, symmetry="432"):
     """A tight orientation cluster with half of it in a different symmetry variant.
 
     Returns ``(euler_clean, euler_mixed)`` in bunge/degrees. Both describe the
-    same physical grain: a left-multiplied crystal symmetry operator is a
-    zero-misorientation equivalent, so the symmetry-aware mean of the mixed set
-    must match the mean of the clean set.
+    same physical grain: a right-multiplied crystal symmetry operator (``R S``, the
+    crystal side of the active ``R``) is a zero-misorientation equivalent, so the
+    symmetry-aware mean of the mixed set must match the mean of the clean set.
     """
     from graintrace import orientation_helper as oh
 
@@ -294,7 +294,7 @@ def _variant_mixed_grain(n=200, seed=0, symmetry="432"):
     rmat = torch.matmul(base, pert)  # ~1.4 deg spread
     var = rmat.clone()
     ops = oh.symmetry_operators(symmetry)
-    var[: n // 2] = torch.matmul(ops[1].unsqueeze(0), var[: n // 2])
+    var[: n // 2] = torch.matmul(var[: n // 2], ops[1].unsqueeze(0))
     return (
         oh.matrix_to_euler(rmat, "bunge", "degrees"),
         oh.matrix_to_euler(var, "bunge", "degrees"),

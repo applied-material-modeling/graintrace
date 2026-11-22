@@ -41,7 +41,7 @@ from graintrace.fragmentation import (
     _mrp_to_matrix_np,
     _rotation_vector_deg,
 )
-from graintrace.frame_transform import _short_mrp
+from graintrace.frame_transform import _shadow, _short_mrp
 
 
 # --- graintrace/orientation_helper.py @ 0544c83 ----------------------------

@@ -649,11 +649,12 @@ class TestMeanOrientationAndMerge:
         mrp = matrix_to_mrp(rmat).numpy()
 
         # contaminate half with a cubic symmetry variant (same physical orientation):
-        # a left-multiplied symmetry op is a zero-misorientation equivalent that the
-        # symmetry-aware mean folds back, and the plain mean does not.
+        # a right-multiplied symmetry op (R S, crystal side) is a zero-misorientation
+        # equivalent that the symmetry-aware mean folds back, and the plain mean
+        # does not.
         ops = symmetry_operators("432")
         var = rmat.clone()
-        var[: len(var) // 2] = torch.matmul(ops[1].unsqueeze(0), var[: len(var) // 2])
+        var[: len(var) // 2] = torch.matmul(var[: len(var) // 2], ops[1].unsqueeze(0))
         mrp_var = matrix_to_mrp(var).numpy()
 
         def miso(a, b):

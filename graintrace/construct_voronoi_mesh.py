@@ -91,7 +91,7 @@ class VoronoiMeshBuilder:
             orientation_active_convention: Deprecated and ignored (orientations always update on the sample side); True warns.
             unit: Angle/rotation unit, "deg" or "rad"; must match the actual data units.
             elastic_strain_identifier: The 9 column names (row-major) of the per-grain elastic strain tensor, or None to skip strain.
-            ori_rotmat_identifier: The 9 column names for the rotated orientation matrix written into self.data; defaults to O11..O33.
+            ori_rotmat_identifier: The 9 column names for the rotated ACTIVE orientation matrix R (crystal -> sample, row-major, = MIDAS O) written into self.data; defaults to O11..O33.
             strain_unit: Unit of the elastic strain columns, "microstrain" or "strain".
             env: Pre-built subprocess environment for NEPER; if None it is resolved automatically via check_dependencies.
             neper_path: Explicit path to the NEPER binary; if None it is resolved from the NEPER env var, tools.json, or PATH.
@@ -1038,7 +1038,7 @@ class VoronoiMeshBuilder:
         orientations.dat consumers use, so no NEPER matrix-convention dependency
         enters. ``self.data`` Euler are degrees after ``read_input``.
         """
-        convention = self.ori_descriptor.replace("euler-", "")
+        convention = self.ori_descriptor.split(":")[0].replace("euler-", "")
         euler = self.data[self.angle_id].to_numpy(dtype=float)
         new_euler = self._frame().euler(euler, convention, "degrees")
         self.data[self.angle_id] = new_euler
@@ -1085,7 +1085,15 @@ class VoronoiMeshBuilder:
         if ori_end is None:
             ori_end = len(lines)
 
-        # skip descriptor line
+        # descriptor line, e.g. "rotmat:active" (NEPER writes no suffix = passive)
+        descriptor = lines[ori_start + 1].strip()
+        base, _, sense = descriptor.partition(":")
+        sense = sense or "passive"
+        if base != "rotmat" or sense not in ("active", "passive"):
+            raise ValueError(
+                f"{tess_file}: expected a 'rotmat[:active|:passive]' *ori section, "
+                f"got {descriptor!r}"
+            )
         ori_lines = lines[ori_start + 2 : ori_end]
         num_cells = len(ori_lines)
 
@@ -1107,14 +1115,18 @@ class VoronoiMeshBuilder:
                     "this indicates corrupted .tess file."
                 )
             ori_mats = ori_data.reshape((-1, 3, 3))
-            # g' = g Q^T in numpy, so the FF build does not import torch.
-            ori_rot = ori_mats @ frame.Q.T
+            if sense == "passive":  # NEPER passive g -> graintrace active R = g^T
+                ori_mats = np.swapaxes(ori_mats, -1, -2)
+            # R' = Q R in numpy, so the FF build does not import torch.
+            ori_rot = frame.Q @ ori_mats
 
+        # O11..O33 hold the active R (MIDAS O / NEPER rotmat:active), row-major.
         self.data[self.ori_rotmat_id] = ori_rot.reshape(-1, 9)
 
-        # Write back new orientations
+        # Write back new orientations, in the file's own descriptor
+        ori_out = np.swapaxes(ori_rot, -1, -2) if sense == "passive" else ori_rot
         new_ori_lines = [
-            " ".join(f"{val:.8f}" for val in R.flatten()) + "\n" for R in ori_rot
+            " ".join(f"{val:.8f}" for val in R.flatten()) + "\n" for R in ori_out
         ]
         lines[ori_start + 2 : ori_end] = new_ori_lines
 

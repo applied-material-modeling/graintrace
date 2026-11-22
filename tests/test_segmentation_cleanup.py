@@ -403,10 +403,10 @@ class TestAgglomerativeRemerge:
         from graintrace.fragmentation import (
             FragmentationAnalyzer,
             _cluster_moments,
-            _left_quat_matrix,
             _matrix_to_quat_np,
             _moments_mean_matrix,
             _mrp_to_matrix_np,
+            _right_quat_matrix,
             _sym_miso_deg,
             _symmetry_ops_np,
         )
@@ -420,14 +420,14 @@ class TestAgglomerativeRemerge:
         rb = _mrp_to_matrix_np(
             _mrp(np.array([11, 20, 30]) + rng.normal(0, 0.5, (30, 3)))
         )
-        rb = np.matmul(ops[7], rb)  # same physical orientations, another variant
+        rb = np.matmul(rb, ops[7])  # same physical orientations, another variant
         inv = np.array([0] * 40 + [1] * 30)
         mom = _cluster_moments(np.concatenate([ra, rb]), inv, 2, ops)
         mean = _moments_mean_matrix(mom)
-        cand = np.einsum("kij,jl->kil", ops, mean[1])
+        cand = np.einsum("ij,kjl->kil", mean[1], ops)
         s_op = int(np.argmax(np.einsum("ij,kij->k", mean[0], cand)))
-        lq = _left_quat_matrix(_matrix_to_quat_np(ops)[s_op])
-        merged = _moments_mean_matrix((mom[0] + lq @ mom[1] @ lq.T)[None])
+        wq = _right_quat_matrix(_matrix_to_quat_np(ops)[s_op])
+        merged = _moments_mean_matrix((mom[0] + wq @ mom[1] @ wq.T)[None])
         ref = FragmentationAnalyzer.mean_orientation_mrp(
             matrix_to_mrp(torch.as_tensor(np.concatenate([ra, rb]))).numpy(), "432"
         )

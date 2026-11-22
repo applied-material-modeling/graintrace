@@ -58,7 +58,7 @@ DEFAULT_MULTIPLICITIES = (1, 2, 3, 1, 2)  # whole / binary / ternary / whole / b
 
 
 def _rotate_euler_deg(eul_deg: np.ndarray, theta_deg: float, axis=(1.0, 0.0, 0.0)):
-    """Compose Bunge Euler angles (deg) with a rotation of ``theta`` about ``axis``."""
+    """Compose Bunge Euler angles (deg) with a crystal-frame rotation of ``theta`` about ``axis``."""
     # pylint: disable=import-outside-toplevel
     import torch
 
@@ -93,7 +93,9 @@ def _rotate_euler_deg(eul_deg: np.ndarray, theta_deg: float, axis=(1.0, 0.0, 0.0
         ]
     )
     rot_t = torch.as_tensor(rot, dtype=torch.float64)
-    new_r = torch.matmul(rot_t.unsqueeze(0), rmat)
+    # crystal-side rotation R rot^T (== the pre-flip passive rot @ g), so the shipped
+    # mwe_data/synthetic_split_* stay bit-reproducible
+    new_r = torch.matmul(rmat, rot_t.T.unsqueeze(0))
     return matrix_to_euler(new_r, "bunge", "degrees").cpu().numpy()
 
 

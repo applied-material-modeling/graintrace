@@ -24,8 +24,8 @@
 
 """Stated specimen-frame change for FF / NF / EBSD datasets.
 
-``x' = Q (s * x) + t``, ``g' = g Q^T`` (sample side, ``g = euler_to_matrix(...)``),
-``eps' = Q eps Q^T``. ``Q`` is a proper rotation, ``s`` a per-axis sign applied to
+``x' = Q (s * x) + t``, ``R' = Q R`` (sample side, on the left of the active
+``R = euler_to_matrix(...)``), ``eps' = Q eps Q^T``. ``Q`` is a proper rotation, ``s`` a per-axis sign applied to
 positions only, ``t`` a translation. There is no scale term.
 """
 
@@ -156,7 +156,7 @@ def _check_proper(Q: np.ndarray) -> np.ndarray:
 
 
 class FrameTransform:
-    """Sample-frame change ``x' = Q (s * x) + t``, ``g' = g Q^T``, ``eps' = Q eps Q^T``.
+    """Sample-frame change ``x' = Q (s * x) + t``, ``R' = Q R``, ``eps' = Q eps Q^T``.
 
     Positions use ``A = Q diag(s)`` (possibly improper); orientations and tensors
     use the proper ``Q``. Both are stored so :meth:`inverse` and ``@`` stay exact.
@@ -254,11 +254,12 @@ class FrameTransform:
         return arr @ self.A.T + self.t
 
     def orientation_matrices(self, g):
-        """Transform orientation matrices on the sample side: ``g' = g Q^T``.
+        """Transform orientation matrices on the sample side: ``R' = Q R``.
 
         Args:
-            g: (..., 3, 3) matrices in :func:`~graintrace.orientation_helper.euler_to_matrix`'s
-                convention; a tensor keeps its dtype and device.
+            g: (..., 3, 3) active matrices ``R`` (crystal -> sample), as returned by
+                :func:`~graintrace.orientation_helper.euler_to_matrix`; a tensor
+                keeps its dtype and device.
 
         Returns:
             torch.Tensor: (..., 3, 3) transformed matrices.
@@ -271,8 +272,8 @@ class FrameTransform:
         else:
             # np.array, not asarray: a read-only input makes torch warn.
             gt = torch.as_tensor(np.array(g, dtype=float), dtype=torch.float64)
-        Qt = torch.as_tensor(self.Q.T, dtype=gt.dtype, device=gt.device)
-        return gt @ Qt
+        Qm = torch.as_tensor(self.Q, dtype=gt.dtype, device=gt.device)
+        return Qm @ gt
 
     def mrp(self, p):
         """Transform neml2 v3 MRP orientations in neml2; returns the short set ``|p'| <= 1``.
@@ -293,13 +294,13 @@ class FrameTransform:
             torch.as_tensor(np.asarray(p, dtype=float), dtype=torch.float64)
         )
         q_frame = _short_mrp(
-            matrix_to_mrp(torch.as_tensor(self.Q.T, dtype=torch.float64))
+            matrix_to_mrp(torch.as_tensor(self.Q, dtype=torch.float64))
         ).expand_as(pt)
-        # compose(a, b) has matrix(a) @ matrix(b), so g Q^T is compose(p, Q^T).
+        # compose(a, b) has matrix(a) @ matrix(b), so Q R is compose(Q, p).
         # Its denominator 1 + |a|^2|b|^2 - 2 a.b stays >= 1 when a.b <= 0.
         flip = (pt * q_frame).sum(dim=-1, keepdim=True) > 0.0
         q_frame = torch.where(flip, _shadow(q_frame), q_frame)
-        composed = compose(MRP(pt.contiguous(), 0), MRP(q_frame.contiguous(), 0))
+        composed = compose(MRP(q_frame.contiguous(), 0), MRP(pt.contiguous(), 0))
         return _short_mrp(composed.data)
 
     def euler(
@@ -324,9 +325,9 @@ class FrameTransform:
         from .orientation_helper import euler_to_matrix, matrix_to_euler
 
         e = torch.as_tensor(np.array(eul, dtype=float), dtype=torch.float64)
-        g = euler_to_matrix(e, convention, angle_type)
+        rot = euler_to_matrix(e, convention, angle_type)
         return matrix_to_euler(
-            self.orientation_matrices(g), convention, angle_type
+            self.orientation_matrices(rot), convention, angle_type
         ).numpy()
 
     def tensors(self, eps) -> np.ndarray:
@@ -378,7 +379,7 @@ class FrameTransform:
             "axis_sign": None if s is None else [int(v) for v in s],
             "convention": {
                 "position": "x' = A x + t, A = Q diag(s)",
-                "orientation": "g' = g Q^T (sample side; g = euler_to_matrix(...))",
+                "orientation": "R' = Q R (sample side; active R = euler_to_matrix(...))",
                 "tensor": "eps' = Q eps Q^T",
             },
         }
@@ -474,7 +475,7 @@ class FrameTransform:
             convention: ``'bunge'``, ``'kocks'`` or ``'roe'``.
             angle_type: ``'degrees'``, ``'radians'`` or ``'auto'``.
             tensor_prefixes: ``<prefix>11..33`` tensor columns (``Q eps Q^T``); missing ones are skipped.
-            extra_matrix_prefixes: ``<prefix>11..33`` orientation-matrix columns (``g Q^T``); missing ones are skipped.
+            extra_matrix_prefixes: ``<prefix>11..33`` active orientation-matrix columns (``Q R``; MIDAS ``O``); missing ones are skipped.
 
         Returns:
             str: ``dst``.

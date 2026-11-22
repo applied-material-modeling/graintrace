@@ -434,12 +434,19 @@ class TestTessOriToMrp:
             [0.0, -1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0],  # +90 deg about z
         ]
         parser = _parser(tmp_path)
-        mrp = _to_mrp(parser, values, "rotmat")
+        # rotmat:active is graintrace's R and is kept as-is
+        mrp = _to_mrp(parser, values, "rotmat:active")
 
         assert mrp.shape == (2, 3)
         assert torch.allclose(mrp[0], torch.zeros(3, dtype=torch.float64), atol=1e-12)
         expected = torch.tensor(values, dtype=torch.float64).reshape(-1, 3, 3)
         assert torch.allclose(self._matrix(mrp), expected, atol=1e-12)
+        # no suffix = NEPER's passive default: the file holds g = R^T
+        for passive in ("rotmat", "rotmat:passive"):
+            mrp = _to_mrp(parser, values, passive)
+            assert torch.allclose(
+                self._matrix(mrp), expected.transpose(-2, -1), atol=1e-12
+            )
 
     def test_quaternion_descriptor_is_read_scalar_first(self, tmp_path):
         pytest.importorskip("torch_geometric")
