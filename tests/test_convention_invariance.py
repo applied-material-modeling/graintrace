@@ -258,6 +258,18 @@ class TestFragmentationHelpers:
             got = fr._quat_to_matrix_np((w @ q.T).T)
             assert np.allclose(got, r_new[:5] @ ops[k], atol=1e-12)
 
+    @pytest.mark.parametrize("sym", ["432", "622"])
+    def test_op_quaternions_cover_180_degree_ops(self, sym):
+        """``_ops_quat_np`` is exact for every op (neml2's route fails at 180 deg)."""
+        r_new, _, _, _ = self._mats(sym)
+        ops = fr._symmetry_ops_np(sym)
+        q = fr._matrix_to_quat_np(r_new[:5])
+        qs = fr._ops_quat_np(ops)
+        assert np.allclose(fr._quat_to_matrix_np(qs), ops, atol=1e-12)
+        for k in range(len(ops)):
+            got = fr._quat_to_matrix_np((fr._right_quat_matrix(qs[k]) @ q.T).T)
+            assert np.allclose(got, r_new[:5] @ ops[k], atol=1e-12)
+
 
 class TestFrameTransformInvariance:
     """``R' = Q R`` is the legacy ``g' = g Q^T`` transposed."""

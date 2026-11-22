@@ -204,6 +204,18 @@ def _matrix_to_quat_np(rmat: np.ndarray) -> np.ndarray:
     return matrix_to_quat(torch.as_tensor(rmat)).cpu().numpy().reshape(-1, 4)
 
 
+def _ops_quat_np(ops: np.ndarray) -> np.ndarray:
+    """Scalar-first quaternions ``(nops, 4)`` of symmetry operators, 180-degree ops included.
+
+    neml2's matrix -> MRP -> quaternion route is singular at a 180-degree rotation
+    (trace -1) and returns a wrong quaternion there; scipy's is robust.
+    """
+    # pylint: disable-next=import-outside-toplevel
+    from scipy.spatial.transform import Rotation
+
+    return np.roll(Rotation.from_matrix(ops).as_quat(), 1, axis=-1)
+
+
 def _quat_to_matrix_np(q: np.ndarray) -> np.ndarray:
     """Unit quaternions ``(..., 4)`` (w, x, y, z) -> matrices, neml2 convention."""
     w, x, y, z = (q[..., i] for i in range(4))
@@ -1327,7 +1339,7 @@ class FragmentationAnalyzer:
         inv = inv.reshape(-1)
         n_c = len(uniq)
         ops = _symmetry_ops_np(symmetry)
-        op_quat = _matrix_to_quat_np(ops)
+        op_quat = _ops_quat_np(ops)
         mom = _cluster_moments(_mrp_to_matrix_np(mrp[valid]), inv, n_c, ops)
         mean_r = _moments_mean_matrix(mom)
         size = np.bincount(inv, minlength=n_c).astype(np.int64)
