@@ -53,6 +53,62 @@ from typing import Optional, Tuple
 
 NEPER_INSTALL_URL = "https://neper.info/doc/introduction.html#installing-neper"
 
+#: Descriptor graintrace asks NEPER to write orientation matrices in: the active
+#: ``R`` (crystal -> sample, = graintrace / MIDAS / neml2). Accepted by NEPER 4.x
+#: and 7.x; NEPER's own default (no suffix) is the passive ``g = R^T``.
+ROTMAT_DESCRIPTOR = "rotmat:active"
+
+
+def split_descriptor(descriptor: str) -> Tuple[str, str]:
+    """Split a NEPER orientation descriptor into ``(base, sense)``.
+
+    ``"rotmat:active"`` -> ``("rotmat", "active")``; no suffix means NEPER's
+    default, ``"passive"``.
+
+    Raises:
+        ValueError: if the suffix is neither ``active`` nor ``passive``.
+    """
+    base, _, sense = descriptor.strip().lower().partition(":")
+    sense = sense or "passive"
+    if sense not in ("active", "passive"):
+        raise ValueError(
+            f"NEPER orientation descriptor {descriptor!r}: the convention suffix "
+            "must be ':active' or ':passive'"
+        )
+    return base, sense
+
+
+def euler_descriptor(descriptor: str = "euler-bunge") -> str:
+    """The explicit NEPER descriptor for graintrace Euler angles: ``<euler-*>:passive``.
+
+    graintrace Euler angles are the standard (passive) triplet, so they are always
+    handed to NEPER with an explicit ``:passive`` suffix rather than relying on
+    NEPER's default.
+
+    Args:
+        descriptor: ``"euler-bunge"``, ``"euler-kocks"`` or ``"euler-roe"``, with
+            or without ``":passive"``.
+
+    Returns:
+        str: e.g. ``"euler-bunge:passive"``.
+
+    Raises:
+        ValueError: for a non-Euler descriptor or an ``:active`` Euler triplet
+            (the Euler angles of ``R^T``, which graintrace never uses).
+    """
+    base, sense = split_descriptor(descriptor)
+    if base not in ("euler-bunge", "euler-kocks", "euler-roe"):
+        raise ValueError(
+            f"orientation_descriptor {descriptor!r}: graintrace Euler angles need "
+            "'euler-bunge', 'euler-kocks' or 'euler-roe'"
+        )
+    if sense != "passive":
+        raise ValueError(
+            f"orientation_descriptor {descriptor!r}: graintrace Euler angles are the "
+            "standard (passive) triplet; ':active' Euler angles are not supported"
+        )
+    return f"{base}:passive"
+
 
 def find_neper(neper_path: Optional[str] = None) -> Optional[str]:
     """Resolve the ``neper`` binary path, or ``None`` if it cannot be found.

@@ -201,6 +201,8 @@ def compute_cell_geometry(
             morpho_ini,
             "-morphooptistop",
             "iter=0",
+            "-oridescriptor",
+            "euler-bunge:passive",  # explicit (orientations are not read here)
             "-o",
             "scan_tess",
             "-format",

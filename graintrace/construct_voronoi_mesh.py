@@ -35,6 +35,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from . import neper_env
 from .frame_transform import FrameTransform
 
 
@@ -87,7 +88,7 @@ class VoronoiMeshBuilder:
             rotate_angles: Explicit sample-tilt correction as xyz Euler angles applied in order X -> Y -> Z; units set by unit.
             rotate_convention: Euler rotation convention for rotate_angles; only "xyz" is supported.
             angle_identifier: The 3 column names holding the per-grain Euler angles, or None to skip orientation parsing.
-            orientation_descriptor: NEPER orientation descriptor for the input angles (e.g. "euler-bunge").
+            orientation_descriptor: NEPER descriptor of the input Euler angles: "euler-bunge" (default), "euler-kocks" or "euler-roe"; always passed to NEPER with an explicit ":passive" (":active" Euler raises).
             orientation_active_convention: Deprecated and ignored (orientations always update on the sample side); True warns.
             unit: Angle/rotation unit, "deg" or "rad"; must match the actual data units.
             elastic_strain_identifier: The 9 column names (row-major) of the per-grain elastic strain tensor, or None to skip strain.
@@ -106,7 +107,9 @@ class VoronoiMeshBuilder:
         self.bbox_fix_mode = bbox_fix_mode
         self.bbox_tolerance = bbox_tolerance
         self.rotate_convention = rotate_convention
-        self.ori_descriptor = orientation_descriptor
+        # graintrace Euler angles are the passive triplet; hand NEPER an explicit
+        # ':passive' (raises on a non-Euler or ':active' descriptor)
+        self.ori_descriptor = neper_env.euler_descriptor(orientation_descriptor)
         self.angle_id = angle_identifier
         self.rotate_matrix = np.eye(3)
         self.frame_transform = None
@@ -894,7 +897,7 @@ class VoronoiMeshBuilder:
                 "-domain",
                 domain_arg,
                 "-oridescriptor",
-                "rotmat",
+                neper_env.ROTMAT_DESCRIPTOR,
                 "-o",
                 tess_name,
                 "-format",
@@ -1249,7 +1252,7 @@ class VoronoiMeshBuilder:
             "-format",
             "ori",
             "-oridescriptor",
-            "rotmat",
+            neper_env.ROTMAT_DESCRIPTOR,
         ]
         print("> " + " ".join(neper_cmd))
         subprocess.run(neper_cmd, check=True, env=self.env)
