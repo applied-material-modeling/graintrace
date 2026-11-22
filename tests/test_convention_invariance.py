@@ -433,7 +433,7 @@ class TestPipelinesBaseline:
     def test_grain_fragments_on_negated_cpfe_mrp(self, base, tmp_path):
         if "frag_table" not in base:
             pytest.skip("cpfe_ff_fragmentation was absent when the baseline was made")
-        src = MB.MWE / "cpfe_ff_fragmentation"
+        src = MB.FRAG_DIR  # frozen pre-regeneration inputs
         os.makedirs(tmp_path / "mesh_out")
         df = pd.read_csv(src / "mesh_out" / MB.FRAG_STEP_FILE)
         for ax in "xyz":

@@ -83,6 +83,9 @@ VOXEL_SEG_KW = dict(
 SPLIT_KW = dict(d_tol=20.0, theta_tol_deg=15.0, angle_type="degrees")
 FRAG_KW = dict(tol_deg=5.0, min_subgrain_miso_deg=1.0, seg_kwargs={"gamma": 0.25})
 FRAG_STEP_FILE = "out_element_centroid_0026.csv"
+# Frozen copy of the pre-regeneration mwe_data/cpfe_ff_fragmentation inputs (the shipped dataset
+# was regenerated under the active-R convention, so the baseline no longer reads it).
+FRAG_DIR = Path(__file__).resolve().parent / "frag_legacy"
 
 
 def grid_case(seed: int = 7):
@@ -436,7 +439,7 @@ def main():
             out[f"{tag}_split_{k}"] = v
 
     # --- simulation intragranular fragments (MRP from the CPFE run) --------------
-    frag_dir = MWE / "cpfe_ff_fragmentation"
+    frag_dir = FRAG_DIR
     if frag_dir.is_dir():
         with tempfile.TemporaryDirectory() as tmp:
             os.makedirs(os.path.join(tmp, "mesh_out"))
