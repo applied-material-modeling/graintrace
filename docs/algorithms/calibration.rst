@@ -164,6 +164,24 @@ See :doc:`/configuration` for the full list.
   ``plateau_rtol`` / ``plateau_window``, and ``full_field_weight`` / ``full_field_components``.
 - ``apply_elastic_correction`` + ``strain_window``.
 
+Per-grain orientation history
+-----------------------------
+The forward model also evolves each grain's crystal orientation (plastic spin), stored in the
+per-grain state as a neml2 v3 MRP (``tan(theta/4) * axis``). Pass ``return_orientation=True``
+to :meth:`~graintrace.taylor.TaylorModel.simulate` (or
+:meth:`~graintrace.taylor.UniaxialTaylorModel.forward`) to get that history as an
+``(ntime, n_grains, 3)`` tensor. It is in the same convention and frame as the input
+orientations (no conversion), and step 0 equals the input. Outputs come back in a fixed order,
+``stress[, elastic_strain][, orientation]``, as a tuple whenever more than one is requested;
+the defaults and ``return_state=True`` alone are unchanged.
+
+.. code-block:: python
+
+    stress, ee_hist, ori_hist = model.simulate(
+        None, experiment_data=data, return_state=True, return_orientation=True
+    )
+    # ori_hist: (npoints, n_grains, 3) neml2 MRP; ori_hist[0] == data["exp_texture"][0]
+
 Further details
 ---------------
 For the full constitutive model see the NEML2 documentation:
