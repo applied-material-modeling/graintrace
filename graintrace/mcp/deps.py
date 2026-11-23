@@ -92,14 +92,16 @@ def _check_neper() -> DepStatus:
     )
     if p:
         ver = neper_env.neper_version(p)
-        return DepStatus(
-            "neper", True, f"found: {p}" + (f" (NEPER {ver})" if ver else ""), ""
-        )
+        try:
+            neper_env.require_neper_version(p)
+        except RuntimeError as err:
+            return DepStatus("neper", False, f"found: {p} (NEPER {ver})", str(err))
+        return DepStatus("neper", True, f"found: {p} (NEPER {ver})", "")
     return DepStatus(
         "neper",
         False,
         "not found via NEPER env var, tools.json, PATH, or external/neper",
-        "Install NEPER 4.x or 7.x "
+        "Install NEPER 7.x "
         "(https://neper.info/doc/introduction.html#installing-neper; NEPER 7 needs "
         "the Gmsh SDK) and point graintrace at it via the NEPER env var, a "
         "graintrace_tools.json `neper` key, or `neper` on PATH; or build NEPER 7 "

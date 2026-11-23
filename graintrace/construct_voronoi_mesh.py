@@ -95,7 +95,7 @@ class VoronoiMeshBuilder:
             output_dir: Directory where NEPER inputs, the tessellation, orientation/strain files, and the voxel reconstruction are written.
             bounding_box: Reconstruction domain as [xlo, xhi, ylo, yhi] (2D) or [xlo, xhi, ylo, yhi, zlo, zhi] (3D) in micrometers.
             dim: Spatial dimension, 2 or 3.
-            weighted: If True, use a Laguerre (weighted) tessellation with per-grain weights from GrainRadius (requires a GrainRadius column).
+            weighted: If True (with option='voronoi'), use a Laguerre (power) tessellation with seed weight GrainRadius**2 (NEPER 7 power weight; requires a GrainRadius column).
             auto_fix_bbox: If True, reconcile the data with bounding_box using bbox_fix_mode before tessellating.
             bbox_fix_mode: How to reconcile when auto_fix_bbox is True: "remove_points" (drop out-of-box points, production) or "extend_bounding_box" (grow the box, debug).
             bbox_tolerance: Percentage tolerance used by the bbox fix (e.g. 5.0 = 5%).
@@ -132,7 +132,7 @@ class VoronoiMeshBuilder:
         if orientation_active_convention:
             warnings.warn(
                 "orientation_active_convention is deprecated and ignored; the "
-                "sample-side update (g Q^T) is always applied.",
+                "sample-side update (R' = Q R) is always applied.",
                 DeprecationWarning,
                 stacklevel=2,
             )
@@ -810,16 +810,14 @@ class VoronoiMeshBuilder:
             if self.weighted:
                 if "GrainRadius" not in df.columns:
                     raise ValueError("Weighted mode requires 'GrainRadius' column.")
-                if self.dim == 3:
-                    df["Weight"] = (4.0 / 3.0) * np.pi * (df["GrainRadius"] ** 3)
-                    weight_type = "volume"
-                else:
-                    df["Weight"] = np.pi * (df["GrainRadius"] ** 2)
-                    weight_type = "area"
+                from graintrace.neper_env import (  # pylint: disable=import-outside-toplevel
+                    laguerre_weights,
+                )
 
-                df["Weight"] /= df["Weight"].sum()
+                # NEPER 7 power weight w = r**2 (length units of the coordinates)
+                df["Weight"] = laguerre_weights(df["GrainRadius"].to_numpy())
                 df["Weight"].to_csv(weight_path, sep=" ", index=False, header=False)
-                print(f"Neper weight file created ({weight_type}-based): {weight_path}")
+                print(f"Neper weight file created (w = GrainRadius^2): {weight_path}")
 
         # Orientation (3-column)
         if all(c in df.columns for c in self.angle_id):

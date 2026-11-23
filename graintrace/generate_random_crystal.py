@@ -370,7 +370,9 @@ class CrystalGenerator:
         - ``radius_noise``: relative (fractional) Gaussian std on GrainRadius.
 
         ``noise_seed`` makes the noise reproducible (None uses global np.random);
-        ``remove_minimum_volume`` drops grains below ``min_vol``.
+        ``remove_minimum_volume`` drops grains below ``min_vol``. Cells with zero
+        volume are always dropped: NEPER 7 keeps cells removed by a ``cut`` as
+        empty entries (volume 0, centroid at the origin), whereas 4.x deleted them.
         """
 
         if not os.path.exists(stat_file):
@@ -405,6 +407,13 @@ class CrystalGenerator:
             )
 
         df = pd.concat([df_stat[["vol", "x", "y", "z", "radeq"]], df_ori], axis=1)
+
+        # cells a NEPER 7 cut emptied are not part of this scan
+        empty = df["vol"] <= 0
+        if empty.any():
+            df = df[~empty].reset_index(drop=True)
+            if verbose:
+                print(f"        Dropped {int(empty.sum())} empty (cut-away) cells")
 
         # optionally remove small grains
         if remove_minimum_volume and min_vol > 0:
@@ -467,7 +476,11 @@ class CrystalGenerator:
         neper_bin: str = "neper",
         verbose: bool = True,
     ):
-        """Crop an existing .tess file along z between zmin and zmax."""
+        """Crop an existing .tess file to the slab ``zlo <= z <= zhi``.
+
+        Uses NEPER 7 ``-transform cut(hspace(...))`` (:meth:`zslab_cut_arg`).
+        Raises ``RuntimeError`` if the crop leaves no cell with positive volume.
+        """
 
         if bounding_box is None:
             raise ValueError("bounding_box must be provided.")
@@ -505,8 +518,8 @@ class CrystalGenerator:
             tx, ty, tz = xmin, ymin, zmin
             domain_arg = f"cube({sx},{sy},{sz}):translate({tx},{ty},{tz})"
 
-        # define cut
-        cut_arg = f"cut(hspace({zhi},0,0,1),hspace({-zlo},0,0,-1))"
+        # define cut (NEPER 7 hspace sense)
+        cut_arg = CrystalGenerator.zslab_cut_arg(zlo, zhi)
 
         neper_cmd = [
             neper_bin,
@@ -551,7 +564,34 @@ class CrystalGenerator:
                 stderr=subprocess.DEVNULL,
             )
 
+        stat_path = os.path.join(output_dir, f"{out_name}.stcell")
+        if os.path.exists(stat_path):
+            vol = np.atleast_2d(np.loadtxt(stat_path))[:, 1]
+            if not np.any(vol > 0):
+                raise RuntimeError(
+                    f"NEPER crop to z in [{zlo}, {zhi}] left no cell with positive "
+                    f"volume ({stat_path}); check the slab against the domain "
+                    f"(cut={cut_arg}; graintrace requires NEPER 7)."
+                )
+
         return os.path.join(output_dir, f"{os.path.basename(out_name)}.tess")
+
+    @staticmethod
+    def zslab_cut_arg(zlo: float, zhi: float) -> str:
+        """NEPER 7 ``-transform`` argument that keeps only ``zlo <= z <= zhi``.
+
+        ``cut`` removes each ``hspace(d,a,b,c)`` region, which NEPER 7 defines as
+        ``a x + b y + c z < d`` (NEPER 4.x used ``> d``; graintrace requires 7.x).
+
+        Args:
+            zlo: lower z bound of the kept slab.
+            zhi: upper z bound of the kept slab.
+
+        Returns:
+            The ``cut(...)`` expression for ``-transform``.
+        """
+        # remove {z > zhi} = {-z < -zhi} and {z < zlo}
+        return f"cut(hspace({-zhi},0,0,-1),hspace({zlo},0,0,1))"
 
     @staticmethod
     def show_morpho_options(exit_after: bool = False) -> None:

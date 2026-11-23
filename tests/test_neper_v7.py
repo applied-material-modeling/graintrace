@@ -156,3 +156,137 @@ class TestInstalledNeper:
         msh = tmp_path / "ff" / "reconstruction.msh"
         assert msh.exists() and msh.stat().st_size > 0
         assert "$Elements" in msh.read_text(errors="ignore")
+
+
+class TestZSlabCut:
+    """NEPER 7 reversed ``hspace`` inside ``cut``; the slab crop must follow it."""
+
+    def test_v7_cut_expression(self):
+        from graintrace.generate_random_crystal import CrystalGenerator
+
+        assert (
+            CrystalGenerator.zslab_cut_arg(0.25, 0.75)
+            == "cut(hspace(-0.75,0,0,-1),hspace(0.25,0,0,1))"
+        )
+
+    @pytest.mark.requires_neper
+    @pytest.mark.skipif(_neper() is None, reason="NEPER not installed")
+    def test_crop_keeps_the_slab(self, tmp_path):
+        """Installed NEPER: cropped cells have volume and lie inside [zlo, zhi]."""
+        import numpy as np
+
+        from graintrace.generate_random_crystal import CrystalGenerator
+
+        bbox = [0, 1, 0, 1, 0, 1]
+        cg = CrystalGenerator(
+            output_dir=str(tmp_path), bounding_box=bbox, seed=3, neper_path=_neper()
+        )
+        cg.generate_tessellation(
+            morpho_args={"type": "raw", "morpho_str": "gg", "n": 60}, iterations=2
+        )
+        CrystalGenerator.crop_tessellation(
+            tess_name=str(tmp_path / "voronoi.tess"),
+            bounding_box=bbox,
+            zlo=0.25,
+            zhi=0.75,
+            output_dir=str(tmp_path),
+            out_name="slab",
+            env=cg.env,
+            neper_bin=cg.neper_bin,
+            verbose=False,
+        )
+        st = np.loadtxt(tmp_path / "slab.stcell")  # id,vol,w,x,y,z,radeq
+        kept = st[st[:, 1] > 0]
+        assert len(kept) > 0
+        assert np.isclose(kept[:, 1].sum(), 0.5, rtol=1e-6)
+        assert kept[:, 5].min() > 0.25 and kept[:, 5].max() < 0.75
+
+
+def test_write_to_csv_drops_empty_cells(tmp_path):
+    """Cells a NEPER 7 cut emptied (vol 0, centroid 0) must not become grains."""
+    import pandas as pd
+
+    from graintrace.generate_random_crystal import CrystalGenerator
+
+    (tmp_path / "s.stcell").write_text(
+        "1 0 1 0 0 0 0\n2 8.0 1 1.0 2.0 3.0 1.2\n3 0 1 0 0 0 0\n4 1.0 1 4 5 6 0.6\n"
+    )
+    (tmp_path / "s.ori").write_text("1 2 3\n4 5 6\n7 8 9\n10 11 12\n")
+    out = tmp_path / "s.csv"
+    CrystalGenerator.write_to_csv(
+        str(tmp_path / "s.stcell"), str(tmp_path / "s.ori"), str(out), verbose=False
+    )
+    df = pd.read_csv(out)
+    assert df["X"].tolist() == [1.0, 4.0]
+    assert df["Eul0"].tolist() == [4.0, 10.0]  # orientations stay row-aligned
+
+
+def test_scan_tessellation_empty_cell_is_a_clear_error(tmp_path, monkeypatch):
+    """A tessellation with an empty cell (NEPER 7 keeps them) -> clear RuntimeError."""
+    import numpy as np
+    import pandas as pd
+
+    from graintrace.hedm_stitching_techniques import scan_tessellation as st
+
+    verts = np.zeros((4, 3))
+    monkeypatch.setattr(st.subprocess, "run", lambda *a, **k: None)
+    monkeypatch.setattr(
+        st, "_parse_tess_cells", lambda path: (verts, [[0, 1, 2]], [[0], []])
+    )
+    df = pd.DataFrame({"X": [1.0, 0.0], "Y": [1.0, 0.0], "Z": [1.0, 0.0]})
+    with pytest.raises(RuntimeError, match="empty cell"):
+        st.compute_cell_geometry(
+            df, [-5, 5, -5, 5, -5, 5], weighted=False, work_dir=str(tmp_path), env={}
+        )
+
+
+class TestNeperPin:
+    """graintrace is written for NEPER 7.x and refuses other majors."""
+
+    @pytest.mark.parametrize("ver", ["4.10.2", None, "garbage"])
+    def test_non_v7_raises(self, monkeypatch, ver):
+        monkeypatch.setattr(neper_env, "neper_version", lambda *a, **k: ver)
+        with pytest.raises(RuntimeError, match="requires NEPER 7"):
+            neper_env.require_neper_version("/fake/neper")
+
+    def test_v7_passes(self, monkeypatch):
+        monkeypatch.setattr(neper_env, "neper_version", lambda *a, **k: "7.0.0")
+        assert neper_env.require_neper_version("/fake/neper") == "7.0.0"
+
+    def test_resolve_checks_version(self, monkeypatch):
+        monkeypatch.setattr(neper_env, "find_neper", lambda *a, **k: "/fake/neper")
+        monkeypatch.setattr(neper_env, "neper_version", lambda *a, **k: "4.10.2")
+        with pytest.raises(RuntimeError, match="requires NEPER 7"):
+            neper_env.resolve_neper_env()
+
+
+class TestLaguerreWeights:
+    def test_power_weights_are_radius_squared(self):
+        import numpy as np
+
+        w = neper_env.laguerre_weights([20.0, 0.0, float("nan"), -3.0, 5.0])
+        assert np.allclose(w, [400.0, 0.0, 0.0, 0.0, 25.0])
+
+    @pytest.mark.requires_neper
+    @pytest.mark.skipif(_neper() is None, reason="NEPER not installed")
+    def test_weighted_cell_boundary_moves(self):
+        """Two seeds 50 apart, radii 20 and 0: power-diagram boundary at 50 + 400/100."""
+        import pandas as pd
+
+        from graintrace.hedm_stitching_techniques.scan_tessellation import (
+            compute_cell_geometry,
+        )
+
+        df = pd.DataFrame(
+            {
+                "X": [50.0, 50.0],
+                "Y": [50.0, 50.0],
+                "Z": [25.0, 75.0],
+                "GrainRadius": [20.0, 0.0],
+            }
+        )
+        box = [0, 100, 0, 100, 0, 100]
+        weighted = compute_cell_geometry(df, box, weighted=True)
+        plain = compute_cell_geometry(df, box, weighted=False)
+        assert weighted["Zmax"].iloc[0] == pytest.approx(54.0, abs=1e-6)
+        assert plain["Zmax"].iloc[0] == pytest.approx(50.0, abs=1e-6)

@@ -48,12 +48,16 @@ def default_neper_env() -> dict:
     Resolves the ``neper`` binary via ``graintrace.neper_env`` (NEPER env var ->
     tools.json -> PATH) and puts its bin/lib directories on ``PATH`` /
     ``LD_LIBRARY_PATH`` so a self-built NEPER finds its GSL/OpenBLAS libs. Falls
-    back to a plain ``os.environ`` copy when NEPER cannot be located.
+    back to a plain ``os.environ`` copy when NEPER cannot be located; a NEPER
+    that is found must be 7.x (``neper_env.require_neper_version``).
     """
     # Lazy import keeps this module light and avoids an import cycle.
     from graintrace import neper_env  # pylint: disable=import-outside-toplevel
 
-    return neper_env.build_env(neper_env.find_neper())
+    neper_bin = neper_env.find_neper()
+    if neper_bin is not None:
+        neper_env.require_neper_version(neper_bin)
+    return neper_env.build_env(neper_bin)
 
 
 def _read_tess_sections(tess_path: str) -> dict:
@@ -138,7 +142,9 @@ def compute_cell_geometry(
         df: grain table with ``coord_cols`` (and ``radius_col`` when ``weighted``).
         bbox: domain ``[xlo, xhi, ylo, yhi, zlo, zhi]``. z should be the scan FOV
             window so that a cell touching the z-limit means the grain is truncated.
-        weighted: Laguerre weight = effective grain volume ``(4/3)*pi*r**3``.
+        weighted: Laguerre (power) tessellation with seed weight ``r**2`` from
+            ``radius_col`` (NEPER 7 power weights, :func:`graintrace.neper_env.laguerre_weights`),
+            so larger grains get larger cells; False = plain Voronoi.
         work_dir: scratch dir for Neper I/O (a temp dir is used and removed if None).
         env: subprocess env (defaults to :func:`default_neper_env`).
 
@@ -170,11 +176,9 @@ def compute_cell_geometry(
                 raise ValueError(
                     f"weighted tessellation requires a '{radius_col}' column."
                 )
-            r = df[radius_col].to_numpy(dtype=float)
-            w = (4.0 / 3.0) * np.pi * (r**3)
-            total = w.sum()
-            if total > 0:
-                w = w / total
+            from graintrace import neper_env  # pylint: disable=import-outside-toplevel
+
+            w = neper_env.laguerre_weights(df[radius_col].to_numpy(dtype=float))
             np.savetxt(os.path.join(work_dir, "weights.dat"), w, fmt="%.12g")
             morpho_ini += ",weight:file(weights.dat)"
 
@@ -225,6 +229,14 @@ def compute_cell_geometry(
             raise RuntimeError(
                 f"Neper produced {len(cell_faces)} cells for {n} grains "
                 "(seed/cell ordering broke)."
+            )
+
+        empty = [c for c, fids in enumerate(cell_faces) if not fids]
+        if empty:
+            raise RuntimeError(
+                f"Neper produced {len(empty)} empty cell(s) (rows {empty[:10]}); their "
+                "seeds coincide with another grain or lie outside the domain "
+                "(e.g. zero-volume placeholder grains at the origin)."
             )
 
         zmin = np.empty(n, dtype=float)

@@ -41,8 +41,11 @@ For the convenience of a from-source build on Linux, pass ``auto_install=True``
 (opt-in): it builds NEPER 7.0.0 into ``~/.local`` against the Gmsh 4.15.2 SDK
 (unpacked into ``~/.local/opt``, linked via RPATH) with NEPER's builtin GSL and
 the system gcc (see :func:`_neper7_build_plan`). The default path never downloads
-or compiles anything. graintrace supports NEPER 4.x and 7.x; with NEPER 7 the
-``-morphooptialgo`` choices are ``subplex`` (graintrace's default) and ``lloyd``.
+or compiles anything. graintrace requires NEPER 7.x (:data:`NEPER_REQUIRED_MAJOR`;
+checked by :func:`resolve_neper_env`): the ``-morphooptialgo`` choices are
+``subplex`` (graintrace's default) and ``lloyd``, Laguerre weights are power
+weights (``r**2``), and ``-transform cut(hspace(...))`` uses the 7.x half-space
+sense.
 """
 
 from __future__ import annotations
@@ -56,9 +59,13 @@ from typing import Optional, Tuple
 NEPER_INSTALL_URL = "https://neper.info/doc/introduction.html#installing-neper"
 
 #: Descriptor graintrace asks NEPER to write orientation matrices in: the active
-#: ``R`` (crystal -> sample, = graintrace / MIDAS / neml2). Accepted by NEPER 4.x
-#: and 7.x; NEPER's own default (no suffix) is the passive ``g = R^T``.
+#: ``R`` (crystal -> sample, = graintrace / MIDAS / neml2). NEPER's own default
+#: (no suffix) is the passive ``g = R^T``.
 ROTMAT_DESCRIPTOR = "rotmat:active"
+
+#: NEPER major version graintrace is written against (hspace sense, weight units,
+#: optimizer names and empty cut cells all differ in 4.x).
+NEPER_REQUIRED_MAJOR = 7
 
 
 def split_descriptor(descriptor: str) -> Tuple[str, str]:
@@ -202,7 +209,8 @@ def resolve_neper_env(
 
     if neper_bin is None:
         raise RuntimeError(
-            "NEPER not found. graintrace does not ship NEPER; install it yourself "
+            f"NEPER not found. graintrace does not ship NEPER; install NEPER "
+            f"{NEPER_REQUIRED_MAJOR}.x yourself "
             f"({NEPER_INSTALL_URL}), then let graintrace find it via one of:\n"
             "  - the NEPER environment variable (absolute path to the `neper` binary),\n"
             "  - a graintrace_tools.json with a `neper` key "
@@ -212,7 +220,56 @@ def resolve_neper_env(
             "As a last resort on Linux, pass auto_install=True to build it into ~/.local."
         )
 
+    require_neper_version(neper_bin)
     return neper_bin, build_env(neper_bin)
+
+
+def laguerre_weights(radius) -> "np.ndarray":
+    """NEPER 7 Laguerre seed weights for grains of equivalent radius ``radius``.
+
+    NEPER 7 reads ``-morphooptiini weight:file(...)`` as the power-diagram weight
+    ``w`` in squared length units (cell = points with ``|x - s|**2 - w`` minimal),
+    so a grain of radius ``r`` gets ``w = r**2``, in the same length unit as the
+    coordinates and NOT normalised (normalising makes the weights negligible).
+    NaN or negative radii become 0.
+
+    Args:
+        radius: array-like of equivalent grain radii (coordinate length units).
+
+    Returns:
+        ``numpy.ndarray`` of weights ``r**2``.
+    """
+    import numpy as np  # pylint: disable=import-outside-toplevel
+
+    r = np.nan_to_num(np.asarray(radius, dtype=float), nan=0.0)
+    return np.clip(r, 0.0, None) ** 2
+
+
+def require_neper_version(neper_bin: str) -> str:
+    """Return the NEPER version string, raising unless it is NEPER 7.x.
+
+    graintrace builds NEPER command lines for 7.x semantics (see the module
+    docstring); a 4.x binary would silently produce wrong cuts and weights.
+
+    Args:
+        neper_bin: path to the ``neper`` binary.
+
+    Raises:
+        RuntimeError: if the version cannot be read or its major is not
+            :data:`NEPER_REQUIRED_MAJOR`.
+    """
+    ver = neper_version(neper_bin)
+    try:
+        major = int(str(ver).strip().split(".", maxsplit=1)[0])
+    except ValueError:
+        major = None
+    if major != NEPER_REQUIRED_MAJOR:
+        raise RuntimeError(
+            f"graintrace requires NEPER {NEPER_REQUIRED_MAJOR}.x, but {neper_bin} "
+            f"reports {ver!r}. Install NEPER {NEPER_REQUIRED_MAJOR} ({NEPER_INSTALL_URL}) "
+            "or build it into ~/.local with auto_install=True."
+        )
+    return str(ver)
 
 
 #: NEPER version built by ``auto_install=True`` and the Gmsh SDK it links against.
