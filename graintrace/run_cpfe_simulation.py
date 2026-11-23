@@ -158,6 +158,7 @@ class CPFESimulation:
         ori_file=None,
         use_ff_initial_field=False,
         dim=3,
+        slip_systems=None,
     ):
         """Configure a CPFE run from a mesh, orientations, and optional initial strain.
 
@@ -167,9 +168,16 @@ class CPFESimulation:
             moose_run_file: Path to the built PUMA binary (puma-opt) used to launch the simulation. Must exist.
             element_order: FE shape-function order, "FIRST" or "SECOND". Use "FIRST" for SCULPT/voxel hex meshes and "SECOND" for a GMSH tet .msh. Default "SECOND".
             eeres_file: Optional per-grain initial elastic-strain CSV (residual strain). If None, a zero 12-column strain file is written (no residual strain).
-            ori_file: Path to per-grain orientations, either 3-column neml2 MRP of the active R (``orientation_helper.euler_to_mrp``) or 9-column row-major ACTIVE rotation matrix R (crystal -> sample: NEPER ``rotmat:active``, MIDAS Grains.csv ``O``; a NEPER-default passive ``rotmat`` must be transposed first). Required for a real run.
+            ori_file: Path to per-grain orientations, either 3-column neml2 MRP of the active R
+                (``orientation_helper.euler_to_mrp``) or 9-column row-major ACTIVE rotation matrix R
+                (crystal -> sample: NEPER ``rotmat:active``, MIDAS Grains.csv ``O``; a NEPER-default
+                passive ``rotmat`` must be transposed first). Required for a real run.
             use_ff_initial_field: True when the mesh and eeres_file are co-registered FF data (uses initial_conditions_ff.i); False when eeres_file comes from a different mesh.
             dim: Spatial dimension, 2 or 3. Only dim=3 is currently supported by run(). Default 3.
+            slip_systems: Crystal slip systems baked into the NEML2 model: a preset name from
+                ``graintrace.slip_systems.SLIP_SYSTEM_PRESETS`` (``"fcc"`` default, ``"bcc"``,
+                ``"bcc_112"``, ``"bcc_110_112"``, ``"bcc_110_112_123"``), a ``SlipSystems``, or
+                (direction, plane) Miller families, e.g. ``[((1, 1, 1), (1, 1, 0))]``. Cubic only.
         """
         self.mesh_file = Path(mesh_file)
         if not self.mesh_file.exists():
@@ -195,6 +203,12 @@ class CPFESimulation:
         if dim not in (2, 3):
             raise ValueError(f"Invalid dimension {dim}. Must be 2 or 3.")
         self.dim = dim
+
+        from graintrace.slip_systems import (  # pylint: disable=import-outside-toplevel
+            SlipSystems,
+        )
+
+        self.slip_systems = SlipSystems.resolve(slip_systems)
 
         if element_order not in ("FIRST", "SECOND"):
             raise ValueError(
@@ -666,8 +680,8 @@ class CPFESimulation:
         return [str(f.resolve()) for f in files]
 
     def _bake_neml2_model(self, src, dst):
-        """Substitute @BAKE-marked material params into the model .i for AOTI compile."""
-        text = Path(src).read_text(encoding="utf-8")
+        """Write the model .i for AOTI compile: @SLIP slip families + @BAKE material params."""
+        text = self.slip_systems.apply_to_deck(Path(src).read_text(encoding="utf-8"))
         m = self.params["material"]
         enu_g = f"{m['elastic_E']:.12g} {m['elastic_nu']:.12g} {m['elastic_G']:.12g}"
         text, n = re.subn(

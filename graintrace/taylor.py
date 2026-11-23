@@ -223,12 +223,35 @@ def _texture_mrp(df, angle_cols, angle_convention, angle_type):
     )
 
 
+def _write_slip_deck(neml2_path, slip_systems):
+    """Copy ``neml2_path`` with its ``# @SLIP`` lines set to ``slip_systems``; return the copy."""
+    import tempfile  # pylint: disable=import-outside-toplevel
+
+    with open(neml2_path, encoding="utf-8") as fh:
+        text = slip_systems.apply_to_deck(fh.read())
+    out = os.path.join(
+        tempfile.mkdtemp(prefix="graintrace_slip_"), os.path.basename(neml2_path)
+    )
+    with open(out, "w", encoding="utf-8") as fh:
+        fh.write(text)
+    return out
+
+
 class TaylorModel(BaseMaterialApproximationModel):
     """Taylor calibration model backed by the NEML2 v3 + pyzag adjoint engine.
 
     - Loads and preprocesses experimental data (per-stress-level CSVs).
     - Manages the six calibration parameters as NEML2/torch parameters.
     - Runs differentiable uniaxial stress-strain simulations for optimization.
+
+    ``slip_systems`` (constructor kwarg, default ``None`` = use ``neml2_path`` as
+    written, which for the shipped ``neml2_cpfe_calibration.i`` is FCC
+    ``<110>{111}``) selects the crystal slip: a preset name from
+    ``graintrace.slip_systems.SLIP_SYSTEM_PRESETS`` (``"fcc"``, ``"bcc"``,
+    ``"bcc_112"``, ``"bcc_110_112"``, ``"bcc_110_112_123"``), a ``SlipSystems``,
+    or (direction, plane) Miller families. The deck's ``# @SLIP`` lines are
+    rewritten into a temporary copy, which is what gets loaded. Use the same value
+    as ``CPFESimulation(slip_systems=...)`` so calibration and CPFE agree.
     """
 
     # NEML2 parameters present on the model but held fixed during calibration.
@@ -246,11 +269,21 @@ class TaylorModel(BaseMaterialApproximationModel):
         exclude_parameters: list[str] | None = None,
         compile: bool = False,  # pylint: disable=redefined-builtin  # NEML2 factory kwarg name
         device: str | torch.device = "cpu",
+        slip_systems=None,
     ):
         # pylint: disable=super-init-not-called  # v3 path wraps a NonlinearSystem, see below
         # Deliberately does NOT call BaseMaterialApproximationModel.__init__;
         # the v3 path loads a NonlinearSystem and wraps it in a pyzag factory.
         self.neml2_path = neml2_path
+        self.slip_systems = None
+        load_path = neml2_path
+        if slip_systems is not None:
+            from .slip_systems import (  # pylint: disable=import-outside-toplevel
+                SlipSystems,
+            )
+
+            self.slip_systems = SlipSystems.resolve(slip_systems)
+            load_path = _write_slip_deck(neml2_path, self.slip_systems)
         self.neml2_model_name = neml2_model_name
         self.equation_system = equation_system
         self.axial_index = axial_index
@@ -265,7 +298,7 @@ class TaylorModel(BaseMaterialApproximationModel):
         # relocates the factory's own parameters, leaving the model's internal
         # crystal-geometry buffers (Schmid tensors, etc.) on CPU -> device
         # mismatch on cuda. nsys.to() moves all model buffers.
-        nsys = neml2.load_nonlinear_system(neml2_path, equation_system)
+        nsys = neml2.load_nonlinear_system(load_path, equation_system)
         nsys.to(self.device)
         # NEML2 v3 pyzag adapter: NEML2PyzagModel replaces the old
         # NEML2PyzagFactory, and compilation is a separate in-place neml2.compile

@@ -32,6 +32,7 @@ def calibrate_material(
     save_dir: Optional[str] = None,
     apply_elastic_correction: bool = False,
     strain_window: Optional[list] = None,
+    slip_systems: Optional[Any] = None,
     confirm: bool = False,
 ) -> dict:
     """Calibrate 6 crystal-plasticity parameters (elastic E/nu/G, slip strength,
@@ -48,7 +49,11 @@ def calibrate_material(
     strain_stress_file : macro strain-stress CSV.
     model_args : overrides for TaylorModel(...): neml2_path (defaults to the
         packaged neml2_cpfe_calibration.i), npoints, nchunk, device
-        ('cpu'|'cuda'), compile.
+        ('cpu'|'cuda'), compile, slip_systems.
+    slip_systems : crystal slip, same value for calibration and CPFE: a preset
+        ('fcc' default, 'bcc' = {110}<111>, 'bcc_112', 'bcc_110_112',
+        'bcc_110_112_123') or explicit cubic families, a list of
+        {'direction': [h,k,l], 'plane': [h,k,l]} (or [direction, plane] pairs).
     data_args : overrides for load_experiment_data(...): npoints,
         full_field_strain_units, straintype ('eKen'|'eFab'), max_strain,
         n_grains, seed, angle_identifier (default ['Eul0','Eul1','Eul2']),
@@ -79,6 +84,8 @@ def calibrate_material(
         "compile": False,
         **(model_args or {}),
     }
+    if slip_systems is not None:
+        m_args["slip_systems"] = slip_systems
     d_args = {
         "data_dir": data_dir,
         "strain_stress_file": strain_stress_file,
