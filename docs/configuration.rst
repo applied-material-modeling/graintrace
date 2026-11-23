@@ -187,11 +187,70 @@ re-merge (~3°). It is implemented by
 * ``seg_to_grain_table(trim_miso_deg=...)`` recomputes each grain mean without
   outlier points.
 
+Orientation convention and NEPER
+---------------------------------
+
+All graintrace matrices are the **active** :math:`R = R_z(\varphi_1) R_x(\Phi) R_z(\varphi_2)`
+(crystal :math:`\to` sample; MIDAS ``O``, NEPER ``rotmat:active``) and every MRP is the NEML2
+MRP of :math:`R`; see :ref:`notation-rotation-convention`.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 22 48
+
+   * - Option
+     - Default
+     - Meaning
+   * - ``VoronoiMeshBuilder(orientation_descriptor=)``
+     - ``"euler-bunge"``
+     - Euler convention of the input angles; passed to NEPER as ``<descriptor>:passive``.
+       ``":active"`` Euler or a non-Euler descriptor raises ``ValueError``.
+   * - ``build_voronoi(morphoalgo=)`` / ``build_graph(morphoalgo=)``
+     - ``"subplex"``
+     - NEPER ``-morphooptialgo``: ``"subplex"`` or ``"lloyd"``; NEPER 7 rejects
+       ``"praxis"`` (raised as ``ValueError``).
+   * - ``neper_env.ROTMAT_DESCRIPTOR``
+     - ``"rotmat:active"``
+     - descriptor graintrace requests for NEPER matrix output (``.tess``, ``.ori``).
+   * - ``TaylorModel.load_experiment_data(angle_identifier=, angle_convention=, angle_type=)``
+     - ``Eul0..Eul2``, ``"bunge"``, ``"auto"``
+     - calibration texture from Euler columns (``auto``: any value beyond :math:`2\pi` means
+       degrees); ``O11..O33`` (active :math:`R`) only as a fallback.
+   * - ``IPFProcessor.get_ipf_track_points(orientations, direction)``
+     - --
+     - variant-consistent IPF points for one track (one sector operator for all steps); used
+       by the IPF tracking plots.
+   * - ``TaylorModel.simulate(..., return_orientation=)`` / ``UniaxialTaylorModel.forward(..., return_orientation=)``
+     - ``False``
+     - also return per-grain neml2-MRP orientation histories ``(ntime, n_grains, 3)``
+       (appended after stress and the optional elastic strain).
+   * - ``CPFESimulation(slip_systems=)`` / ``TaylorModel(slip_systems=)``
+     - ``"fcc"`` (CPFE) / deck as written (Taylor)
+     - crystal slip baked into the NEML2 deck: a preset (``"fcc"``, ``"bcc"``, ``"bcc_112"``,
+       ``"bcc_110_112"``, ``"bcc_110_112_123"``), a ``SlipSystems``, or explicit cubic
+       ``(direction, plane)`` Miller families. Use the same value for calibration and CPFE.
+   * - ``VoronoiMeshBuilder(weighted=)`` / ``RegionBaseStitching(tess_weighted=)``
+     - ``False`` / ``True``
+     - Laguerre tessellation with seed weight ``GrainRadius**2`` (NEPER 7 power weight).
+   * - ``RegionBaseStitching(z_uncertainty=)``
+     - ``None``
+     - floor (um) on the grain :math:`z` half-extent for region classification;
+       ``"auto"`` = half the scan height (FF box-beam :math:`z` uncertainty). Ignored with
+       ``refine_extents=True``.
+   * - ``VoxelMeshBuilder.mesh(quality_check=)`` / ``NearFieldMeshBuilder.mesh(quality_check=)``
+     - ``"raise"``
+     - SCULPT path: per-hex minimum scaled Jacobian after meshing (``<mesh>_quality.json``);
+       ``"raise"`` on inverted elements, ``"warn"``, or ``"off"``.
+   * - ``orientation_helper.legacy_mrp_to_mrp(p)``
+     - --
+     - converts an MRP written by graintrace 0.2 and earlier (``-p``).
+
 FrameTransform
 --------------
 
-A stated specimen-frame change: ``x' = Q (s * x) + t``, ``g' = g Q^T``,
-``e' = Q e Q^T``. graintrace never estimates it.
+A stated specimen-frame change: ``x' = Q (s * x) + t``, ``R' = Q R`` (sample side,
+on the left of the active orientation matrix), ``e' = Q e Q^T``. graintrace never
+estimates it.
 
 .. code-block:: python
 
@@ -208,7 +267,7 @@ A stated specimen-frame change: ``x' = Q (s * x) + t``, ``g' = g Q^T``,
    frame.inverse(); frame_a @ frame_b; frame.to_json(path)
 
    # adapters, each also writes <dst>.transform.json
-   frame.apply_ff_csv(src, dst)       # coords, Euler, eKen/eFab, O11..O33
+   frame.apply_ff_csv(src, dst)       # coords, Euler, eKen/eFab, O11..O33 (active R)
    frame.apply_ee_csv(src, dst)       # headerless x, y, z + 9 strains
    frame.apply_pointcloud(src, dst)
    frame.apply_voxel_grid(src, dst)

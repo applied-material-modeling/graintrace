@@ -187,11 +187,9 @@ class TestSampleSideCorrectness(unittest.TestCase):
     def test_sample_side_rule_degrees(self):
         """For a crystal direction c, the transformed orientation satisfies R' c = Q R c."""
         T = FrameTransform(rotation=ROTATION_SEQUENCE)
-        g = euler_to_matrix(torch.tensor(EULER), "bunge", "degrees")
-        gp = T.orientation_matrices(g)
-
-        R = g.transpose(-2, -1).numpy()  # active: crystal -> sample
-        Rp = gp.transpose(-2, -1).numpy()
+        Rt = euler_to_matrix(torch.tensor(EULER), "bunge", "degrees")
+        R = Rt.numpy()  # active: crystal -> sample
+        Rp = T.orientation_matrices(Rt).numpy()
         for c in (np.array([1.0, 0, 0]), np.array([0, 1.0, 0]), np.array([1, 1, 1.0])):
             expected = np.einsum("ij,nj->ni", T.Q, R @ c)
             self.assertTrue(np.allclose(Rp @ c, expected))
@@ -205,11 +203,11 @@ class TestSampleSideCorrectness(unittest.TestCase):
         self.assertTrue(np.allclose(np.rad2deg(out) % 360.0, direct % 360.0))
 
     def test_crystal_side_update_is_wrong(self):
-        """``Q g`` does not reproduce a physical sample rotation (the bug guard)."""
+        """``R Q^T`` does not reproduce a physical sample rotation (the bug guard)."""
         T = FrameTransform(rotation=ROTATION_SEQUENCE)
-        g = euler_to_matrix(torch.tensor(EULER), "bunge", "degrees").numpy()
-        wrong = np.einsum("ij,njk->nik", T.Q, g)  # crystal side
-        right = T.orientation_matrices(torch.tensor(g)).numpy()
+        R = euler_to_matrix(torch.tensor(EULER), "bunge", "degrees").numpy()
+        wrong = np.einsum("njk,lk->njl", R, T.Q)  # crystal side, R Q^T
+        right = T.orientation_matrices(torch.tensor(R)).numpy()
         self.assertFalse(np.allclose(wrong, right))
 
     def test_cubic_rotation_moves_orientations_in_the_fundamental_zone(self):
@@ -243,9 +241,8 @@ class TestPhysicalConsistency(unittest.TestCase):
         """
         T = FrameTransform(rotation=ROTATION_SEQUENCE, translation=(12.0, -3.5, 40.0))
         e1 = np.array([[31.0, 47.0, 112.0]])
-        g1 = euler_to_matrix(torch.tensor(e1), "bunge", "degrees").numpy()[0]
-        R1 = g1.T  # crystal -> sample
-        direction = R1 @ np.array([1.0, 0.0, 0.0])
+        R1 = euler_to_matrix(torch.tensor(e1), "bunge", "degrees").numpy()[0]
+        direction = R1 @ np.array([1.0, 0.0, 0.0])  # R: crystal -> sample
 
         p1 = np.array([10.0, -4.0, 25.0])
         p2 = p1 + 73.0 * direction
@@ -253,8 +250,8 @@ class TestPhysicalConsistency(unittest.TestCase):
         pos = T.positions(np.vstack([p1, p2]))
         offset = pos[1] - pos[0]
 
-        g1p = T.orientation_matrices(torch.tensor(g1)).numpy()
-        direction_p = g1p.T @ np.array([1.0, 0.0, 0.0])
+        R1p = T.orientation_matrices(torch.tensor(R1)).numpy()
+        direction_p = R1p @ np.array([1.0, 0.0, 0.0])
 
         self.assertTrue(
             np.allclose(offset / np.linalg.norm(offset), direction_p, atol=1e-10)
@@ -457,7 +454,7 @@ class TestMRPPath(unittest.TestCase):
 
         ``compose(a, b)`` yields the orientation whose matrix is
         ``matrix(a) @ matrix(b)``; the sample-side update is therefore
-        ``compose(orientation, Q^T)``. The swapped order is the crystal-side
+        ``compose(Q, orientation)``. The swapped order is the crystal-side
         update and fails this test.
         """
         T = FrameTransform(rotation=ROTATION_SEQUENCE)
@@ -471,11 +468,11 @@ class TestMRPPath(unittest.TestCase):
     def test_mrp_satisfies_the_physical_rule(self):
         """The MRP path obeys ``R' c = Q R c`` too."""
         T = FrameTransform(rotation=ROTATION_SEQUENCE)
-        g = euler_to_matrix(torch.tensor(EULER), "bunge", "degrees")
-        gp = mrp_to_matrix(T.mrp(matrix_to_mrp(g))).numpy()
+        R = euler_to_matrix(torch.tensor(EULER), "bunge", "degrees")
+        Rp = mrp_to_matrix(T.mrp(matrix_to_mrp(R))).numpy()
         c = np.array([1.0, 0.0, 0.0])
-        expected = np.einsum("ij,nj->ni", T.Q, g.transpose(-2, -1).numpy() @ c)
-        self.assertTrue(np.allclose(gp.transpose(0, 2, 1) @ c, expected, atol=1e-10))
+        expected = np.einsum("ij,nj->ni", T.Q, R.numpy() @ c)
+        self.assertTrue(np.allclose(Rp @ c, expected, atol=1e-10))
 
     def test_mrp_output_is_the_short_rotation_set(self):
         """Random inputs come back with ``|p'| <= 1`` and still equal ``Q R``."""
@@ -741,7 +738,7 @@ class TestDatasetAdapters(unittest.TestCase):
 
     @requires_orientation_stack
     def test_apply_ff_csv_transforms_orientation_matrix_columns(self):
-        """``O11``..``O33`` are orientation matrices, so they take ``g Q^T``."""
+        """``O11``..``O33`` are active orientation matrices, so they take ``Q R``."""
         # pylint: disable-next=import-outside-toplevel  # test-only helper
         import tempfile
 

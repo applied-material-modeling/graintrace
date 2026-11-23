@@ -42,7 +42,7 @@ author = "Applied Material Modeling, Argonne National Laboratory"
 try:
     release = _pkg_version("graintrace")
 except PackageNotFoundError:
-    release = "0.2.0"
+    release = "0.3.0"
 version = release
 
 # -- General configuration ---------------------------------------------------

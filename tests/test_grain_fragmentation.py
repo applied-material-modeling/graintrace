@@ -1127,31 +1127,33 @@ class TestRadiusSanitizingAndValidation:
 
 
 def _import_tracking_tool(monkeypatch):
-    """Import the MCP tracking tool, stubbing FastMCP when the SDK lacks it.
+    """Import the MCP tracking tool, stubbing the server class when the SDK is absent.
 
     The tool body is plain Python; only the ``@mcp.tool()`` registration needs the
-    SDK, so a pass-through ``FastMCP`` lets the wrapper be tested anywhere.
+    SDK, so a pass-through server lets the wrapper be tested anywhere.
     """
     import importlib
     import sys
     import types
 
     try:
-        importlib.import_module("mcp.server.fastmcp")
+        importlib.import_module("graintrace.mcp._compat")
     except ImportError:
 
-        class _FastMCP:  # minimal stand-in: every decorator is the identity
+        class _Server:  # minimal stand-in: every decorator is the identity
             def __init__(self, *args, **kwargs):
                 pass
 
             def __getattr__(self, _name):
                 return lambda *a, **k: (lambda fn: fn)
 
-        stub = types.ModuleType("mcp.server.fastmcp")
-        stub.FastMCP = _FastMCP
-        monkeypatch.setitem(sys.modules, "mcp.server.fastmcp", stub)
         for name in [m for m in sys.modules if m.startswith("graintrace.mcp")]:
             monkeypatch.delitem(sys.modules, name)
+        stub = types.ModuleType("graintrace.mcp._compat")
+        stub.MCPServer = _Server
+        stub.Image = object
+        stub.MCP_SDK_MAJOR = 0
+        monkeypatch.setitem(sys.modules, "graintrace.mcp._compat", stub)
     return importlib.import_module("graintrace.mcp.tools.tracking")
 
 

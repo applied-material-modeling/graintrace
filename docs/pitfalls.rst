@@ -59,14 +59,64 @@ FF output orientations are always in degrees
 ``orientations.dat`` in degrees, regardless of input units. When feeding to
 :class:`~graintrace.VoxelMeshBuilder` afterward, set ``angle_type="degrees"``.
 
+graintrace's orientation matrix is the active R (crystal -> sample)
+-------------------------------------------------------------------
+
+``euler_to_matrix`` returns ``R = Rz(phi1) Rx(Phi) Rz(phi2)`` (MIDAS
+``Euler2OrientMat`` / Grains.csv ``O``, NEPER ``rotmat:active``), not the
+classical passive Bunge ``g = R^T``, and ``euler_to_mrp`` is the NEML2 MRP of
+``R``, which is what a NEML2 crystal model's ``orientation`` is. graintrace 0.2
+and earlier used ``g``: matrices/MRP it wrote are the inverse rotation (Euler
+files are unaffected). Convert old MRP with
+:func:`~graintrace.orientation_helper.legacy_mrp_to_mrp` and old matrices by
+transposing; rerun CPFE that was driven by the old MRP. The error is invisible on
+a random texture and wrong grain by grain, so check it on a crystal direction or
+an IPF corner, not on a texture statistic.
+
 A frame change rotates orientations on the sample side
 ------------------------------------------------------
 
-A frame rotation ``Q`` sends orientations to ``g Q^T``, not ``Q g``. The
-crystal-side update is invisible modulo cubic symmetry, so test it on a crystal
+A frame rotation ``Q`` sends orientations to ``Q R`` (the left side of the active
+``R``), not ``R Q^T``. Crystal symmetry acts on the other (right) side, ``R S``.
+The wrong side is invisible modulo cubic symmetry, so test it on a crystal
 direction (``R c -> Q R c``), not a misorientation.
 :class:`~graintrace.FrameTransform` applies the sample-side rule;
 ``VoronoiMeshBuilder``'s ``orientation_active_convention`` is deprecated and ignored.
+
+NEPER descriptors are explicit; a bare ``rotmat`` is passive
+------------------------------------------------------------
+
+NEPER's default orientation convention is passive: a bare ``rotmat`` in a
+``.tess`` is ``g = R^T``. graintrace passes Euler angles as
+``euler-bunge:passive`` and asks for ``rotmat:active``; the readers
+(:class:`~graintrace.tess_to_gnn.NeperTessToGraphNN`,
+``VoronoiMeshBuilder.apply_rotation_to_properties``) honour the suffix of any
+file. If you hand graintrace a NEPER matrix yourself, check its descriptor line.
+NEPER parameterises quaternion / Rodrigues / axis-angle relative to its passive
+matrix, so their textbook matrix is ``R`` for ``:passive``.
+
+graintrace requires NEPER 7
+---------------------------
+
+graintrace builds its NEPER command lines for NEPER 7.x and refuses any other
+major version (``neper_env.require_neper_version``, called whenever NEPER is
+resolved). NEPER 4.x differs in ways that silently give wrong geometry: it reads
+``weight:`` as a radius rather than a power weight, it uses the opposite sense
+for ``hspace`` inside ``-transform cut(...)`` and deletes cut-away cells where 7.x
+keeps them as empty entries, and it truncates ``-o`` paths at the first ``.``.
+NEPER 7 rejects ``-morphooptialgo praxis`` (graintrace's old default); the default
+is now ``"subplex"`` (``"lloyd"`` also works) and a rejection is a ``ValueError``.
+
+Laguerre weights are the squared radius
+---------------------------------------
+
+``VoronoiMeshBuilder(weighted=True)`` and the stitching refinement
+``RegionBaseStitching(refine_extents=True, tess_weighted=True)`` (the default
+``tess_weighted``) write the seed weight ``GrainRadius**2`` in the coordinates'
+length unit (``neper_env.laguerre_weights``). Before graintrace 0.3 they wrote
+``(4/3) pi r^3`` normalised to sum to 1, which is negligible against micrometre
+distances, so "weighted" runs were effectively unweighted; weighted results made
+with older versions change when rerun.
 
 orientation_tolerance units must match ori_units
 ------------------------------------------------

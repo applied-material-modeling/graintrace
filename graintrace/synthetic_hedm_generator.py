@@ -32,6 +32,7 @@ import numpy as np
 import pandas as pd
 
 from .generate_random_crystal import CrystalGenerator
+from .neper_env import split_descriptor
 
 
 class SyntheticHEDMGenerator:
@@ -254,10 +255,17 @@ class SyntheticHEDMGenerator:
         if ori_idx is None:
             raise ValueError("Failed to find '*ori' block in tess file.")
 
-        # skip descriptor line (e.g., "euler-bunge:passive")
+        # descriptor line: the rows must be standard (passive) Bunge Euler angles
         j = ori_idx + 1
         while j < len(lines) and not lines[j].strip():
             j += 1
+        descriptor = lines[j].strip() if j < len(lines) else ""
+        if split_descriptor(descriptor) != ("euler-bunge", "passive"):
+            raise ValueError(
+                f"tess *ori descriptor {descriptor!r}: expected 'euler-bunge' or "
+                "'euler-bunge:passive' (generate the tessellation with "
+                "-oridescriptor euler-bunge:passive)"
+            )
         j += 1
 
         eulers = np.zeros((ncell, 3), dtype=float)

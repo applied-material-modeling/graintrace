@@ -27,26 +27,17 @@ import argparse
 import importlib
 import json
 import sys
-from pathlib import Path
 from types import ModuleType
 from typing import List, Sequence
 
 
 def _load_deps() -> ModuleType:
-    """Import ``graintrace.mcp.deps`` without importing the MCP server package.
+    """Import ``graintrace.mcp.deps`` without loading the MCP server.
 
-    ``graintrace/mcp/__init__.py`` imports the FastMCP application, which needs
-    the optional ``mcp`` extra, while the probes themselves need none of it.
-    This command has to work on a bare ``pip install graintrace``, so when the
-    real package has not already been imported a stub standing in for
-    ``graintrace.mcp`` is registered first. It carries the right ``__path__``,
-    which is all the import machinery needs to find ``deps`` and the
-    ``tool_paths`` module that one of the probes pulls in.
+    ``graintrace/mcp/__init__.py`` loads the server (and the optional ``mcp``
+    SDK) lazily, only when ``graintrace.mcp.mcp`` is accessed, so ``deps`` and
+    the ``tool_paths`` module it uses import on a bare ``pip install graintrace``.
     """
-    if "graintrace.mcp" not in sys.modules:
-        stub = ModuleType("graintrace.mcp")
-        stub.__path__ = [str(Path(__file__).resolve().parent / "mcp")]
-        sys.modules["graintrace.mcp"] = stub
     return importlib.import_module("graintrace.mcp.deps")
 
 

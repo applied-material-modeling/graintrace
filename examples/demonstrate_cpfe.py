@@ -31,6 +31,7 @@ import numpy as np
 import torch
 import meshio
 
+from graintrace.mcp import tool_paths  # tools.json lookup (works without the mcp SDK)
 from graintrace.run_cpfe_simulation import CPFESimulation
 from graintrace import orientation_helper as oh
 
@@ -48,7 +49,9 @@ euler_file = ff_dir + "/orientations.dat"  # Euler bunge, degrees (FF output)
 
 outputdir = "cpfe_out"
 # EDIT: path to your built PUMA binary (e.g. external/puma/puma-opt after building it).
-moose_run_file = "external/puma/puma-opt"
+# Tool paths come from tools.json ($GRAINTRACE_TOOLS_JSON, ./graintrace_tools.json or
+# ~/.config/graintrace/tools.json; see graintrace/mcp/tools.example.json); EDIT the fallback otherwise.
+moose_run_file = tool_paths.puma_opt() or "external/puma/puma-opt"
 
 angle_convention = "bunge"
 angle_type = "degrees"
@@ -121,6 +124,7 @@ sim = CPFESimulation(
     ori_file=ori_file,
     dim=3,
     use_ff_initial_field=True,  # eeres_file=None -> zero initial elastic strain
+    slip_systems="fcc",  # crystal slip: "fcc" | "bcc" | "bcc_110_112" | ... or [((1,1,1),(1,1,0))]
 )
 
 sim.set_parameters("material", **material)

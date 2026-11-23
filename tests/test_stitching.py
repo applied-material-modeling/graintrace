@@ -228,3 +228,97 @@ class TestRegionBaseStitchingTessellation:
         _, df_cc = self._run(tmp_path, refine_extents=True, update_centroid=True)
         # cell centroids differ from the raw FF centroids for at least some grains
         assert not np.isclose(df_ff["X"].mean(), df_cc["X"].mean())
+
+
+class TestZUncertainty:
+    """``z_uncertainty`` floors the region half-extent at max(GrainRadius, z_unc)."""
+
+    @staticmethod
+    def _stitcher(z_unc, z_a=40.0):
+        from graintrace.hedm_stitching_techniques.dataclass_utils import (
+            GrainSet,
+            ScanMetadata,
+        )
+        from graintrace.hedm_stitching_techniques.pair_stitching_utils import (
+            PairwiseStitcher,
+        )
+
+        def gs(z, sid):
+            df = pd.DataFrame(
+                {"X": [0.0], "Y": [0.0], "Z": [z], "GrainRadius": [5.0]}
+                | {f"Eul{i}": [0.0] for i in range(3)}
+            )
+            return GrainSet(df=df, meta=ScanMetadata(f"s{sid}", sid, 0.0, 100.0))
+
+        return PairwiseStitcher(
+            gs(z_a, 0),
+            gs(120.0, 1),
+            zol=50.0,
+            zoh=60.0,
+            position_tolerance=10.0,
+            orientation_tolerance=5.0,
+            radius_tolerance=-1,
+            weights={"pos": 0.1, "ori": 1.0, "rad": 0},
+            min_neighbors=1,
+            z_uncertainty=z_unc,
+        )
+
+    def test_floor_changes_region(self):
+        # z=40, r=5: legacy extent [35, 45] sits below the overlap [50, 60] -> LOW (3);
+        # a 15 um floor reaches into the band -> BND-LOW (5).
+        legacy = self._stitcher(0.0)
+        legacy._classify_regions()  # pylint: disable=protected-access
+        assert legacy.region_A[0] == 3
+        wide = self._stitcher(15.0)
+        wide._classify_regions()  # pylint: disable=protected-access
+        assert wide.region_A[0] == 5
+
+    def test_floor_below_radius_is_noop(self):
+        a, b = self._stitcher(0.0), self._stitcher(4.0)
+        a._classify_regions()  # pylint: disable=protected-access
+        b._classify_regions()  # pylint: disable=protected-access
+        assert a.region_A[0] == b.region_A[0]
+
+    @pytest.mark.parametrize("bad", [-1.0, float("nan")])
+    def test_pairwise_rejects_invalid(self, bad):
+        with pytest.raises(ValueError, match="z_uncertainty"):
+            self._stitcher(bad)
+
+    @pytest.mark.parametrize(
+        "spec, expected", [(None, 0.0), ("auto", 50.0), ("AUTO", 50.0), (7, 7.0)]
+    )
+    def test_region_base_resolve(self, spec, expected):
+        from graintrace.hedm_stitching_techniques.region_base_stitching import (
+            RegionBaseStitching,
+        )
+
+        st = RegionBaseStitching(
+            scan_files=[],
+            output_csv="unused.csv",
+            position_tolerance=10,
+            orientation_tolerance=5,
+            radius_tolerance=-1,
+            weights={"pos": 0.1, "ori": 1.0, "rad": 0},
+            z_uncertainty=spec,
+        )
+        assert (
+            st._resolve_z_uncertainty(100.0) == expected
+        )  # pylint: disable=protected-access
+
+    @pytest.mark.parametrize("bad", ["half", -2.0])
+    def test_region_base_rejects_invalid(self, bad):
+        from graintrace.hedm_stitching_techniques.region_base_stitching import (
+            RegionBaseStitching,
+        )
+
+        st = RegionBaseStitching(
+            scan_files=[],
+            output_csv="unused.csv",
+            position_tolerance=10,
+            orientation_tolerance=5,
+            radius_tolerance=-1,
+            weights={"pos": 0.1, "ori": 1.0, "rad": 0},
+            z_uncertainty=bad,
+        )
+        with pytest.raises(ValueError, match="z_uncertainty"):
+            st._resolve_z_uncertainty(100.0)  # pylint: disable=protected-access

@@ -35,6 +35,7 @@ def run_cpfe(
     distributed_mesh: bool = False,
     solver_route: str = "timestep_optimized",
     growth_factor: float = 2.0,
+    slip_systems: Optional[Any] = None,
     confirm: bool = False,
 ) -> dict:
     """Run a crystal-plasticity FE simulation with NEML2 v3 + MOOSE/PUMA
@@ -62,6 +63,10 @@ def run_cpfe(
         (material / simulation_parameters / boundary / grid_properties). Anything
         you provide here overrides the auto-built sections.
     init_params : CPFESimulation overrides (element_order, dim, use_ff_initial_field).
+    slip_systems : crystal slip, same value for calibration and CPFE: a preset
+        ('fcc' default, 'bcc' = {110}<111>, 'bcc_112', 'bcc_110_112',
+        'bcc_110_112_123') or explicit cubic families, a list of
+        {'direction': [h,k,l], 'plane': [h,k,l]} (or [direction, plane] pairs).
     ncore : MPI ranks (== number of GPUs for a device list).
     distributed_mesh : if True, pre-split the mesh (`--split-mesh ncore`) and run
         `--use-split` so each rank reads only its partition (low per-rank memory for
@@ -93,6 +98,8 @@ def run_cpfe(
         "use_ff_initial_field": True,
         **(init_params or {}),
     }
+    if slip_systems is not None:
+        init["slip_systems"] = slip_systems
     smeta = sample_meta.resolve_sample(sample_json)
     if bounding_box is None:
         bounding_box = smeta.get("bounding_box")

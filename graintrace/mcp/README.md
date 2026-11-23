@@ -27,8 +27,8 @@ your chat client (brings the LLM + key)
 | `ff_reconstruct` | FF Voronoi reconstruction | NEPER (GMSH if meshing) |
 | `nf_reconstruct` | NF voxel reconstruction + mesh | CUBIT/SCULPT (mesh only) |
 | `voxel_mesh` | EBSD/gridded segmentation + mesh | CUBIT/SCULPT (mesh only) |
-| `calibrate_material` | Taylor-model parameter fit | NEML2 v3 + pyzag |
-| `run_cpfe` | MOOSE/PUMA CPFE run (`solver_route`, `distributed_mesh`, `growth_factor`; any `loaded_axis`) | `puma-opt` + NEML2 AOTI |
+| `calibrate_material` | Taylor-model parameter fit (texture from Euler `Eul0..2`: `data_args` `angle_identifier` / `angle_convention` / `angle_type`; `slip_systems`) | NEML2 v3 + pyzag |
+| `run_cpfe` | MOOSE/PUMA CPFE run (`solver_route`, `distributed_mesh`, `growth_factor`, `slip_systems`; any `loaded_axis`) | `puma-opt` + NEML2 AOTI |
 | `postprocess` | distributions / stress-strain / pole figure / IPF reorientation tracking | (NEML2 for pole figure & ipf_tracking) |
 | `identify_rare_events` | REI graph clustering → VTK | none |
 | `reorientation_rei` | reorientation (misorientation-from-initial) as an REI criterion → VTK | none (neml2+networkit) |
@@ -50,6 +50,15 @@ Two built-in safety behaviors:
 Heavy runs (CPFE, reconstruction, meshing, calibration) execute as **background
 jobs**: the tool returns a `job_id`; poll `job_status(job_id)` for progress.
 
+**Orientation convention (every tool).** Euler = standard Bunge triplet; every
+matrix is the active R = Rz(phi1) Rx(Phi) Rz(phi2) (crystal -> sample, = MIDAS `O`,
+NEPER `rotmat:active`); every MRP is the neml2 MRP of R (the CPFE `orientation`).
+Crystal symmetry acts on the right (R S), sample rotations on the left (Q R). MRP/O
+files written by graintrace <= 0.2 are inverted (`legacy_mrp_to_mrp`). NEPER 7.x is
+required; `ff_reconstruct` uses `morphoalgo="subplex"` (NEPER 7 removed `praxis`).
+`run_cpfe` and `calibrate_material` take `slip_systems` (preset such as `"fcc"`/`"bcc"`,
+or explicit cubic `{direction, plane}` families); pass the same value to both.
+
 ## Recommendation recipes
 
 `graintrace/mcp/recipes/*.md` hold vetted parameter presets + prose guidance per
@@ -63,6 +72,8 @@ code.**
 ```bash
 pip install "graintrace[mcp]"      # or: pip install -e ".[mcp]" from a checkout
 ```
+
+Works with the `mcp` Python SDK 1.x (`FastMCP`) and 2.x (`MCPServer`); see `graintrace/mcp/_compat.py`.
 
 The compiled stack (NEPER, MOOSE/PUMA, CUBIT/SCULPT, NEML2, pyzag) is **not** on
 PyPI; build it separately (see the repo README). The MCP server

@@ -54,10 +54,18 @@ need the external tool(s) shown.
      - match grains across load steps via a grain graph
      - NEPER
 
+``examples/data_generation/make_cpfe_mwe.py`` regenerates the shipped CPFE
+datasets (``mwe_data/out.csv`` + ``grid_out/``, ``synthetic_load_exp/``,
+``cpfe_ff_fragmentation/``); it needs NEML2 and ``puma-opt`` and is not part of
+the example sweep.
+
 *full stack* = NEML2 + ``puma-opt`` + NEPER + CUBIT/SCULPT. The minimum
-end-to-end check is ``demonstrate_cpfe_nfff.py``; before running, edit the
-``sculpt_config``, ``moose_run_file``, ``ncore``, and ``device`` at the top of
-the script to match your machine.
+end-to-end check is ``demonstrate_cpfe_nfff.py``. The examples read
+``puma-opt`` and the CUBIT/SCULPT paths from a ``tools.json``
+(``$GRAINTRACE_TOOLS_JSON``, ``./graintrace_tools.json`` or
+``~/.config/graintrace/tools.json``; see ``graintrace/mcp/tools.example.json``);
+without one, edit the placeholder paths. Set ``ncore`` and ``device`` at the top
+of the script for your machine.
 
 To drive your own scan data, copy the ``demonstrate_*.py`` script closest to
 your workflow and repoint its ``## INPUT`` block at your files. There are no

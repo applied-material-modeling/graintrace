@@ -22,36 +22,38 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-"""Demonstrate IPF coloring of a CPFE mesh with ipf_postprocess_update.
+"""Demonstrate IPF coloring of a CPFE mesh with graintrace.ipf_postprocess.
 
-Input a mesh + per-block MRP orientations, write the IPF color legend, then
+Input a mesh + per-block Euler-Bunge orientations, write the IPF color legend, then
 append per-block RGB fields to a copy of the Exodus mesh. Uses the physically
-correct sample_symmetry="1" (works thanks to the include_inversion fix; requires
-the April-2026 neml2). Open the resulting mesh_rgb.e in ParaView and color by
-rgb_x/rgb_y/rgb_z.
+correct sample_symmetry="1". Open the resulting mesh_rgb.e in ParaView and color by
+rgb_x/rgb_y/rgb_z (scalar mapping off).
 
-Self-contained: the module, mesh, and orientations all live in this folder.
-
-Run (in an env with the April-2026 neml2, e.g. pyzag_env):
+Self-contained: the mesh and orientations live in this folder; paths are resolved
+relative to this file, so it runs from any working directory (moose-src env):
 
     python examples/ipf_demo/demonstrate_ipf_coloring.py
 """
 
 from __future__ import annotations
 
-import ipf_postprocess_update as ipfu  # noqa: E402
+from pathlib import Path
+
+from graintrace.ipf_postprocess import IPFProcessor
+
+HERE = Path(__file__).resolve().parent
 
 # Inputs and outputs all live in this folder.
-MESH_FILE = "mesh.e"
-ORI_CSV = "orientations.csv"
+MESH_FILE = str(HERE / "mesh.e")
+ORI_CSV = str(HERE / "orientations.csv")
 ANGLE_CONVENTION = "bunge"  # orientations.csv holds Euler-Bunge angles
 ANGLE_TYPE = "radians"
-OUTPUT_DIR = "output"
+OUTPUT_DIR = str(HERE / "output")
 DIRECTION = [0.0, 0.0, 1.0]  # IPF coloring direction
 CRYSTAL_SYMMETRY = "432"  # Cubic crystal symmetry
 SAMPLE_SYMMETRY = "1"
 
-ipf = ipfu.IPFProcessor(
+ipf = IPFProcessor(
     crystal_symmetry=CRYSTAL_SYMMETRY,
     sample_symmetry=SAMPLE_SYMMETRY,
     save_dir=OUTPUT_DIR,

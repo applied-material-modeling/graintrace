@@ -55,6 +55,7 @@ from . import orientation_helper
 _PER_GRAIN_BASE = 10
 _DENSE_BASE = 12
 _N_ELASTIC_STRAIN = 6
+_N_ORIENTATION = 3
 
 
 class UniaxialTaylorModel(nn.Module):
@@ -103,19 +104,31 @@ class UniaxialTaylorModel(nn.Module):
         rate: float,
         initial_strains: torch.Tensor | None = None,
         return_state: bool = False,
+        return_orientation: bool = False,
     ):
         """Integrate the uniaxial history and return the macro stress trajectory.
 
         Args:
-            orientations: (n_grains, 3) NEML2 MRP orientations.
+            orientations: (n_grains, 3) NEML2 v3 MRP orientations (``tan(theta/4)*axis``).
             strain: (ntime,) axial strain grid (mm/mm), typically starting at 0.
             rate: assumed strain rate (1/s); ``t = strain / rate``.
             initial_strains: optional (n_grains, 6) initial elastic strain.
             return_state: also return per-grain elastic strain history.
+            return_orientation: also return the per-grain crystal orientation
+                history (the model's ``orientation`` state, which evolves with
+                plastic spin).
 
         Returns:
-            macro cauchy stress ``(ntime, 6)`` (SR2 Voigt: xx, yy, zz, yz, xz, xy);
-            if ``return_state``, also ``(ntime, n_grains, 6)`` elastic strain.
+            ``macro_stress`` alone when neither flag is set, otherwise a tuple in
+            the fixed order ``(macro_stress[, elastic_strain][, orientation])``:
+
+            - ``macro_stress``: ``(ntime, 6)`` macro Cauchy stress (SR2 Voigt:
+              xx, yy, zz, yz, xz, xy).
+            - ``elastic_strain`` (if ``return_state``): ``(ntime, n_grains, 6)``.
+            - ``orientation`` (if ``return_orientation``): ``(ntime, n_grains, 3)``
+              neml2 v3 MRP, in the same convention and frame as the input
+              ``orientations`` (no conversion is applied); step 0 equals the
+              input.
         """
         orientations = torch.as_tensor(orientations, dtype=torch.float64)
         device = orientations.device
@@ -170,17 +183,58 @@ class UniaxialTaylorModel(nn.Module):
         # target_cauchy_stress = last 6 (the macro/aggregate stress).
         macro_stress = result[..., -_DENSE_BASE + 6 :].squeeze(1)  # (ntime, 6)
 
-        if not return_state:
+        if not (return_state or return_orientation):
             return macro_stress
 
-        # per-grain elastic strain = first 6 of each 10-wide grain block.
+        # per-grain block: elastic_strain [0:6], orientation MRP [6:9], slip_hardening [9].
         block = result[..., : n_grains * _PER_GRAIN_BASE].reshape(
             ntime, nbatch, n_grains, _PER_GRAIN_BASE
         )
-        elastic_strain = block[..., :_N_ELASTIC_STRAIN].squeeze(
-            1
-        )  # (ntime, n_grains, 6)
-        return macro_stress, elastic_strain
+        outputs = [macro_stress]
+        if return_state:
+            # (ntime, n_grains, 6)
+            outputs.append(block[..., :_N_ELASTIC_STRAIN].squeeze(1))
+        if return_orientation:
+            # (ntime, n_grains, 3)
+            outputs.append(
+                block[
+                    ..., _N_ELASTIC_STRAIN : _N_ELASTIC_STRAIN + _N_ORIENTATION
+                ].squeeze(1)
+            )
+        return tuple(outputs)
+
+
+def _texture_mrp(df, angle_cols, angle_convention, angle_type):
+    """neml2 MRP (n, 3) of the active R from a grain table (Euler first, else O)."""
+    if all(c in df.columns for c in angle_cols):
+        eul = df[angle_cols].to_numpy(dtype=float)
+        if angle_type == "auto":
+            angle_type = (
+                "degrees" if np.nanmax(np.abs(eul)) > 2.0 * np.pi else "radians"
+            )
+        return orientation_helper.euler_to_mrp(
+            torch.as_tensor(eul), angle_convention, angle_type
+        )
+    if all(f"O{i}{j}" in df.columns for i in (1, 2, 3) for j in (1, 2, 3)):
+        return orientation_helper.load_orientations_mrp(df)
+    raise ValueError(
+        f"grain table has neither Euler columns {angle_cols} nor O11..O33; "
+        "cannot load orientations"
+    )
+
+
+def _write_slip_deck(neml2_path, slip_systems):
+    """Copy ``neml2_path`` with its ``# @SLIP`` lines set to ``slip_systems``; return the copy."""
+    import tempfile  # pylint: disable=import-outside-toplevel
+
+    with open(neml2_path, encoding="utf-8") as fh:
+        text = slip_systems.apply_to_deck(fh.read())
+    out = os.path.join(
+        tempfile.mkdtemp(prefix="graintrace_slip_"), os.path.basename(neml2_path)
+    )
+    with open(out, "w", encoding="utf-8") as fh:
+        fh.write(text)
+    return out
 
 
 class TaylorModel(BaseMaterialApproximationModel):
@@ -189,6 +243,15 @@ class TaylorModel(BaseMaterialApproximationModel):
     - Loads and preprocesses experimental data (per-stress-level CSVs).
     - Manages the six calibration parameters as NEML2/torch parameters.
     - Runs differentiable uniaxial stress-strain simulations for optimization.
+
+    ``slip_systems`` (constructor kwarg, default ``None`` = use ``neml2_path`` as
+    written, which for the shipped ``neml2_cpfe_calibration.i`` is FCC
+    ``<110>{111}``) selects the crystal slip: a preset name from
+    ``graintrace.slip_systems.SLIP_SYSTEM_PRESETS`` (``"fcc"``, ``"bcc"``,
+    ``"bcc_112"``, ``"bcc_110_112"``, ``"bcc_110_112_123"``), a ``SlipSystems``,
+    or (direction, plane) Miller families. The deck's ``# @SLIP`` lines are
+    rewritten into a temporary copy, which is what gets loaded. Use the same value
+    as ``CPFESimulation(slip_systems=...)`` so calibration and CPFE agree.
     """
 
     # NEML2 parameters present on the model but held fixed during calibration.
@@ -206,11 +269,21 @@ class TaylorModel(BaseMaterialApproximationModel):
         exclude_parameters: list[str] | None = None,
         compile: bool = False,  # pylint: disable=redefined-builtin  # NEML2 factory kwarg name
         device: str | torch.device = "cpu",
+        slip_systems=None,
     ):
         # pylint: disable=super-init-not-called  # v3 path wraps a NonlinearSystem, see below
         # Deliberately does NOT call BaseMaterialApproximationModel.__init__;
         # the v3 path loads a NonlinearSystem and wraps it in a pyzag factory.
         self.neml2_path = neml2_path
+        self.slip_systems = None
+        load_path = neml2_path
+        if slip_systems is not None:
+            from .slip_systems import (  # pylint: disable=import-outside-toplevel
+                SlipSystems,
+            )
+
+            self.slip_systems = SlipSystems.resolve(slip_systems)
+            load_path = _write_slip_deck(neml2_path, self.slip_systems)
         self.neml2_model_name = neml2_model_name
         self.equation_system = equation_system
         self.axial_index = axial_index
@@ -225,7 +298,7 @@ class TaylorModel(BaseMaterialApproximationModel):
         # relocates the factory's own parameters, leaving the model's internal
         # crystal-geometry buffers (Schmid tensors, etc.) on CPU -> device
         # mismatch on cuda. nsys.to() moves all model buffers.
-        nsys = neml2.load_nonlinear_system(neml2_path, equation_system)
+        nsys = neml2.load_nonlinear_system(load_path, equation_system)
         nsys.to(self.device)
         # NEML2 v3 pyzag adapter: NEML2PyzagModel replaces the old
         # NEML2PyzagFactory, and compilation is a separate in-place neml2.compile
@@ -279,7 +352,41 @@ class TaylorModel(BaseMaterialApproximationModel):
         max_stress: float | None = None,
         n_grains: int | None = None,
         seed: int = 0,
+        angle_identifier=("Eul0", "Eul1", "Eul2"),
+        angle_convention: str = "bunge",
+        angle_type: str = "auto",
     ):
+        """Load the per-stress-level FF grain tables and the macro stress-strain curve.
+
+        Grain orientations come from the Euler columns (``angle_identifier``) via
+        :func:`~graintrace.orientation_helper.euler_to_mrp`, i.e. the neml2 MRP of
+        the active ``R`` the Taylor model expects. Only when a table has no Euler
+        columns are the ``O11..O33`` columns used, and they must hold the active
+        ``R`` (MIDAS Grains.csv ``O``; see
+        :func:`~graintrace.orientation_helper.load_orientation_matrices`).
+
+        Args:
+            data_dir: folder of per-stress-level CSVs named ``<stress>.csv``.
+            strain_stress_file: macro ``strain,stress`` CSV.
+            full_field_strain_units: ``None`` or ``"microstrain"`` (grain strains).
+            strain_stress_file_units: ``None`` or ``"microstrain"`` (macro strain).
+            straintype: full-field strain column prefix (``"eKen"`` or ``"eFab"``).
+            npoints: resampled macro-curve points (defaults to the model's).
+            max_strain: cap the macro curve at this strain.
+            max_stress: cap the macro curve at this stress (if no ``max_strain``).
+            n_grains: subsample this many grains per file (``None`` = all).
+            seed: RNG seed for the subsampling.
+            angle_identifier: the three Euler columns (standard Bunge triplet).
+            angle_convention: ``"bunge"``, ``"kocks"`` or ``"roe"``.
+            angle_type: ``"degrees"``, ``"radians"`` or ``"auto"`` (any
+                ``|value| > 2*pi`` means degrees, MIDAS style), per file.
+
+        Returns:
+            dict with ``files``, ``stress_levels``, ``strain_stress``,
+            ``exp_strain``, ``exp_texture`` (neml2 MRP per file), ``exp_weights``,
+            ``avg_exp_strain``, ``avg_axial_strain``, ``use_weights`` and
+            ``cutoff_strain``.
+        """
         if npoints is None:
             npoints = self.npoints
 
@@ -364,7 +471,10 @@ class TaylorModel(BaseMaterialApproximationModel):
             orientation_helper.load_strains(d, factor=factor, field=straintype)
             for d in data
         ]
-        exp_texture = [orientation_helper.load_orientations_mrp(d) for d in data]
+        exp_texture = [
+            _texture_mrp(d, list(angle_identifier), angle_convention, angle_type)
+            for d in data
+        ]
         exp_weights = [orientation_helper.load_weights(d) for d in data]
 
         avg_exp_strain = [torch.mean(ds, dim=0) for ds in exp_strain]
@@ -395,6 +505,7 @@ class TaylorModel(BaseMaterialApproximationModel):
         experiment_data=None,
         return_state: bool = False,
         initial_strains=None,
+        return_orientation: bool = False,
     ):
         """Run a differentiable uniaxial stress-strain simulation.
 
@@ -410,10 +521,16 @@ class TaylorModel(BaseMaterialApproximationModel):
             experiment_data: dict from :meth:`load_experiment_data`.
             return_state: also return the per-grain elastic strain history.
             initial_strains: optional (n_grains, 6) initial elastic strain.
+            return_orientation: also return the per-grain orientation history.
 
         Returns:
-            ``stress_hist`` (npoints, 6), or ``(stress_hist, state_hist)`` where
-            ``state_hist`` is (npoints, n_grains, 6) elastic strain.
+            ``stress_hist`` (npoints, 6) alone when neither flag is set, otherwise
+            a tuple in the fixed order ``(stress_hist[, state_hist][, ori_hist])``:
+            ``state_hist`` is (npoints, n_grains, 6) elastic strain (if
+            ``return_state``); ``ori_hist`` is (npoints, n_grains, 3) neml2 v3
+            MRP orientations (if ``return_orientation``), in the same convention
+            as ``experiment_data["exp_texture"][0]`` (no conversion), with
+            ``ori_hist[0]`` equal to the input texture.
         """
         if assumed_rate is None:
             assumed_rate = self.assumed_rate
@@ -437,4 +554,5 @@ class TaylorModel(BaseMaterialApproximationModel):
             assumed_rate,
             initial_strains=initial_strains,
             return_state=return_state,
+            return_orientation=return_orientation,
         )

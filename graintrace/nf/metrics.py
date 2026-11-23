@@ -47,11 +47,12 @@ def fold_to_reference_variant(R, symmetry):
     A crystal orientation has one rotation matrix per symmetry operator (24 for
     cubic ``432``), and a reconstruction may report neighbouring voxels of one
     grain in different variants. Averaging across variants is meaningless, so
-    every member is first replaced by the symmetry-equivalent that is closest
-    (largest Frobenius inner product) to the reference member ``R[..., 0, :, :]``.
+    every member is first replaced by the symmetry-equivalent ``R S`` (crystal
+    symmetry on the right) that is closest (largest Frobenius inner product) to the
+    reference member ``R[..., 0, :, :]``.
 
     Args:
-        R: ``(..., N, 3, 3)`` rotation matrices; the set is averaged over axis -3.
+        R: ``(..., N, 3, 3)`` active rotation matrices; the set is averaged over axis -3.
         symmetry (str): crystal symmetry in orbifold notation; ``"1"`` disables
             folding and returns ``R`` unchanged.
 
@@ -62,7 +63,7 @@ def fold_to_reference_variant(R, symmetry):
         return R
     ops = symmetry_operators(symmetry).to(device=R.device, dtype=R.dtype)
     # (..., N, nops, 3, 3): every symmetry-equivalent of every member
-    cand = torch.matmul(ops, R.unsqueeze(-3))
+    cand = torch.matmul(R.unsqueeze(-3), ops)
     ref = R[..., 0, :, :]
     # Frobenius inner product with the reference; maximal == smallest rotation apart
     score = (cand * ref[..., None, None, :, :]).sum(dim=(-2, -1))
@@ -85,8 +86,8 @@ def average_rotations(e, angle_convention="kocks", angle_type="radians", symmetr
             gives the plain quaternion eigenvector (Markley) mean.
 
     Returns:
-        tuple ``(mrp, euler)``: averaged orientation as a neml2 v3 MRP (..., 3)
-        and as Euler angles (..., 3) in the given convention.
+        tuple ``(mrp, euler)``: averaged orientation as a neml2 v3 MRP (..., 3) of
+        the active ``R`` and as Euler angles (..., 3) in the given convention.
     """
     R = euler_to_matrix(e, angle_convention, angle_type)
 

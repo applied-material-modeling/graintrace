@@ -54,9 +54,11 @@ def main() -> None:
     deps.ensure_runtime_ld_library_path()
 
     if args.http:
-        mcp.settings.host = args.host
-        mcp.settings.port = args.port
-        mcp.run(transport="streamable-http")
+        from graintrace.mcp._compat import (  # pylint: disable=import-outside-toplevel
+            run_streamable_http,
+        )
+
+        run_streamable_http(mcp, args.host, args.port)
     else:
         mcp.run()  # stdio
 

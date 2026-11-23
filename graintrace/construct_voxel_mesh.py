@@ -770,6 +770,7 @@ class VoxelMeshBuilder:
         mesher: str = "sculpt",
         background_id: int = 0,
         layer_spacing: Optional[float] = None,
+        quality_check: str = "raise",
     ) -> Path:
         """Mesh the segmented grid and map orientations to the mesh.
 
@@ -792,6 +793,7 @@ class VoxelMeshBuilder:
             mesher: Meshing backend, "sculpt" (CUBIT/SCULPT conformal hex) or "voxel" (one cube hex per voxel, no external tools).
             background_id: Grain/phase id treated as background/void in the voxel dump (mesher="voxel").
             layer_spacing: z voxel size of a single-layer grid (e.g. 2D EBSD); None uses the in-plane spacing.
+            quality_check: SCULPT path: after meshing, check each hex's scaled Jacobian (report in <mesh stem>_quality.json); "raise" (default) raises on inverted elements (they abort CPFE), "warn" only warns, "off" skips.
 
         Returns:
             Path to the written Exodus mesh.
@@ -878,6 +880,7 @@ class VoxelMeshBuilder:
             symmetry=self.symmetry,
             layer_spacing=layer_spacing,
             source_labels=source_labels.cpu().numpy(),
+            quality_check=quality_check,
         )
 
         return mesh_out

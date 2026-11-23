@@ -3,7 +3,7 @@
 # Software Name: graintrace
 # By: Argonne National Laboratory
 # OPEN SOURCE LICENSE (MIT)
-"""Shared FastMCP application instance and small cross-tool helpers.
+"""Shared MCP server instance (``FastMCP`` on mcp 1.x, ``MCPServer`` on 2.x) and small cross-tool helpers.
 
 Kept separate from ``server.py`` so tool modules can ``from graintrace.mcp.app
 import mcp`` and register with ``@mcp.tool()`` without importing the runner
@@ -16,11 +16,11 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from mcp.server.fastmcp import FastMCP
+from graintrace.mcp._compat import MCPServer
 
 # The one shared server instance. Instructions are surfaced to the client model
 # so it knows the confirm-before-run contract without being told each time.
-mcp = FastMCP(
+mcp = MCPServer(
     "graintrace",
     instructions=(
         "graintrace drives the HEDM -> CPFE -> rare-event workflow "

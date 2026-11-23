@@ -29,7 +29,7 @@ def make(csv, out, bbox):
         auto_fix_bbox=False, auto_rotate=False,
         angle_identifier=["Eul0","Eul1","Eul2"], orientation_descriptor="euler-bunge",
         elastic_strain_identifier=eKen,
-        strain_unit="microstrain",
+        unit="rad", strain_unit="strain",  # synthetic_load_exp: radians, plain strain
     )
     return b.build_graph(CVT_iter=10)
 
@@ -55,8 +55,9 @@ GraphGrainMatcher(graph_a=ga, graph_b=gb, output_dir="out/grain_tracking").match
 diagnostics).
 
 ## Gotchas
-- Orientations are read as Euler-bunge; keep `angle_identifier`/`orientation_descriptor`
-  consistent with the data. NEPER must be on PATH.
+- Orientations are read as Euler-bunge; keep `angle_identifier`/`orientation_descriptor`/`unit`
+  (`"deg"`/`"rad"`) and `strain_unit` consistent with the data (the shipped
+  `synthetic_load_exp` is radians + plain strain). NEPER must be on PATH.
 - Uses `build_graph` (not a full mesh); no GMSH/CUBIT needed.
 - Strict 1-to-1 from grain tables alone (no tessellation): `detect_splits(..., assignment="one_to_one")`.
 

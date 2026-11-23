@@ -17,7 +17,7 @@ External tools: **NEPER** (FF/synthetic), **CUBIT/SCULPT** (`sculpt_config`, NF 
 1. (optional) `SyntheticHEDMGenerator(...).run(ff_iterations=10)` → writes `<out>/FF/ff.csv`
    and `<out>/NF/...`.
 2. **NF mesh** (`/nf-reconstruction`): `NearFieldMeshBuilder(...).reconstruct(...)` + `.mesh(...)`
-   → `nf_reconstruction/mesh.e` + `orientations.csv` (per-element MRP).
+   → `nf_reconstruction/mesh.e` + `orientations.csv` (one neml2-MRP row per block/grain).
 3. **FF residual strain** (`/ff-reconstruction`): `VoronoiMeshBuilder(...).build_voronoi(
    generate_mesh=False, ...)` → `ff_reconstruction/reconstruction_cpfe_ee.csv`. Move it into
    the NF frame: `FrameTransform(rotation=..., translation=...).apply_ee_csv(ee, ee_in_nf)`
@@ -53,7 +53,11 @@ sim.run(ncore=8)
 ## Gotchas
 - Same v3 AOTI notes as `/cpfe-simulation` (baked params, no schedulers, device list over MPI).
 - NF reconstruction needs the `__main__` guard (multiprocess).
+- Pass `slip_systems=` (e.g. `"bcc"` for Fe) matching the calibration; default `"fcc"`.
 - `moose_run_file` must be your built v3 puma-opt.
+- Orientations are neml2 MRP of the active R. NF `orientations.csv` written by graintrace <= 0.2
+  holds the inverse rotation: regenerate it (or convert with `orientation_helper.legacy_mrp_to_mrp`)
+  and rerun old CPFE rather than negating results.
 
 ## See also
 `examples/demonstrate_cpfe_nfff.py`; CLAUDE.md §6 (combined NF+FF), §4, §3.

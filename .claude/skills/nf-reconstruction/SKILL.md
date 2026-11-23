@@ -3,7 +3,7 @@ name: nf-reconstruction
 description: >
   Reconstruct a high-resolution 3D mesh from near-field (NF) HEDM .mic layers via
   voxel segmentation + CUBIT/SCULPT hex meshing (NearFieldMeshBuilder). Use when the
-  user wants an Exodus mesh.e + per-element MRP orientations from NF data to drive CPFE
+  user wants an Exodus mesh.e + per-block (per-grain) neml2-MRP orientations from NF data to drive CPFE
   (typically paired with FF residual strain).
 ---
 
@@ -41,7 +41,7 @@ def main():
     )
     mesh_path = builder_nf.mesh(sculpt_config=sculpt_config, sculpt_options=sculpt_options,
                                merged_grid=merged_grid)
-    # per-element MRP orientations -> builder_nf.mapped_orientations_path + ".csv"
+    # per-block (grain) neml2-MRP orientations -> builder_nf.mapped_orientations_path + ".csv"
 
 if __name__ == "__main__":
     main()
@@ -61,7 +61,7 @@ if __name__ == "__main__":
 ## Outputs (`save_dir`)
 - `merged_segmented_fixed_grid.npy` (segmented voxel grid / restart checkpoint)
 - `mesh.e` (Exodus mesh for CPFE)
-- `orientations.csv` (per-element **neml2 MRP**; use as CPFE `ori_file`)
+- `orientations.csv` (one **neml2 MRP** row per Exodus block/grain, of the active R; use as CPFE `ori_file`)
 
 ## Gotchas
 - Restart: if segmentation already ran, load `merged_segmented_fixed_grid.npy` directly and

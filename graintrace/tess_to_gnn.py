@@ -33,7 +33,7 @@ from typing import Any
 import torch
 from torch_geometric.data import Data
 
-from .orientation_helper import matrix_to_mrp, euler_to_mrp, quat_to_matrix
+from .orientation_helper import matrix_to_mrp, euler_to_matrix, quat_to_matrix
 
 
 def encode_signed_index(value: int) -> int:
@@ -103,6 +103,7 @@ class NeperTessToGraphNN:
         self.tessfile = tess_path
 
         self.ori_type = None
+        self.ori_sense = None
 
         self.node_feature_registry = {}
         self.edge_feature_registry = {}
@@ -196,6 +197,7 @@ class NeperTessToGraphNN:
         # to be fixed , sometimes orientations provide 3 or 9
         self.orientations = torch.zeros((0, 3), dtype=self.dtype, device=self.device)
         self.ori_type = "none"
+        self.ori_sense = None
 
         # *seed
         if "seed" in cell_data:
@@ -217,7 +219,10 @@ class NeperTessToGraphNN:
         if "ori" in cell_data:
             lines = [ln.strip() for ln in cell_data["ori"] if ln.strip()]
             if lines:
-                self.ori_type = lines[0].split(":")[0].lower()
+                descriptor = lines[0].lower()
+                self.ori_type, _, sense = descriptor.partition(":")
+                # NEPER's default (no suffix) is passive
+                self.ori_sense = sense or "passive"
                 data_lines = lines[1:]
                 ori_vals = []
                 for line in data_lines:
@@ -225,7 +230,9 @@ class NeperTessToGraphNN:
                         ori_vals.append(list(map(float, line.split())))
                 if ori_vals:
                     # Convert Neper's descriptor to canonical neml2 MRP (N, 3).
-                    self.orientations = self._tess_ori_to_mrp(ori_vals, self.ori_type)
+                    self.orientations = self._tess_ori_to_mrp(
+                        ori_vals, f"{self.ori_type}:{self.ori_sense}"
+                    )
 
         # Vertices
         if "vertex" in sections:
@@ -305,17 +312,34 @@ class NeperTessToGraphNN:
             self.cell_to_faces = cell_to_faces
 
     def _tess_ori_to_mrp(self, ori_vals, ori_type: str) -> torch.Tensor:
-        """Convert Neper .tess ``*ori`` rows to canonical neml2 MRP (N, 3).
+        """Convert Neper .tess ``*ori`` rows to canonical neml2 MRP (N, 3) of ``R``.
 
-        Handles the descriptors Neper (or graintrace's VoronoiMeshBuilder) may
-        write: ``rotmat`` (9 vals), ``rodrigues`` (Gibbs, 3), ``euler-*`` (3, deg),
-        ``quaternion`` (scalar-first, 4). Falls back to the first 3 values.
+        ``R`` is graintrace's active rotation (crystal -> sample). Every NEPER
+        descriptor is accepted with its ``:active``/``:passive`` suffix (no suffix
+        = NEPER's default, passive): ``rotmat`` (9 vals, row-major),
+        ``quaternion`` (scalar-first, 4), ``rodrigues`` (Gibbs ``tan(theta/2)``, 3),
+        ``axis-angle`` (axis + angle in degrees, 4) and ``euler-bunge`` /
+        ``euler-kocks`` / ``euler-roe`` (3, degrees).
+
+        The mapping is pinned against NEPER-written files (v7.0.0 and 4.10.2, see
+        ``tests/data/neper_descriptors``): ``rotmat:passive`` is ``g = R^T`` and
+        ``rotmat:active`` is ``R``; ``euler-*:passive`` is the standard Euler
+        triplet of ``R`` and ``euler-*:active`` that of ``R^T``. NEPER parameterises
+        quaternion / Rodrigues / axis-angle relative to its passive matrix: their
+        standard (Hamilton, ``v' = q v q*``) matrix is ``R`` for ``:passive`` and
+        ``R^T`` for ``:active``. An unknown descriptor falls back to the first 3
+        values as-is.
         """
         arr = torch.tensor(ori_vals, dtype=torch.float64, device=self.device)
-        t = ori_type.lower()
-        if t.startswith("rotmat"):
-            mrp = matrix_to_mrp(arr.reshape(-1, 3, 3))
-        elif t.startswith("rodrigues"):
+        base, _, sense = ori_type.lower().partition(":")
+        sense = sense or "passive"
+        if sense not in ("active", "passive"):
+            raise ValueError(f"Unknown NEPER orientation convention {ori_type!r}")
+        if base.startswith("rotmat"):
+            mat = arr.reshape(-1, 3, 3)
+        elif base.startswith("quaternion"):
+            mat = quat_to_matrix(arr[..., :4] / arr[..., :4].norm(dim=-1, keepdim=True))
+        elif base.startswith("rodrigues"):
             # Rodrigues/Gibbs vector tan(theta/2)*axis: scalar-first quat [1, r].
             # That quaternion has norm sqrt(1 + |r|^2), and quat_to_matrix wants a
             # UNIT quaternion -- feeding it the raw [1, r] returns a matrix scaled
@@ -323,15 +347,23 @@ class NeperTessToGraphNN:
             r = arr[..., :3]
             ones = torch.ones(r.shape[:-1] + (1,), dtype=r.dtype, device=r.device)
             quat = torch.cat([ones, r], dim=-1)
-            quat = quat / quat.norm(dim=-1, keepdim=True)
-            mrp = matrix_to_mrp(quat_to_matrix(quat))
-        elif t.startswith("euler"):
-            conv = "kocks" if "kocks" in t else "roe" if "roe" in t else "bunge"
-            mrp = euler_to_mrp(arr[..., :3], conv, "degrees")
-        elif t.startswith("quaternion"):
-            mrp = matrix_to_mrp(quat_to_matrix(arr[..., :4]))
-        else:
-            mrp = arr[..., :3]
+            mat = quat_to_matrix(quat / quat.norm(dim=-1, keepdim=True))
+        elif base.startswith("axis-angle"):
+            axis = arr[..., :3] / arr[..., :3].norm(dim=-1, keepdim=True)
+            half = torch.deg2rad(arr[..., 3:4]) / 2.0
+            mat = quat_to_matrix(
+                torch.cat([torch.cos(half), torch.sin(half) * axis], -1)
+            )
+        elif base.startswith("euler"):
+            conv = "kocks" if "kocks" in base else "roe" if "roe" in base else "bunge"
+            mat = euler_to_matrix(arr[..., :3], conv, "degrees")
+        else:  # unknown descriptor: legacy fallback, the first 3 values as-is
+            return arr[..., :3].to(dtype=self.dtype, device=self.device)
+        # rotmat: passive = R^T; euler: active = R^T; quaternion-like: active = R^T
+        transpose = (sense == "passive") == base.startswith("rotmat")
+        if transpose:
+            mat = mat.transpose(-2, -1)
+        mrp = matrix_to_mrp(mat)
         return mrp.to(dtype=self.dtype, device=self.device)
 
     def validate_topology(self, verbose: bool = True, strict: bool = True) -> dict:

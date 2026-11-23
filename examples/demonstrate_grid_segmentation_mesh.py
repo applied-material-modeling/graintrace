@@ -25,6 +25,7 @@
 import numpy as np
 import pandas as pd
 import os
+from graintrace.mcp import tool_paths  # tools.json lookup (works without the mcp SDK)
 from graintrace.construct_voxel_mesh import VoxelMeshBuilder
 
 
@@ -76,7 +77,9 @@ def main():  # wrapped in main() for multiprocessing
     }
 
     # EDIT: point these at your Coreform CUBIT/SCULPT install (paths only, never a license).
-    sculpt_config = {
+    # Tool paths come from tools.json ($GRAINTRACE_TOOLS_JSON, ./graintrace_tools.json or
+    # ~/.config/graintrace/tools.json; see graintrace/mcp/tools.example.json); EDIT the fallback otherwise.
+    sculpt_config = tool_paths.sculpt_config() or {
         "launcher": "/path/to/cubit/bin/mpi/bin/mpiexec",
         "psculpt": "/path/to/cubit/bin/psculpt",
         "epu": "/path/to/cubit/bin/epu",

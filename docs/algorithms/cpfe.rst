@@ -47,6 +47,17 @@ slip, and how the grain hardens are all decided by orientation. Everything the r
 contributes to the simulation enters through :eq:`cpfe-resolved-shear`, and every orientation
 convention error in the pipeline shows up here as a grain deforming the wrong way.
 
+The set of systems comes from NEML2's ``CubicCrystal``, which expands each slip *family*
+(a Miller direction and a plane normal) over the cubic point group and keeps the
+perpendicular pairs. graintrace selects the families with ``slip_systems`` on
+:class:`~graintrace.run_cpfe_simulation.CPFESimulation` (and on
+:class:`~graintrace.taylor.TaylorModel` for calibration): the default ``"fcc"`` is
+:math:`\langle 110\rangle\{111\}` (12 systems), ``"bcc"`` is
+:math:`\langle 111\rangle\{110\}` (12), and ``"bcc_110_112"`` / ``"bcc_110_112_123"``
+add the :math:`\{112\}` and :math:`\{123\}` families (24 / 48), or pass explicit
+``(direction, plane)`` families (:mod:`graintrace.slip_systems`). Only cubic crystals are
+supported.
+
 Flow rule
 ~~~~~~~~~
 The shear rate on system :math:`\alpha` follows a power law
@@ -167,7 +178,10 @@ take :math:`Q` off :math:`SO(3)` and accumulate a spurious stretch over a long l
 .. note::
 
    The orientation state is stored and output as **NEML2 v3 MRP**,
-   :math:`\tan(\theta/4)\,\hat{\mathbf{e}}`. The output columns are named
+   :math:`\tan(\theta/4)\,\hat{\mathbf{e}}`, of the active (crystal :math:`\to`
+   sample) matrix :math:`R` -- the same orientation graintrace's
+   ``euler_to_mrp`` produces, so ``ori_file`` and the outputs share one convention
+   (see :ref:`notation-rotation-convention`). The output columns are named
    ``ori_rodrigues_{x,y,z}``, which is a misnomer: they do **not** hold classical Rodrigues
    (Gibbs) vectors, :math:`\tan(\theta/2)\,\hat{\mathbf{e}}`. Every in-repository consumer
    treats them correctly as MRP; a third-party tool expecting Rodrigues will silently

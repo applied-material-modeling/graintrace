@@ -27,6 +27,19 @@ Design invariants:
 
 from __future__ import annotations
 
-from graintrace.mcp.app import mcp
+__all__ = ["mcp"]  # pylint: disable=undefined-all-variable  # provided by __getattr__
 
-__all__ = ["mcp"]
+
+def __getattr__(name):
+    """Lazy ``graintrace.mcp.mcp``: the server (and the ``mcp`` SDK) loads only on use.
+
+    Submodules that need no SDK (``tool_paths``, ``deps``) stay importable without
+    the optional ``mcp`` extra.
+    """
+    if name == "mcp":
+        from graintrace.mcp.app import (  # pylint: disable=import-outside-toplevel
+            mcp,
+        )
+
+        return mcp
+    raise AttributeError(f"module 'graintrace.mcp' has no attribute {name!r}")

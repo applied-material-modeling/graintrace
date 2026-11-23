@@ -46,17 +46,16 @@ being further from them.
 A Laguerre (power) tessellation removes that restriction by replacing the Euclidean distance
 with the power distance :math:`\lVert x - s_i \rVert^2 - w_i`, which moves each bisecting
 plane toward the lower-weighted seed. With ``weighted=True`` graintrace derives the weight
-from the measured ``GrainRadius`` as the grain volume (3D) or area (2D), normalised to sum to
-one:
+from the measured ``GrainRadius`` as the squared radius, in the coordinates' length unit and
+not normalised (NEPER 7 reads ``weight:`` as this power weight):
 
 .. math::
    :label: ff-weight
 
-   w_i = \frac{v_i}{\sum_j v_j}, \qquad
-   v_i = \tfrac{4}{3}\pi r_i^{3} \ \ (\text{3D}), \qquad
-   v_i = \pi r_i^{2} \ \ (\text{2D}).
+   w_i = r_i^{2},
 
-Only the *ratios* between weights survive that normalisation; the absolute scale does not.
+so a seed with radius :math:`r_i` pushes the bisector with a neighbour :math:`j` at distance
+:math:`D` by :math:`(r_i^2 - r_j^2)/(2D)` toward :math:`j`.
 The weights are passed to NEPER as the morphology optimisation's starting point
 (``-morphooptiini weight:``), not as a final specification, so the tessellation NEPER returns
 is the one its optimiser converges to rather than the exact Laguerre diagram of
@@ -112,7 +111,8 @@ symmetric about it.
 NEPER carries out the tessellation and the optimisation; graintrace assembles the seeds,
 weights, orientations and bounding box, invokes ``neper -T``, and parses the results.
 ``CVT_iter`` sets the optimiser's iteration budget (``-morphooptistop iter=``) and
-``morphoalgo`` its algorithm (``-morphooptialgo``); ``iter=0`` disables relaxation entirely,
+``morphoalgo`` its algorithm (``-morphooptialgo``; default ``"subplex"``, or ``"lloyd"`` --
+NEPER 7 removed ``"praxis"``); ``iter=0`` disables relaxation entirely,
 which is what the stitching extent helper uses when it wants cells exactly at the measured
 seeds.
 
@@ -126,6 +126,9 @@ Algorithm
    ``extend_bounding_box``).
 4. Write the NEPER seed/weight inputs and invoke NEPER (``neper -T``) with the chosen
    ``option`` and CVT settings (``CVT_iter``, ``morphoalgo``).
+   Orientations go in as ``euler-bunge:passive`` and come out as ``rotmat:active``; the
+   sample rotation is applied as :math:`R' = Q R` to the ``.tess`` matrices, the ``O11..O33``
+   columns (active :math:`R'`) and ``orientations.dat``.
 5. Collect outputs: ``reconstruction_reformatted.csv`` (per-voxel grain IDs and orientations),
    ``reconstruction_cpfe_ee.csv`` (per-grain initial elastic strain), ``orientations.dat``
    (per-grain Euler angles, always degrees), and the ``.tess`` file. A GMSH tet ``.msh`` is
@@ -137,7 +140,8 @@ See :doc:`/configuration` for the full list.
 
 - ``bounding_box`` and ``auto_fix_bbox`` / ``bbox_fix_mode``: reconstruction domain and how
   out-of-box points are handled.
-- ``weighted``: Voronoi vs. Laguerre (size-weighted) tessellation.
+- ``weighted``: Voronoi vs. Laguerre (size-weighted, :math:`w_i = r_i^2`) tessellation on the
+  ``"voronoi"`` path; ``option="centroidsize"`` is the alternative that fits cell sizes.
 - ``option`` (``voronoi`` | ``centroid`` | ``centroidsize``) and ``CVT_iter`` / ``morphoalgo``:
   how seeds are relaxed to match measured centroids/sizes.
 - ``tesr_size``: voxel grid resolution of the reconstruction.

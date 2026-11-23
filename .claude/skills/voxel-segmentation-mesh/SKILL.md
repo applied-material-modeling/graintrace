@@ -59,7 +59,7 @@ mesh_path = builder.mesh(sculpt_config=sculpt_config, sculpt_options=sculpt_opti
 - `sculpt_config`/`sculpt_options`: CUBIT hex meshing (CLAUDE.md §9).
 
 ## Outputs (`save_dir`)
-- segmented voxel grid `.npy`, `mesh.e`, per-element MRP `orientations.csv`, optional VTK/plots.
+- segmented voxel grid `.npy`, `mesh.e`, per-block neml2-MRP `orientations.csv`, optional VTK/plots.
 
 ## Gotchas
 - FF→voxel path: input `reconstruction_reformatted.csv` is Euler in **degrees** →

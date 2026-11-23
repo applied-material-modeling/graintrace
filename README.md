@@ -24,7 +24,7 @@ The pipeline runs reconstruct, calibrate, simulate (CPFE), then analyze and iden
 
 - **Experiment data handling**: ingest and register real FF/NF HEDM and EBSD scans, and reconstruct a 3D microstructure. FF grain centroids become a Voronoi/CVT tessellation (NEPER); NF and EBSD voxel fields are segmented into grains (flood fill or graph/Leiden clustering); all three reconstructions are meshed to conformal hex with CUBIT/SCULPT (a NEPER/gmsh tet mesh is a fallback); multiple FF scan layers are stitched into one grain set by region matching. *See `examples/demonstrate_farfield.py`, `examples/demonstrate_cpfe_nfff.py`, `examples/demonstrate_grid_segmentation_mesh.py`.*
 - **Virtual microstructure generation**: synthesize microstructures faithful to input grain size and orientation distributions via NEPER morphology control, accounting for HEDM scanning strategies. *See `examples/demonstrate_hedm_study.py`.*
-- **GPU CPFE and fast calibration**: run CPFE with NEML2 AOTI compiled crystal plasticity models on GPU; calibrate the material to a macroscopic stress vs strain curve with a pyzag analytic adjoint Taylor model, in under 30 minutes for 100+ grains. *See `examples/demonstrate_cpfe.py`, `examples/demonstrate_material_calibration.py`.*
+- **GPU CPFE and fast calibration**: run CPFE with NEML2 AOTI compiled crystal plasticity models on GPU; calibrate the material to a macroscopic stress vs strain curve with a pyzag analytic adjoint Taylor model, in under 30 minutes for 100+ grains. Slip systems are selectable (FCC, BCC presets or your own cubic families). *See `examples/demonstrate_cpfe.py`, `examples/demonstrate_material_calibration.py`.*
 - **Grain tracking**: match grains across load steps by building a grain graph from each reconstruction and matching via message passing. *See `examples/demonstrate_graintracking.py`.*
 - **Reorientation & fragmentation**: track how grains reorient in the IPF across load steps, re-segment each grain into orientation sub-grains (intragranular fragmentation, with a minimum sub-grain misorientation), detect grains that split across steps (FF/NF/EBSD), and flag the grains that fragment/reorient the most as rare events — reorientation-from-initial doubles as a standalone or combined REI criterion. *See `examples/demonstrate_reorientation_fragmentation.py`.*
 - **Rare event identification (REI)**: locate spatially coherent rare regions in CPFE fields via graph spatial clustering (Leiden) with hierarchical merging, flagging grains and locations for targeted measurement; scales to tens of millions of query points in under an hour. Runs on the crisp true-mesh element fields (`mesh_out/`) or a regular grid (`grid_out/`, online or resampled offline via `GridResampler`). *See `examples/demonstrate_rei_pipeline.py`.*
@@ -101,7 +101,7 @@ the Python `neml2` stay ABI-matched.
 
 - python **>= 3.10**, conda with pip
 - gmsh and pyzag 2.0.0 (both installed automatically with graintrace via pip)
-- NEPER (bring your own; install from <https://neper.info> and point graintrace at it)
+- NEPER 7.x (bring your own; install from <https://neper.info> and point graintrace at it)
 - CUBIT/SCULPT (Coreform license required)
 - NEML2 v3 (Python) — built by PUMA
 - MOOSE + PUMA (`puma-opt`), linked with NEML2 v3 + libtorch — for CPFE
@@ -250,7 +250,19 @@ you install it yourself. Install NEPER once, then point graintrace at it:
      `CrystalGenerator`.
 
 If NEPER cannot be found, the builders raise a clear error with these instructions. On Linux you can
-also pass `auto_install=True` to build GSL + OpenBLAS + NEPER into `~/.local`.
+also pass `auto_install=True` to build NEPER 7.0.0 into `~/.local` (Gmsh 4.15.2 SDK, NEPER's builtin GSL,
+OpenBLAS if absent; see the installation guide).
+
+## Orientation convention
+
+*Changed in 0.3.0; see [CHANGELOG.md](CHANGELOG.md) for all breaking changes.*
+
+graintrace's rotation matrix is the **active** `R` (crystal → sample), the same matrix as MIDAS
+`O11..O33` and the neml2 `orientation`; Euler angles are standard Bunge. MRP values are neml2 MRP
+of `R`, and NEPER is driven with explicit descriptors (`euler-bunge:passive`, `rotmat:active`).
+Coming from graintrace ≤ 0.2: MRP/`O` files it wrote hold the inverse rotation (convert MRP with
+`orientation_helper.legacy_mrp_to_mrp`), and CPFE runs driven by them must be rerun. See the
+notation page of the documentation for the full rule.
 
 ## Examples & workflow segments
 
@@ -275,14 +287,16 @@ the rest need the external tool(s) shown (see the [capabilities table](#capabili
 | `demonstrate_rei_comparison.py` | compare two REI point clouds → overlap metrics + classified VTK | pip only |
 | `demonstrate_graintracking.py` | match grains across load steps via a grain graph | NEPER |
 | `demonstrate_reorientation_fragmentation.py` | IPF reorientation tracking → intragranular fragmentation (1×2 figure + annotated Exodus) → FF/NF/EBSD split detection → rare (most-fragmented) grains | NEML2 |
+| `data_generation/make_cpfe_mwe.py` | regenerates the shipped CPFE `mwe_data` (`out.csv` + `grid_out/`, `synthetic_load_exp/`, `cpfe_ff_fragmentation/`) | NEML2, puma-opt |
 
 *full stack* = NEML2 + `puma-opt` + NEPER + CUBIT/SCULPT. The minimum end-to-end check is
-`demonstrate_cpfe_nfff.py`; before running, edit the `sculpt_config`, `moose_run_file`, `ncore`,
-and `device` at the top of the script to match your machine.
+`demonstrate_cpfe_nfff.py`. The examples read `puma-opt` and the CUBIT/SCULPT paths from a
+`tools.json` (`$GRAINTRACE_TOOLS_JSON`, `./graintrace_tools.json` or `~/.config/graintrace/tools.json`;
+see `graintrace/mcp/tools.example.json`); without one, edit the placeholder paths, and set `ncore` /
+`device` at the top of the script for your machine.
 
-`examples/run_experiment_*.py` are **real-experiment driver templates** (FF-only, NF+FF, the AFRL
-dataset, stitching comparison, crystal reconstruction) that read your own scan data — copy and
-adapt one rather than running it as-is. `.claude/CLAUDE.md` §12 maps each workflow segment →
+To drive your own scan data, copy the `demonstrate_*.py` script closest to your workflow and
+repoint its `## INPUT` block at your files. `.claude/CLAUDE.md` §12 maps each workflow segment →
 example → skill.
 
 ## Running the test suite

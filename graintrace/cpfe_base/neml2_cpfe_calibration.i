@@ -4,13 +4,15 @@
 # voce_hardening_initial_slope, voce_hardening_saturated_hardening.
 
 [Tensors]
+  # Slip families (default FCC <110>{111}). graintrace rewrites the two @SLIP lines
+  # from the slip_systems option (graintrace.slip_systems); one row per family.
   [sdirs]
     type = Python
-    expr = 'MillerIndex(torch.tensor([1, 1, 0], dtype=torch.int64))'
+    expr = 'MillerIndex(torch.tensor([[1, 1, 0]], dtype=torch.int64))'  # @SLIP directions
   []
   [splanes]
     type = Python
-    expr = 'MillerIndex(torch.tensor([1, 1, 1], dtype=torch.int64))'
+    expr = 'MillerIndex(torch.tensor([[1, 1, 1]], dtype=torch.int64))'  # @SLIP planes
   []
 []
 

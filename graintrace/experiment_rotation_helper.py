@@ -59,16 +59,19 @@ def update_experiments(
     neper_path: Optional[str] = None,
     auto_install: bool = False,
 ) -> None:
-    """Rotate each input CSV via a Voronoi build, appending Oij columns, saving under output_root.
+    """Rotate each input CSV into the simulation frame via a Voronoi build, saving under output_root.
 
     For each input file this runs a :class:`~graintrace.VoronoiMeshBuilder`
     build (``option="voronoi"``, no mesh) to apply the bounding-box filter and
-    the sample rotation, reads back the rotated orientation matrix NEPER wrote
-    to ``reconstruction.ori``, and writes ``<output_root>/<basename>`` holding
-    the nine ``O11``..``O33`` columns followed by the original columns. Any
-    pre-existing ``O*`` columns are dropped so the rotated matrix replaces them
-    rather than duplicating. With ``strain_unit="microstrain"`` the
-    ``elastic_strain_identifier`` columns are scaled by ``1e6`` on the way out.
+    the sample rotation, and writes ``<output_root>/<basename>`` holding the
+    filtered grain table with the ROTATED Euler angles (degrees, standard Bunge
+    triplet of ``R' = Q R``, via :meth:`~graintrace.FrameTransform.euler`) and
+    rotated positions/strains. Euler is the primary orientation input of
+    :class:`~graintrace.MaterialCalibration`, so no ``O11..O33`` columns are
+    written; any pre-existing (unrotated) ``O*`` columns are dropped so a stale
+    matrix cannot disagree with the rotated Euler. With
+    ``strain_unit="microstrain"`` the ``elastic_strain_identifier`` columns are
+    scaled by ``1e6`` on the way out.
 
     This is the preparation step for a physically registered
     :class:`~graintrace.MaterialCalibration` fit: the output is the FF
@@ -81,13 +84,13 @@ def update_experiments(
 
     .. important::
 
-       ``reconstruction.ori`` and the grain table are concatenated **by row
-       position** -- no grain id participates in the join. A count mismatch is
-       therefore unrecoverable rather than merely lossy, so this function
-       **raises** ``ValueError`` when NEPER returns a different number of
-       cells than the filtered grain table has rows, naming both counts and
-       the file. The usual cause is the bounding-box filter dropping points
-       under ``bbox_fix_mode="remove_points"``.
+       The NEPER cells (``reconstruction.ori``) and the grain table correspond
+       **by row position** -- no grain id participates. A count mismatch would
+       pair orientations with the wrong grains, so this function **raises**
+       ``ValueError`` when NEPER returns a different number of cells than the
+       filtered grain table has rows, naming both counts and the file. The
+       usual cause is the bounding-box filter dropping points under
+       ``bbox_fix_mode="remove_points"``.
 
     Raises:
         ValueError: if ``reconstruction.ori`` and the filtered grain table
@@ -140,8 +143,8 @@ def update_experiments(
 
         df = builder.data.copy().reset_index(drop=True)
 
-        # Raw FF files may already carry an (unrotated) orientation matrix; drop
-        # it so the freshly rotated O columns replace it instead of duplicating.
+        # The rotated Euler (builder.data, degrees) is the orientation output; drop
+        # every O column (the builder's R' and any stale raw-file matrix).
         df = df.drop(columns=ori_df.columns, errors="ignore")
 
         if (
@@ -164,13 +167,8 @@ def update_experiments(
                 "widen the bounding box or reconcile the inputs."
             )
 
-        combined = pd.concat(
-            [ori_df.reset_index(drop=True), df.reset_index(drop=True)],
-            axis=1,
-        )
-
         output_path = os.path.join(output_root, base_name)
-        combined.to_csv(output_path, index=False)
+        df.to_csv(output_path, index=False)
         print(f"Saved: {output_path}")
 
         shutil.rmtree(outputdir, ignore_errors=True)

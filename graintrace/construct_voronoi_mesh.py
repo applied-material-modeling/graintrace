@@ -35,7 +35,23 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from . import neper_env
 from .frame_transform import FrameTransform
+
+
+def _raise_on_neper_failure(proc, cmd, morphoalgo, log_path):
+    """Raise a clear error for a failed NEPER tessellation run (no-op on success)."""
+    if proc.returncode == 0:
+        return
+    out = proc.stdout or ""
+    if "Unknown optimization algorithm" in out:
+        raise ValueError(
+            f"NEPER rejected morphoalgo={morphoalgo!r} (-morphooptialgo). Use "
+            "'subplex' (graintrace's default) or 'lloyd', which every NEPER "
+            "accepts; NEPER 7 removed 'praxis' and the other NLopt algorithms. "
+            f"NEPER log: {log_path}"
+        )
+    raise subprocess.CalledProcessError(proc.returncode, cmd, output=out)
 
 
 class VoronoiMeshBuilder:
@@ -79,7 +95,7 @@ class VoronoiMeshBuilder:
             output_dir: Directory where NEPER inputs, the tessellation, orientation/strain files, and the voxel reconstruction are written.
             bounding_box: Reconstruction domain as [xlo, xhi, ylo, yhi] (2D) or [xlo, xhi, ylo, yhi, zlo, zhi] (3D) in micrometers.
             dim: Spatial dimension, 2 or 3.
-            weighted: If True, use a Laguerre (weighted) tessellation with per-grain weights from GrainRadius (requires a GrainRadius column).
+            weighted: If True (with option='voronoi'), use a Laguerre (power) tessellation with seed weight GrainRadius**2 (NEPER 7 power weight; requires a GrainRadius column).
             auto_fix_bbox: If True, reconcile the data with bounding_box using bbox_fix_mode before tessellating.
             bbox_fix_mode: How to reconcile when auto_fix_bbox is True: "remove_points" (drop out-of-box points, production) or "extend_bounding_box" (grow the box, debug).
             bbox_tolerance: Percentage tolerance used by the bbox fix (e.g. 5.0 = 5%).
@@ -87,11 +103,11 @@ class VoronoiMeshBuilder:
             rotate_angles: Explicit sample-tilt correction as xyz Euler angles applied in order X -> Y -> Z; units set by unit.
             rotate_convention: Euler rotation convention for rotate_angles; only "xyz" is supported.
             angle_identifier: The 3 column names holding the per-grain Euler angles, or None to skip orientation parsing.
-            orientation_descriptor: NEPER orientation descriptor for the input angles (e.g. "euler-bunge").
+            orientation_descriptor: NEPER descriptor of the input Euler angles: "euler-bunge" (default), "euler-kocks" or "euler-roe"; always passed to NEPER with an explicit ":passive" (":active" Euler raises).
             orientation_active_convention: Deprecated and ignored (orientations always update on the sample side); True warns.
             unit: Angle/rotation unit, "deg" or "rad"; must match the actual data units.
             elastic_strain_identifier: The 9 column names (row-major) of the per-grain elastic strain tensor, or None to skip strain.
-            ori_rotmat_identifier: The 9 column names for the rotated orientation matrix written into self.data; defaults to O11..O33.
+            ori_rotmat_identifier: The 9 column names for the rotated ACTIVE orientation matrix R (crystal -> sample, row-major, = MIDAS O) written into self.data; defaults to O11..O33.
             strain_unit: Unit of the elastic strain columns, "microstrain" or "strain".
             env: Pre-built subprocess environment for NEPER; if None it is resolved automatically via check_dependencies.
             neper_path: Explicit path to the NEPER binary; if None it is resolved from the NEPER env var, tools.json, or PATH.
@@ -106,7 +122,9 @@ class VoronoiMeshBuilder:
         self.bbox_fix_mode = bbox_fix_mode
         self.bbox_tolerance = bbox_tolerance
         self.rotate_convention = rotate_convention
-        self.ori_descriptor = orientation_descriptor
+        # graintrace Euler angles are the passive triplet; hand NEPER an explicit
+        # ':passive' (raises on a non-Euler or ':active' descriptor)
+        self.ori_descriptor = neper_env.euler_descriptor(orientation_descriptor)
         self.angle_id = angle_identifier
         self.rotate_matrix = np.eye(3)
         self.frame_transform = None
@@ -114,7 +132,7 @@ class VoronoiMeshBuilder:
         if orientation_active_convention:
             warnings.warn(
                 "orientation_active_convention is deprecated and ignored; the "
-                "sample-side update (g Q^T) is always applied.",
+                "sample-side update (R' = Q R) is always applied.",
                 DeprecationWarning,
                 stacklevel=2,
             )
@@ -725,7 +743,7 @@ class VoronoiMeshBuilder:
         option: str = "voronoi",
         generate_mesh: bool = False,
         relative_el_size: float = None,
-        morphoalgo: str = "praxis",
+        morphoalgo: str = "subplex",
         mesh_quality_min: float = 0.9,
         tesr_size: list = None,
         CVT_iter: int = 1000,
@@ -742,7 +760,8 @@ class VoronoiMeshBuilder:
                 Note "centroid" and "centroidal" are distinct NEPER morphologies, not aliases.
             generate_mesh: If True, also generate a NEPER/GMSH tet (or tri) .msh mesh; this is a fallback only, the default CPFE mesh is SCULPT hex.
             relative_el_size: Mesh element size relative to grain size, passed to generate_mesh; defaults to 1.0 when None.
-            morphoalgo: NEPER morphology optimization algorithm, e.g. "praxis", "subplex", or "lloyd".
+            morphoalgo: NEPER morphology optimization algorithm (``-morphooptialgo``). Default "subplex"; "subplex" and "lloyd" work on NEPER 4.x and 7.x.
+                NEPER 7.0.0 rejects "praxis" (the previous default) and the other NLopt names; a rejected algorithm raises ValueError.
             mesh_quality_min: Minimum acceptable mesh element quality, passed to generate_mesh.
             tesr_size: Voxel raster resolution [nx, ny, nz] for the .tesr output; defaults to [20, 20, 20] when None.
             CVT_iter: Number of CVT/morphology optimization iterations.
@@ -791,16 +810,14 @@ class VoronoiMeshBuilder:
             if self.weighted:
                 if "GrainRadius" not in df.columns:
                     raise ValueError("Weighted mode requires 'GrainRadius' column.")
-                if self.dim == 3:
-                    df["Weight"] = (4.0 / 3.0) * np.pi * (df["GrainRadius"] ** 3)
-                    weight_type = "volume"
-                else:
-                    df["Weight"] = np.pi * (df["GrainRadius"] ** 2)
-                    weight_type = "area"
+                from graintrace.neper_env import (  # pylint: disable=import-outside-toplevel
+                    laguerre_weights,
+                )
 
-                df["Weight"] /= df["Weight"].sum()
+                # NEPER 7 power weight w = r**2 (length units of the coordinates)
+                df["Weight"] = laguerre_weights(df["GrainRadius"].to_numpy())
                 df["Weight"].to_csv(weight_path, sep=" ", index=False, header=False)
-                print(f"Neper weight file created ({weight_type}-based): {weight_path}")
+                print(f"Neper weight file created (w = GrainRadius^2): {weight_path}")
 
         # Orientation (3-column)
         if all(c in df.columns for c in self.angle_id):
@@ -894,7 +911,7 @@ class VoronoiMeshBuilder:
                 "-domain",
                 domain_arg,
                 "-oridescriptor",
-                "rotmat",
+                neper_env.ROTMAT_DESCRIPTOR,
                 "-o",
                 tess_name,
                 "-format",
@@ -918,12 +935,17 @@ class VoronoiMeshBuilder:
             print("> " + " ".join(neper_cmd), file=logf)
             logf.flush()
 
-            subprocess.run(
+            proc = subprocess.run(
                 neper_cmd,
-                check=True,
+                check=False,
                 env=self.env,
+                stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
+                text=True,
             )
+            logf.write(proc.stdout or "")
+        print(proc.stdout or "")
+        _raise_on_neper_failure(proc, neper_cmd, morphoalgo, log_path)
 
         print(f"Voronoi tessellation completed: {tess_name}.tess\n")
 
@@ -963,7 +985,7 @@ class VoronoiMeshBuilder:
         device: str = "cpu",
         option: str = "centroid",
         CVT_iter: int = 100,
-        morphoalgo: str = "praxis",
+        morphoalgo: str = "subplex",
         visualize2D: bool = False,
         visualize3D: bool = False,
     ):
@@ -1038,7 +1060,7 @@ class VoronoiMeshBuilder:
         orientations.dat consumers use, so no NEPER matrix-convention dependency
         enters. ``self.data`` Euler are degrees after ``read_input``.
         """
-        convention = self.ori_descriptor.replace("euler-", "")
+        convention = self.ori_descriptor.split(":", maxsplit=1)[0].replace("euler-", "")
         euler = self.data[self.angle_id].to_numpy(dtype=float)
         new_euler = self._frame().euler(euler, convention, "degrees")
         self.data[self.angle_id] = new_euler
@@ -1085,7 +1107,15 @@ class VoronoiMeshBuilder:
         if ori_end is None:
             ori_end = len(lines)
 
-        # skip descriptor line
+        # descriptor line, e.g. "rotmat:active" (NEPER writes no suffix = passive)
+        descriptor = lines[ori_start + 1].strip()
+        base, _, sense = descriptor.partition(":")
+        sense = sense or "passive"
+        if base != "rotmat" or sense not in ("active", "passive"):
+            raise ValueError(
+                f"{tess_file}: expected a 'rotmat[:active|:passive]' *ori section, "
+                f"got {descriptor!r}"
+            )
         ori_lines = lines[ori_start + 2 : ori_end]
         num_cells = len(ori_lines)
 
@@ -1107,14 +1137,18 @@ class VoronoiMeshBuilder:
                     "this indicates corrupted .tess file."
                 )
             ori_mats = ori_data.reshape((-1, 3, 3))
-            # g' = g Q^T in numpy, so the FF build does not import torch.
-            ori_rot = ori_mats @ frame.Q.T
+            if sense == "passive":  # NEPER passive g -> graintrace active R = g^T
+                ori_mats = np.swapaxes(ori_mats, -1, -2)
+            # R' = Q R in numpy, so the FF build does not import torch.
+            ori_rot = frame.Q @ ori_mats
 
+        # O11..O33 hold the active R (MIDAS O / NEPER rotmat:active), row-major.
         self.data[self.ori_rotmat_id] = ori_rot.reshape(-1, 9)
 
-        # Write back new orientations
+        # Write back new orientations, in the file's own descriptor
+        ori_out = np.swapaxes(ori_rot, -1, -2) if sense == "passive" else ori_rot
         new_ori_lines = [
-            " ".join(f"{val:.8f}" for val in R.flatten()) + "\n" for R in ori_rot
+            " ".join(f"{val:.8f}" for val in R.flatten()) + "\n" for R in ori_out
         ]
         lines[ori_start + 2 : ori_end] = new_ori_lines
 
@@ -1237,7 +1271,7 @@ class VoronoiMeshBuilder:
             "-format",
             "ori",
             "-oridescriptor",
-            "rotmat",
+            neper_env.ROTMAT_DESCRIPTOR,
         ]
         print("> " + " ".join(neper_cmd))
         subprocess.run(neper_cmd, check=True, env=self.env)

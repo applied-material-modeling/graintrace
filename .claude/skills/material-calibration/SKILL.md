@@ -13,7 +13,9 @@ Uses `MaterialCalibration` + `TaylorModel`. Env: `conda activate moose-src`.
 External tool: **NEML2 v3** only (no MOOSE). CUDA optional.
 
 ## Inputs
-A folder of per-stress-level CSVs with orientation matrix `O11..O33` + `eKen11..33` +
+A folder of per-stress-level CSVs with Euler angles `Eul0..Eul2` (standard Bunge,
+rad/deg auto-detected; the texture is `euler_to_mrp`, the MRP of the active R;
+`O11..O33` = active R / MIDAS O only as a fallback) + `eKen11..33` +
 `GrainRadius`, plus a `strain-stress.csv` (2 cols: strain, stress). Self-contained:
 `mwe_data/ff_calibration/` (9 load steps × 500 grains). For a physically registered fit, first
 run `/experiment-rotation`.
@@ -59,6 +61,13 @@ elastic-strain histograms. Map `TaylorModel.opt_vars` → CPFE names (see CLAUDE
 `/cpfe-simulation`'s `material` dict.
 
 ## Gotchas
+- **Slip systems**: `model_args={"slip_systems": "bcc"}` (or `"bcc_110_112"`, explicit cubic families);
+  default deck is FCC `<110>{111}`. Pass the same value to `CPFESimulation(slip_systems=...)`.
+- **Texture comes from the Euler columns** (`angle_identifier`/`angle_convention`/
+  `angle_type="auto"` on `load_experiment_data`); `O11..O33` (active R) is only a fallback.
+- `TaylorModel.simulate(..., return_orientation=True)` / `UniaxialTaylorModel.forward(...,
+  return_orientation=True)` also return per-grain neml2-MRP histories `(ntime, n_grains, 3)`
+  (Taylor reorientation vs FF).
 - **cuda**: works because `taylor.py` moves the model with `nsys.to(device)`. A cuda/cpu
   mismatch (silent `loss=inf`) means the model stayed on CPU; do NOT reintroduce a
   `torch.set_default_device` hack.

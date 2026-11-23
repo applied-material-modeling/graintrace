@@ -35,6 +35,7 @@ top-level names (importable as ``graintrace.<Name>``) are defined by
    grid_resampling
    material_calibration
    taylor
+   slip_systems
    base_material_approximation
    experiment_rotation_helper
    orientation_helper

@@ -22,7 +22,24 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-"""Orientation math helpers: Euler/matrix/MRP/quaternion conversions and misorientation."""
+"""Orientation math helpers: Euler/matrix/MRP/quaternion conversions and misorientation.
+
+Convention (normative, shared with MIDAS and neml2):
+
+* Euler angles are the standard Bunge triplet ``(phi1, Phi, phi2)``.
+* The orientation matrix is the ACTIVE rotation ``R = Rz(phi1) Rx(Phi) Rz(phi2)``
+  (crystal -> sample: ``v_sample = R v_crystal``). It equals MIDAS
+  ``Euler2OrientMat`` / Grains.csv ``O11..O33`` (row-major) and NEPER's
+  ``rotmat:active``; the classical Bunge passive matrix is ``g = R^T``.
+* MRP is the neml2 v3 MRP of ``R`` (``tan(theta/4) * axis``); a neml2 model's
+  ``orientation`` is exactly this, so ``euler_to_mrp`` feeds neml2 directly.
+* Crystal symmetry acts on the RIGHT (equivalents ``R S``); a sample-frame
+  rotation acts on the LEFT (``R' = Q R``). Misorientation is
+  ``min_k angle(R1^T R2 S_k)``.
+
+In graintrace <= 0.2 the matrix was ``g`` and the MRP was ``mrp(g) == -mrp(R)``;
+:func:`legacy_mrp_to_mrp` converts MRP files written by those versions.
+"""
 
 from __future__ import annotations
 
@@ -31,6 +48,10 @@ from typing import Optional, Union
 
 import numpy as np
 import torch
+
+#: The rotation convention of every matrix/MRP/quaternion in graintrace: active
+#: (crystal -> sample), ``R = Rz(phi1) Rx(Phi) Rz(phi2)`` for Bunge Euler angles.
+ROTATION_CONVENTION = "active"
 
 inds = ["11", "22", "33", "23", "13", "12"]
 facts = [1.0, 1.0, 1.0, sqrt(2.0), sqrt(2.0), sqrt(2.0)]
@@ -79,10 +100,12 @@ def euler_to_matrix(
     convention: str = "bunge",
     angle_type: str = "degrees",
 ) -> torch.Tensor:
-    """Convert Euler angles to rotation matrices.
+    """Convert Euler angles to active rotation matrices ``R`` (crystal -> sample).
 
-    Bunge angles are applied as a Z-X-Z composition of ``MRP.from_axis_angle``
-    rotations; the matrix comes from ``euler_rodrigues``.
+    Bunge angles give ``R = Rz(phi1) Rx(Phi) Rz(phi2)`` (MIDAS ``Euler2OrientMat``,
+    NEPER ``rotmat:active``), built as a Z-X-Z composition of
+    ``MRP.from_axis_angle`` rotations through ``euler_rodrigues``. The classical
+    Bunge (passive, sample -> crystal) matrix is ``R^T``.
 
     Args:
         euler: (..., 3) Euler angles.
@@ -90,7 +113,7 @@ def euler_to_matrix(
         angle_type: 'degrees' or 'radians'.
 
     Returns:
-        (..., 3, 3) rotation matrices.
+        (..., 3, 3) active rotation matrices ``R``.
     """
     # pylint: disable-next=import-outside-toplevel  # neml2 is a heavy optional dep
     from neml2.types import MRP, Vec, Scalar, euler_rodrigues, compose
@@ -111,9 +134,8 @@ def euler_to_matrix(
         ),
         MRP.from_axis_angle(zaxis, Scalar(phi2.contiguous())),
     )
-    # euler_rodrigues gives the active rotation; the Bunge orientation matrix g is
-    # its transpose (matches the v2 convention).
-    return euler_rodrigues(r).data.transpose(-2, -1)
+    # euler_rodrigues gives the active rotation R (graintrace's convention).
+    return euler_rodrigues(r).data
 
 
 def matrix_to_euler(
@@ -127,14 +149,15 @@ def matrix_to_euler(
     gimbal lock ``Phi`` snaps to 0 or 180 and the third Bunge angle is 0.
 
     Args:
-        M: (..., 3, 3) rotation matrices.
+        M: (..., 3, 3) active rotation matrices ``R`` (crystal -> sample).
         convention: 'bunge', 'kocks', or 'roe'.
         angle_type: 'degrees' or 'radians'.
 
     Returns:
         (..., 3) Euler angles.
     """
-    M = torch.as_tensor(M, dtype=torch.float64)
+    # The extraction below reads the passive g = R^T.
+    M = torch.as_tensor(M, dtype=torch.float64).transpose(-2, -1)
     # atan2 keeps precision near the poles, where arccos does not.
     sP = torch.hypot(M[..., 2, 0], M[..., 2, 1])
     Phi = torch.atan2(sP, M[..., 2, 2])
@@ -176,7 +199,7 @@ def _wrap(a: torch.Tensor, period: float) -> torch.Tensor:
 
 
 def matrix_to_mrp(M: Union[np.ndarray, torch.Tensor]) -> torch.Tensor:
-    """Convert rotation matrices (..., 3, 3) to neml2 v3 MRP (..., 3)."""
+    """Convert rotation matrices (..., 3, 3) to neml2 v3 MRP (..., 3) (no transpose)."""
     # pylint: disable-next=import-outside-toplevel  # neml2 is a heavy optional dep
     from neml2 import types as _t
 
@@ -189,8 +212,33 @@ def euler_to_mrp(
     convention: str = "bunge",
     angle_type: str = "degrees",
 ) -> torch.Tensor:
-    """Convert Euler angles to neml2 v3 modified Rodrigues parameters (..., 3)."""
+    """Convert Euler angles to neml2 v3 MRP (..., 3) of the active ``R``.
+
+    This is the orientation a neml2 crystal-plasticity model expects (its
+    ``orientation`` state / the CPFE ``ori_rodrigues`` output).
+    """
     return matrix_to_mrp(euler_to_matrix(euler, convention, angle_type))
+
+
+def legacy_mrp_to_mrp(p: Union[np.ndarray, list, torch.Tensor]) -> torch.Tensor:
+    """Convert an MRP written by graintrace <= 0.2 to the current convention.
+
+    Older graintrace versions stored the MRP of the passive Bunge matrix ``g``
+    (e.g. ``orientations_MRP.dat`` from ``euler_to_mrp``, NF ``orientations.csv``,
+    ``tess_to_gnn`` features). That is the inverse rotation of today's MRP of
+    ``R = g^T``, i.e. ``mrp(g) == -mrp(R)``, so the conversion is a negation.
+
+    Note: CPFE *results* computed from such inverted orientations are physically
+    different (every grain was loaded in the inverse orientation); rerun them
+    rather than negating their outputs.
+
+    Args:
+        p: (..., 3) legacy MRP.
+
+    Returns:
+        (..., 3) neml2 MRP of the active rotation ``R``.
+    """
+    return -torch.as_tensor(p, dtype=torch.float64)
 
 
 def quat_to_matrix(q: torch.Tensor) -> torch.Tensor:
@@ -275,7 +323,9 @@ def perturb_orientation(
     c = torch.cos(angle).reshape(n, 1, 1)
     dR = eye + s * K + (1.0 - c) * torch.matmul(K, K)
 
-    R_new = torch.matmul(dR, flat).reshape(R.shape)
+    # R dR^T == (dR g)^T: the same perturbation as the legacy g-side ``dR @ g``,
+    # so seeded draws are reproducible across the convention change.
+    R_new = torch.matmul(flat, dR.transpose(-2, -1)).reshape(R.shape)
     return matrix_to_euler(R_new, convention, angle_type)
 
 
@@ -296,8 +346,11 @@ def misorientation_matrix(
 ) -> torch.Tensor:
     """Misorientation angle between two sets of rotation matrices under symmetry.
 
+    ``min_k angle(R1^T R2 S_k)`` for active matrices with crystal symmetry ``S_k``
+    on the right (both-sided reduction ``S_i R1^T R2 S_j``; equivalent result).
+
     Args:
-        R1, R2: (N, 3, 3) rotation matrices.
+        R1, R2: (N, 3, 3) active rotation matrices ``R`` (crystal -> sample).
         symmetry: crystal symmetry in orbifold notation.
         angle_type: 'degrees' or 'radians' for the returned angle.
 
@@ -306,7 +359,7 @@ def misorientation_matrix(
     """
     symmetry_ops = symmetry_operators(symmetry).to(device=R1.device, dtype=R1.dtype)
 
-    dR = torch.matmul(R1, R2.transpose(-2, -1))
+    dR = torch.matmul(R1.transpose(-2, -1), R2)
 
     options = torch.matmul(
         torch.matmul(symmetry_ops.unsqueeze(0), dR.unsqueeze(1)).unsqueeze(2),
@@ -332,10 +385,10 @@ def move_to_fundamental_zone(R: torch.Tensor, symmetry: str = "1") -> torch.Tens
     """Reduce rotation matrices to the fundamental zone under crystal symmetry.
 
     Picks, per orientation, the symmetry-equivalent with the smallest rotation
-    angle (largest trace of ``O @ R``).
+    angle (largest trace of ``R @ S``; crystal symmetry acts on the right).
 
     Args:
-        R: (..., 3, 3) rotation matrices.
+        R: (..., 3, 3) active rotation matrices.
         symmetry: crystal symmetry in orbifold notation.
 
     Returns:
@@ -344,7 +397,7 @@ def move_to_fundamental_zone(R: torch.Tensor, symmetry: str = "1") -> torch.Tens
     ops = symmetry_operators(symmetry).to(
         device=R.device, dtype=R.dtype
     )  # (nops, 3, 3)
-    cand = torch.matmul(ops, R.unsqueeze(-3))  # (..., nops, 3, 3)
+    cand = torch.matmul(R.unsqueeze(-3), ops)  # (..., nops, 3, 3)
     trace = cand.diagonal(dim1=-2, dim2=-1).sum(-1)  # (..., nops)
     idx = torch.argmax(trace, dim=-1)  # (...,)
     idx_exp = idx[..., None, None, None].expand(idx.shape + (1, 3, 3))
@@ -367,13 +420,19 @@ def average_orientation(
 
     Args:
         euler: (N, 3) Euler angles, or (3,) for a single orientation.
-        weights: (N,) non-negative weights (default: uniform).
+        weights: (N,) non-negative, finite weights (default: uniform). If they
+            sum to zero (e.g. two zero-radius grains), the mean falls back to
+            uniform weights instead of dividing by zero.
         convention: 'bunge', 'kocks', or 'roe'.
         angle_type: 'degrees' or 'radians'.
         symmetry: crystal symmetry in orbifold notation.
 
     Returns:
         (3,) averaged Euler angles in the given convention/units.
+
+    Raises:
+        ValueError: if ``weights`` has the wrong length, or holds a negative or
+            non-finite value.
     """
     e = torch.as_tensor(euler, dtype=torch.float64)
     if e.ndim == 1:
@@ -388,6 +447,10 @@ def average_orientation(
         raise ValueError(
             f"weights length ({w.shape[0]}) must match number of orientations ({n})."
         )
+    if not bool(torch.isfinite(w).all()) or bool((w < 0).any()):
+        raise ValueError("weights must be finite and non-negative.")
+    if float(w.sum()) <= 0.0:
+        w = torch.ones(n, dtype=torch.float64)
 
     R = euler_to_matrix(e, convention, angle_type)  # (N, 3, 3)
     if n == 1:
@@ -396,9 +459,9 @@ def average_orientation(
     ops = symmetry_operators(symmetry).to(dtype=R.dtype)  # (nops, 3, 3)
 
     # Reference = highest-weight orientation; align every orientation to it by
-    # picking the symmetry op O maximizing <ref, O @ R_i>.
+    # picking the symmetry op S maximizing <ref, R_i @ S>.
     ref = R[int(torch.argmax(w))]  # (3, 3)
-    cand = torch.matmul(ops.unsqueeze(0), R.unsqueeze(1))  # (N, nops, 3, 3)
+    cand = torch.matmul(R.unsqueeze(1), ops.unsqueeze(0))  # (N, nops, 3, 3)
     score = torch.einsum("ij,nkij->nk", ref, cand)  # (N, nops)
     best = torch.argmax(score, dim=1)  # (N,)
     R_aligned = cand[torch.arange(n), best]  # (N, 3, 3)
@@ -454,12 +517,15 @@ def load_orientation_matrices(
     df: "pd.DataFrame",
     field: Optional[str] = "O",
 ) -> torch.Tensor:
-    """Load per-row rotation matrices (..., 3, 3) from a dataframe.
+    """Load per-row active rotation matrices ``R`` (..., 3, 3) from a dataframe.
+
+    The columns must hold the ACTIVE matrix ``R`` (crystal -> sample): MIDAS
+    Grains.csv ``O11..O33`` or NEPER ``rotmat:active``. A passive (NEPER default
+    ``rotmat`` / ``rotmat:passive``) matrix must be transposed first.
 
     Storage is assumed **row-major**: ``{field}{i}{j}`` maps to ``M[i-1, j-1]``
     (and the ``field=None`` positional path reshapes the first 9 columns row-major).
-    All in-repo producers (NEPER ``reconstruction.ori``, ``experiment_rotation_helper``)
-    write row-major; a column-major producer would silently yield the transpose.
+    A column-major producer would silently yield the transpose.
 
     Args:
         df (pd.DataFrame): Dataframe containing orientation data.
@@ -492,6 +558,9 @@ def load_orientations(
     field: Optional[str] = "O",
 ) -> torch.Tensor:
     """Load orientations as neml2 v3 modified Rodrigues parameters (n, 3).
+
+    The matrix columns must hold the active ``R`` (see
+    :func:`load_orientation_matrices`).
 
     Args:
         df (pd.DataFrame): Dataframe containing orientation data.

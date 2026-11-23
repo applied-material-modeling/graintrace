@@ -84,7 +84,7 @@ axis-aligned cube hex per voxel** -- no CUBIT/SCULPT, no `sculpt_config` needed:
 
 ```python
 builder.mesh(mesher="voxel", merged_grid=merged_grid_path)
-# -> mesh.e (HEX8, one block per grain, ids 1..N) + <mapped_orientations>.csv (MRP)
+# -> mesh.e (HEX8, one block per grain, ids 1..N) + <mapped_orientations>.csv (MRP of R)
 ```
 
 - **Scaled Jacobian = 1 everywhere, zero inverted/sliver elements, 100% grain
@@ -107,6 +107,9 @@ builder.mesh(mesher="voxel", merged_grid=merged_grid_path)
    `df1`. Lower ⇒ defeaturing has silently absorbed grains.
 2. **Min Scaled Jacobian > 0**: not just the mean. A single negative-SJ element
    crashes the MOOSE simulation.
+   For the SCULPT path graintrace now checks (2) itself: `mesh()` computes every hex's
+   minimum corner scaled Jacobian, writes `<mesh stem>_quality.json`, and raises on any
+   inverted element (`quality_check="raise"` default; `"warn"` / `"off"` to override).
 3. **Mesh-vs-tess grain-size distribution**: same histogram check as after
    microstructure generation.
 

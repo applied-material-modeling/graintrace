@@ -58,7 +58,8 @@ outputdir = "material_calibration_out"
 
 # Folder with numeric-named per-stress-level CSVs (e.g. 0.csv, 100.csv, ...)
 # plus strain-stress.csv. Self-contained FF dataset shipped in mwe_data (9 load
-# steps, 500 grains each: orientation matrix O, coords, Euler, eKen strain). For
+# steps, 500 grains each: Euler (the texture input), coords, eKen strain, and the
+# active orientation matrix O = R, used only as a fallback). For
 # a physically registered calibration the CSVs should first be rotated into the
 # simulation frame (see demonstrate_farfield.py / experiment_rotation_helper);
 # here we calibrate on the raw data directly.
@@ -108,6 +109,7 @@ if run_calibration:
             nchunk=nchunk,
             device=device,
             compile=False,
+            slip_systems="fcc",  # same value as CPFESimulation(slip_systems=...); "bcc" for BCC
         ),
         data_args=dict(
             data_dir=exp_data_dir,

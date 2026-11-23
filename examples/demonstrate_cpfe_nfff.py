@@ -22,6 +22,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+from graintrace.mcp import tool_paths  # tools.json lookup (works without the mcp SDK)
 from graintrace.synthetic_hedm_generator import SyntheticHEDMGenerator
 from graintrace.run_cpfe_simulation import CPFESimulation
 from graintrace.construct_voronoi_mesh import VoronoiMeshBuilder
@@ -98,10 +99,12 @@ device_batch = 1000
 
 # program parameters
 # EDIT: path to your built PUMA binary (e.g. external/puma/puma-opt).
-moose_run_file = "external/puma/puma-opt"
+# Tool paths come from tools.json ($GRAINTRACE_TOOLS_JSON, ./graintrace_tools.json or
+# ~/.config/graintrace/tools.json; see graintrace/mcp/tools.example.json); EDIT the fallback otherwise.
+moose_run_file = tool_paths.puma_opt() or "external/puma/puma-opt"
 
 # EDIT: point these at your Coreform CUBIT/SCULPT install (paths only, never a license).
-sculpt_config = {
+sculpt_config = tool_paths.sculpt_config() or {
     "launcher": "/path/to/cubit/bin/mpi/bin/mpiexec",
     "psculpt": "/path/to/cubit/bin/psculpt",
     "epu": "/path/to/cubit/bin/epu",
@@ -228,6 +231,7 @@ sim = CPFESimulation(
     ori_file=output_dir + "/nf_reconstruction/orientations.csv",
     dim=3,
     moose_run_file=moose_run_file,
+    slip_systems="fcc",  # crystal slip: "fcc" | "bcc" | "bcc_110_112" | ... or [((1,1,1),(1,1,0))]
 )
 
 sim.set_parameters(

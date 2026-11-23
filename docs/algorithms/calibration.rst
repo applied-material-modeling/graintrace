@@ -7,7 +7,10 @@ Calibration of the six crystal-plasticity parameters (elastic :math:`E`, :math:`
 :math:`\nu`; slip strength; Voce hardening slope and saturation) to a measured macroscopic
 stress-strain curve and, optionally, full-field per-grain elastic strains. The stage is driven
 by :class:`~graintrace.MaterialCalibration`, which wraps a :class:`~graintrace.TaylorModel`
-forward model (NEML2 v3 + pyzag) and runs LBFGS with analytic-adjoint gradients.
+forward model (NEML2 v3 + pyzag) and runs LBFGS with analytic-adjoint gradients. The crystal
+slip is set with ``TaylorModel(slip_systems=...)`` (``model_args``): the default deck is FCC
+:math:`\langle 110\rangle\{111\}`; use a ``"bcc*"`` preset or explicit families
+(:mod:`graintrace.slip_systems`) for other cubic metals, and the same value for the CPFE run.
 
 Method
 ------
@@ -159,10 +162,33 @@ See :doc:`/configuration` for the full list.
   bidiagonal-in-time solve), ``device`` (``cuda`` recommended; the whole system is moved to the
   device).
 - ``data_args``: ``data_dir`` / ``strain_stress_file``, ``straintype`` (``eKen``/``eFab``),
-  ``full_field_strain_units``, ``max_strain``, ``n_grains``, ``seed``.
+  ``full_field_strain_units``, ``max_strain``, ``n_grains``, ``seed``, and the orientation
+  source ``angle_identifier`` (default ``Eul0..Eul2``) / ``angle_convention`` (``bunge``) /
+  ``angle_type`` (``auto``: any value beyond :math:`2\pi` means degrees). The texture is
+  ``euler_to_mrp`` of the Euler columns -- the NEML2 MRP of the active :math:`R` the
+  Taylor model's ``orientation`` expects; ``O11..O33`` (which must then be the active
+  :math:`R`, MIDAS ``O``) are used only when a table has no Euler columns.
 - ``calibrate`` knobs: ``maxiter``, ``lr``, ``max_iter_per_step``, ``line_search_fn``,
   ``plateau_rtol`` / ``plateau_window``, and ``full_field_weight`` / ``full_field_components``.
 - ``apply_elastic_correction`` + ``strain_window``.
+
+Per-grain orientation history
+-----------------------------
+The forward model also evolves each grain's crystal orientation (plastic spin), stored in the
+per-grain state as a neml2 v3 MRP (``tan(theta/4) * axis``). Pass ``return_orientation=True``
+to :meth:`~graintrace.taylor.TaylorModel.simulate` (or
+:meth:`~graintrace.taylor.UniaxialTaylorModel.forward`) to get that history as an
+``(ntime, n_grains, 3)`` tensor. It is in the same convention and frame as the input
+orientations (no conversion), and step 0 equals the input. Outputs come back in a fixed order,
+``stress[, elastic_strain][, orientation]``, as a tuple whenever more than one is requested;
+the defaults and ``return_state=True`` alone are unchanged.
+
+.. code-block:: python
+
+    stress, ee_hist, ori_hist = model.simulate(
+        None, experiment_data=data, return_state=True, return_orientation=True
+    )
+    # ori_hist: (npoints, n_grains, 3) neml2 MRP; ori_hist[0] == data["exp_texture"][0]
 
 Further details
 ---------------

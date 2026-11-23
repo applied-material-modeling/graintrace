@@ -85,7 +85,7 @@ between the listing and a figure:
      - Voronoi/CVT reconstruction from FF centroids.
    * - :doc:`experiment-rotation`
      - ``neper``
-     - One Voronoi build per file supplies the rotated ``O11..O33``.
+     - One Voronoi build per file supplies the rotated Euler angles.
    * - :doc:`grain-tracking`
      - ``neper``
      - Builds the per-step grain graphs that are matched.

@@ -204,6 +204,18 @@ def _matrix_to_quat_np(rmat: np.ndarray) -> np.ndarray:
     return matrix_to_quat(torch.as_tensor(rmat)).cpu().numpy().reshape(-1, 4)
 
 
+def _ops_quat_np(ops: np.ndarray) -> np.ndarray:
+    """Scalar-first quaternions ``(nops, 4)`` of symmetry operators, 180-degree ops included.
+
+    neml2's matrix -> MRP -> quaternion route is singular at a 180-degree rotation
+    (trace -1) and returns a wrong quaternion there; scipy's is robust.
+    """
+    # pylint: disable-next=import-outside-toplevel
+    from scipy.spatial.transform import Rotation
+
+    return np.roll(Rotation.from_matrix(ops).as_quat(), 1, axis=-1)
+
+
 def _quat_to_matrix_np(q: np.ndarray) -> np.ndarray:
     """Unit quaternions ``(..., 4)`` (w, x, y, z) -> matrices, neml2 convention."""
     w, x, y, z = (q[..., i] for i in range(4))
@@ -223,29 +235,30 @@ def _quat_to_matrix_np(q: np.ndarray) -> np.ndarray:
     )
 
 
-def _left_quat_matrix(q: np.ndarray) -> np.ndarray:
-    """``L(q)`` with ``q (x) p == L(q) @ p`` (Hamilton product, scalar first).
+def _right_quat_matrix(q: np.ndarray) -> np.ndarray:
+    """``W(q)`` with ``p (x) q == W(q) @ p`` (Hamilton product, scalar first).
 
-    Folding a cluster by symmetry operator ``S`` maps its moments to ``L M L^T``.
+    Folding a cluster by crystal symmetry operator ``S`` (on the right, ``R S``)
+    maps its moments to ``W M W^T`` with ``q = quat(S)``.
     """
     w, x, y, z = q
     return np.array(
-        [[w, -x, -y, -z], [x, w, -z, y], [y, z, w, -x], [z, -y, x, w]], dtype=float
+        [[w, -x, -y, -z], [x, w, z, -y], [y, -z, w, x], [z, y, -x, w]], dtype=float
     )
 
 
 def _fold_to_reference(
     rmat: np.ndarray, ref: np.ndarray, ops: np.ndarray
 ) -> np.ndarray:
-    """Fold each ``rmat[i]`` to the variant ``ops[k] @ rmat[i]`` closest to ``ref[i]``."""
-    # sum_ij ref_ij (O_k r)_ij == sum_il O_kil (r ref^T)_li: one (n,9)x(9,k) GEMM
+    """Fold each ``rmat[i]`` to the variant ``rmat[i] @ ops[k]`` closest to ``ref[i]``."""
+    # sum_ij ref_ij (r S_k)_ij == sum_il (ref^T r)_il S_kli: one (n,9)x(9,k) GEMM
     ops_flat = np.ascontiguousarray(np.swapaxes(ops, 1, 2)).reshape(len(ops), 9).T
     out = np.empty_like(rmat)
     for s in range(0, len(rmat), _FOLD_CHUNK):
         r = rmat[s : s + _FOLD_CHUNK]
-        prod = np.matmul(r, np.swapaxes(ref[s : s + _FOLD_CHUNK], -1, -2))
+        prod = np.matmul(np.swapaxes(ref[s : s + _FOLD_CHUNK], -1, -2), r)
         best = np.argmax(prod.reshape(len(r), 9) @ ops_flat, axis=1)
-        out[s : s + _FOLD_CHUNK] = np.matmul(ops[best], r)
+        out[s : s + _FOLD_CHUNK] = np.matmul(r, ops[best])
     return out
 
 
@@ -277,7 +290,7 @@ def _moments_mean_matrix(mom: np.ndarray) -> np.ndarray:
 
 def _sym_miso_deg(ra: np.ndarray, rb: np.ndarray, ops: np.ndarray) -> np.ndarray:
     """Symmetry-reduced misorientation (deg) between row-aligned matrix stacks."""
-    dr = np.matmul(ra, np.swapaxes(rb, -1, -2))
+    dr = np.matmul(np.swapaxes(ra, -1, -2), rb)
     tr = np.einsum("kij,nji->nk", ops, dr).max(axis=1)
     return np.rad2deg(np.arccos(np.clip((tr - 1.0) / 2.0, -1.0, 1.0)))
 
@@ -307,7 +320,8 @@ def _cluster_tangent(
     mean_r = _moments_mean_matrix(_cluster_moments(rmat, inv, n_clusters, ops))
     ref = mean_r[inv]
     folded = _fold_to_reference(rmat, ref, ops)
-    return mean_r, _rotation_vector_deg(np.matmul(folded, np.swapaxes(ref, -1, -2)))
+    # crystal-frame deviation folded^T ref (the legacy g-side g_i g_ref^T)
+    return mean_r, _rotation_vector_deg(np.matmul(np.swapaxes(folded, -1, -2), ref))
 
 
 def _group_offsets(inv: np.ndarray, n_clusters: int) -> Tuple[np.ndarray, np.ndarray]:
@@ -864,7 +878,7 @@ class FragmentationAnalyzer:
             # fold each orientation to the symmetry variant closest to the reference
             ops = symmetry_operators(symmetry).to(rmat.dtype)  # (nops, 3, 3)
             ref = rmat[0]
-            cand = torch.matmul(ops.unsqueeze(0), rmat.unsqueeze(1))  # (N, nops, 3, 3)
+            cand = torch.matmul(rmat.unsqueeze(1), ops.unsqueeze(0))  # (N, nops, 3, 3)
             score = torch.einsum("ij,nkij->nk", ref, cand)  # (N, nops)
             best = torch.argmax(score, dim=1)
             rmat = cand[torch.arange(rmat.shape[0]), best]
@@ -1325,7 +1339,7 @@ class FragmentationAnalyzer:
         inv = inv.reshape(-1)
         n_c = len(uniq)
         ops = _symmetry_ops_np(symmetry)
-        op_quat = _matrix_to_quat_np(ops)
+        op_quat = _ops_quat_np(ops)
         mom = _cluster_moments(_mrp_to_matrix_np(mrp[valid]), inv, n_c, ops)
         mean_r = _moments_mean_matrix(mom)
         size = np.bincount(inv, minlength=n_c).astype(np.int64)
@@ -1364,11 +1378,11 @@ class FragmentationAnalyzer:
                 continue
             if size[b] > size[a]:
                 a, b = b, a
-            # fold b's moments into a's variant frame, then add
-            cand = np.einsum("kij,jl->kil", ops, mean_r[b])
+            # fold b's moments into a's variant frame (R_b S), then add
+            cand = np.einsum("ij,kjl->kil", mean_r[b], ops)
             s_op = int(np.argmax(np.einsum("ij,kij->k", mean_r[a], cand)))
-            lq = _left_quat_matrix(op_quat[s_op])
-            mom[a] = mom[a] + lq @ mom[b] @ lq.T
+            wq = _right_quat_matrix(op_quat[s_op])
+            mom[a] = mom[a] + wq @ mom[b] @ wq.T
             mean_r[a] = _moments_mean_matrix(mom[a][None])[0]
             size[a] += size[b]
             alive[b] = False
@@ -2412,7 +2426,8 @@ class FragmentationAnalyzer:
             # Normalized 4D Gaussian = uniform rotation; seeding is scipy-independent.
             quat = rng.standard_normal((n_b, 4))
             quat /= np.linalg.norm(quat, axis=1, keepdims=True)
-            rand_b = Rotation.from_quat(quat).as_matrix()
+            # .inv(): the legacy draw was a passive g; R = g^T keeps seeded counts
+            rand_b = Rotation.from_quat(quat).inv().as_matrix()
             tens_b = torch.as_tensor(np.asarray(rand_b, dtype=float)[bj])
             miso = (
                 misorientation_matrix(r_a[ai], tens_b, self.symmetry, "degrees")

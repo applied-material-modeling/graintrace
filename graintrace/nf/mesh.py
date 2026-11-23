@@ -179,6 +179,7 @@ def mesh_sculpt(
     layer_spacing=None,
     source_labels=None,
     block_map_filename=None,
+    quality_check="raise",
 ):
     """Call sculpt (+epu) to generate an Exodus mesh from an spn file.
 
@@ -200,10 +201,19 @@ def mesh_sculpt(
         layer_spacing (float, optional): z voxel size of a single-layer grid
         source_labels (array, optional): pre-``write_spn`` grain ids for the block map
         block_map_filename (str, optional): defaults to ``<mesh stem>_block_map.csv``
+        quality_check (str): after meshing, compute every hex's minimum corner scaled
+            Jacobian (:func:`check_mesh_quality`, report in ``<mesh stem>_quality.json``).
+            ``"raise"`` (default) raises ``RuntimeError`` if any element is inverted
+            (scaled Jacobian <= 0), which would abort a CPFE solve; ``"warn"`` only
+            warns; ``"off"`` skips the check.
 
     Returns:
         str: path to the block map CSV.
     """
+    if quality_check not in ("raise", "warn", "off"):
+        raise ValueError(
+            f"quality_check must be 'raise', 'warn' or 'off', got {quality_check!r}"
+        )
     cwd = os.getcwd()
     nx, ny, nz = data.shape[:3]
     grid = data.cpu().numpy() if hasattr(data, "cpu") else np.asarray(data)
@@ -287,7 +297,112 @@ def mesh_sculpt(
         symmetry,
         block_grains=renumbered["block_grains"],
     )
+    if quality_check != "off":
+        check_mesh_quality(mesh_out, on_inverted=quality_check)
     return block_map_filename
+
+
+#: Corner -> its three edge neighbours, ordered so the triple product is positive
+#: for a valid Exodus HEX8 (nodes 0-3 bottom face counter-clockwise, 4-7 above).
+_HEX8_CORNER_EDGES = (
+    (0, 1, 3, 4),
+    (1, 2, 0, 5),
+    (2, 3, 1, 6),
+    (3, 0, 2, 7),
+    (4, 7, 5, 0),
+    (5, 4, 6, 1),
+    (6, 5, 7, 2),
+    (7, 6, 4, 3),
+)
+
+
+def hex_scaled_jacobian(exo_file):
+    """Minimum corner scaled Jacobian of every 8-node hex in an Exodus mesh.
+
+    At each corner the three edge vectors ``e1, e2, e3`` give
+    ``(e1 x e2) . e3 / (|e1| |e2| |e3|)``; the element value is the minimum over its
+    corners (1 for a perfect cube, <= 0 for an inverted element). Non-HEX8 blocks
+    are skipped.
+
+    Args:
+        exo_file (str): path to the Exodus mesh.
+
+    Returns:
+        numpy.ndarray: one value per HEX8 element, in block order.
+    """
+    with sio.netcdf_file(exo_file, "r", mmap=False) as f:
+        xyz = np.stack(
+            [
+                np.asarray(f.variables[c][:], dtype=float)
+                for c in ("coordx", "coordy", "coordz")
+            ],
+            axis=1,
+        )
+        conns = [
+            np.asarray(f.variables[k][:], dtype=np.int64) - 1
+            for k in sorted(f.variables)
+            if k.startswith("connect") and f.variables[k].shape[-1] == 8
+        ]
+    if not conns:
+        return np.empty(0)
+    pts = xyz[np.concatenate(conns)]  # (n, 8, 3)
+    sj = np.full(len(pts), np.inf)
+    for k, a, b, c in _HEX8_CORNER_EDGES:
+        e1, e2, e3 = pts[:, a] - pts[:, k], pts[:, b] - pts[:, k], pts[:, c] - pts[:, k]
+        num = np.einsum("ij,ij->i", np.cross(e1, e2), e3)
+        den = (
+            np.linalg.norm(e1, axis=1)
+            * np.linalg.norm(e2, axis=1)
+            * np.linalg.norm(e3, axis=1)
+        )
+        sj = np.minimum(sj, np.divide(num, den, out=np.zeros_like(num), where=den > 0))
+    return sj
+
+
+def check_mesh_quality(exo_file, on_inverted="raise", report_path=None):
+    """Scaled-Jacobian report for a hex mesh; act on inverted elements.
+
+    Writes ``{n_elements, min, p01, mean, n_inverted, n_below_0.2}`` as JSON to
+    ``report_path`` (default ``<mesh stem>_quality.json``) and prints a summary.
+
+    Args:
+        exo_file (str): path to the Exodus mesh.
+        on_inverted (str): ``"raise"`` (``RuntimeError``) or ``"warn"`` when any
+            element has scaled Jacobian <= 0.
+        report_path (str, optional): JSON report path.
+
+    Returns:
+        dict: the report.
+    """
+    import json  # pylint: disable=import-outside-toplevel
+
+    sj = hex_scaled_jacobian(exo_file)
+    report = {"n_elements": int(sj.size)}
+    if sj.size:
+        report.update(
+            min=float(sj.min()),
+            p01=float(np.percentile(sj, 1)),
+            mean=float(sj.mean()),
+            n_inverted=int((sj <= 0).sum()),
+            n_below_0_2=int((sj < 0.2).sum()),
+        )
+    if report_path is None:
+        report_path = os.path.splitext(exo_file)[0] + "_quality.json"
+    with open(report_path, "w", encoding="utf-8") as fh:
+        json.dump(report, fh, indent=1)
+    print(f"Mesh quality: {report} -> {report_path}")
+    if report.get("n_inverted", 0):
+        msg = (
+            f"{exo_file}: {report['n_inverted']} of {report['n_elements']} hex elements are "
+            f"inverted (min scaled Jacobian {report['min']:.3f}); a CPFE solve on this mesh "
+            "aborts with 'negative Jacobian'. Use a vetted sculpt_options config (e.g. "
+            "('-A','4','-df','1','-S','2','-CS','4'), see the meshing recipe) or "
+            "mesher='voxel'; pass quality_check='warn' to keep the mesh anyway."
+        )
+        if on_inverted == "raise":
+            raise RuntimeError(msg)
+        warnings.warn(msg, stacklevel=2)
+    return report
 
 
 def voxel_spacing(data, layer_spacing=None):

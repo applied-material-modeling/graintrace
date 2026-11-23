@@ -16,8 +16,10 @@ Uses `CPFESimulation`. Env: `conda activate moose-src`. External tools:
 A hex (`.e`) or tet (`.msh`) mesh + per-grain orientations; CPFE runs on either. Self-contained:
 `mwe_data/cpfe_ff/` (`reconstruction.msh` + `orientations.dat`, 10 grains) — this sample ships a
 GMSH tet mesh, but the default/recommended FF route is SCULPT hex (see `/meshing`). Orientations
-must be **neml2 MRP**; convert FF Euler `orientations.dat` (degrees) with
-`orientation_helper.euler_to_mrp`.
+must be **neml2 MRP** of the active R (crystal -> sample); convert FF Euler `orientations.dat`
+(degrees) with `orientation_helper.euler_to_mrp`. A 9-column `ori_file` is the active R (NEPER
+`rotmat:active`, MIDAS `O`).
+MRP files written by graintrace <= 0.2 hold the inverse rotation: convert them with `orientation_helper.legacy_mrp_to_mrp`, and rerun old CPFE results rather than negating them.
 
 ## Recipe (mirrors demonstrate_cpfe.py)
 ```python
@@ -66,6 +68,9 @@ sim.run(ncore=4)   # ncore == mpiexec -n; also spreads a device list over ranks
 ```
 
 ## Key parameters
+- `slip_systems` (constructor): `"fcc"` default (`<110>{111}`), `"bcc"` (`<111>{110}`), `"bcc_112"`,
+  `"bcc_110_112"`, `"bcc_110_112_123"`, or explicit cubic families `[((1,1,1),(1,2,3))]`. Must match the
+  calibration (`TaylorModel(slip_systems=...)`). BCC metals (Fe, Fe-Cr) need a `bcc*` value.
 - `device`: `"cpu"`, `"cuda:0"`, or space-sep list `"cuda:0 cuda:1"` (multi-GPU over MPI).
 - `device_batch`: per-device NEML2 chunk (quad pts/call); a finite value caps GPU memory
   (0 = whole batch → OOM risk on large meshes).

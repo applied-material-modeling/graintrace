@@ -54,7 +54,9 @@ def stitch_scans(
     params : overrides for any of: position_tolerance, orientation_tolerance,
         radius_tolerance, weights, min_neighbors, orientation_convention,
         orientation_units ('degrees'|'radians'), symmetry, refine_extents,
-        tess_weighted, update_centroid, xy_bounding_box. NOTE: if
+        tess_weighted, update_centroid, xy_bounding_box, z_uncertainty
+        (None | 'auto' = half the scan height | um; floor on the grain z
+        half-extent for region classification). NOTE: if
         orientation_units='radians', pass orientation_tolerance in radians.
 
     Needs NEPER only when refine_extents=true; otherwise pure Python.
@@ -120,6 +122,7 @@ def stitch_scans(
             tess_weighted=p.get("tess_weighted", True),
             update_centroid=p.get("update_centroid", False),
             xy_bounding_box=p.get("xy_bounding_box"),
+            z_uncertainty=p.get("z_uncertainty"),
         )
         result = stitcher.run(zlo=zlo, zhi=zhi, overlap_fraction=overlap_fraction)
 

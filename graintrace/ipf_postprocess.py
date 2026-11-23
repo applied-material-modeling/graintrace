@@ -270,10 +270,12 @@ class IPFProcessor:
 
         return ax
 
-    def get_reduced_ipf_directions(self, orientations, direction):
-        """Reduce (N, 3, 3) crystal->sample rotation matrices to their IPF
-        fundamental-sector directions for the given sample ``direction``."""
-        O = torch.as_tensor(orientations, dtype=torch.float64)  # (N, 3, 3)
+    def _ipf_candidates(self, O, direction):
+        """All symmetry-equivalent crystal directions + fundamental-sector mask.
+
+        Returns ``(cand, keep)``: ``cand`` is ``(N, Ss*Sc, 3)`` (sample op major,
+        crystal op minor) and ``keep`` the ``(N, Ss*Sc)`` in-sector mask.
+        """
         d = torch.as_tensor(direction, dtype=torch.float64).reshape(3).to(O.device)
         d = d / torch.linalg.norm(d)
 
@@ -296,6 +298,7 @@ class IPFProcessor:
         )  # (Sc, 3, 3)
 
         sample_directions = torch.einsum("sij,j->si", Rsamp, d)  # (Ss, 3)
+        # R^T d: the sample direction in the crystal frame (R is crystal -> sample)
         crystal_directions = torch.einsum(
             "nki,sk->nsi", O, sample_directions
         )  # (N, Ss, 3)
@@ -315,6 +318,17 @@ class IPFProcessor:
             [cand[..., 2] >= -tol]
             + [torch.sum(cand * n, dim=-1) >= -tol for n in normals],
         )
+        return cand, keep
+
+    def get_reduced_ipf_directions(self, orientations, direction):
+        """Reduce (N, 3, 3) crystal->sample rotation matrices to their IPF
+        fundamental-sector directions for the given sample ``direction``.
+
+        ``orientations`` are graintrace's active ``R`` (``euler_to_matrix`` /
+        ``mrp_to_matrix``); the projected crystal direction is ``R^T d``.
+        """
+        O = torch.as_tensor(orientations, dtype=torch.float64)  # (N, 3, 3)
+        cand, keep = self._ipf_candidates(O, direction)
 
         nvalid = torch.sum(keep, dim=1)
 
@@ -328,6 +342,43 @@ class IPFProcessor:
         picked = cand[torch.arange(cand.shape[0], device=cand.device), idx]
 
         return picked
+
+    def get_ipf_track_points(self, orientations, direction):
+        """Variant-consistent IPF points ``(T, 2)`` for ONE orientation track.
+
+        :meth:`get_ipf_points` reduces every orientation to the fundamental sector
+        independently, so a track that crosses a sector edge (or whose steps are
+        reported in different symmetry variants) jumps across the triangle. Here
+        every step is first folded to its crystal-symmetry variant ``R_t S``
+        closest to step 0, and the symmetry operator that brings step 0 into the
+        sector is applied to ALL steps. Step 0 lands exactly where
+        :meth:`get_ipf_points` puts it; later steps move continuously (and may
+        leave the sector slightly when the track crosses an edge).
+
+        Args:
+            orientations: ``(T, 3, 3)`` crystal->sample rotation matrices of one
+                entity over its steps (step 0 first).
+            direction: length-3 sample direction to project.
+
+        Returns:
+            torch.Tensor: ``(T, 2)`` projected IPF coordinates, in step order.
+        """
+        # pylint: disable-next=import-outside-toplevel
+        from .orientation_helper import symmetry_operators
+
+        O = torch.as_tensor(orientations, dtype=torch.float64)  # (T, 3, 3)
+        if O.shape[0] == 0:
+            return self._get_projection()(O.new_zeros((0, 3)))
+        ops = symmetry_operators(self.crystal_symmetry).to(O)  # proper (nops, 3, 3)
+        cand_r = torch.matmul(O.unsqueeze(1), ops.unsqueeze(0))  # (T, nops, 3, 3)
+        score = torch.einsum("ij,tkij->tk", O[0], cand_r)
+        folded = cand_r[torch.arange(O.shape[0]), torch.argmax(score, dim=1)]
+
+        cand, keep = self._ipf_candidates(folded, direction)
+        if not bool(keep[0].any()):
+            raise RuntimeError("No valid IPF representative for the first step")
+        idx = int(torch.argmax(keep[0].to(torch.int64)))
+        return self._get_projection()(cand[:, idx])
 
     def get_ipf_color(self, orientations, direction):
         """Return per-orientation IPF RGB colors for the given sample direction."""

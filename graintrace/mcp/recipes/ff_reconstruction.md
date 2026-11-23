@@ -42,11 +42,11 @@ returns `needs_input`. See the `experiment_metadata` recipe.
 |---|---|---|
 | `option` | `centroid` | Seeds cells at the measured grain centroids. Use `voronoi` for plain Voronoi, `centroidsize` to also honor `GrainRadius`. |
 | `CVT_iter` | `1000` | CVT relaxation steps. Lower (100 to 300) for a quick look; 1000 for production. |
-| `morphoalgo` | `subplex` | Robust default. `lloyd` is faster but lower quality; `praxis` is an alternative optimizer. |
+| `morphoalgo` | `subplex` | Robust default (graintrace's default). `lloyd` is faster but lower quality. Do **not** use `praxis`: NEPER 7 removed it (the build raises `ValueError`). |
 | `unit` | `deg` or `rad` | **Must match the actual Euler units in the CSV.** Detect: any value > 2π ⇒ degrees. |
 | `strain_unit` | `microstrain` | `eKen*` columns are typically microstrain; use `strain` if already dimensionless. |
 | `generate_mesh` | `false` | Keep `false`. GMSH `.msh` tets are a **last resort**; the recommended CPFE mesh is SCULPT hex: `generate_mesh=false` here, then `voxel_mesh` on `reconstruction_reformatted.csv` (see the `meshing` recipe). Only use `generate_mesh=true` if CUBIT/SCULPT is unavailable. |
-| `weighted` | `false` | Set `true` for a Laguerre (radius-weighted) tessellation when grain sizes vary a lot. |
+| `weighted` | `false` | Laguerre (power) tessellation with seed weight `GrainRadius**2` on the `voronoi` path; `option=centroidsize` is the alternative that fits cell sizes. |
 
 ## Sample tilt correction
 If the sample was tilted, leave `auto_rotate=false` and set
@@ -70,6 +70,10 @@ Keep `auto_fix_bbox=true`. Use `bbox_fix_mode="remove_points"` for production
   feeding a downstream `VoxelMeshBuilder`, set its `angle_type="degrees"`.
 - For CPFE you convert `orientations.dat` (Euler-Bunge, deg) → NEML2 v3 MRP via
   `orientation_helper.euler_to_mrp` before passing as the sim `ori_file`.
+- Orientation convention: graintrace's matrix is the **active R** (crystal -> sample,
+  = MIDAS `O`); NEPER gets Euler as `euler-bunge:passive` and writes `rotmat:active`,
+  so `O11..O33` in the builder data and `reconstruction.ori` are R. The sample tilt is
+  applied as R' = Q R.
 - Anisotropic/elongated grains: FF cannot recover true grain shape; a per-scan
   tessellation does not reliably beat the equivalent sphere. Use NF-HEDM for
   morphology.

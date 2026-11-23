@@ -25,8 +25,9 @@
 """The VoronoiMeshBuilder sample rotation must agree with FrameTransform.
 
 These pin the defect behind issue #57: a sample-frame rotation ``Q`` rotates
-orientations on the **sample** side, ``g' = g Q^T``. The builder used to select
-the crystal-side update ``Q g`` whenever ``orientation_active_convention=True``,
+orientations on the **sample** side, ``R' = Q R`` for the active ``R`` (equivalently
+``g' = g Q^T`` for the passive ``g = R^T`` NEPER writes by default). The builder used
+to select the crystal-side update ``Q g`` whenever ``orientation_active_convention=True``,
 and the ``auto_rotate`` branch stored the transpose of the rotation it had
 applied to the coordinates. Neither failed loudly: for a cubic ``Q`` the
 crystal-side update is invisible modulo crystal symmetry.
@@ -86,9 +87,9 @@ def _builder(tmp_path, data, **kwargs):
     return builder
 
 
-def _write_tess(path, ori_mats):
+def _write_tess(path, ori_mats, descriptor="rotmat"):
     """A ``.tess`` stub holding only the ``*ori`` section the builder rewrites."""
-    lines = [" **cell\n", "  *ori\n", "   rotmat\n"]
+    lines = [" **cell\n", "  *ori\n", f"   {descriptor}\n"]
     lines += [
         "   " + " ".join(f"{v:.12f}" for v in m.flatten()) + "\n" for m in ori_mats
     ]
@@ -164,31 +165,65 @@ class TestRotateRecordsWhatItApplied:
 
 
 class TestOrientationsAreUpdatedOnTheSampleSide:
-    """``g' = g Q^T``, pinned through a crystal direction."""
+    """``R' = Q R`` (``g' = g Q^T``), pinned through a crystal direction."""
 
     def test_tess_orientations_follow_the_sample_side_rule(self, tmp_path):
         data = _grain_table()
         builder = _builder(tmp_path, data)
         builder.rotate()
 
-        g0 = _rotations(len(data))
+        g0 = _rotations(len(data))  # written as NEPER's default (passive) rotmat
         tess = tmp_path / "reconstruction.tess"
         _write_tess(tess, g0)
         builder.apply_rotation_to_properties(tess_file=str(tess))
 
-        g1 = builder.data[builder.ori_rotmat_id].to_numpy(dtype=float).reshape(-1, 3, 3)
+        # O11..O33 hold the active R' (crystal -> sample), R = g^T
+        r1 = builder.data[builder.ori_rotmat_id].to_numpy(dtype=float).reshape(-1, 3, 3)
         q = builder.rotate_matrix
+        r0 = np.transpose(g0, (0, 2, 1))
 
-        np.testing.assert_allclose(g1, g0 @ q.T, atol=1e-7)
+        np.testing.assert_allclose(r1, q @ r0, atol=1e-7)
 
         # The physical statement: every crystal direction lands where the frame
-        # change sends it. R = g^T maps crystal to sample.
+        # change sends it. R maps crystal to sample.
         crystal_dir = np.array([1.0, 1.0, 0.0]) / np.sqrt(2.0)
-        moved = np.einsum("nij,j->ni", np.transpose(g1, (0, 2, 1)), crystal_dir)
-        expected = np.einsum(
-            "ij,njk,k->ni", q, np.transpose(g0, (0, 2, 1)), crystal_dir
-        )
+        moved = np.einsum("nij,j->ni", r1, crystal_dir)
+        expected = np.einsum("ij,njk,k->ni", q, r0, crystal_dir)
         np.testing.assert_allclose(moved, expected, atol=1e-7)
+
+    @pytest.mark.parametrize(
+        "descriptor", ["rotmat", "rotmat:passive", "rotmat:active"]
+    )
+    def test_tess_is_written_back_in_its_own_descriptor(self, tmp_path, descriptor):
+        data = _grain_table()
+        builder = _builder(tmp_path, data)
+        builder.rotate()
+
+        r0 = _rotations(len(data))
+        stored = r0 if descriptor == "rotmat:active" else np.transpose(r0, (0, 2, 1))
+        tess = tmp_path / "reconstruction.tess"
+        _write_tess(tess, stored, descriptor)
+        builder.apply_rotation_to_properties(tess_file=str(tess))
+
+        q = builder.rotate_matrix
+        r1 = builder.data[builder.ori_rotmat_id].to_numpy(dtype=float).reshape(-1, 3, 3)
+        np.testing.assert_allclose(r1, q @ r0, atol=1e-7)
+        lines = tess.read_text(encoding="utf-8").splitlines()
+        assert lines[2].strip() == descriptor
+        back = np.array(
+            [list(map(float, ln.split())) for ln in lines[3 : 3 + len(data)]]
+        ).reshape(-1, 3, 3)
+        want = r1 if descriptor == "rotmat:active" else np.transpose(r1, (0, 2, 1))
+        np.testing.assert_allclose(back, want, atol=1e-7)
+
+    def test_unknown_descriptor_is_refused(self, tmp_path):
+        data = _grain_table()
+        builder = _builder(tmp_path, data)
+        builder.rotate()
+        tess = tmp_path / "reconstruction.tess"
+        _write_tess(tess, _rotations(len(data)), "quaternion:active")
+        with pytest.raises(ValueError, match="rotmat"):
+            builder.apply_rotation_to_properties(tess_file=str(tess))
 
     def test_crystal_side_update_is_not_what_is_applied(self, tmp_path):
         """Guards the regression: ``Q g`` must not reappear."""
@@ -201,8 +236,10 @@ class TestOrientationsAreUpdatedOnTheSampleSide:
         _write_tess(tess, g0)
         builder.apply_rotation_to_properties(tess_file=str(tess))
 
-        g1 = builder.data[builder.ori_rotmat_id].to_numpy(dtype=float).reshape(-1, 3, 3)
-        assert not np.allclose(g1, builder.rotate_matrix @ g0, atol=1e-6)
+        r1 = builder.data[builder.ori_rotmat_id].to_numpy(dtype=float).reshape(-1, 3, 3)
+        r0 = np.transpose(g0, (0, 2, 1))
+        # the crystal-side update R Q^T (== legacy Q g, transposed)
+        assert not np.allclose(r1, r0 @ builder.rotate_matrix.T, atol=1e-6)
 
     def test_strains_are_rotated_as_second_order_tensors(self, tmp_path):
         data = _grain_table()
