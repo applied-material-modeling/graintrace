@@ -7,7 +7,10 @@ Calibration of the six crystal-plasticity parameters (elastic :math:`E`, :math:`
 :math:`\nu`; slip strength; Voce hardening slope and saturation) to a measured macroscopic
 stress-strain curve and, optionally, full-field per-grain elastic strains. The stage is driven
 by :class:`~graintrace.MaterialCalibration`, which wraps a :class:`~graintrace.TaylorModel`
-forward model (NEML2 v3 + pyzag) and runs LBFGS with analytic-adjoint gradients.
+forward model (NEML2 v3 + pyzag) and runs LBFGS with analytic-adjoint gradients. The crystal
+slip is set with ``TaylorModel(slip_systems=...)`` (``model_args``): the default deck is FCC
+:math:`\langle 110\rangle\{111\}`; use a ``"bcc*"`` preset or explicit families
+(:mod:`graintrace.slip_systems`) for other cubic metals, and the same value for the CPFE run.
 
 Method
 ------

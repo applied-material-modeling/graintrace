@@ -46,7 +46,7 @@ returns `needs_input`. See the `experiment_metadata` recipe.
 | `unit` | `deg` or `rad` | **Must match the actual Euler units in the CSV.** Detect: any value > 2π ⇒ degrees. |
 | `strain_unit` | `microstrain` | `eKen*` columns are typically microstrain; use `strain` if already dimensionless. |
 | `generate_mesh` | `false` | Keep `false`. GMSH `.msh` tets are a **last resort**; the recommended CPFE mesh is SCULPT hex: `generate_mesh=false` here, then `voxel_mesh` on `reconstruction_reformatted.csv` (see the `meshing` recipe). Only use `generate_mesh=true` if CUBIT/SCULPT is unavailable. |
-| `weighted` | `false` | Laguerre weighting is effectively inactive (weights are normalised to sum 1 against um coordinates); use `option=centroidsize` to honor grain size. |
+| `weighted` | `false` | Laguerre (power) tessellation with seed weight `GrainRadius**2` on the `voronoi` path; `option=centroidsize` is the alternative that fits cell sizes. |
 
 ## Sample tilt correction
 If the sample was tilted, leave `auto_rotate=false` and set

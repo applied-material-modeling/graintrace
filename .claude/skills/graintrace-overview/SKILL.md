@@ -57,4 +57,5 @@ the neml2 `orientation`). Euler is the standard Bunge triplet. Crystal symmetry 
 the right (R S), a sample rotation on the left (Q R). Convert via
 `graintrace.orientation_helper` (`euler_to_mrp`, `load_orientations_mrp`); it delegates to
 neml2; do not hand-roll. graintrace <= 0.2 wrote the passive g = R^T (inverted MRP/O
-files): `legacy_mrp_to_mrp` converts old MRP. NEPER 4.x or 7.x; `morphoalgo="subplex"`.
+files): `legacy_mrp_to_mrp` converts old MRP. NEPER 7.x required; `morphoalgo="subplex"`. Slip
+systems: `slip_systems=` on CPFE + Taylor (presets or explicit cubic families).

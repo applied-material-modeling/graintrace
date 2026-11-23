@@ -81,7 +81,7 @@ What the API does:
 3. Derives `-n from_morpho` automatically when the morpho string carries a size
    scale (`diameq:...`); otherwise pass `n=<int>` explicitly.
 
-## Known limitations (NEPER 4.10.2-45)
+## Known limitations (verified on NEPER 4.10.2-45; not re-checked on 7.0.0)
 
 - **Lamellar takes a single scalar width only.** `lamellar(w=<distribution>)`
   inline SIGABRTs; `lamellar(w=file(...))` reads per-grain-id values from file.

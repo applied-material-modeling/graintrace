@@ -47,6 +47,17 @@ slip, and how the grain hardens are all decided by orientation. Everything the r
 contributes to the simulation enters through :eq:`cpfe-resolved-shear`, and every orientation
 convention error in the pipeline shows up here as a grain deforming the wrong way.
 
+The set of systems comes from NEML2's ``CubicCrystal``, which expands each slip *family*
+(a Miller direction and a plane normal) over the cubic point group and keeps the
+perpendicular pairs. graintrace selects the families with ``slip_systems`` on
+:class:`~graintrace.run_cpfe_simulation.CPFESimulation` (and on
+:class:`~graintrace.taylor.TaylorModel` for calibration): the default ``"fcc"`` is
+:math:`\langle 110\rangle\{111\}` (12 systems), ``"bcc"`` is
+:math:`\langle 111\rangle\{110\}` (12), and ``"bcc_110_112"`` / ``"bcc_110_112_123"``
+add the :math:`\{112\}` and :math:`\{123\}` families (24 / 48), or pass explicit
+``(direction, plane)`` families (:mod:`graintrace.slip_systems`). Only cubic crystals are
+supported.
+
 Flow rule
 ~~~~~~~~~
 The shear rate on system :math:`\alpha` follows a power law

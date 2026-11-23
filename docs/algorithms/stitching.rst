@@ -277,7 +277,8 @@ Parameters that matter
 - ``overlap_fraction`` (passed to ``run``): sets the overlap band geometry; ``0`` uses the
   non-overlap slab path instead.
 - ``refine_extents`` / ``tess_weighted``: opt-in true tessellation :math:`z`-extents for region
-  classification (helps elongated grains; needs NEPER and is slower).
+  classification (helps elongated grains; needs NEPER and is slower). ``tess_weighted``
+  (default ``True``) uses Laguerre weights ``GrainRadius**2``.
 
 See :doc:`/configuration` for the full knob reference.
 

@@ -10,7 +10,7 @@ description: >
 # Experiment rotation (register FF data to sim frame)
 
 Uses `graintrace.experiment_rotation_helper`. Env: `conda activate moose-src`.
-External tool: **NEPER** 4.x or 7.x (a Voronoi build per file applies the rotation).
+External tool: **NEPER** 7.x (a Voronoi build per file applies the rotation).
 
 ## Inputs
 A folder of numeric-named per-stress-level FF CSVs (`0.csv, 50.csv, ...`) each with

@@ -120,7 +120,7 @@ re-tessellates the accumulator + next scan at each fold step (needs NEPER; slowe
 stitcher = RegionBaseStitching(
     ...,
     refine_extents=True,      # default False -> spherical z ± GrainRadius (unchanged)
-    tess_weighted=True,       # Laguerre weight = effective grain volume (4/3)πr³; False = plain Voronoi
+    tess_weighted=True,       # Laguerre weight = GrainRadius**2 (NEPER 7 power weight, §10); False = plain Voronoi
     update_centroid=False,    # True -> replace X,Y,Z with the cell volume-centroid (degrades equiaxed matching; experimental)
     tess_dir=None,            # scratch dir for NEPER I/O (temp dir per call if None)
     neper_env=None,           # defaults to scan_tessellation.default_neper_env, which resolves a user-installed NEPER (NEPER env var -> tools.json -> PATH)
@@ -233,6 +233,7 @@ sim = CPFESimulation(
     moose_run_file="/path/to/puma-opt",   # your built PUMA binary; resolved from deploy/tools.json
                                           # ("puma_opt" key) when omitted via the MCP layer
     use_ff_initial_field=True,       # True when mesh and ee file are co-registered FF
+    slip_systems="fcc",              # default; "bcc", "bcc_110_112", ... or [((1,1,1),(1,1,0)), ...] (§10)
 )
 # eeres_file=None -> a 12-col zero zero_initial_strain.ee is written (no residual strain).
 
@@ -897,6 +898,7 @@ calib = MaterialCalibration(
         nchunk=2,            # pyzag chunk size for the bidiagonal-in-time solve
         device="cuda",       # or "cpu"; cuda works (model moved via nsys.to(device))
         compile=False,
+        # slip_systems="bcc",  # same value as CPFESimulation(slip_systems=...) (§10)
     ),
     data_args=dict(
         data_dir="mwe_data/ff_calibration",                       # per-stress-level CSVs
@@ -1159,19 +1161,35 @@ NEPER's default convention is passive (`rotmat` = g = Rᵀ). graintrace passes E
 to R (NEPER parameterises quaternion/Rodrigues/axis-angle relative to its PASSIVE matrix, so
 their textbook matrix is R for `:passive`, Rᵀ for `:active`; pinned by NEPER 7.0.0 + 4.10.2 files
 in `tests/data/neper_descriptors/`); `apply_rotation_to_properties` writes the `.tess` back in its
-own descriptor. Both NEPER versions accept every suffix (no version gate).
+own descriptor.
 
-### NEPER 7: `morphoalgo="subplex"`; 4.x truncates `-o` at the first `.`
-NEPER 7.0.0 rejects `-morphooptialgo praxis` (and neldermead/cobyla/newuoa/bobyqa); only
-`subplex` (the default now) and `lloyd` work on both 4.x and 7.x. A rejection is raised as a
-`ValueError` (`_raise_on_neper_failure`). The tet-mesh fallback (`generate_mesh=True`) works on
-both. NEPER 4.x truncates `-o` paths at the first `.` (dotted dirs like `~/.claude_tmp` break it;
-v7 does not). `neper_env.neper_version()`; the doctor reports `found: … (NEPER 7.0.0)`.
+### graintrace requires NEPER 7.x (`neper_env.require_neper_version`)
+Every NEPER resolve (`resolve_neper_env`, stitching's `default_neper_env`) checks the version and
+raises on anything but 7.x; the doctor reports it. NEPER 4.x reads `weight:` as a radius, uses the
+opposite `hspace` sense in `-transform cut(...)` (and deletes cut cells, where 7.x keeps them as
+vol-0 entries), and truncates `-o` at the first `.`, so it is not supported. NEPER 7 rejects
+`-morphooptialgo praxis`; the default is `subplex` (`lloyd` also works), a rejection is a
+`ValueError` (`_raise_on_neper_failure`). The tet-mesh fallback (`generate_mesh=True`) works.
+HEDM z-scans: `CrystalGenerator.crop_tessellation` uses `zslab_cut_arg` (7.x sense), raises if a
+crop leaves no volume, and `write_to_csv` drops zero-volume cells (before this fix every v7 scan was
+empty → all-zero radii → NaN merges). `scan_tessellation.compute_cell_geometry` raises on an empty cell.
 
-### Weighted (Laguerre) FF tessellation is effectively unweighted (documented, not fixed)
-`weighted=True` writes `(4/3)πr³` weights normalised to sum 1 while seeds are in µm; a Laguerre
-weight enters as a squared length (NEPER 7: w = r²), so the weights are negligible. Open item;
-use `option="centroidsize"` for size-aware cells.
+### Laguerre weights are `GrainRadius**2` (`neper_env.laguerre_weights`)
+`VoronoiMeshBuilder(weighted=True, option="voronoi")` and `RegionBaseStitching(tess_weighted=True)`
+(default, used when `refine_extents=True`) write `w = r**2` in the coordinates' units, unnormalised
+(NEPER 7 power weight: boundary between seeds D apart moves by (r_i² − r_j²)/(2D)). Pre-0.3 graintrace
+wrote `(4/3)πr³` normalised to sum 1 → negligible → "weighted" was effectively unweighted; weighted
+results change when rerun.
+
+### Slip systems are an option, not hard-coded FCC (`graintrace.slip_systems`)
+`CPFESimulation(slip_systems=...)` and `TaylorModel(slip_systems=...)` (→ `MaterialCalibration`
+`model_args`, MCP `run_cpfe`/`calibrate_material` `slip_systems=`) rewrite the two `# @SLIP` lines of
+`neml2_cpfe.i` / `neml2_cpfe_calibration.i`. Presets: `"fcc"` (default, `<110>{111}`, 12), `"bcc"`
+(`<111>{110}`, 12), `"bcc_112"` (12), `"bcc_110_112"` (24), `"bcc_110_112_123"` (48); or explicit cubic
+families `[((1,1,1),(1,1,0)), ...]` / `[{"direction": [...], "plane": [...]}]`, validated (some cubic
+variant of the direction must lie in the plane, as NEML2 requires). Cubic only: NEML2 v3 exposes
+`CubicCrystal` as its only crystal block. Use the SAME value for calibration and CPFE; Fe/BCC data
+calibrated or run with the old hard-coded FCC slip should be redone.
 
 ### IPF tracks are variant-consistent
 `plot_ipf_orientation_tracking` / `plot_ipf_fragmentation_tracking` project each track with
@@ -1228,8 +1246,14 @@ graintrace.doctor` (console script `graintrace-doctor`) runs the same probes tha
 the remedy. `--json` for a machine-readable report, `--require a,b` to exit 1 when a named
 dependency is absent. Probe names: `gpu`, `neper`, `puma-opt`, `cubit`, `neml2`, `neml2-aoti`,
 `pyzag`, `gmsh`, `torch_geometric`. It works on a bare `pip install graintrace`:
-`graintrace/mcp/__init__.py` imports FastMCP, so `graintrace/doctor.py` registers a stub for
-`graintrace.mcp` before loading `deps`, rather than importing the optional `mcp` extra.
+`graintrace/mcp/__init__.py` loads the server lazily (PEP 562 `__getattr__` for `mcp`), so `deps` /
+`tool_paths` import without the optional `mcp` extra (the demo relies on this too).
+
+### The MCP layer supports the `mcp` SDK 1.x and 2.x (`graintrace/mcp/_compat.py`)
+`mcp` 2.0 renamed `mcp.server.fastmcp.FastMCP` → `mcp.server.mcpserver.MCPServer` and moved HTTP
+host/port from `server.settings` to `run(host=, port=)`. Import the server class and `Image` from
+`graintrace.mcp._compat` (never `mcp.server.fastmcp` directly) and serve HTTP via
+`_compat.run_streamable_http`. Verified on 2.0.0: 29 tools register, HTTP `initialize` → 200.
 
 ### `CrystalGenerator` seed is random by default
 `CrystalGenerator(seed=None)` (the default) draws a fresh random seed on every instantiation and
@@ -1379,6 +1403,13 @@ positionally; none working is a `ValueError` instead of a wrong answer.
 ### NF gridding is unmasked by default
 `min_confidence=None` keeps air, surface and low-confidence boundary voxels as crystal; they
 percolate between grains. Set it on real data. No `Confidence` column -> warning.
+
+### SCULPT meshes are scaled-Jacobian checked (`nf.mesh.check_mesh_quality`)
+`VoxelMeshBuilder.mesh` / `NearFieldMeshBuilder.mesh` (SCULPT path, via `mesh_sculpt`) compute each
+hex's minimum corner scaled Jacobian, write `<mesh stem>_quality.json`, and raise `RuntimeError` on
+any inverted element (`quality_check="raise"` default; `"warn"`/`"off"`). Inverted hexes abort CPFE
+("negative Jacobian"). The bare `sculpt_options=()` produced 33 on the synthetic example; use a vetted
+config (`("-A","4","-df","1","-S","2","-CS","4")`) or `mesher="voxel"` (SJ = 1).
 
 ### SCULPT: `--void_mat` is 1-based, coordinates are voxel indices, block ids are sparse
 SCULPT ranks spn values 1-based (void = material 1, grain g = block g+1), so `mesh_sculpt` forces
@@ -1552,7 +1583,8 @@ graintrace/
   similarity_metric_library.py SimilarityMetricLibrary  : Built-in feature metrics (von_mises_stress/misorientation/nye_tensor_norm/abs_scalar_diff)
   rare_criteria_selection_library.py                 : select_highest_scalar, etc.
   material_calibration.py      MaterialCalibration   : Taylor model parameter fitting
-  taylor.py                    TaylorModel           : NEML2 Taylor model wrapper (simulate/forward: optional per-grain elastic-strain + MRP orientation histories)
+  taylor.py                    TaylorModel           : NEML2 Taylor model wrapper (simulate/forward: optional per-grain elastic-strain + MRP orientation histories; slip_systems=)
+  slip_systems.py              SlipSystems           : slip-family presets (fcc/bcc/...) or explicit cubic Miller families -> rewrites the decks' @SLIP lines
   experiment_rotation_helper.py                      : Rotate experiment CSVs
   hedm_stitching_techniques/
     region_base_stitching.py   RegionBaseStitching   : Multi-scan Z-stitching
@@ -1599,8 +1631,13 @@ standard graintrace env (graintrace pip-installed editable; neml2 v3.0.7 + pyzag
 | `grain-tracking` | grain graph matching across load steps | demonstrate_graintracking.py | mwe_data/synthetic_load_exp |
 | `reorientation-fragmentation` | one flow: IPF tracking → sim intragranular fragmentation (1×2 reorientation-vs-segmentation + annotated hex Exodus) → FF/NF/EBSD split detection → REI (grains that split the most) | demonstrate_reorientation_fragmentation.py | mwe_data/cpfe_ff_fragmentation (+ cpfe_hex_fragmentation mesh.e) + synthetic_split_{ff,nf,ebsd} |
 
+**Regenerate** the CPFE-derived sets (`out.csv` + `grid_out/`, `synthetic_load_exp/`,
+`cpfe_ff_fragmentation/`) with `examples/data_generation/make_cpfe_mwe.py {fragmentation,postprocess}`
+(NEML2 + puma-opt, GPU).
+
 **Shippable `mwe_data/` datasets:** `ff_calibration/` (calibration + FF recon), `cpfe_ff/`
-(10-grain `reconstruction.msh` + `orientations.dat`), `out.csv` + `grid_out/` (CPFE post-proc),
+(10-grain `reconstruction.msh` + `orientations.dat`), `out.csv` + `grid_out/` (CPFE post-proc;
+112 steps to 12% strain, 45 grains, `grid_out` steps 0000/0037/0074/0111),
 `cpfe_ff_fragmentation/` (real true-mesh tet `mesh_out` w/ `block_id`, 10 diverse grains — the
 reorientation-tracking + sim-fragmentation analysis + the 1×2 figure all run on this),
 `cpfe_hex_fragmentation/mesh.e` (a real SCULPT-**hex** mesh for the annotated-Exodus writer/test;
@@ -1608,11 +1645,16 @@ a full loaded per-step hex CPFE run must be regenerated on a GPU/compute node vi
 flow (§3/§5, SCULPT-hex path) — it did not complete on this login node),
 `synthetic_split_{ff,nf,ebsd}/` (synthetic mixed-multiplicity grain splits, 1→1/1→2/1→3 + ground
 truth; generated by the test helper `tests/synthetic_fragmentation.py`),
-`synthetic_load_exp/` (grain tracking; load-step FF CSVs), `synthetic_vms.csv` (REI seed,
+`ff_stitched_grains/` (150-grain real FF stitched table `stitched_output1.csv`, Eul/eFab/eKen;
+`ExperimentResults` tests), `synthetic_load_exp/` (grain tracking; load-step FF CSVs, Bunge Euler in **radians** + eKen in plain
+strain → `unit="rad", strain_unit="strain"`), `synthetic_vms.csv` (REI seed,
 tracked and read-only: the three REI examples each write their own
 `synthetic_vms_{2d,3d,pipeline}.csv` into `rei_2d_out/`, `rei_3d_out/`, `test_rei_pipeline/`
 instead of overwriting it, and read the seed back via `existing_csv` when
 `generate_synthetic=False`).
+
+**Tool paths in examples:** `examples/demonstrate_*.py` resolve `puma-opt` and `sculpt_config` with
+`graintrace.mcp.tool_paths` (tools.json) and fall back to the `/path/to/...` placeholders.
 
 **External-tool matrix:** NEPER → ff-reconstruction, nf/ff/hedm synthetic; CUBIT/`sculpt_config`
 → nf-reconstruction, voxel-segmentation-mesh, cpfe-nf-ff; MOOSE `puma-opt` + `neml2-compile` →

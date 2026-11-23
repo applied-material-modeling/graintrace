@@ -92,6 +92,8 @@ Install
 
    pip install "graintrace[mcp]"      # or: pip install -e ".[mcp]" from a checkout
 
+The server runs on the ``mcp`` Python SDK 1.x (``FastMCP``) and 2.x (``MCPServer``).
+
 The compiled stack is not on PyPI; build it separately (see :doc:`install`). The
 MCP server runs without it; tools that need a missing piece report so. Run it
 standalone to sanity-check:

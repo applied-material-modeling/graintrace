@@ -543,7 +543,9 @@ without external data.
    * - ``synthetic_split_{ff,nf,ebsd}/``
      - synthetic 1→1, 1→2 and 1→3 grain splits with ``ground_truth.json``
    * - ``synthetic_load_exp/``
-     - per-load-step FF grain tables with elastic strain, for grain tracking
+     - per-load-step FF grain tables with elastic strain (Bunge Euler in radians, plain strain), for grain tracking
+   * - ``ff_stitched_grains/``
+     - a 150-grain real FF stitched grain table (``stitched_output1.csv``: ``X, Y, Z, GrainRadius, Eul0..2, eFab*, eKen*, ScanID``), for ``ExperimentResults``
    * - ``synthetic_vms.csv``
      - a stress point cloud (``id, x, y, z, sxx, syy, szz, sxy, sxz, syz``), the REI seed dataset
 

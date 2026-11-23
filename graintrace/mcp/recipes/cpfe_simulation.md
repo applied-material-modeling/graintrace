@@ -35,6 +35,10 @@ background job.
   MRP files written by graintrace <= 0.2 are inverted: convert with
   `orientation_helper.legacy_mrp_to_mrp` (and rerun old CPFE, do not negate results).
 - `moose_run_file`: path to your built `puma-opt`.
+- `slip_systems`: crystal slip baked into the model. `"fcc"` (default, `<110>{111}`),
+  `"bcc"` (`<111>{110}`), `"bcc_112"`, `"bcc_110_112"`, `"bcc_110_112_123"`, or explicit
+  cubic families `[{"direction": [1,1,1], "plane": [1,2,3]}]`. Use the value the
+  material was calibrated with (`calibrate_material(slip_systems=...)`).
 
 **Must-ask (loading + sample dimensions are NOT in the mesh):** provide
 `bounding_box` + `total_strain` (+ `loaded_axis`), or a `sample_json`, and

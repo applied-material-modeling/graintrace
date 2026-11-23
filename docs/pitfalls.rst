@@ -95,26 +95,28 @@ file. If you hand graintrace a NEPER matrix yourself, check its descriptor line.
 NEPER parameterises quaternion / Rodrigues / axis-angle relative to its passive
 matrix, so their textbook matrix is ``R`` for ``:passive``.
 
-NEPER 7: use ``morphoalgo="subplex"`` (or ``"lloyd"``)
-------------------------------------------------------
+graintrace requires NEPER 7
+---------------------------
 
-NEPER 7.0.0 rejects ``-morphooptialgo praxis`` (graintrace's old default) and
-the other NLopt names; ``build_voronoi`` now defaults to ``"subplex"`` and turns
-the rejection into a ``ValueError``. NEPER 4.10.x accepts both. Separately,
-NEPER 4.x truncates an ``-o`` path at its first ``.``; keep NEPER output
-directories free of dots (``~/.something/...`` breaks it), NEPER 7 does not have
-the problem.
+graintrace builds its NEPER command lines for NEPER 7.x and refuses any other
+major version (``neper_env.require_neper_version``, called whenever NEPER is
+resolved). NEPER 4.x differs in ways that silently give wrong geometry: it reads
+``weight:`` as a radius rather than a power weight, it uses the opposite sense
+for ``hspace`` inside ``-transform cut(...)`` and deletes cut-away cells where 7.x
+keeps them as empty entries, and it truncates ``-o`` paths at the first ``.``.
+NEPER 7 rejects ``-morphooptialgo praxis`` (graintrace's old default); the default
+is now ``"subplex"`` (``"lloyd"`` also works) and a rejection is a ``ValueError``.
 
-Weighted (Laguerre) FF tessellation is effectively unweighted
--------------------------------------------------------------
+Laguerre weights are the squared radius
+---------------------------------------
 
-``VoronoiMeshBuilder(weighted=True)`` writes per-grain weights
-``(4/3) pi r^3`` normalised to sum to 1, while the seed coordinates are in
-micrometres. A Laguerre weight enters the power distance as a squared length
-(NEPER 7: ``w = r^2``), so weights of order ``1/N`` are negligible against
-micrometre-squared distances and have no visible effect on the cells.
-This is unchanged (documented, not fixed); use ``option="centroidsize"`` when
-grain size should shape the cells.
+``VoronoiMeshBuilder(weighted=True)`` and the stitching refinement
+``RegionBaseStitching(refine_extents=True, tess_weighted=True)`` (the default
+``tess_weighted``) write the seed weight ``GrainRadius**2`` in the coordinates'
+length unit (``neper_env.laguerre_weights``). Before graintrace 0.3 they wrote
+``(4/3) pi r^3`` normalised to sum to 1, which is negligible against micrometre
+distances, so "weighted" runs were effectively unweighted; weighted results made
+with older versions change when rerun.
 
 orientation_tolerance units must match ori_units
 ------------------------------------------------

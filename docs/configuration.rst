@@ -207,8 +207,8 @@ MRP of :math:`R`; see :ref:`notation-rotation-convention`.
        ``":active"`` Euler or a non-Euler descriptor raises ``ValueError``.
    * - ``build_voronoi(morphoalgo=)`` / ``build_graph(morphoalgo=)``
      - ``"subplex"``
-     - NEPER ``-morphooptialgo``. ``"subplex"`` / ``"lloyd"`` work on NEPER 4.x and 7.x;
-       NEPER 7 rejects ``"praxis"`` (raised as ``ValueError``).
+     - NEPER ``-morphooptialgo``: ``"subplex"`` or ``"lloyd"``; NEPER 7 rejects
+       ``"praxis"`` (raised as ``ValueError``).
    * - ``neper_env.ROTMAT_DESCRIPTOR``
      - ``"rotmat:active"``
      - descriptor graintrace requests for NEPER matrix output (``.tess``, ``.ori``).
@@ -220,6 +220,22 @@ MRP of :math:`R`; see :ref:`notation-rotation-convention`.
      - --
      - variant-consistent IPF points for one track (one sector operator for all steps); used
        by the IPF tracking plots.
+   * - ``TaylorModel.simulate(..., return_orientation=)`` / ``UniaxialTaylorModel.forward(..., return_orientation=)``
+     - ``False``
+     - also return per-grain neml2-MRP orientation histories ``(ntime, n_grains, 3)``
+       (appended after stress and the optional elastic strain).
+   * - ``CPFESimulation(slip_systems=)`` / ``TaylorModel(slip_systems=)``
+     - ``"fcc"`` (CPFE) / deck as written (Taylor)
+     - crystal slip baked into the NEML2 deck: a preset (``"fcc"``, ``"bcc"``, ``"bcc_112"``,
+       ``"bcc_110_112"``, ``"bcc_110_112_123"``), a ``SlipSystems``, or explicit cubic
+       ``(direction, plane)`` Miller families. Use the same value for calibration and CPFE.
+   * - ``VoronoiMeshBuilder(weighted=)`` / ``RegionBaseStitching(tess_weighted=)``
+     - ``False`` / ``True``
+     - Laguerre tessellation with seed weight ``GrainRadius**2`` (NEPER 7 power weight).
+   * - ``VoxelMeshBuilder.mesh(quality_check=)`` / ``NearFieldMeshBuilder.mesh(quality_check=)``
+     - ``"raise"``
+     - SCULPT path: per-hex minimum scaled Jacobian after meshing (``<mesh>_quality.json``);
+       ``"raise"`` on inverted elements, ``"warn"``, or ``"off"``.
    * - ``orientation_helper.legacy_mrp_to_mrp(p)``
      - --
      - converts an MRP written by graintrace 0.2 and earlier (``-p``).
