@@ -62,7 +62,8 @@ builder_ff1 = VoronoiMeshBuilder(
     angle_identifier=["Eul0", "Eul1", "Eul2"],
     orientation_descriptor="euler-bunge",
     elastic_strain_identifier=elastic_strain_identifier,
-    strain_unit="microstrain",
+    unit="rad",  # synthetic_load_exp: Bunge Euler in radians
+    strain_unit="strain",  # eKen in plain strain (not microstrain)
 )
 
 grapha = builder_ff1.build_graph(CVT_iter=10)
@@ -78,7 +79,8 @@ builder_ff2 = VoronoiMeshBuilder(
     angle_identifier=["Eul0", "Eul1", "Eul2"],
     orientation_descriptor="euler-bunge",
     elastic_strain_identifier=elastic_strain_identifier,
-    strain_unit="microstrain",
+    unit="rad",  # synthetic_load_exp: Bunge Euler in radians
+    strain_unit="strain",  # eKen in plain strain (not microstrain)
 )
 
 graphb = builder_ff2.build_graph(CVT_iter=10)

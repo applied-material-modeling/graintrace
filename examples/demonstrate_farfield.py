@@ -22,6 +22,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+from graintrace.mcp import tool_paths  # tools.json lookup (works without the mcp SDK)
 from graintrace.construct_voronoi_mesh import VoronoiMeshBuilder
 from graintrace.run_cpfe_simulation import CPFESimulation
 from graintrace.tess_to_gnn import NeperTessToGraphNN
@@ -289,7 +290,11 @@ if run_cpfe:
         eeres_file=outputdir + "/voronoi.ee",
         ori_file=outputdir + "/voronoi.ori",
         dim=3,
-        moose_run_file="external/puma/puma-opt",  # EDIT: your built PUMA binary
+        # Tool paths come from tools.json ($GRAINTRACE_TOOLS_JSON, ./graintrace_tools.json or
+        # ~/.config/graintrace/tools.json; see graintrace/mcp/tools.example.json); EDIT the fallback otherwise.
+        moose_run_file=tool_paths.puma_opt()
+        or "external/puma/puma-opt",  # EDIT: your built PUMA binary
+        slip_systems="fcc",  # crystal slip: "fcc" | "bcc" | "bcc_110_112" | ... or [((1,1,1),(1,1,0))]
     )
 
     sim.set_parameters("material", **optimized_material)

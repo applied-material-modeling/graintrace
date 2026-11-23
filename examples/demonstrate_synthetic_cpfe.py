@@ -43,6 +43,7 @@ raster Euler field (see the commented segmentation_prop block below).
 
 import os
 
+from graintrace.mcp import tool_paths  # tools.json lookup (works without the mcp SDK)
 from graintrace.generate_random_crystal import CrystalGenerator
 from graintrace.construct_voronoi_mesh import VoronoiMeshBuilder
 from graintrace.construct_voxel_mesh import VoxelMeshBuilder
@@ -55,13 +56,19 @@ def main():
     grains = 100
     z_aspect = 1.0
 
-    tesr_res = [100, 100, 100]
-    ncore = 10
+    # 50^3 voxels -> ~0.3M SCULPT adapt4 hexes; 100^3 gives ~1.7M, too big for one 24 GB GPU.
+    tesr_res = [50, 50, 50]
+    ncore = 10  # SCULPT MPI ranks
+    # CPFE MPI ranks: each rank holds its own CUDA context + NEML2 model (~2 GB) on the
+    # GPU, so keep this small (about the number of GPUs) or the card runs out of memory.
+    cpfe_ncore = 2
 
     output_dir = "uniform"
     bounding_box = [0, box, 0, box, 0, box]
 
-    sculpt_config = {
+    # Tool paths come from tools.json ($GRAINTRACE_TOOLS_JSON, ./graintrace_tools.json or
+    # ~/.config/graintrace/tools.json; see graintrace/mcp/tools.example.json); EDIT the fallback otherwise.
+    sculpt_config = tool_paths.sculpt_config() or {
         "launcher": "/path/to/cubit/bin/mpi/bin/mpiexec",
         "psculpt": "/path/to/cubit/bin/psculpt",
         "epu": "/path/to/cubit/bin/epu",
@@ -71,7 +78,10 @@ def main():
             "OPAL_PREFIX": "/path/to/cubit/bin/mpi",
         },
     }
-    sculpt_options = ()  # no --void_mat: mesh_sculpt sets it (SCULPT numbers spn values 1-based)
+    # Vetted "adapt4" config (see /meshing): positive scaled Jacobian, >=98% grains kept.
+    # The bare default () leaves inverted hexes that abort the CPFE solve.
+    # No --void_mat: mesh_sculpt sets it (SCULPT numbers spn values 1-based).
+    sculpt_options = ("-A", "4", "-df", "1", "-S", "2", "-CS", "4")
 
     ## 1. Generate the tessellation
     cg = CrystalGenerator(
@@ -175,7 +185,7 @@ def main():
     )  # pylint: disable=import-outside-toplevel
 
     # EDIT: path to your built PUMA binary (e.g. external/puma/puma-opt).
-    moose_run_file = "external/puma/puma-opt"
+    moose_run_file = tool_paths.puma_opt() or "external/puma/puma-opt"
     device = "cuda:0" if torch.cuda.is_available() else "cpu"  # GPU if present
 
     total_strain = 0.002  # applied axial (z) engineering strain
@@ -190,6 +200,7 @@ def main():
         ori_file=ori_csv,  # already MRP from the mesh step (no conversion needed)
         dim=3,
         use_ff_initial_field=False,  # voxel mesh, not co-registered FF strain
+        slip_systems="fcc",  # crystal slip: "fcc" | "bcc" | "bcc_110_112" | ... or [((1,1,1),(1,1,0))]
     )
 
     sim.set_parameters(
@@ -235,8 +246,9 @@ def main():
     )
 
     # Bakes material params -> neml2-compile -> AOTI package -> launches puma-opt.
-    sim.run(ncore=ncore)
-    print(f"Simulation complete: {sim.save_simulation_folder}")
+    sim.run(ncore=cpfe_ncore)
+    # run() launches puma-opt in the background and returns; follow the log.
+    print(f"CPFE launched; follow {sim.save_simulation_folder}/cpfe_run.log")
 
 
 if __name__ == "__main__":
