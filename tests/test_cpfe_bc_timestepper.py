@@ -200,7 +200,7 @@ def test_run_passes_growth_factor_to_puma(tmp_path, monkeypatch, value, arg):
 
 def _mcp_preview(tmp_path, **kw):
     """Preview (confirm=False) the MCP run_cpfe tool; skips without the mcp extra."""
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("graintrace.mcp._compat")  # mcp SDK 1.x or 2.x
     from graintrace.mcp.tools import (  # pylint: disable=import-outside-toplevel
         simulation,
     )

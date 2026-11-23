@@ -67,7 +67,7 @@ def test_json_output_is_parseable():
 def test_runs_without_the_mcp_extra_imported():
     """The probes must work on a bare install, where ``mcp`` is not available.
 
-    ``graintrace.mcp.__init__`` imports FastMCP, so a subprocess that blocks the
+    ``graintrace.mcp`` loads the server lazily, so a subprocess that blocks the
     ``mcp`` package stands in for an install without the optional extra.
     """
     code = (

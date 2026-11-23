@@ -288,7 +288,9 @@ def postprocess(
     info = {"status": "done", **result, "png_files": pngs}
     try:
         # Optional client feature; imported lazily so absence degrades gracefully.
-        from mcp.server.fastmcp import Image  # pylint: disable=import-outside-toplevel
+        from graintrace.mcp._compat import (  # pylint: disable=import-outside-toplevel
+            Image,
+        )
 
         return [Image(path=p) for p in pngs] + [json.dumps(info)]
     # Best-effort: fall back to plain metadata if inline images are unsupported.
