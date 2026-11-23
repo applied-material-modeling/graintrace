@@ -38,6 +38,9 @@
   histories.
 - `IPFProcessor.get_ipf_track_points`: variant-consistent IPF trajectories (tracks no
   longer jump across the fundamental-sector edges).
+- `RegionBaseStitching(z_uncertainty=None | "auto" | um)` (and the MCP `stitch_scans`
+  param): floor on the grain z half-extent for region classification, so coarse-Z FF grains
+  are not dropped as "outside" the overlap. Default keeps the old behaviour.
 - `nf.mesh.hex_scaled_jacobian` / `nf.mesh.check_mesh_quality`.
 - The MCP server runs on the `mcp` SDK 1.x (`FastMCP`) and 2.x (`MCPServer`);
   `graintrace.mcp` loads the server lazily, so `tool_paths` / `deps` import without the

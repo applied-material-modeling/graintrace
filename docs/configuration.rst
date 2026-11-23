@@ -232,6 +232,11 @@ MRP of :math:`R`; see :ref:`notation-rotation-convention`.
    * - ``VoronoiMeshBuilder(weighted=)`` / ``RegionBaseStitching(tess_weighted=)``
      - ``False`` / ``True``
      - Laguerre tessellation with seed weight ``GrainRadius**2`` (NEPER 7 power weight).
+   * - ``RegionBaseStitching(z_uncertainty=)``
+     - ``None``
+     - floor (um) on the grain :math:`z` half-extent for region classification;
+       ``"auto"`` = half the scan height (FF box-beam :math:`z` uncertainty). Ignored with
+       ``refine_extents=True``.
    * - ``VoxelMeshBuilder.mesh(quality_check=)`` / ``NearFieldMeshBuilder.mesh(quality_check=)``
      - ``"raise"``
      - SCULPT path: per-hex minimum scaled Jacobian after meshing (``<mesh>_quality.json``);

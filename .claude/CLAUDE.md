@@ -127,6 +127,10 @@ stitcher = RegionBaseStitching(
     xy_bounding_box=None,     # [xlo,xhi,ylo,yhi]; inferred from data (+2% pad) if None
 )
 ```
+`z_uncertainty` (spherical path, any overlap): floor on the region half-extent,
+`max(GrainRadius, z_uncertainty)`. `None` (default) = legacy; `"auto"` = half the scan height
+(≈ FF box-beam Z uncertainty, so coarse-Z grains are not mislabelled "outside" and dropped);
+a float in µm. Ignored when `refine_extents=True`.
 Helper: `graintrace/hedm_stitching_techniques/scan_tessellation.py::compute_cell_geometry`
 (runs `neper -T ... -morphooptistop iter=0` at the measured centroids (no CVT relaxation) and
 parses per-cell `Zmin/Zmax` + volume centroid). Note: on ~equiaxed grains the space-filling

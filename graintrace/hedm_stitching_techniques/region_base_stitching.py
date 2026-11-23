@@ -42,7 +42,15 @@ from .scan_tessellation import compute_cell_geometry, default_neper_env
 
 
 class RegionBaseStitching:
-    """Iteratively stitch overlapping HEDM scan layers into one grain set."""
+    """Iteratively stitch overlapping HEDM scan layers into one grain set.
+
+    ``z_uncertainty`` sets a floor (um) on the grain z half-extent used to
+    classify grains into overlap regions: ``None``/``0`` keeps the legacy
+    ``Z +/- GrainRadius``; ``"auto"`` uses half the scan (beam) height, about the
+    FF box-beam Z uncertainty, so coarse-Z grains are not mislabelled as outside
+    the overlap and dropped; a non-negative float sets it explicitly. It has no
+    effect with ``refine_extents=True`` (the tessellation extent is used then).
+    """
 
     def __init__(
         self,
@@ -63,6 +71,7 @@ class RegionBaseStitching:
         tess_dir: Optional[str] = None,
         neper_env: Optional[Dict[str, str]] = None,
         xy_bounding_box: Optional[List[float]] = None,
+        z_uncertainty: object = None,
     ):
         self.scan_files = scan_files
         self.output_csv = output_csv
@@ -80,6 +89,12 @@ class RegionBaseStitching:
         self.tess_dir = tess_dir
         self.neper_env = neper_env
         self.xy_bounding_box = xy_bounding_box
+        # Region-classification z half-extent floor (um). None/0 -> legacy
+        # z +/- GrainRadius. "auto" -> z_scan_height/2 (~FF box-beam Z uncertainty),
+        # which stops the region test from mislabeling coarse-Z grains as "outside"
+        # the overlap and dropping them. A float sets it explicitly.
+        self.z_uncertainty = z_uncertainty
+        self._z_uncertainty_val = 0.0  # resolved in run()
         self._xy_bounds = None  # (xlo, xhi, ylo, yhi), set in run()
         self.global_zlo: Optional[float] = None  # set in run()
         self.global_zhi: Optional[float] = None  # set in run()
@@ -103,6 +118,22 @@ class RegionBaseStitching:
 
         self.scans: List[GrainSet] = []
         self.stitched: Optional[GrainSet] = None
+
+    def _resolve_z_uncertainty(self, z_scan_height: float) -> float:
+        """Resolve ``z_uncertainty`` (None | "auto" | float) to a half-extent floor in um."""
+        zu = self.z_uncertainty
+        if zu is None:
+            return 0.0
+        if isinstance(zu, str):
+            if zu.strip().lower() != "auto":
+                raise ValueError(
+                    f"z_uncertainty must be None, 'auto' or a non-negative number, got {zu!r}"
+                )
+            return 0.5 * float(z_scan_height)
+        val = float(zu)
+        if not np.isfinite(val) or val < 0:
+            raise ValueError(f"z_uncertainty must be finite and >= 0, got {zu!r}")
+        return val
 
     def run(self, zlo: float, zhi: float, overlap_fraction: float) -> GrainSet:
         """
@@ -156,6 +187,9 @@ class RegionBaseStitching:
 
         z_scan_height = H / denom
         z_step = z_scan_height * (1.0 - overlap_fraction)
+
+        # resolve the region z-extent floor: "auto" -> half the scan (beam) height
+        self._z_uncertainty_val = self._resolve_z_uncertainty(z_scan_height)
 
         if self.refine_extents:
             self._setup_tessellation()
@@ -298,6 +332,7 @@ class RegionBaseStitching:
             angle_type=self.angle_type,
             symmetry=self.symmetry,
             debug_log_csv=debug_log_csv,
+            z_uncertainty=self._z_uncertainty_val,
         )
 
         return stitcher.run()

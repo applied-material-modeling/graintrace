@@ -86,7 +86,10 @@ The tests are applied in the order ``LOW``, ``HIGH``, ``CROSS-BOTH``, ``BND-LOW`
 ``BND-HIGH``, so a grain taller than the band is ``CROSS-BOTH`` rather than either boundary
 class. The extent defaults to the equivalent-sphere approximation :math:`z \pm r`; with
 ``refine_extents=True`` it uses the true per-cell :math:`[z_{\min}, z_{\max}]` from a NEPER
-(Laguerre/Voronoi) tessellation of the pair.
+(Laguerre/Voronoi) tessellation of the pair. ``z_uncertainty`` floors the sphere half-extent at
+:math:`\max(r, \sigma_z)`: FF box-beam :math:`z` is much less certain than :math:`r`, so
+``z_uncertainty="auto"`` (:math:`\sigma_z` = half the scan height) keeps such grains from being
+classified outside the band and dropped.
 
 The region is what encodes the physics of the scan geometry: a grain clipped by the edge of a
 scan was only partially observed, so its centroid and radius are biased toward the scan
@@ -279,6 +282,8 @@ Parameters that matter
 - ``refine_extents`` / ``tess_weighted``: opt-in true tessellation :math:`z`-extents for region
   classification (helps elongated grains; needs NEPER and is slower). ``tess_weighted``
   (default ``True``) uses Laguerre weights ``GrainRadius**2``.
+- ``z_uncertainty``: ``None`` (legacy :math:`z \pm r`), ``"auto"`` (half the scan height) or a
+  value in um; floor on the region half-extent (sphere path only).
 
 See :doc:`/configuration` for the full knob reference.
 

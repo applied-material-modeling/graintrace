@@ -39,6 +39,7 @@ and `orientation_units`. Pass them directly or via a `sample_json`; otherwise
 | `radius_tolerance` | `-1` | `-1` disables the radius gate. Set a positive µm value to also gate on size. |
 | `weights` | `{"pos":0.1,"ori":1.0,"rad":0}` | Cost weighting for the match. `rad:0` drops radius from the cost. |
 | `min_neighbors` | `5` | Neighborhood size for region classification. |
+| `z_uncertainty` | `null` | Floor (µm) on the grain z half-extent for region classification. `"auto"` = half the scan height (≈ FF box-beam Z uncertainty): stops coarse-Z grains being labelled outside the overlap and dropped. `null` = legacy `z ± GrainRadius`. Ignored with `refine_extents`. |
 | `refine_extents` | `false` | `true` uses true per-cell `[zmin,zmax]` from a NEPER re-tessellation instead of `z ± GrainRadius`. Only helps elongated grains; slower; needs NEPER. Validate with the comparison tool before trusting on new data. |
 
 ## Units contract

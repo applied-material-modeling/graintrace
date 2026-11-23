@@ -251,6 +251,7 @@ class PairwiseStitcher:
         angle_convention: str = "bunge",
         angle_type: str = "degrees",
         symmetry: str = "432",
+        z_uncertainty: float = 0.0,
     ):
         # Copy the frames so region/debug columns are never written onto the
         # caller's GrainSets (A is the growing accumulator in RegionBaseStitching).
@@ -264,6 +265,14 @@ class PairwiseStitcher:
         self.radius_tolerance = radius_tolerance
         self.weights = weights
         self.min_neighbors = min_neighbors
+        # Floor on the grain z half-extent used for region classification. FF box-beam
+        # Z is far more uncertain than GrainRadius (~beam/2), so z +/- GrainRadius
+        # mislabels real grains as "entirely outside" the overlap and drops them.
+        self.z_uncertainty = float(z_uncertainty)
+        if not np.isfinite(self.z_uncertainty) or self.z_uncertainty < 0:
+            raise ValueError(
+                f"z_uncertainty must be finite and >= 0, got {z_uncertainty!r}"
+            )
 
         self.region_A = None
         self.region_B = None
@@ -319,7 +328,10 @@ class PairwiseStitcher:
                 )
             z = df["Z"].to_numpy(dtype=float)
             r = df["GrainRadius"].to_numpy(dtype=float)
-            return z - r - delta_p * r, z + r + delta_p * r
+            # half-extent = max(GrainRadius, FF Z uncertainty). With z_uncertainty=0
+            # this is the legacy z +/- GrainRadius behavior.
+            half = np.maximum(r, self.z_uncertainty)
+            return z - half - delta_p * half, z + half + delta_p * half
 
         zl_A, zh_A = _z_extent(self.A.df)
         zl_B, zh_B = _z_extent(self.B.df)
