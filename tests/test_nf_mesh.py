@@ -476,3 +476,55 @@ def test_real_sculpt_void_bordered_toy(monkeypatch, tmp_path):
     lo, hi = coords.min(0), coords.max(0)
     assert (np.abs(lo - [10.0, 10.0, -2.5]) <= tol).all(), lo
     assert (np.abs(hi - [66.0, 46.0, 47.5]) <= tol).all(), hi
+
+
+class TestMeshQuality:
+    """Post-SCULPT scaled-Jacobian check (``check_mesh_quality``)."""
+
+    def _cube_mesh(self, tmp_path, monkeypatch):
+        _stub_average_rotations(monkeypatch)
+        path = tmp_path / "voxel.e"
+        mesh.write_voxel_exodus(
+            _physical_grid(np.ones((3, 3, 2))), str(path), str(tmp_path / "ori")
+        )
+        return path
+
+    @staticmethod
+    def _invert_first_element(path):
+        import scipy.io as sio  # pylint: disable=import-outside-toplevel
+
+        with sio.netcdf_file(str(path), "a", mmap=False) as f:
+            key = sorted(k for k in f.variables if k.startswith("connect"))[0]
+            conn = f.variables[key][:].copy()
+            conn[0] = conn[0][[4, 5, 6, 7, 0, 1, 2, 3]]  # swap top/bottom faces
+            f.variables[key][:] = conn
+
+    def test_cubes_are_perfect(self, tmp_path, monkeypatch):
+        path = self._cube_mesh(tmp_path, monkeypatch)
+        sj = mesh.hex_scaled_jacobian(str(path))
+        assert sj.size == 18 and np.allclose(sj, 1.0)
+        rep = mesh.check_mesh_quality(str(path))
+        assert rep["n_inverted"] == 0 and rep["min"] == pytest.approx(1.0)
+        assert (tmp_path / "voxel_quality.json").exists()
+
+    def test_inverted_element_raises_or_warns(self, tmp_path, monkeypatch):
+        path = self._cube_mesh(tmp_path, monkeypatch)
+        self._invert_first_element(path)
+        assert mesh.hex_scaled_jacobian(str(path)).min() < 0
+        with pytest.raises(RuntimeError, match="inverted"):
+            mesh.check_mesh_quality(str(path))
+        with pytest.warns(UserWarning, match="inverted"):
+            rep = mesh.check_mesh_quality(str(path), on_inverted="warn")
+        assert rep["n_inverted"] == 1
+
+    def test_mesh_sculpt_rejects_bad_quality_option(self):
+        with pytest.raises(ValueError, match="quality_check"):
+            mesh.mesh_sculpt(
+                {},
+                (),
+                "x.spn",
+                np.zeros((1, 1, 1, 7)),
+                "m.e",
+                "o",
+                quality_check="maybe",
+            )

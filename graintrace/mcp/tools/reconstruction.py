@@ -357,6 +357,7 @@ def nf_reconstruct(
                 merged_grid=merged,
             )
             out["mesh"] = str(mesh)
+            out["mesh_quality"] = str(mesh)[: -len(".e")] + "_quality.json"  # SJ report
             out["orientations"] = str(builder.mapped_orientations_path) + ".csv"
         return out
 
@@ -446,6 +447,7 @@ def voxel_mesh(
                 merged_grid=merged,
             )
             out["mesh"] = str(mesh)
+            out["mesh_quality"] = str(mesh)[: -len(".e")] + "_quality.json"  # SJ report
         return out
 
     return gate(

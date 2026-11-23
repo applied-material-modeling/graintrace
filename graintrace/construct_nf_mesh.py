@@ -490,6 +490,7 @@ class NearFieldMeshBuilder:
         mesh_path: Optional[PathLike] = None,
         mapped_orientations_path: Optional[PathLike] = None,
         layer_spacing: Optional[float] = None,
+        quality_check: str = "raise",
     ) -> Path:
         """Generate an Exodus mesh via SCULPT from the merged voxel grid.
 
@@ -505,6 +506,7 @@ class NearFieldMeshBuilder:
             mesh_path: Override for the output Exodus mesh path; None uses the configured default.
             mapped_orientations_path: Override for the mapped per-element orientation output basename (".csv" is appended).
             layer_spacing: z voxel size of a single-layer grid; None uses the last reconstruct() dz.
+            quality_check: SCULPT path: after meshing, check each hex's scaled Jacobian (report in <mesh stem>_quality.json); "raise" (default) raises on inverted elements (they abort CPFE), "warn" only warns, "off" skips.
 
         Returns:
             Path to the written Exodus mesh.
@@ -567,6 +569,7 @@ class NearFieldMeshBuilder:
             symmetry=self.symmetry,
             layer_spacing=layer_spacing,
             source_labels=source_labels.cpu().numpy(),
+            quality_check=quality_check,
         )
 
         return mesh_out
