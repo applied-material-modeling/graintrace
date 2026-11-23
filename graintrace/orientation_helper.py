@@ -420,13 +420,19 @@ def average_orientation(
 
     Args:
         euler: (N, 3) Euler angles, or (3,) for a single orientation.
-        weights: (N,) non-negative weights (default: uniform).
+        weights: (N,) non-negative, finite weights (default: uniform). If they
+            sum to zero (e.g. two zero-radius grains), the mean falls back to
+            uniform weights instead of dividing by zero.
         convention: 'bunge', 'kocks', or 'roe'.
         angle_type: 'degrees' or 'radians'.
         symmetry: crystal symmetry in orbifold notation.
 
     Returns:
         (3,) averaged Euler angles in the given convention/units.
+
+    Raises:
+        ValueError: if ``weights`` has the wrong length, or holds a negative or
+            non-finite value.
     """
     e = torch.as_tensor(euler, dtype=torch.float64)
     if e.ndim == 1:
@@ -441,6 +447,10 @@ def average_orientation(
         raise ValueError(
             f"weights length ({w.shape[0]}) must match number of orientations ({n})."
         )
+    if not bool(torch.isfinite(w).all()) or bool((w < 0).any()):
+        raise ValueError("weights must be finite and non-negative.")
+    if float(w.sum()) <= 0.0:
+        w = torch.ones(n, dtype=torch.float64)
 
     R = euler_to_matrix(e, convention, angle_type)  # (N, 3, 3)
     if n == 1:

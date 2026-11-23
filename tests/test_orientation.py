@@ -524,3 +524,32 @@ class TestMapOrientationsGrainConstrained:
                 angle_type="degrees",
                 symmetry="432",
             )
+
+
+class TestAverageOrientationWeights:
+    """``average_orientation`` weight handling (zero-total fallback, validation)."""
+
+    E = [[10.0, 20.0, 30.0], [12.0, 21.0, 29.0]]
+
+    def test_zero_total_weight_falls_back_to_uniform(self):
+        from graintrace.orientation_helper import average_orientation
+
+        zero = average_orientation(self.E, weights=[0.0, 0.0], symmetry="432")
+        uniform = average_orientation(self.E, symmetry="432")
+        assert torch.all(torch.isfinite(zero))
+        assert torch.allclose(zero, uniform, atol=1e-10)
+
+    def test_one_zero_weight_picks_the_other(self):
+        from graintrace.orientation_helper import average_orientation
+
+        out = average_orientation(self.E, weights=[0.0, 1.0], symmetry="1")
+        assert torch.allclose(out, torch.tensor(self.E[1], dtype=out.dtype), atol=1e-8)
+
+    @pytest.mark.parametrize(
+        "bad", [[-1.0, 1.0], [float("nan"), 1.0], [float("inf"), 1.0]]
+    )
+    def test_invalid_weights_raise(self, bad):
+        from graintrace.orientation_helper import average_orientation
+
+        with pytest.raises(ValueError, match="finite and non-negative"):
+            average_orientation(self.E, weights=bad)
