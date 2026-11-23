@@ -31,7 +31,7 @@ import pandas as pd
 import pytest
 
 MWE_DATA = Path(__file__).parent.parent / "mwe_data"
-EXP_DATA = Path(__file__).parent.parent / "experiment_workflow_aps_28Feb"
+EXP_DATA = MWE_DATA / "ff_stitched_grains"  # 150-grain real FF stitched grain table
 
 
 def make_vms_csv(path: Path, nx: int = 10, ny: int = 10, seed: int = 0) -> Path:
@@ -103,5 +103,5 @@ def mwe_data():
 @pytest.fixture
 def exp_data():
     if not EXP_DATA.exists():
-        pytest.skip("experiment_workflow_aps_28Feb/ not found")
+        pytest.skip("mwe_data/ff_stitched_grains/ not found")
     return EXP_DATA

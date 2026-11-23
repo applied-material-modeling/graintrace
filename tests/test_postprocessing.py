@@ -31,7 +31,7 @@ import numpy as np
 import pytest
 
 MWE = Path(__file__).parent.parent / "mwe_data"
-EXP = Path(__file__).parent.parent / "experiment_workflow_aps_28Feb"
+EXP = Path(__file__).parent.parent / "mwe_data" / "ff_stitched_grains"
 
 
 @pytest.fixture
@@ -118,7 +118,7 @@ class TestSimulationResults:
 @pytest.fixture
 def exp_results():
     if not EXP.exists():
-        pytest.skip("experiment_workflow_aps_28Feb/ not found")
+        pytest.skip("mwe_data/ff_stitched_grains/ not found")
     from graintrace.experiment_postprocessing import ExperimentResults, FieldFileNaming
 
     naming = FieldFileNaming(
