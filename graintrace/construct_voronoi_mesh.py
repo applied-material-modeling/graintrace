@@ -138,6 +138,7 @@ class VoronoiMeshBuilder:
             )
         self.orientation_active_convention = False
         self.data = None
+        self._tesr_cell_map = None
         self.elastic_strain_id = elastic_strain_identifier
         self.strain_unit = strain_unit
         self.ori_rotmat_id = ori_rotmat_identifier
@@ -782,6 +783,9 @@ class VoronoiMeshBuilder:
         self.validate_bounding_box()
 
         df = self.data.copy()
+        self._tesr_cell_map = (
+            None  # set by _reconcile_deleted_cells if NEPER drops cells
+        )
 
         os.makedirs(self.output_dir, exist_ok=True)
 
@@ -949,6 +953,8 @@ class VoronoiMeshBuilder:
 
         print(f"Voronoi tessellation completed: {tess_name}.tess\n")
 
+        self._reconcile_deleted_cells(tess_name + ".tess", coord_cols, orientation_path)
+
         print("Evaluating tessellation correctness, in figures folder\n")
 
         print("\n=== Updating cell properties with rotation ===\n")
@@ -1066,6 +1072,79 @@ class VoronoiMeshBuilder:
         self.data[self.angle_id] = new_euler
         np.savetxt(orientation_path, new_euler, fmt="%.10g")
         print(f"Rewrote {orientation_path} in the rotated sample frame.")
+
+    @staticmethod
+    def read_tess_seeds(tess_file: str) -> np.ndarray:
+        """Read the ``*seed`` table of a NEPER ``.tess`` file.
+
+        Args:
+            tess_file: Path to the ``.tess`` file.
+
+        Returns:
+            ``(n_cells, 5)`` array of ``id, x, y, z, weight`` in cell order (2D files carry z = 0).
+        """
+        with open(tess_file, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+        n_cells = start = None
+        for i, line in enumerate(lines):
+            s = line.strip()
+            if s == "**cell":
+                n_cells = int(lines[i + 1].split()[0])
+            elif s == "*seed" and n_cells is not None:
+                start = i + 1
+                break
+        if start is None:
+            raise RuntimeError(f"No **cell / *seed section found in {tess_file}.")
+        rows = [list(map(float, ln.split())) for ln in lines[start : start + n_cells]]
+        return np.array(rows, dtype=float)
+
+    def _reconcile_deleted_cells(self, tess_file, coord_cols, orientation_path):
+        """Align ``self.data`` with the cells NEPER actually wrote.
+
+        NEPER drops empty cells (e.g. a small Laguerre seed swallowed by large weighted neighbours) and renumbers the
+        survivors ``1..n``. Every downstream step assumes cell ``k`` is input row ``k``, so the surviving seeds are
+        matched back to their input rows (minimum total seed displacement), ``self.data`` is reduced to those rows in
+        cell order, ``orientations.dat`` is rewritten to match, and the ``.tesr`` ids (which NEPER leaves in input
+        numbering) are remapped in ``reformat_tesr_file``. The dropped rows are reported in a warning.
+        """
+        seeds = self.read_tess_seeds(tess_file)
+        n_in = len(self.data)
+        if len(seeds) == n_in:
+            return
+        if len(seeds) > n_in:
+            raise RuntimeError(
+                f"{tess_file}: {len(seeds)} cells for {n_in} input points."
+            )
+        from scipy.optimize import (  # pylint: disable=import-outside-toplevel
+            linear_sum_assignment,
+        )
+        from scipy.spatial.distance import (  # pylint: disable=import-outside-toplevel
+            cdist,
+        )
+
+        xyz_in = self.data[coord_cols].to_numpy(dtype=float)
+        xyz_seed = seeds[:, 1 : 1 + len(coord_cols)]
+        _, rows = linear_sum_assignment(cdist(xyz_seed, xyz_in))
+        dropped = np.setdiff1d(np.arange(n_in), rows)
+        disp = np.linalg.norm(xyz_seed - xyz_in[rows], axis=1).max()
+        info = ""
+        if "GrainRadius" in self.data.columns:
+            r = self.data["GrainRadius"].to_numpy(dtype=float)
+            info = f" (GrainRadius {np.round(r[dropped], 2).tolist()}; median {np.median(r):.2f})"
+        warnings.warn(
+            f"NEPER deleted {len(dropped)} empty cell(s) of {n_in}; dropping input rows "
+            f"{dropped.tolist()}{info}. Remaining rows follow the tessellation's cell order "
+            f"(max seed-to-input displacement {disp:.3g}).",
+            stacklevel=3,
+        )
+        self.data = self.data.iloc[rows].reset_index(drop=True)
+        # the .tesr keeps the input numbering (dropped cells just have no voxels): old id -> new id (0 = dropped)
+        self._tesr_cell_map = np.zeros(n_in + 1, dtype=int)
+        self._tesr_cell_map[rows + 1] = np.arange(1, len(rows) + 1)
+        if self.angle_id is not None and os.path.exists(orientation_path):
+            self.data[self.angle_id].to_csv(
+                orientation_path, sep=" ", index=False, header=False
+            )
 
     def apply_rotation_to_properties(self, tess_file: str):
         """Apply the rotation matrix to cell orientations (and strains) in the .tess file."""
@@ -1555,6 +1634,17 @@ class VoronoiMeshBuilder:
             raise RuntimeError(
                 f"TESR voxel count mismatch: expected {nvox}, found {voxel_ids.size}."
             )
+
+        cmap = getattr(self, "_tesr_cell_map", None)
+        if cmap is not None and num_cells == len(cmap) - 1:
+            cmap = np.asarray(cmap)
+            inside = voxel_ids > 0
+            if np.any(cmap[voxel_ids[inside]] == 0):
+                raise RuntimeError(
+                    "TESR voxels belong to a cell NEPER deleted from the .tess."
+                )
+            voxel_ids = np.where(inside, cmap[np.clip(voxel_ids, 0, None)], voxel_ids)
+            num_cells = int(cmap.max())
 
         print(f"TESR voxel grid: {nx} x {ny} x {nz} = {nvox} voxels")
         print(f"Voxel size: dx={dx}, dy={dy}, dz={dz}")

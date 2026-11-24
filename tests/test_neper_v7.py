@@ -290,3 +290,90 @@ class TestLaguerreWeights:
         plain = compute_cell_geometry(df, box, weighted=False)
         assert weighted["Zmax"].iloc[0] == pytest.approx(54.0, abs=1e-6)
         assert plain["Zmax"].iloc[0] == pytest.approx(50.0, abs=1e-6)
+
+
+@pytest.mark.requires_neper
+@pytest.mark.skipif(_neper() is None, reason="NEPER not installed")
+def test_weighted_empty_cell_is_dropped_and_rows_stay_aligned(tmp_path):
+    """A small seed inside a large Laguerre neighbour gets no cell: NEPER deletes and renumbers.
+
+    The builder must drop that input row and keep every later row aligned with its cell
+    (orientation, strain, orientations.dat), instead of crashing or shifting orientations.
+    """
+    import torch
+
+    from graintrace.orientation_helper import euler_to_matrix
+
+    rng = np.random.default_rng(3)
+    xyz = [
+        [0.0, 0.0, 0.0],
+        [6.0, 0.0, 0.0],
+    ]  # big grain + a tiny one inside its power sphere
+    rad = [45.0, 1.0]
+    for p in (
+        [45, 45, 45],
+        [-45, 45, 45],
+        [45, -45, 45],
+        [45, 45, -45],
+        [-45, -45, -45],
+    ):
+        xyz.append(p)
+        rad.append(10.0)
+    xyz = np.array(xyz)
+    n = len(xyz)
+    eul = np.stack(
+        [rng.uniform(0, 360, n), rng.uniform(5, 175, n), rng.uniform(0, 360, n)], 1
+    )
+    df = pd.DataFrame(
+        {
+            "X": xyz[:, 0],
+            "Y": xyz[:, 1],
+            "Z": xyz[:, 2],
+            "GrainRadius": rad,
+            "Eul0": eul[:, 0],
+            "Eul1": eul[:, 1],
+            "Eul2": eul[:, 2],
+        }
+    )
+    df.to_csv(tmp_path / "g.csv", index=False)
+    builder = VoronoiMeshBuilder(
+        input_csv=str(tmp_path / "g.csv"),
+        output_dir=str(tmp_path / "ff"),
+        bounding_box=[-60, 60, -60, 60, -60, 60],
+        weighted=True,
+        angle_identifier=["Eul0", "Eul1", "Eul2"],
+        unit="deg",
+        neper_path=_neper(),
+    )
+    with pytest.warns(UserWarning, match=r"deleted 1 empty cell.*rows \[1\]"):
+        builder.build_voronoi(option="voronoi", tesr_size=[8, 8, 8], CVT_iter=0)
+
+    keep = [0] + list(range(2, n))
+    assert len(builder.data) == n - 1
+    np.testing.assert_allclose(builder.data[["X", "Y", "Z"]].to_numpy(), xyz[keep])
+    want = euler_to_matrix(torch.as_tensor(eul[keep]), "bunge", "degrees").numpy()
+
+    seeds = VoronoiMeshBuilder.read_tess_seeds(
+        str(tmp_path / "ff" / "reconstruction.tess")
+    )
+    np.testing.assert_allclose(seeds[:, 1:4], xyz[keep], atol=1e-6)
+    lines = (tmp_path / "ff" / "reconstruction.tess").read_text().splitlines()
+    k = next(i for i, ln in enumerate(lines) if ln.strip() == "*ori")
+    tess_r = np.array(
+        [list(map(float, ln.split())) for ln in lines[k + 2 : k + 2 + n - 1]]
+    ).reshape(-1, 3, 3)
+    np.testing.assert_allclose(tess_r, want, atol=1e-6)
+    dat = np.loadtxt(tmp_path / "ff" / "orientations.dat")
+    assert dat.shape == (n - 1, 3)
+    np.testing.assert_allclose(dat, eul[keep], atol=1e-6)
+
+    # the raster keeps NEPER's input numbering; the reformatted voxels must use the compact ids
+    vox = pd.read_csv(tmp_path / "ff" / "reconstruction_reformatted.csv")
+    ids = vox.CellID.to_numpy()
+    assert set(np.unique(ids[ids > 0])) <= set(range(1, n))
+    for cid, grp in vox[vox.CellID > 0].groupby("CellID"):
+        np.testing.assert_allclose(
+            grp[["Eul0", "Eul1", "Eul2"]].to_numpy()[0], eul[keep][cid - 1], atol=1e-6
+        )
+    ee = pd.read_csv(tmp_path / "ff" / "reconstruction_cpfe_ee.csv", header=None)
+    assert len(ee) == n - 1

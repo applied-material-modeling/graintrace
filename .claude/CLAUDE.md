@@ -1184,6 +1184,11 @@ empty → all-zero radii → NaN merges). `scan_tessellation.compute_cell_geomet
 (NEPER 7 power weight: boundary between seeds D apart moves by (r_i² − r_j²)/(2D)). Pre-0.3 graintrace
 wrote `(4/3)πr³` normalised to sum 1 → negligible → "weighted" was effectively unweighted; weighted
 results change when rerun.
+Real weights can leave a seed with an EMPTY Laguerre cell (inside a bigger neighbour's power sphere;
+usually overlapping/duplicate FF grains). NEPER deletes it and renumbers the `.tess` (the `.tesr` keeps
+input ids). `VoronoiMeshBuilder` drops those input rows with a `UserWarning` listing them and remaps the
+raster, so `data`/`orientations.dat`/`.tess`/reformatted voxels stay one row per cell
+(`_reconcile_deleted_cells`, `read_tess_seeds`). The stitching path (`compute_cell_geometry`) raises instead.
 
 ### Slip systems are an option, not hard-coded FCC (`graintrace.slip_systems`)
 `CPFESimulation(slip_systems=...)` and `TaylorModel(slip_systems=...)` (→ `MaterialCalibration`

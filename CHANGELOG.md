@@ -47,6 +47,11 @@
   `mcp` extra.
 
 ### Fixes
+- `VoronoiMeshBuilder(weighted=True)` crashed (`Length of values ... does not match`) when NEPER
+  deleted an empty Laguerre cell, and the `.tesr` raster kept the input numbering while the `.tess`
+  was renumbered. The builder now drops those input rows with a warning and keeps `data`,
+  `orientations.dat`, the `.tess` and the reformatted voxels aligned
+  (`VoronoiMeshBuilder.read_tess_seeds`).
 - Simulated HEDM z-scans (`CrystalGenerator.hedm_zscan`) were empty under NEPER 7 (the
   `cut(hspace)` sense flipped and cut-away cells are kept as zero-volume entries), which
   produced all-zero radii and NaN stitching merges.

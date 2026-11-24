@@ -106,7 +106,9 @@ symmetric about it.
    ``weighted=True`` applies only on the ``"voronoi"``/``"centroidal"`` path. The two
    ``centroid*`` targets ignore it -- ``"centroidsize"`` carries the radius in its own target
    file instead. On the weighted path ``morphoalgo`` is also overridden to ``"lloyd"``
-   regardless of what the caller passed.
+   regardless of what the caller passed. A seed whose Laguerre cell is empty is deleted
+   by NEPER; graintrace then drops that input row (with a warning) so every output keeps
+   one row per cell.
 
 NEPER carries out the tessellation and the optimisation; graintrace assembles the seeds,
 weights, orientations and bounding box, invokes ``neper -T``, and parses the results.

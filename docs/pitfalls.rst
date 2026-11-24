@@ -118,6 +118,12 @@ length unit (``neper_env.laguerre_weights``). Before graintrace 0.3 they wrote
 distances, so "weighted" runs were effectively unweighted; weighted results made
 with older versions change when rerun.
 
+With real weights a seed inside a much larger neighbour's power sphere can get an
+**empty Laguerre cell**, which NEPER deletes before renumbering the rest. The builder
+drops those input rows with a ``UserWarning`` naming them, so ``builder.data``,
+``orientations.dat``, the ``.tess`` and the reformatted voxels stay one row per cell.
+Overlapping or duplicate FF grains are the usual cause; check the listed rows.
+
 orientation_tolerance units must match ori_units
 ------------------------------------------------
 
